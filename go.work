@@ -1,0 +1,7 @@
+go 1.25.5
+
+use (
+	./apps/api
+	./apps/s0c
+	./packages/contract
+)

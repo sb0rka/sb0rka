@@ -1,0 +1,4 @@
+*.pem
+*.ps1
+*.env
+.secrets/
