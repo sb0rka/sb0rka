@@ -2,7 +2,7 @@
 
 Processing of platform API-requests.
 
-English | [Русский] (README.md)
+English | [Русский](README.md)
 
 ```bash
 docker compose up -d

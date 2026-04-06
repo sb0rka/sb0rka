@@ -2,7 +2,7 @@
 
 Sb0rka is a cloud platform for running databases and API applications with built-in security and observability.
 
-English | [Русский] (README.md)
+English | [Русский](README.md)
 
 ## Repository layout
 

@@ -3,7 +3,7 @@
 `s0c` is a CLI for running sb0rka project and database workflows from one place.
 It is built for engineers and AI agents that want dependable, script-friendly API access without terminal friction.
 
-English | [Русский] (README.md)
+English | [Русский](README.md)
 
 ## Install and Launch
 
