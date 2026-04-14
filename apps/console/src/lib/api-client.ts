@@ -1,6 +1,7 @@
 import { getToken, setToken, clearToken } from "./auth-store"
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru"
+const AUTH_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru"
+const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_API_BASE_URL ?? "https://api.sb0rka.ru"
 
 const COOKIE_PATHS = ["/auth/login", "/auth/refresh", "/auth/logout"]
 
@@ -25,13 +26,15 @@ interface RequestOptions {
   method?: string
   path: string
   body?: Record<string, string>
+  json?: unknown
   auth?: boolean
+  base?: "auth" | "resource"
 }
 
 let refreshPromise: Promise<void> | null = null
 
 async function refreshToken(): Promise<void> {
-  const res = await fetch(`${BASE_URL}/auth/refresh`, {
+  const res = await fetch(`${AUTH_BASE_URL}/auth/refresh`, {
     method: "POST",
     credentials: "include",
   })
@@ -66,7 +69,10 @@ function buildFetchInit(opts: RequestOptions): RequestInit {
     headers["Authorization"] = `Bearer ${getToken()}`
   }
 
-  if (opts.body && FORM_PATHS.some((p) => opts.path.startsWith(p))) {
+  if (opts.json !== undefined) {
+    headers["Content-Type"] = "application/json"
+    init.body = JSON.stringify(opts.json)
+  } else if (opts.body && FORM_PATHS.some((p) => opts.path.startsWith(p))) {
     headers["Content-Type"] = "application/x-www-form-urlencoded"
     init.body = new URLSearchParams(opts.body).toString()
   }
@@ -78,7 +84,8 @@ function buildFetchInit(opts: RequestOptions): RequestInit {
 export async function apiRequest<T = unknown>(
   opts: RequestOptions,
 ): Promise<T> {
-  const url = `${BASE_URL}${opts.path}`
+  const baseUrl = opts.base === "resource" ? RESOURCE_BASE_URL : AUTH_BASE_URL
+  const url = `${baseUrl}${opts.path}`
   let res = await fetch(url, buildFetchInit(opts))
 
   if (res.status === 401 && opts.auth !== false && opts.path !== "/auth/refresh") {
