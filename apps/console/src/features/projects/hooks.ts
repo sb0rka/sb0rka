@@ -3,20 +3,32 @@ import { useAuth } from "@/features/auth/auth-provider"
 import {
   listProjects,
   listDatabases,
+  createDatabase,
   createProject,
   updateProject,
   deactivateProject,
   getProject,
   listTables,
   listSecrets,
+  listResourceTags,
+  attachResourceTag,
+  getDatabase,
+  updateDatabase,
+  getDatabaseUri,
+  deactivateResource,
 } from "./api"
 import type {
   ProjectResponse,
   ProjectListResponse,
   DatabaseListResponse,
+  CreateDatabaseRequest,
   CreateProjectRequest,
   UpdateProjectRequest,
   SecretListResponse,
+  AttachResourceTagRequest,
+  ProjectTagListResponse,
+  DatabaseResponse,
+  UpdateDatabaseRequest,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -31,13 +43,106 @@ export function useProjects() {
   })
 }
 
-export function useDatabases(projectId: number) {
+export function useDatabases(projectId: string) {
   const { isAuthenticated } = useAuth()
 
   return useQuery<DatabaseListResponse>({
     queryKey: ["projects", projectId, "databases"],
     queryFn: () => listDatabases(projectId),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!projectId,
+  })
+}
+
+export function useCreateDatabase(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreateDatabaseRequest) => createDatabase(projectId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
+    },
+  })
+}
+
+export function useDatabase(projectId: string, resourceId?: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<DatabaseResponse>({
+    queryKey: ["projects", projectId, "resources", resourceId, "database"],
+    queryFn: () => getDatabase(projectId, resourceId as string),
+    enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+  })
+}
+
+export function useUpdateDatabase(projectId: string, resourceId?: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: UpdateDatabaseRequest) =>
+      updateDatabase(projectId, resourceId as string, data),
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["projects", projectId, "resources", resourceId, "database"],
+      })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
+    },
+  })
+}
+
+export function useDatabaseUri(
+  projectId: string,
+  resourceId?: string,
+  enabled = false,
+) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<string>({
+    queryKey: ["projects", projectId, "resources", resourceId, "database", "uri"],
+    queryFn: () => getDatabaseUri(projectId, resourceId as string),
+    enabled: isAuthenticated && !!projectId && resourceId !== undefined && enabled,
+  })
+}
+
+export function useDeactivateResource(projectId: string, resourceId?: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => deactivateResource(projectId, resourceId as string),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
+      qc.invalidateQueries({
+        queryKey: ["projects", projectId, "resources", resourceId, "database"],
+      })
+    },
+  })
+}
+
+export function useResourceTags(projectId: string, resourceId?: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<ProjectTagListResponse>({
+    queryKey: ["projects", projectId, "resources", resourceId, "tags"],
+    queryFn: () => listResourceTags(projectId, resourceId as string),
+    enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+  })
+}
+
+export function useAttachResourceTag(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      resourceId,
+      data,
+    }: {
+      resourceId: string
+      data: AttachResourceTagRequest
+    }) => attachResourceTag(projectId, resourceId, data),
+    onSuccess: (_tag, variables) => {
+      qc.invalidateQueries({
+        queryKey: ["projects", projectId, "resources", variables.resourceId, "tags"],
+      })
+    },
   })
 }
 
@@ -62,7 +167,7 @@ export function useUpdateProject() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, ...data }: UpdateProjectRequest & { id: number }) =>
+    mutationFn: ({ id, ...data }: UpdateProjectRequest & { id: string }) =>
       updateProject(id, data),
     onMutate: async (variables) => {
       await qc.cancelQueries({ queryKey: PROJECTS_KEY })
@@ -102,7 +207,7 @@ export function useDeactivateProject() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (projectId: number) => deactivateProject(projectId),
+    mutationFn: (projectId: string) => deactivateProject(projectId),
     onMutate: async (projectId) => {
       await qc.cancelQueries({ queryKey: PROJECTS_KEY })
       const previous = qc.getQueryData<ProjectListResponse>(PROJECTS_KEY)
@@ -127,27 +232,27 @@ export function useDeactivateProject() {
   })
 }
 
-export function useProject(projectId: number) {
+export function useProject(projectId: string) {
   const { isAuthenticated } = useAuth()
 
   return useQuery<ProjectResponse>({
     queryKey: ["projects", projectId],
     queryFn: () => getProject(projectId),
-    enabled: isAuthenticated && projectId > 0,
+    enabled: isAuthenticated && !!projectId,
   })
 }
 
-export function useSecrets(projectId: number) {
+export function useSecrets(projectId: string) {
   const { isAuthenticated } = useAuth()
 
   return useQuery<SecretListResponse>({
     queryKey: ["projects", projectId, "secrets"],
     queryFn: () => listSecrets(projectId),
-    enabled: isAuthenticated && projectId > 0,
+    enabled: isAuthenticated && !!projectId,
   })
 }
 
-export function useProjectTableCount(projectId: number) {
+export function useProjectTableCount(projectId: string) {
   const { data: dbData } = useDatabases(projectId)
   const databases = dbData?.databases ?? []
 

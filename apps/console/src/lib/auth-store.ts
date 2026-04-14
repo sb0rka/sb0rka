@@ -4,9 +4,20 @@ const REFRESH_MARGIN_MS = 30_000
 let accessToken: string | null = localStorage.getItem(STORAGE_KEY)
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let onRefresh: (() => Promise<void>) | null = null
+const AUTH_DEBUG = true
+
+function authLog(message: string, meta?: Record<string, unknown>): void {
+  if (!AUTH_DEBUG) return
+  if (meta) {
+    console.log(`[auth-store] ${message}`, meta)
+    return
+  }
+  console.log(`[auth-store] ${message}`)
+}
 
 export function registerRefreshHandler(handler: () => Promise<void>): void {
   onRefresh = handler
+  authLog("registerRefreshHandler", { hasToken: Boolean(accessToken) })
   if (accessToken) scheduleRefresh(accessToken)
 }
 
@@ -28,16 +39,27 @@ function scheduleRefresh(token: string): void {
   }
 
   const exp = decodeJwtExp(token)
-  if (!exp) return
+  if (!exp) {
+    authLog("scheduleRefresh skipped: no exp claim")
+    return
+  }
 
   const delayMs = exp * 1000 - Date.now() - REFRESH_MARGIN_MS
-  if (delayMs <= 0) return
+  if (delayMs <= 0) {
+    authLog("scheduleRefresh skipped: token too close to expiry", { delayMs })
+    return
+  }
+
+  authLog("scheduleRefresh armed", { delayMs, refreshMarginMs: REFRESH_MARGIN_MS })
 
   refreshTimer = setTimeout(async () => {
     refreshTimer = null
+    authLog("refresh timer fired")
     try {
       await onRefresh?.()
+      authLog("refresh timer completed")
     } catch {
+      authLog("refresh timer failed")
       /* 401 interceptor will handle it on the next request */
     }
   }, delayMs)
@@ -50,6 +72,7 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   accessToken = token
   localStorage.setItem(STORAGE_KEY, token)
+  authLog("setToken", { hasToken: true })
   scheduleRefresh(token)
 }
 
@@ -60,4 +83,5 @@ export function clearToken(): void {
   }
   accessToken = null
   localStorage.removeItem(STORAGE_KEY)
+  authLog("clearToken", { hasToken: false })
 }

@@ -1,5 +1,15 @@
 import { apiRequest, ApiError, refresh } from "@/lib/api-client"
 import { getToken, setToken, clearToken } from "@/lib/auth-store"
+const AUTH_DEBUG = true
+
+function authLog(message: string, meta?: Record<string, unknown>): void {
+  if (!AUTH_DEBUG) return
+  if (meta) {
+    console.log(`[auth-api] ${message}`, meta)
+    return
+  }
+  console.log(`[auth-api] ${message}`)
+}
 
 export interface User {
   id: string
@@ -37,6 +47,7 @@ export async function login(credentials: LoginCredentials): Promise<User> {
     body,
     auth: false,
   })
+  authLog("login success; received access token")
   setToken(data.access_token)
 
   return apiRequest<User>({ path: "/user" })
@@ -57,18 +68,27 @@ export async function signup(data: SignupData): Promise<User> {
 }
 
 export async function bootstrapAuth(): Promise<User> {
+  authLog("bootstrapAuth start", { hasToken: Boolean(getToken()) })
   if (getToken()) {
     try {
-      return await apiRequest<User>({ path: "/user" })
+      const user = await apiRequest<User>({ path: "/user" })
+      authLog("bootstrapAuth: token still valid")
+      return user
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
+        authLog("bootstrapAuth: /user 401 with token; clearing token")
         clearToken()
       } else {
+        authLog("bootstrapAuth: /user failed with non-401 error", {
+          errorType: err instanceof Error ? err.name : "unknown",
+        })
         throw err
       }
     }
   }
+  authLog("bootstrapAuth: trying refresh")
   await refresh()
+  authLog("bootstrapAuth: refresh success, requesting /user")
   return apiRequest<User>({ path: "/user" })
 }
 

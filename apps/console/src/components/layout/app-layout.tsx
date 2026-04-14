@@ -1,5 +1,6 @@
-import { Outlet } from "react-router-dom"
+import { Outlet, useMatch } from "react-router-dom"
 import { Sidebar } from "./sidebar"
+import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
 
 const breadcrumbs = [
@@ -8,9 +9,12 @@ const breadcrumbs = [
 ]
 
 export function AppLayout() {
+  const isProjectOpen = useMatch("/projects/:id") !== null
+
   return (
     <div className="flex h-screen w-full">
-      <Sidebar />
+      <Sidebar collapsed={isProjectOpen} />
+      {isProjectOpen && <ProjectSidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Header breadcrumbs={breadcrumbs} />
         <main className="flex-1 overflow-auto bg-background p-6">

@@ -1,7 +1,7 @@
-import { apiRequest } from "@/lib/api-client"
+import { apiRequest, apiRequestText } from "@/lib/api-client"
 
 export interface ProjectResponse {
-  id: number
+  id: string
   user_id: string
   name: string
   description?: string
@@ -43,7 +43,7 @@ export async function createProject(
 }
 
 export async function updateProject(
-  projectId: number,
+  projectId: string,
   data: UpdateProjectRequest,
 ): Promise<ProjectResponse> {
   return apiRequest<ProjectResponse>({
@@ -55,7 +55,7 @@ export async function updateProject(
 }
 
 export async function deactivateProject(
-  projectId: number,
+  projectId: string,
 ): Promise<void> {
   return apiRequest<void>({
     method: "DELETE",
@@ -65,7 +65,7 @@ export async function deactivateProject(
 }
 
 export interface DatabaseResponse {
-  resource_id: number
+  resource_id: string
   name: string
   description?: string
   next_table_id: number
@@ -75,8 +75,35 @@ export interface DatabaseListResponse {
   databases: DatabaseResponse[]
 }
 
+export interface CreateDatabaseRequest {
+  name: string
+  description?: string
+}
+
+export interface UpdateDatabaseRequest {
+  name?: string
+  description?: string
+}
+
+export interface DatabaseWithSecretResponse {
+  database: DatabaseResponse
+  secret: SecretResponse
+}
+
+export async function createDatabase(
+  projectId: string,
+  data: CreateDatabaseRequest,
+): Promise<DatabaseWithSecretResponse> {
+  return apiRequest<DatabaseWithSecretResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/database`,
+    json: data,
+    base: "resource",
+  })
+}
+
 export async function listDatabases(
-  projectId: number,
+  projectId: string,
 ): Promise<DatabaseListResponse> {
   return apiRequest<DatabaseListResponse>({
     path: `/projects/${projectId}/databases`,
@@ -84,8 +111,58 @@ export async function listDatabases(
   })
 }
 
+export async function getDatabase(
+  projectId: string,
+  resourceId: string,
+): Promise<DatabaseResponse> {
+  return apiRequest<DatabaseResponse>({
+    path: `/projects/${projectId}/resources/${resourceId}/database`,
+    base: "resource",
+  })
+}
+
+export async function updateDatabase(
+  projectId: string,
+  resourceId: string,
+  data: UpdateDatabaseRequest,
+): Promise<DatabaseResponse> {
+  return apiRequest<DatabaseResponse>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${resourceId}/database`,
+    json: data,
+    base: "resource",
+  })
+}
+
+export async function getDatabaseUri(
+  projectId: string,
+  resourceId: string,
+): Promise<string> {
+  return apiRequestText({
+    path: `/projects/${projectId}/resources/${resourceId}/database/uri`,
+    base: "resource",
+  })
+}
+
+export interface ResourceResponse {
+  resource_id: string
+  name: string
+  description?: string
+}
+
+export async function deactivateResource(
+  projectId: string,
+  resourceId: string,
+): Promise<ResourceResponse> {
+  return apiRequest<ResourceResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${resourceId}/deactivate`,
+    base: "resource",
+  })
+}
+
 export async function getProject(
-  projectId: number,
+  projectId: string,
 ): Promise<ProjectResponse> {
   return apiRequest<ProjectResponse>({
     path: `/projects/${projectId}`,
@@ -108,8 +185,8 @@ export interface DBTableListResponse {
 }
 
 export async function listTables(
-  projectId: number,
-  resourceId: number,
+  projectId: string,
+  resourceId: string,
 ): Promise<DBTableListResponse> {
   return apiRequest<DBTableListResponse>({
     path: `/projects/${projectId}/resources/${resourceId}/tables`,
@@ -118,7 +195,7 @@ export async function listTables(
 }
 
 export interface SecretResponse {
-  resource_id: number
+  resource_id: string
   name: string
   description?: string
   revealed_at?: string
@@ -128,8 +205,50 @@ export interface SecretListResponse {
   secrets: SecretResponse[]
 }
 
+export interface AttachResourceTagRequest {
+  tag_key: string
+  tag_value: string
+  color?: string
+}
+
+export interface TagResponse {
+  id: number
+  project_id: number
+  tag_key: string
+  tag_value: string
+  color?: string
+  is_system: boolean
+}
+
+export interface ProjectTagListResponse {
+  tags: TagResponse[]
+}
+
+export async function listResourceTags(
+  projectId: string,
+  resourceId: string,
+): Promise<ProjectTagListResponse> {
+  return apiRequest<ProjectTagListResponse>({
+    path: `/projects/${projectId}/resources/${resourceId}/tags`,
+    base: "resource",
+  })
+}
+
+export async function attachResourceTag(
+  projectId: string,
+  resourceId: string,
+  data: AttachResourceTagRequest,
+): Promise<TagResponse> {
+  return apiRequest<TagResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${resourceId}/tag`,
+    json: data,
+    base: "resource",
+  })
+}
+
 export async function listSecrets(
-  projectId: number,
+  projectId: string,
 ): Promise<SecretListResponse> {
   return apiRequest<SecretListResponse>({
     path: `/projects/${projectId}/secrets`,

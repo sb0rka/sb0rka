@@ -14,8 +14,8 @@ import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
 
-function copyProjectId(id: number) {
-  navigator.clipboard.writeText(`project-id-${id}`)
+function copyProjectId(id: string) {
+  navigator.clipboard.writeText(id)
 }
 
 function dbCountLabel(count: number): string {
@@ -51,7 +51,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
         >
           <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="truncate text-sm text-muted-foreground">
-            project-id-{project.id}
+            {project.id}
           </span>
         </button>
         <Button onClick={() => navigate(`/projects/${project.id}`)}>
