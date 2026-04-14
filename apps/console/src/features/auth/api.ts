@@ -1,5 +1,5 @@
 import { apiRequest, refresh } from "@/lib/api-client"
-import { setToken, clearToken } from "@/lib/auth-store"
+import { getToken, setToken, clearToken } from "@/lib/auth-store"
 
 export interface User {
   id: string
@@ -57,6 +57,13 @@ export async function signup(data: SignupData): Promise<User> {
 }
 
 export async function bootstrapAuth(): Promise<User> {
+  if (getToken()) {
+    try {
+      return await apiRequest<User>({ path: "/user" })
+    } catch {
+      clearToken()
+    }
+  }
   await refresh()
   return apiRequest<User>({ path: "/user" })
 }
