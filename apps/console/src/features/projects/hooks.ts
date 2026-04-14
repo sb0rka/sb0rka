@@ -2,15 +2,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/features/auth/auth-provider"
 import {
   listProjects,
+  listDatabases,
   createProject,
   updateProject,
   deactivateProject,
+  getProject,
+  listTables,
+  listSecrets,
 } from "./api"
 import type {
   ProjectResponse,
   ProjectListResponse,
+  DatabaseListResponse,
   CreateProjectRequest,
   UpdateProjectRequest,
+  SecretListResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -21,6 +27,16 @@ export function useProjects() {
   return useQuery<ProjectListResponse>({
     queryKey: PROJECTS_KEY,
     queryFn: listProjects,
+    enabled: isAuthenticated,
+  })
+}
+
+export function useDatabases(projectId: number) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<DatabaseListResponse>({
+    queryKey: ["projects", projectId, "databases"],
+    queryFn: () => listDatabases(projectId),
     enabled: isAuthenticated,
   })
 }
@@ -108,5 +124,41 @@ export function useDeactivateProject() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: PROJECTS_KEY })
     },
+  })
+}
+
+export function useProject(projectId: number) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<ProjectResponse>({
+    queryKey: ["projects", projectId],
+    queryFn: () => getProject(projectId),
+    enabled: isAuthenticated && projectId > 0,
+  })
+}
+
+export function useSecrets(projectId: number) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<SecretListResponse>({
+    queryKey: ["projects", projectId, "secrets"],
+    queryFn: () => listSecrets(projectId),
+    enabled: isAuthenticated && projectId > 0,
+  })
+}
+
+export function useProjectTableCount(projectId: number) {
+  const { data: dbData } = useDatabases(projectId)
+  const databases = dbData?.databases ?? []
+
+  return useQuery({
+    queryKey: ["projects", projectId, "tableCount"],
+    queryFn: async () => {
+      const results = await Promise.all(
+        databases.map((db) => listTables(projectId, db.resource_id)),
+      )
+      return results.reduce((sum, r) => sum + r.tables.length, 0)
+    },
+    enabled: databases.length > 0,
   })
 }

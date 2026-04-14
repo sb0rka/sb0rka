@@ -1,9 +1,66 @@
 import { useState } from "react"
-import { Plus } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { useProjects } from "./hooks"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { useProjects, useDatabases } from "./hooks"
+import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
+
+function copyProjectId(id: number) {
+  navigator.clipboard.writeText(`project-id-${id}`)
+}
+
+function dbCountLabel(count: number): string {
+  if (count === 0) return "0 баз данных"
+  if (count === 1) return "1 база данных"
+  if (count >= 2 && count <= 4) return `${count} базы данных`
+  return `${count} баз данных`
+}
+
+function ProjectCard({ project }: { project: ProjectResponse }) {
+  const navigate = useNavigate()
+  const { data } = useDatabases(project.id)
+  const dbCount = data?.databases.length ?? 0
+
+  return (
+    <Card>
+      <CardHeader className="gap-1.5 pb-4">
+        <div className="flex items-center gap-3">
+          <CardTitle className="flex-1 truncate text-xl -tracking-wide">
+            {project.name}
+          </CardTitle>
+          <Badge variant={project.is_active ? "active" : "inactive"}>
+            {project.is_active ? "Активен" : "Неактивен"}
+          </Badge>
+        </div>
+        <CardDescription>{dbCountLabel(dbCount)}</CardDescription>
+      </CardHeader>
+      <CardFooter className="flex-row items-center gap-6">
+        <button
+          type="button"
+          onClick={() => copyProjectId(project.id)}
+          className="flex flex-1 items-center gap-2 min-w-0"
+        >
+          <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="truncate text-sm text-muted-foreground">
+            project-id-{project.id}
+          </span>
+        </button>
+        <Button onClick={() => navigate(`/projects/${project.id}`)}>
+          Открыть
+        </Button>
+      </CardFooter>
+    </Card>
+  )
+}
 
 export function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false)
@@ -42,14 +99,7 @@ export function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <Card key={project.id} className="transition-colors hover:border-primary/40">
-              <CardHeader>
-                <CardTitle className="text-lg">{project.name}</CardTitle>
-                {project.description && (
-                  <CardDescription>{project.description}</CardDescription>
-                )}
-              </CardHeader>
-            </Card>
+            <ProjectCard key={project.id} project={project} />
           ))}
         </div>
       )}
