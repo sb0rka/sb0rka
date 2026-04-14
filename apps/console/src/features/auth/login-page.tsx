@@ -1,11 +1,23 @@
+import { useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { SborkaLogo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useLogin } from "./hooks"
+import { ApiError } from "@/lib/api-client"
 
 export function LoginPage() {
+  const [login, setLogin] = useState("")
+  const [password, setPassword] = useState("")
+  const loginMutation = useLogin()
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    loginMutation.mutate({ login, password })
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -20,13 +32,16 @@ export function LoginPage() {
           </CardHeader>
 
           <CardContent>
-            <form className="flex flex-col gap-4">
+            <form id="login-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="login">Email или Юзернейм</Label>
                 <Input
                   id="login"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
                   placeholder="Введите email или юзернейм"
                   autoComplete="username"
+                  required
                 />
               </div>
 
@@ -43,14 +58,32 @@ export function LoginPage() {
                 <Input
                   id="password"
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  required
                 />
               </div>
+
+              {loginMutation.error && (
+                <p className="text-sm text-destructive">
+                  {loginMutation.error instanceof ApiError
+                    ? loginMutation.error.message
+                    : "Не удалось войти. Попробуйте снова."}
+                </p>
+              )}
             </form>
           </CardContent>
 
           <CardFooter>
-            <Button className="w-full">Login</Button>
+            <Button
+              type="submit"
+              form="login-form"
+              className="w-full"
+              disabled={loginMutation.isPending}
+            >
+              {loginMutation.isPending ? "Вход…" : "Login"}
+            </Button>
 
             <p className="pt-4 text-center text-sm text-foreground">
               Нет аккаунта?{" "}

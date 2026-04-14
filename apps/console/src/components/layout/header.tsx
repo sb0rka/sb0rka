@@ -1,5 +1,7 @@
-import { ChevronRight, HelpCircle, Sun, Moon, User } from "lucide-react"
+import { ChevronRight, HelpCircle, Sun, Moon, LogOut, User } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
+import { useAuth } from "@/features/auth/auth-provider"
+import { useLogout } from "@/features/auth/hooks"
 import { Button } from "@/components/ui/button"
 
 interface BreadcrumbItem {
@@ -13,6 +15,8 @@ interface HeaderProps {
 
 export function Header({ breadcrumbs }: HeaderProps) {
   const { theme, setTheme } = useTheme()
+  const { user } = useAuth()
+  const logoutMutation = useLogout()
   const isDark = theme === "dark"
 
   return (
@@ -63,8 +67,25 @@ export function Header({ breadcrumbs }: HeaderProps) {
           {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-          <User className="h-5 w-5 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+            <User className="h-5 w-5 text-muted-foreground" />
+          </div>
+          {user && (
+            <span className="text-sm font-medium text-foreground">
+              {user.username}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full"
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+            aria-label="Выйти"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </header>
