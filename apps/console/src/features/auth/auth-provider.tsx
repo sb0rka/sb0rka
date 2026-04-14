@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 import { Navigate, Outlet } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
+import { ApiError } from "@/lib/api-client"
 import { clearToken } from "@/lib/auth-store"
 import { bootstrapAuth } from "./api"
 import type { User } from "./api"
@@ -28,20 +29,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: null,
   })
   const qc = useQueryClient()
+  const bootstrapRef = useRef<Promise<void> | null>(null)
 
   const bootstrap = useCallback(async () => {
-    try {
-      const user = await bootstrapAuth()
-      qc.setQueryData(["user"], user)
-      setState({ isAuthenticated: true, isLoading: false, user })
-    } catch {
-      clearToken()
-      setState({ isAuthenticated: false, isLoading: false, user: null })
-    }
+    if (bootstrapRef.current) return bootstrapRef.current
+
+    const run = (async () => {
+      try {
+        const user = await bootstrapAuth()
+        qc.setQueryData(["user"], user)
+        setState({ isAuthenticated: true, isLoading: false, user })
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          clearToken()
+          setState({ isAuthenticated: false, isLoading: false, user: null })
+        } else {
+          setState((prev) => (prev.isLoading ? { ...prev, isLoading: false } : prev))
+        }
+      }
+    })()
+
+    bootstrapRef.current = run
+    run.finally(() => { bootstrapRef.current = null })
+    return run
   }, [qc])
 
   useEffect(() => {
     bootstrap()
+  }, [bootstrap])
+
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === "visible") {
+        bootstrap()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => document.removeEventListener("visibilitychange", handleVisibility)
   }, [bootstrap])
 
   useEffect(() => {

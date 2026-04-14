@@ -1,4 +1,4 @@
-import { getToken, setToken, clearToken } from "./auth-store"
+import { getToken, setToken, clearToken, registerRefreshHandler } from "./auth-store"
 
 const AUTH_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru"
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_API_BASE_URL ?? "https://api.sb0rka.ru"
@@ -40,7 +40,6 @@ async function refreshToken(): Promise<void> {
   })
 
   if (!res.ok) {
-    clearToken()
     throw new ApiError(res.status, await res.text())
   }
 
@@ -56,6 +55,8 @@ function deduplicatedRefresh(): Promise<void> {
   }
   return refreshPromise
 }
+
+registerRefreshHandler(deduplicatedRefresh)
 
 function buildFetchInit(opts: RequestOptions): RequestInit {
   const init: RequestInit = { method: opts.method ?? "GET" }

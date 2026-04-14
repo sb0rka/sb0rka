@@ -1,4 +1,4 @@
-import { apiRequest, refresh } from "@/lib/api-client"
+import { apiRequest, ApiError, refresh } from "@/lib/api-client"
 import { getToken, setToken, clearToken } from "@/lib/auth-store"
 
 export interface User {
@@ -60,8 +60,12 @@ export async function bootstrapAuth(): Promise<User> {
   if (getToken()) {
     try {
       return await apiRequest<User>({ path: "/user" })
-    } catch {
-      clearToken()
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken()
+      } else {
+        throw err
+      }
     }
   }
   await refresh()
