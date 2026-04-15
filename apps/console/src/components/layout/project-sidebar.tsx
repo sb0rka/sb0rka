@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { Link, useParams, useSearchParams } from "react-router-dom"
+import { Link, useMatch, useParams, useSearchParams } from "react-router-dom"
 import {
   BarChart3,
   ChevronsUpDown,
@@ -33,8 +33,11 @@ const settingsNavItem = {
 export function ProjectSidebar() {
   const { id = "" } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
+  const isDatabaseDetailsRoute = useMatch("/projects/:id/databases/:resourceId") !== null
   const { data: project } = useProject(id)
-  const activeTab = (searchParams.get("tab") ?? "overview") as ProjectTab
+  const activeTab = isDatabaseDetailsRoute
+    ? "databases"
+    : ((searchParams.get("tab") ?? "overview") as ProjectTab)
 
   const getTabHref = (tab: ProjectTab) => `/projects/${id}?tab=${tab}`
 

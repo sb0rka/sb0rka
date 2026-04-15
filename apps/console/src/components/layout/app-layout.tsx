@@ -9,7 +9,9 @@ const breadcrumbs = [
 ]
 
 export function AppLayout() {
-  const isProjectOpen = useMatch("/projects/:id") !== null
+  const isProjectRoot = useMatch("/projects/:id") !== null
+  const isProjectNested = useMatch("/projects/:id/*") !== null
+  const isProjectOpen = isProjectRoot || isProjectNested
 
   return (
     <div className="flex h-screen w-full">
