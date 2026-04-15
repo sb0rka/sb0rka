@@ -1,0 +1,37 @@
+---
+title: "s0c CLI — manage Sb0rka from your terminal"
+description: "s0c is the official Sb0rka CLI. Manage projects and databases, open psql sessions, and integrate Sb0rka into scripts and AI agent workflows."
+---
+
+`s0c` is the official command-line interface for Sb0rka. It wraps the Sb0rka API in a set of focused commands so you can manage projects, databases, and connections without leaving your terminal. Every command is designed to be composable: JSON goes to stdout, errors go to stderr with an `s0c:` prefix, and any failure exits with a non-zero code — making `s0c` safe to embed in scripts, CI pipelines, and AI agent toolchains.
+
+## What you can do with s0c
+
+- **Authenticate** — paste your Sb0rka refresh token once; `s0c` validates it and stores credentials locally under `~/.s0c/auth.json`.
+- **Manage projects** — list all projects on your account.
+- **Manage databases** — list databases, create new ones, and retrieve connection URIs.
+- **Open psql sessions** — jump straight into an interactive `psql` session using your Sb0rka connection details, without manually copying a URI.
+- **Set defaults** — store a default project ID and database ID so you never have to pass them on every command.
+
+## Designed for scripts and agents
+
+`s0c` follows conventions that make it easy to integrate into automated workflows:
+
+- API responses are single-line JSON by default; add `--pretty` for human-readable output.
+- All errors are prefixed with `s0c:` and written to stderr, so they never pollute your stdout pipeline.
+- Non-zero exit codes on failure mean any shell or agent can detect and handle errors reliably.
+- `s0c api dbs uri` emits only the raw connection URI string — nothing else — so you can capture it directly with `$(...)`.
+
+## Get started
+
+<CardGroup cols={3}>
+  <Card title="Installation" icon="download" href="/cli/installation">
+    Build s0c from source and authenticate with your Sb0rka account.
+  </Card>
+  <Card title="Command reference" icon="terminal" href="/cli/commands">
+    Every command, flag, and example output in one place.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/cli/configuration">
+    Set default project and database IDs and configure environment variables.
+  </Card>
+</CardGroup>
