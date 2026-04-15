@@ -16,6 +16,7 @@ import {
   updateDatabase,
   getDatabaseUri,
   deactivateResource,
+  createSecret,
 } from "./api"
 import type {
   ProjectResponse,
@@ -25,6 +26,7 @@ import type {
   CreateProjectRequest,
   UpdateProjectRequest,
   SecretListResponse,
+  CreateSecretRequest,
   AttachResourceTagRequest,
   ProjectTagListResponse,
   DatabaseResponse,
@@ -249,6 +251,17 @@ export function useSecrets(projectId: string) {
     queryKey: ["projects", projectId, "secrets"],
     queryFn: () => listSecrets(projectId),
     enabled: isAuthenticated && !!projectId,
+  })
+}
+
+export function useCreateSecret(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreateSecretRequest) => createSecret(projectId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+    },
   })
 }
 

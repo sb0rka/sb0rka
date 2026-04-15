@@ -80,6 +80,12 @@ export interface CreateDatabaseRequest {
   description?: string
 }
 
+export interface CreateSecretRequest {
+  name: string
+  description?: string
+  secret_value: string
+}
+
 export interface UpdateDatabaseRequest {
   name?: string
   description?: string
@@ -252,6 +258,18 @@ export async function listSecrets(
 ): Promise<SecretListResponse> {
   return apiRequest<SecretListResponse>({
     path: `/projects/${projectId}/secrets`,
+    base: "resource",
+  })
+}
+
+export async function createSecret(
+  projectId: string,
+  data: CreateSecretRequest,
+): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/secret`,
+    json: data,
     base: "resource",
   })
 }
