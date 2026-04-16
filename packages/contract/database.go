@@ -33,7 +33,7 @@ type UpdateDatabaseColumnRequest struct {
 }
 
 type DatabaseResponse struct {
-	ResourceID  int64   `json:"resource_id"`
+	ResourceID  string  `json:"resource_id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 	NextTableID int64   `json:"next_table_id"`

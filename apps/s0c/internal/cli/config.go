@@ -11,7 +11,7 @@ import (
 func NewCmdConfig() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Save default project and database IDs",
+		Short: "Save defaults in local config",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("project-id") && !cmd.Flags().Changed("database-id") {

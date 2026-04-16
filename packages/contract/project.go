@@ -13,7 +13,7 @@ type UpdateProjectRequest struct {
 }
 
 type ProjectResponse struct {
-	ID          int64     `json:"id"`
+	ID          string    `json:"id"`
 	UserID      string    `json:"user_id"`
 	Name        string    `json:"name"`
 	Description *string   `json:"description,omitempty"`
