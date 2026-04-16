@@ -8,5 +8,6 @@ English | [Русский](README.md)
 
 - `apps/api`: HTTP API service
 - `apps/s0c`: CLI tool
-- `packages/contract`: request/response DTO shared between API and CLI
 - `db/migrations/platform`: platform database migrations
+- `docs`: Project documentation
+- `packages/contract`: request/response DTO shared between API and CLI
