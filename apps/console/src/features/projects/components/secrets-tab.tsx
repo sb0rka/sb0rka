@@ -1,0 +1,179 @@
+import { useState, type FormEvent } from "react"
+import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { TabsContent } from "@/components/ui/tabs"
+import { ApiError } from "@/lib/api-client"
+import type { CreateSecretRequest } from "../api"
+import type { SecretRow } from "./project-detail-tab-types"
+import { ResourceTable } from "./resource-table"
+
+interface SecretsTabProps {
+  secretRows: SecretRow[]
+  isCreateSecretPending: boolean
+  onCreateSecret: (data: CreateSecretRequest) => Promise<void>
+}
+
+export function SecretsTab({
+  secretRows,
+  isCreateSecretPending,
+  onCreateSecret,
+}: SecretsTabProps) {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [newSecretName, setNewSecretName] = useState("")
+  const [newSecretDescription, setNewSecretDescription] = useState("")
+  const [newSecretValue, setNewSecretValue] = useState("")
+  const [createSecretError, setCreateSecretError] = useState<string | null>(null)
+
+  function resetCreateSecretForm() {
+    setNewSecretName("")
+    setNewSecretDescription("")
+    setNewSecretValue("")
+    setCreateSecretError(null)
+  }
+
+  function handleCreateDialogOpenChange(next: boolean) {
+    if (!next) {
+      resetCreateSecretForm()
+    }
+    setIsCreateDialogOpen(next)
+  }
+
+  async function handleCreateSecretSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!newSecretName.trim() || !newSecretValue.trim() || isCreateSecretPending) {
+      return
+    }
+
+    setCreateSecretError(null)
+
+    try {
+      await onCreateSecret({
+        name: newSecretName.trim(),
+        description: newSecretDescription.trim() || undefined,
+        secret_value: newSecretValue.trim(),
+      })
+      handleCreateDialogOpenChange(false)
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Не удалось создать секрет"
+      setCreateSecretError(message)
+    }
+  }
+
+  return (
+    <TabsContent value="secrets" className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-semibold tracking-tight">Секреты</h2>
+          <p className="text-sm text-muted-foreground opacity-30">
+            Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
+          </p>
+        </div>
+        <Button className="opacity-90" onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Создать секрет
+        </Button>
+      </div>
+
+      <Card className="overflow-hidden">
+        <CardContent className="pb-6 px-6">
+          <div className="opacity-30">
+            <ResourceTable
+              rows={secretRows}
+              emptyMessage="Нет секретов"
+              cellPaddingClassName="px-4"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogOpenChange}>
+        <DialogContent>
+          <form onSubmit={handleCreateSecretSubmit} autoComplete="off">
+            <DialogHeader>
+              <DialogTitle>Создать секрет</DialogTitle>
+              <DialogDescription>
+                Добавьте защищенное значение для использования в проекте.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-4 px-6 pb-6">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-secret-name">Название</Label>
+                <Input
+                  id="new-secret-name"
+                  name="secret-name"
+                  autoComplete="off"
+                  placeholder="Например: STRIPE_KEY"
+                  value={newSecretName}
+                  onChange={(e) => setNewSecretName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-secret-description">Описание</Label>
+                <Input
+                  id="new-secret-description"
+                  name="secret-description"
+                  autoComplete="off"
+                  placeholder="Опишите назначение секрета"
+                  value={newSecretDescription}
+                  onChange={(e) => setNewSecretDescription(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-secret-value">Значение</Label>
+                <Input
+                  id="new-secret-value"
+                  name="secret-value"
+                  type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-form-type="other"
+                  className="[-webkit-text-security:disc]"
+                  placeholder="Введите значение секрета"
+                  value={newSecretValue}
+                  onChange={(e) => setNewSecretValue(e.target.value)}
+                />
+              </div>
+              {createSecretError ? <p className="text-sm text-destructive">{createSecretError}</p> : null}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleCreateDialogOpenChange(false)}
+                disabled={isCreateSecretPending}
+              >
+                Отменить
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !newSecretName.trim() || !newSecretValue.trim() || isCreateSecretPending
+                }
+              >
+                {isCreateSecretPending ? "Создание…" : "Создать секрет"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </TabsContent>
+  )
+}

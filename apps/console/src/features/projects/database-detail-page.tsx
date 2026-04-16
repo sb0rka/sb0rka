@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ApiError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,7 @@ import {
   useDeactivateResource,
   useProject,
   useResourceTags,
+  useAttachResourceTag,
   useUpdateDatabase,
 } from "./hooks"
 
@@ -39,6 +40,22 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+function parseTagInput(input: string): { tag_key: string; tag_value: string } | null {
+  const normalized = input.trim()
+  if (!normalized) return null
+
+  const separatorIndex = normalized.indexOf(":")
+  if (separatorIndex <= 0 || separatorIndex === normalized.length - 1) {
+    return null
+  }
+
+  const tag_key = normalized.slice(0, separatorIndex).trim()
+  const tag_value = normalized.slice(separatorIndex + 1).trim()
+  if (!tag_key || !tag_value) return null
+
+  return { tag_key, tag_value }
+}
+
 export function DatabaseDetailPage() {
   const { id = "", resourceId = "" } = useParams<{
     id: string
@@ -55,6 +72,7 @@ export function DatabaseDetailPage() {
     id,
     isValidResourceId ? normalizedResourceId : undefined,
   )
+  const attachResourceTag = useAttachResourceTag(id)
   const deactivateResource = useDeactivateResource(
     id,
     isValidResourceId ? normalizedResourceId : undefined,
@@ -70,6 +88,10 @@ export function DatabaseDetailPage() {
   const [description, setDescription] = useState("")
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [newTagInput, setNewTagInput] = useState("")
+  const [isAddingTag, setIsAddingTag] = useState(false)
+  const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
+  const [tagActionError, setTagActionError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -124,6 +146,52 @@ export function DatabaseDetailPage() {
     }
   }
 
+  async function handleAddTag() {
+    if (!isValidResourceId || attachResourceTag.isPending) return
+
+    setTagActionError(null)
+    setTagActionSuccess(null)
+
+    const parsedTag = parseTagInput(newTagInput)
+    if (!parsedTag) {
+      setTagActionError("Тег должен быть в формате key:value")
+      return
+    }
+
+    const duplicate = tagsQuery.data?.tags.some(
+      (tag) =>
+        tag.tag_key === parsedTag.tag_key && tag.tag_value === parsedTag.tag_value,
+    )
+    if (duplicate) {
+      setTagActionError("Такой тег уже добавлен")
+      return
+    }
+
+    try {
+      await attachResourceTag.mutateAsync({
+        resourceId: normalizedResourceId,
+        data: parsedTag,
+      })
+      setTagActionSuccess("Тег добавлен")
+      setNewTagInput("")
+      setIsAddingTag(false)
+    } catch (error) {
+      setTagActionError(getErrorMessage(error, "Не удалось добавить тег"))
+    }
+  }
+
+  function handleTagInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault()
+      void handleAddTag()
+    }
+    if (event.key === "Escape") {
+      setIsAddingTag(false)
+      setNewTagInput("")
+      setTagActionError(null)
+    }
+  }
+
   if (!isValidResourceId) {
     return (
       <div className="flex flex-col gap-4">
@@ -167,10 +235,60 @@ export function DatabaseDetailPage() {
           {tagsQuery.data?.tags.map((tag) => (
             <Badge key={tag.id}>{`${tag.tag_key}:${tag.tag_value}`}</Badge>
           ))}
-          <Badge className="border border-border bg-transparent text-foreground">
-            + добавить тег
-          </Badge>
+          {isAddingTag ? (
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="key:value"
+                value={newTagInput}
+                onChange={(event) => setNewTagInput(event.target.value)}
+                onKeyDown={handleTagInputKeyDown}
+                className="h-8 w-[180px]"
+                autoFocus
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleAddTag()}
+                disabled={attachResourceTag.isPending}
+              >
+                Добавить
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsAddingTag(false)
+                  setNewTagInput("")
+                  setTagActionError(null)
+                }}
+              >
+                Отмена
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full px-2.5 py-0.5 text-xs font-semibold leading-4"
+              onClick={() => {
+                setIsAddingTag(true)
+                setTagActionError(null)
+                setTagActionSuccess(null)
+              }}
+            >
+              + добавить тег
+            </Button>
+          )}
         </div>
+        {tagActionError ? (
+          <p className="text-sm text-destructive">{tagActionError}</p>
+        ) : null}
+        {tagActionSuccess ? (
+          <p className="text-sm text-emerald-600">{tagActionSuccess}</p>
+        ) : null}
       </div>
 
       <Card className="overflow-hidden">
