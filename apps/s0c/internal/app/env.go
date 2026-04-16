@@ -1,39 +1,45 @@
 package app
 
 import (
-	"errors"
 	"os"
 	"strings"
 )
 
 const (
-	EnvAPIBaseURL  = "S0C_API_BASE_URL"
-	EnvAuthBaseURL = "S0C_AUTH_BASE_URL"
+	DefaultAPIBaseURL             = "https://api.sb0rka.ru"
+	DefaultAuthBaseURL            = "https://auth.sb0rka.ru"
+	DefaultRefreshTokenCookieName = "__Secure-refresh_token"
 )
 
-func ResolveBaseURLs(getenv func(string) string) (string, string, error) {
-	apiBaseURL, err := resolveRequiredBaseURL(getenv, EnvAPIBaseURL)
-	if err != nil {
-		return "", "", err
+func ResolveBaseURLs(getenv func(string) string) (string, string) {
+	if getenv == nil {
+		getenv = os.Getenv
 	}
-
-	authBaseURL, err := resolveRequiredBaseURL(getenv, EnvAuthBaseURL)
-	if err != nil {
-		return "", "", err
-	}
-
-	return apiBaseURL, authBaseURL, nil
+	return resolveBaseURL(getenv, "S0C_API_BASE_URL", DefaultAPIBaseURL),
+		resolveBaseURL(getenv, "S0C_AUTH_BASE_URL", DefaultAuthBaseURL)
 }
 
-func resolveRequiredBaseURL(getenv func(string) string, key string) (string, error) {
+func ResolveRefreshTokenCookieName(getenv func(string) string) string {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
 
-	baseURL := strings.TrimSpace(getenv(key))
-	if baseURL == "" {
-		return "", errors.New(key + " is not set")
+	// Prefer explicit CLI override, then shared backend variable.
+	name := strings.TrimSpace(getenv("S0C_REFRESH_TOKEN_COOKIE_NAME"))
+	if name == "" {
+		name = strings.TrimSpace(getenv("REFRESH_TOKEN_COOKIE_NAME"))
+	}
+	if name == "" {
+		name = DefaultRefreshTokenCookieName
 	}
 
-	return strings.TrimRight(baseURL, "/"), nil
+	return name
+}
+
+func resolveBaseURL(getenv func(string) string, key, defaultURL string) string {
+	s := strings.TrimSpace(getenv(key))
+	if s == "" {
+		s = defaultURL
+	}
+	return strings.TrimRight(s, "/")
 }

@@ -11,8 +11,8 @@
 # Собрать локально:
 go build -o s0c .
 
-# Аутентифицироваться:
-./s0c auth
+# Войти используя username/email и пароль:
+./s0c auth login
 
 # Открыть psql:
 s0c psql

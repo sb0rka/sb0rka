@@ -11,17 +11,22 @@ import (
 
 const accessTokenSkew = 30 * time.Second
 
+var (
+	ErrAuthNotConfigured   = errors.New("auth is not configured")
+	ErrRefreshTokenMissing = errors.New("refresh token is missing")
+)
+
 func GetValidAccessToken(ctx context.Context, refresher Refresher) (string, error) {
 	state, err := LoadState()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("auth is not configured, run 's0c auth' first")
+			return "", fmt.Errorf("%w, run 's0c auth login' first", ErrAuthNotConfigured)
 		}
 		return "", fmt.Errorf("load auth state: %w", err)
 	}
 
 	if strings.TrimSpace(state.RefreshToken) == "" {
-		return "", fmt.Errorf("refresh token is missing, run 's0c auth' first")
+		return "", fmt.Errorf("%w, run 's0c auth login' first", ErrRefreshTokenMissing)
 	}
 
 	now := time.Now()
@@ -45,12 +50,12 @@ func ForceRefreshAccessToken(ctx context.Context, refresher Refresher) (string, 
 	state, err := LoadState()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("auth is not configured, run 's0c auth' first")
+			return "", fmt.Errorf("%w, run 's0c auth login' first", ErrAuthNotConfigured)
 		}
 		return "", fmt.Errorf("load auth state: %w", err)
 	}
 	if strings.TrimSpace(state.RefreshToken) == "" {
-		return "", fmt.Errorf("refresh token is missing, run 's0c auth' first")
+		return "", fmt.Errorf("%w, run 's0c auth login' first", ErrRefreshTokenMissing)
 	}
 
 	updatedState, err := RefreshAccessToken(ctx, refresher, state)

@@ -11,8 +11,8 @@ English | [Русский](README.md)
 # Build locally:
 go build -o s0c .
 
-# Authenticate:
-./s0c auth
+# Login using username/email and password:
+./s0c auth login
 
 # Jump into psql:
 s0c psql

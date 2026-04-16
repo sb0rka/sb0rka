@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/mail"
+	"net/url"
 	"strings"
 	"time"
 
@@ -14,8 +16,77 @@ import (
 )
 
 const (
+	RouteAuthLogin          = "/auth/login"
+	RouteAuthLogout         = "/auth/logout"
 	RouteAuthSessionRefresh = "/auth/refresh"
 )
+
+type LoginResponse struct {
+	AccessToken string `json:"access_token"`
+}
+
+func (c *Client) Login(ctx context.Context, usernameOrEmail string, password string) (string, string, *time.Time, error) {
+	usernameOrEmail = strings.TrimSpace(usernameOrEmail)
+	if usernameOrEmail == "" {
+		return "", "", nil, fmt.Errorf("username or email is required")
+	}
+	password = strings.TrimSpace(password)
+	if password == "" {
+		return "", "", nil, fmt.Errorf("password is required")
+	}
+
+	form := url.Values{}
+	if looksLikeEmail(usernameOrEmail) {
+		form.Set("email", usernameOrEmail)
+	} else {
+		form.Set("username", usernameOrEmail)
+	}
+	form.Set("password", password)
+
+	respBody, httpResp, err := c.doRequest(
+		ctx,
+		http.MethodPost,
+		RouteAuthLogin,
+		strings.NewReader(form.Encode()),
+		requestOptions{
+			accept:      "application/json",
+			contentType: "application/x-www-form-urlencoded",
+		},
+	)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	var payload LoginResponse
+	if err := json.Unmarshal(respBody, &payload); err != nil {
+		return "", "", nil, fmt.Errorf("decode login response: %w", err)
+	}
+
+	access := strings.TrimSpace(payload.AccessToken)
+	if access == "" {
+		return "", "", nil, fmt.Errorf("login response did not return access token")
+	}
+
+	refreshToken := readRefreshTokenFromCookies(httpResp, c.refreshTokenCookieName)
+	if refreshToken == "" {
+		return "", "", nil, fmt.Errorf("login response did not include refresh token cookie %q", c.refreshTokenCookieName)
+	}
+
+	expiresAt, err := parseJWTAccessExp(access)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return access, refreshToken, expiresAt, nil
+}
+
+func (c *Client) Logout(ctx context.Context, bearer string) error {
+	_, _, err := c.doRequest(ctx, http.MethodPost, RouteAuthLogout, nil, requestOptions{
+		accept: "*/*",
+		bearer: bearer,
+	})
+	return err
+}
 
 // TODO(kompotkot): Refactor this
 
@@ -23,10 +94,9 @@ func (c *Client) RefreshSession(ctx context.Context, refreshToken string) (strin
 	respBody, httpResp, err := c.doRequest(ctx, http.MethodPost, RouteAuthSessionRefresh, bytes.NewBufferString("{}"), requestOptions{
 		accept:      "application/json",
 		contentType: "application/json",
-		// TODO(kompotkot): Params from config
 		cookies: []*http.Cookie{
 			{
-				Name:  "refresh_token",
+				Name:  c.refreshTokenCookieName,
 				Value: refreshToken,
 				Path:  "/",
 			},
@@ -46,15 +116,21 @@ func (c *Client) RefreshSession(ctx context.Context, refreshToken string) (strin
 		return "", "", nil, err
 	}
 
-	nextRefreshToken := strings.TrimSpace(payload.RefreshToken)
-	for _, cookie := range httpResp.Cookies() {
-		if cookie.Name == "refresh_token" && cookie.Value != "" {
-			nextRefreshToken = cookie.Value
-			break
-		}
+	nextRefreshToken := readRefreshTokenFromCookies(httpResp, c.refreshTokenCookieName)
+	if nextRefreshToken == "" {
+		nextRefreshToken = strings.TrimSpace(payload.RefreshToken)
 	}
 
 	return payload.AccessToken, nextRefreshToken, expiresAt, nil
+}
+
+func readRefreshTokenFromCookies(httpResp *http.Response, cookieName string) string {
+	for _, cookie := range httpResp.Cookies() {
+		if cookie.Name == cookieName && cookie.Value != "" {
+			return cookie.Value
+		}
+	}
+	return ""
 }
 
 func parseExpiry(resp contract.RefreshSessionResponse) (*time.Time, error) {
@@ -98,4 +174,9 @@ func parseJWTAccessExp(accessToken string) (*time.Time, error) {
 
 	t := time.Unix(claims.Exp, 0).UTC()
 	return &t, nil
+}
+
+func looksLikeEmail(v string) bool {
+	_, err := mail.ParseAddress(v)
+	return err == nil
 }
