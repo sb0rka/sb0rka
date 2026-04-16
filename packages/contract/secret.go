@@ -3,7 +3,7 @@ package contract
 import "time"
 
 type SecretResponse struct {
-	ResourceID  int64      `json:"resource_id"`
+	ResourceID  string     `json:"resource_id"`
 	Name        string     `json:"name"`
 	Description *string    `json:"description,omitempty"`
 	RevealedAt  *time.Time `json:"revealed_at,omitempty"`
