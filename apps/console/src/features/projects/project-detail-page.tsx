@@ -261,7 +261,7 @@ export function ProjectDetailPage() {
           isCreateSecretPending={createSecret.isPending}
           onCreateSecret={handleCreateSecret}
         />
-        <SettingsTab />
+        <SettingsTab projectName={project.name} createdAt={project.created_at} />
       </Tabs>
     </div>
   )
