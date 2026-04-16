@@ -109,11 +109,12 @@ export function ProjectDetailPage() {
         description: secret.description,
         tablesCount: "—",
         columnsCount: "—",
-        createdAt: "—",
+        createdAt: formatDateForTable(project?.created_at),
         updatedAt: formatDateForTable(secret.revealed_at),
+        revealedAt: secret.revealed_at,
         isHighlighted: index === 0,
       })),
-    [secretsData?.secrets],
+    [project?.created_at, secretsData?.secrets],
   )
 
   function openDatabaseDetails(resourceId: string) {
@@ -255,6 +256,7 @@ export function ProjectDetailPage() {
           onNewTagInputChange={setNewTagInput}
         />
         <SecretsTab
+          projectId={id}
           secretRows={secretRows}
           isCreateSecretPending={createSecret.isPending}
           onCreateSecret={handleCreateSecret}

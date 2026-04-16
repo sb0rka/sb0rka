@@ -22,5 +22,6 @@ export interface SecretRow {
   columnsCount: string
   createdAt: string
   updatedAt: string
+  revealedAt?: string
   isHighlighted: boolean
 }

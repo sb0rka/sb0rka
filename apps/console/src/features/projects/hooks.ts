@@ -17,6 +17,7 @@ import {
   getDatabaseUri,
   deactivateResource,
   createSecret,
+  revealSecretValue,
 } from "./api"
 import type {
   ProjectResponse,
@@ -31,6 +32,7 @@ import type {
   ProjectTagListResponse,
   DatabaseResponse,
   UpdateDatabaseRequest,
+  RevealSecretValueResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -112,6 +114,7 @@ export function useDeactivateResource(projectId: string, resourceId?: string) {
     mutationFn: () => deactivateResource(projectId, resourceId as string),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
       qc.invalidateQueries({
         queryKey: ["projects", projectId, "resources", resourceId, "database"],
       })
@@ -259,6 +262,17 @@ export function useCreateSecret(projectId: string) {
 
   return useMutation({
     mutationFn: (data: CreateSecretRequest) => createSecret(projectId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+    },
+  })
+}
+
+export function useRevealSecretValue(projectId: string, resourceId?: string) {
+  const qc = useQueryClient()
+
+  return useMutation<RevealSecretValueResponse>({
+    mutationFn: () => revealSecretValue(projectId, resourceId as string),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
     },

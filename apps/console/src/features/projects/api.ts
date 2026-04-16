@@ -211,6 +211,10 @@ export interface SecretListResponse {
   secrets: SecretResponse[]
 }
 
+export interface RevealSecretValueResponse {
+  secret_value: string
+}
+
 export interface AttachResourceTagRequest {
   tag_key: string
   tag_value: string
@@ -270,6 +274,16 @@ export async function createSecret(
     method: "POST",
     path: `/projects/${projectId}/secret`,
     json: data,
+    base: "resource",
+  })
+}
+
+export async function revealSecretValue(
+  projectId: string,
+  resourceId: string,
+): Promise<RevealSecretValueResponse> {
+  return apiRequest<RevealSecretValueResponse>({
+    path: `/projects/${projectId}/resources/${resourceId}/reveal`,
     base: "resource",
   })
 }

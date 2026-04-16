@@ -17,14 +17,17 @@ import { ApiError } from "@/lib/api-client"
 import type { CreateSecretRequest } from "../api"
 import type { SecretRow } from "./project-detail-tab-types"
 import { ResourceTable } from "./resource-table"
+import { SecretDetails } from "./secret-details"
 
 interface SecretsTabProps {
+  projectId: string
   secretRows: SecretRow[]
   isCreateSecretPending: boolean
   onCreateSecret: (data: CreateSecretRequest) => Promise<void>
 }
 
 export function SecretsTab({
+  projectId,
   secretRows,
   isCreateSecretPending,
   onCreateSecret,
@@ -34,6 +37,12 @@ export function SecretsTab({
   const [newSecretDescription, setNewSecretDescription] = useState("")
   const [newSecretValue, setNewSecretValue] = useState("")
   const [createSecretError, setCreateSecretError] = useState<string | null>(null)
+  const [openedSecretId, setOpenedSecretId] = useState<string | null>(null)
+
+  const openedSecret =
+    openedSecretId !== null
+      ? secretRows.find((secret) => secret.id === openedSecretId) ?? null
+      : null
 
   function resetCreateSecretForm() {
     setNewSecretName("")
@@ -75,11 +84,11 @@ export function SecretsTab({
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-semibold tracking-tight">Секреты</h2>
-          <p className="text-sm text-muted-foreground opacity-30">
+          <p className="text-sm text-muted-foreground">
             Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
           </p>
         </div>
-        <Button className="opacity-90" onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Создать секрет
         </Button>
@@ -87,13 +96,22 @@ export function SecretsTab({
 
       <Card className="overflow-hidden">
         <CardContent className="pb-6 px-6">
-          <div className="opacity-30">
-            <ResourceTable
-              rows={secretRows}
-              emptyMessage="Нет секретов"
-              cellPaddingClassName="px-4"
+          {openedSecret ? (
+            <SecretDetails
+              projectId={projectId}
+              secret={openedSecret}
+              onClose={() => setOpenedSecretId(null)}
             />
-          </div>
+          ) : (
+            <div>
+              <ResourceTable
+                rows={secretRows}
+                emptyMessage="Нет секретов"
+                cellPaddingClassName="px-4"
+                onRowClick={(row) => setOpenedSecretId(row.id)}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
