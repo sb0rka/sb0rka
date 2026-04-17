@@ -4,16 +4,14 @@ on:
   pull_request:
     paths:
       - "apps/s0c/**"
-      - "packages/contract/**"
       - ".github/workflows/build-s0c.yml"
-      - ".github/actions/s0c-build/**"
+      - ".github/actions/go-build/**"
   push:
     branches: [main]
     paths:
       - "apps/s0c/**"
-      - "packages/contract/**"
       - ".github/workflows/build-s0c.yml"
-      - ".github/actions/s0c-build/**"
+      - ".github/actions/go-build/**"
 
 permissions:
   contents: read
@@ -35,7 +33,11 @@ jobs:
 
       - name: Build s0c
         id: s0c
-        uses: ./.github/actions/s0c-build
+        uses: ./.github/actions/go-build
+        with:
+          module-dir: apps/s0c
+          version-file: internal/cli/version.txt
+          binary-name: s0c
 
       - name: Verify modules
         working-directory: apps/s0c
