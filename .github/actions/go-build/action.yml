@@ -1,0 +1,120 @@
+name: Go build
+description: >-
+  Set up Go, read the module version from a version file, and build the module.
+  Produces a named cross-compiled binary when `binary-name` is provided;
+  otherwise runs a plain `go build ./...` to verify a library module compiles.
+
+inputs:
+  module-dir:
+    description: Path to the Go module directory (relative to the repository root).
+    required: true
+  version-file:
+    description: Path to the version file, relative to `module-dir`.
+    required: true
+  binary-name:
+    description: >-
+      Name prefix for the output binary. When non-empty the action cross-compiles
+      `main-package` and emits `<binary-name>-<version>-<goos>-<goarch>[.exe]`.
+      When empty the action runs `go build ./...` (library mode).
+    required: false
+    default: ""
+  main-package:
+    description: Go package path (relative to `module-dir`) to build in binary mode.
+    required: false
+    default: "./"
+  goos:
+    description: Target GOOS (binary mode only).
+    required: false
+    default: linux
+  goarch:
+    description: Target GOARCH (binary mode only).
+    required: false
+    default: amd64
+  output-dir:
+    description: Output directory (relative to `module-dir`) for binary artifacts.
+    required: false
+    default: dist
+  checksum:
+    description: If "true", also produce a .sha256 file alongside the binary.
+    required: false
+    default: "true"
+
+outputs:
+  version:
+    description: Module version read from the version file.
+    value: ${{ steps.version.outputs.version }}
+  binary-name:
+    description: File name of the built binary (binary mode only).
+    value: ${{ steps.build.outputs.name }}
+  binary-path:
+    description: Path to the built binary, relative to the workspace (binary mode only).
+    value: ${{ steps.build.outputs.path }}
+  output-dir:
+    description: Absolute output directory for artifacts (binary mode only).
+    value: ${{ steps.build.outputs.dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ inputs.module-dir }}/go.mod
+        cache-dependency-path: ${{ inputs.module-dir }}/go.sum
+
+    - name: Read version
+      id: version
+      shell: bash
+      env:
+        MODULE_DIR: ${{ inputs.module-dir }}
+        VERSION_FILE: ${{ inputs.version-file }}
+      run: |
+        path="${MODULE_DIR}/${VERSION_FILE}"
+        if [ ! -f "${path}" ]; then
+          echo "version file '${path}' not found" >&2
+          exit 1
+        fi
+        version=$(tr -d '[:space:]' < "${path}")
+        if [ -z "${version}" ]; then
+          echo "version file '${path}' is empty" >&2
+          exit 1
+        fi
+        case "${version}" in
+          v[0-9]*.[0-9]*.[0-9]*) ;;
+          *)
+            echo "version '${version}' must match vMAJOR.MINOR.PATCH" >&2
+            exit 1
+            ;;
+        esac
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Build
+      id: build
+      shell: bash
+      working-directory: ${{ inputs.module-dir }}
+      env:
+        MODULE_DIR: ${{ inputs.module-dir }}
+        BINARY_NAME: ${{ inputs.binary-name }}
+        MAIN_PACKAGE: ${{ inputs.main-package }}
+        GOOS: ${{ inputs.goos }}
+        GOARCH: ${{ inputs.goarch }}
+        CGO_ENABLED: "0"
+        VERSION: ${{ steps.version.outputs.version }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        CHECKSUM: ${{ inputs.checksum }}
+      run: |
+        if [ -z "${BINARY_NAME}" ]; then
+          go build ./...
+          exit 0
+        fi
+        ext=""
+        if [ "${GOOS}" = "windows" ]; then ext=".exe"; fi
+        name="${BINARY_NAME}-${VERSION}-${GOOS}-${GOARCH}${ext}"
+        mkdir -p "${OUTPUT_DIR}"
+        go build -trimpath -ldflags="-s -w" -o "${OUTPUT_DIR}/${name}" "${MAIN_PACKAGE}"
+        if [ "${CHECKSUM}" = "true" ]; then
+          (cd "${OUTPUT_DIR}" && sha256sum "${name}" > "${name}.sha256")
+        fi
+        echo "name=${name}" >> "$GITHUB_OUTPUT"
+        echo "path=${MODULE_DIR}/${OUTPUT_DIR}/${name}" >> "$GITHUB_OUTPUT"
+        echo "dir=${GITHUB_WORKSPACE}/${MODULE_DIR}/${OUTPUT_DIR}" >> "$GITHUB_OUTPUT"
