@@ -47,7 +47,7 @@ jobs:
               exit 1
               ;;
           esac
-          tag="s0c/${version}"
+          tag="apps/s0c/${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
