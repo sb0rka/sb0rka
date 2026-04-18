@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ChevronRight, HelpCircle, Sun, Moon, LogOut, User } from "lucide-react"
+import { ChevronRight, Sun, Moon, LogOut, User } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
@@ -25,27 +25,37 @@ export function Header({ breadcrumbs }: HeaderProps) {
       <nav className="flex items-center gap-2.5">
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
+          const isLink = !!item.href && !isLast
           return (
-            <div key={item.label} className="flex items-center gap-2.5">
+            <div key={`${item.label}-${index}`} className="flex items-center gap-2.5">
               {index > 0 && (
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
-              <span
-                className={
-                  isLast
-                    ? "text-sm text-foreground"
-                    : "text-sm text-muted-foreground"
-                }
-              >
-                {item.label}
-              </span>
+              {isLink ? (
+                <Link
+                  to={item.href as string}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <span
+                  className={
+                    isLast
+                      ? "text-sm text-foreground"
+                      : "text-sm text-muted-foreground"
+                  }
+                >
+                  {item.label}
+                </span>
+              )}
             </div>
           )
         })}
       </nav>
 
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" className="text-sm font-medium">
+        {/* <Button variant="ghost" size="sm" className="text-sm font-medium">
           Оставить фидбек
         </Button>
 
@@ -56,7 +66,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
           aria-label="Помощь"
         >
           <HelpCircle className="h-4 w-4" />
-        </Button>
+        </Button> */}
 
         <Button
           variant="outline"

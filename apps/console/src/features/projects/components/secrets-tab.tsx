@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -32,17 +33,29 @@ export function SecretsTab({
   isCreateSecretPending,
   onCreateSecret,
 }: SecretsTabProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newSecretName, setNewSecretName] = useState("")
   const [newSecretDescription, setNewSecretDescription] = useState("")
   const [newSecretValue, setNewSecretValue] = useState("")
   const [createSecretError, setCreateSecretError] = useState<string | null>(null)
-  const [openedSecretId, setOpenedSecretId] = useState<string | null>(null)
+  const openedSecretId = searchParams.get("secret")
 
   const openedSecret =
     openedSecretId !== null
       ? secretRows.find((secret) => secret.id === openedSecretId) ?? null
       : null
+
+  function setOpenedSecretId(secretId: string | null) {
+    const next = new URLSearchParams(searchParams)
+    next.set("tab", "secrets")
+    if (secretId) {
+      next.set("secret", secretId)
+    } else {
+      next.delete("secret")
+    }
+    setSearchParams(next)
+  }
 
   function resetCreateSecretForm() {
     setNewSecretName("")
