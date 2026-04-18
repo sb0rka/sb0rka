@@ -26,7 +26,7 @@ description: "s0c is the official Sb0rka CLI. Manage projects and databases, ope
 
 <Steps>
 
-1. Install - Use `go install github.com/sb0rka/sb0rka/apps/s0c@latest` (requires Go), or download a prebuilt binary from GitHub Releases.
+1. Install - Use `go install github.com/sb0rka/sb0rka/apps/s0c@latest` (requires Go), or download a prebuilt binary from [GitHub Releases](https://github.com/sb0rka/sb0rka/releases).
 
 2. Authenticate - Run `s0c auth login` and sign in with your Sb0rka credentials.
 
