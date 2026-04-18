@@ -316,6 +316,7 @@ export function DatabaseDetailPage() {
         <CardFooter className="border-t border-border pt-6">
           <div className="flex flex-col gap-2">
             <Button
+              className="self-start"
               onClick={handleSave}
               disabled={!hasDescriptionChange || updateDatabase.isPending}
             >
@@ -364,6 +365,7 @@ export function DatabaseDetailPage() {
         <CardFooter className="pt-6">
           <div className="flex flex-col gap-2">
             <Button
+              className="self-start"
               variant="destructive"
               onClick={handleDeactivate}
               disabled={deactivateResource.isPending}

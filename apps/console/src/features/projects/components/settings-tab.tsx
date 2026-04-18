@@ -96,6 +96,7 @@ export function ProjectSettings({
         <CardFooter className="p-6">
           <div className="flex flex-col gap-2">
             <Button
+              className="self-start"
               variant="destructive"
               onClick={() => void handleDeleteProject()}
               disabled={deactivateProject.isPending}
