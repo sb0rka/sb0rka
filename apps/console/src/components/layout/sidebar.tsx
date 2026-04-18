@@ -20,8 +20,18 @@ const navItems = [
 ]
 
 const externalItems = [
-  { label: "Документация", icon: FileText, href: "#", external: true },
-  { label: "Код", icon: Code2, href: "#", external: true },
+  {
+    label: "Документация",
+    icon: FileText,
+    href: "https://docs.sb0rka.com",
+    external: true,
+  },
+  {
+    label: "Код",
+    icon: Code2,
+    href: "https://github.com/sb0rka/sb0rka",
+    external: true,
+  },
 ]
 
 interface SidebarProps {
