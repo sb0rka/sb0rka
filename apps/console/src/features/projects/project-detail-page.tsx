@@ -219,7 +219,7 @@ export function ProjectDetailPage() {
         value={activeTab}
         onValueChange={(value) => setSearchParams({ tab: value })}
       >
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="overview" className="w-[115px]">
               Обзор
@@ -236,7 +236,7 @@ export function ProjectDetailPage() {
           >
             <Settings className="h-4 w-4" />
           </Button>
-        </div>
+        </div> */}
 
         <OverviewTab dbCount={dbCount} tableCount={tableCount} />
         <DatabasesTab
