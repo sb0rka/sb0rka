@@ -1,9 +1,16 @@
 import { Link } from "react-router-dom"
-import { ChevronRight, Sun, Moon, LogOut, User } from "lucide-react"
+import { ChevronRight, Sun, Moon, User } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface BreadcrumbItem {
   label: string
@@ -78,29 +85,45 @@ export function Header({ breadcrumbs }: HeaderProps) {
           {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
 
-        <div className="flex items-center gap-2">
-          <Link
-            to="/profile"
-            className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors hover:bg-muted/60"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-auto gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-muted/60"
+              aria-label="Открыть меню профиля"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <User className="h-5 w-5 text-muted-foreground" />
+              </div>
+              {user ? (
+                <span className="text-sm font-medium text-foreground">{user.username}</span>
+              ) : null}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={8}
+            className="w-56 rounded-md border border-border bg-popover p-1 shadow-md"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-              <User className="h-5 w-5 text-muted-foreground" />
+            <div className="rounded-sm px-2 py-1.5 text-sm font-semibold text-popover-foreground">
+              Мой аккаунт
             </div>
-            {user ? (
-              <span className="text-sm font-medium text-foreground">{user.username}</span>
-            ) : null}
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-full"
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            aria-label="Выйти"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="px-2 py-1.5">
+              <Link to="/profile" className="w-full">
+                Настройки профиля
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="px-2 py-1.5 text-destructive focus:text-destructive"
+              onSelect={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+            >
+              Выйти из аккаунта
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
