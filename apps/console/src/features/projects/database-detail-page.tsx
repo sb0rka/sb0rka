@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
+import { Copy } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ApiError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
@@ -93,6 +94,7 @@ export function DatabaseDetailPage() {
   const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
   const [tagActionError, setTagActionError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [copyUriMessage, setCopyUriMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setDescription(databaseQuery.data?.description ?? "")
@@ -177,6 +179,18 @@ export function DatabaseDetailPage() {
       setIsAddingTag(false)
     } catch (error) {
       setTagActionError(getErrorMessage(error, "Не удалось добавить тег"))
+    }
+  }
+
+  async function handleCopyUri() {
+    if (!databaseUri.data || databaseUri.isFetching) return
+    try {
+      await navigator.clipboard.writeText(databaseUri.data)
+      setCopyUriMessage("URI скопирован")
+      window.setTimeout(() => setCopyUriMessage(null), 2000)
+    } catch {
+      setCopyUriMessage("Не удалось скопировать")
+      window.setTimeout(() => setCopyUriMessage(null), 3000)
     }
   }
 
@@ -332,19 +346,54 @@ export function DatabaseDetailPage() {
         <CardHeader className="pb-4">
           <CardTitle className="text-3xl font-semibold tracking-tight">URI</CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center gap-3 pb-6">
-          <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
-            <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
-              {maskedUri}
-            </p>
+        <CardContent className="flex flex-col gap-2 pb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
+              <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
+                {maskedUri}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {isUriVisible ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void handleCopyUri()}
+                  disabled={!databaseUri.data || databaseUri.isFetching}
+                  title="Копировать URI"
+                  aria-label="Копировать URI"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setIsUriVisible((prev) => {
+                    const next = !prev
+                    if (!next) setCopyUriMessage(null)
+                    return next
+                  })
+                }
+                disabled={databaseUri.isFetching}
+              >
+                {isUriVisible ? "Скрыть" : "Показать"}
+              </Button>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setIsUriVisible((prev) => !prev)}
-            disabled={databaseUri.isFetching}
-          >
-            {isUriVisible ? "Скрыть" : "Показать"}
-          </Button>
+          {isUriVisible && copyUriMessage ? (
+            <p
+              className={
+                copyUriMessage === "URI скопирован"
+                  ? "text-sm text-emerald-600"
+                  : "text-sm text-destructive"
+              }
+            >
+              {copyUriMessage}
+            </p>
+          ) : null}
         </CardContent>
         {databaseUri.isError ? (
           <CardFooter className="pt-0">
