@@ -46,15 +46,6 @@ function getUsageProgress(used: number, limit: number): number {
   return Math.min((used / limit) * 100, 100)
 }
 
-const PLAN_PREVIEW_LIMITS: Array<{
-  key: keyof Pick<PlanResponse, "project_limit" | "db_limit" | "secret_limit">
-  label: string
-}> = [
-  { key: "project_limit", label: "Проекты" },
-  { key: "db_limit", label: "Базы\u00a0данных" },
-  { key: "secret_limit", label: "Секреты" },
-]
-
 export function SubscriptionPage() {
   const currentPlanQuery = useCurrentPlan()
   const plansQuery = usePlans()
@@ -169,19 +160,17 @@ export function SubscriptionPage() {
                     {isCurrent ? <Badge variant="active-solid">Текущий</Badge> : null}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {PLAN_PREVIEW_LIMITS.map((item) => (
-                      <div
+                  <ul className="mt-4 overflow-hidden rounded-md">
+                    {LIMIT_ITEMS.map((item) => (
+                      <li
                         key={item.key}
-                        className="min-w-[5.5rem] grow basis-0 rounded-md border border-border px-2.5 py-2"
+                        className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
                       >
-                        <p className="text-xs text-muted-foreground">{item.label}</p>
-                        <p className="mt-1 text-base font-semibold leading-none">
-                          {plan[item.key]}
-                        </p>
-                      </div>
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span className="font-semibold tabular-nums">{plan[item.key]}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )
             })
