@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Outlet, useLocation, useMatch } from "react-router-dom"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
@@ -20,9 +21,18 @@ export function AppLayout() {
   const isProjectOpen = isProjectRoot || isProjectNested
   const breadcrumbs = breadcrumbsForPath(location.pathname)
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  useEffect(() => {
+    setSidebarCollapsed(isProjectOpen)
+  }, [isProjectOpen])
+
   return (
     <div className="flex h-screen w-full">
-      <Sidebar collapsed={isProjectOpen} />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+      />
       {isProjectOpen && <ProjectSidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Header breadcrumbs={breadcrumbs} />

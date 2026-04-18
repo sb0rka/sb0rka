@@ -36,9 +36,10 @@ const externalItems = [
 
 interface SidebarProps {
   collapsed?: boolean
+  onToggleCollapsed?: () => void
 }
 
-export function Sidebar({ collapsed = false }: SidebarProps) {
+export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) {
   const location = useLocation()
 
   return (
@@ -127,10 +128,17 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         )}
         <Separator />
         <button
+          type="button"
+          onClick={onToggleCollapsed}
           className={cn(
-            "flex items-center rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:text-foreground",
+            "flex items-center rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
             collapsed ? "justify-center" : "",
           )}
+          aria-label={
+            collapsed
+              ? "Развернуть боковую панель"
+              : "Свернуть боковую панель"
+          }
         >
           <PanelLeft className="h-4 w-4" />
         </button>
