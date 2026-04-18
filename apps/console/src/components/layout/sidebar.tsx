@@ -6,6 +6,7 @@ import {
   Code2,
   ExternalLink,
   PanelLeft,
+  User,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { SborkaLogo } from "@/components/logo"
 const navItems = [
   { label: "Проекты", icon: Home, href: "/projects" },
   { label: "Подписка", icon: DollarSign, href: "/subscription" },
+  { label: "Профиль", icon: User, href: "/profile" },
 ]
 
 const externalItems = [
@@ -52,7 +54,11 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
         <nav className={cn("flex flex-col gap-3", collapsed ? "px-2" : "px-4")}>
           {navItems.map((item) => {
-            const isActive = location.pathname === item.href
+            const isActive =
+              item.href === "/projects"
+                ? location.pathname === "/projects" ||
+                  location.pathname.startsWith("/projects/")
+                : location.pathname === item.href
             return (
               <Link
                 key={item.href}

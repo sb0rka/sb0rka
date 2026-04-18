@@ -1,17 +1,24 @@
-import { Outlet, useMatch } from "react-router-dom"
+import { Outlet, useLocation, useMatch } from "react-router-dom"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
 
-const breadcrumbs = [
-  { label: "sb0rka" },
-  { label: "Проекты" },
-]
+function breadcrumbsForPath(pathname: string) {
+  if (pathname.startsWith("/subscription")) {
+    return [{ label: "sb0rka" }, { label: "Подписка" }]
+  }
+  if (pathname.startsWith("/profile")) {
+    return [{ label: "sb0rka" }, { label: "Профиль" }]
+  }
+  return [{ label: "sb0rka" }, { label: "Проекты" }]
+}
 
 export function AppLayout() {
+  const location = useLocation()
   const isProjectRoot = useMatch("/projects/:id") !== null
   const isProjectNested = useMatch("/projects/:id/*") !== null
   const isProjectOpen = isProjectRoot || isProjectNested
+  const breadcrumbs = breadcrumbsForPath(location.pathname)
 
   return (
     <div className="flex h-screen w-full">

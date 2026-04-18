@@ -8,6 +8,7 @@ import { ProjectsPage } from "@/features/projects/projects-page"
 import { ProjectDetailPage } from "@/features/projects/project-detail-page"
 import { DatabaseDetailPage } from "@/features/projects/database-detail-page"
 import { SubscriptionPage } from "@/features/subscription/subscription-page"
+import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
 
@@ -24,6 +25,7 @@ export default function App() {
                 <Route element={<AppLayout />}>
                   <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/subscription" element={<SubscriptionPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/projects/:id" element={<ProjectDetailPage />} />
                   <Route
                     path="/projects/:id/databases/:resourceId"

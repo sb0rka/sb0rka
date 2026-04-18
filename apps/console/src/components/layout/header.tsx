@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom"
 import { ChevronRight, HelpCircle, Sun, Moon, LogOut, User } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/features/auth/auth-provider"
@@ -68,14 +69,17 @@ export function Header({ breadcrumbs }: HeaderProps) {
         </Button>
 
         <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-            <User className="h-5 w-5 text-muted-foreground" />
-          </div>
-          {user && (
-            <span className="text-sm font-medium text-foreground">
-              {user.username}
-            </span>
-          )}
+          <Link
+            to="/profile"
+            className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors hover:bg-muted/60"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <User className="h-5 w-5 text-muted-foreground" />
+            </div>
+            {user ? (
+              <span className="text-sm font-medium text-foreground">{user.username}</span>
+            ) : null}
+          </Link>
           <Button
             variant="ghost"
             size="icon"
