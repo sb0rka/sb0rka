@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/app-layout"
 import { ProjectsPage } from "@/features/projects/projects-page"
 import { ProjectDetailPage } from "@/features/projects/project-detail-page"
 import { DatabaseDetailPage } from "@/features/projects/database-detail-page"
+import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
 
@@ -22,6 +23,7 @@ export default function App() {
               <Route element={<RequireAuth />}>
                 <Route element={<AppLayout />}>
                   <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/subscription" element={<SubscriptionPage />} />
                   <Route path="/projects/:id" element={<ProjectDetailPage />} />
                   <Route
                     path="/projects/:id/databases/:resourceId"
