@@ -10,7 +10,7 @@ Fast PostgreSQL deployment, secure secrets management, and built-in telemetry in
 
 ---
 
-[Site](https://sb0rka.com) | [Documentation](https://docs.sb0rka.com/en) | [s0c CLI](apps/s0c)
+[Site](https://sb0rka.ru) | [Documentation](https://docs.sb0rka.com/en) | [s0c CLI](apps/s0c)
 
 ## Repository layout
 

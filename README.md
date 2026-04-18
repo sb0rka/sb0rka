@@ -8,7 +8,7 @@ Sb0rka — управляемая инфраструктура для вашег
 
 ---
 
-[Сайт](https://sb0rka.com) | [Документация](https://docs.sb0rka.com/ru) | [s0c CLI](apps/s0c)
+[Сайт](https://sb0rka.ru) | [Документация](https://docs.sb0rka.com/ru) | [s0c CLI](apps/s0c)
 
 ## Состав репозитория
 
