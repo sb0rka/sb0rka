@@ -24,7 +24,7 @@ jobs:
 
       - name: Clone target repo
         env:
-          TOKEN: ${{ secrets.DOCS_SITE_TOKEN }}
+          TOKEN: ${{ secrets.DOCS_SITE_SYNC_TOKEN }}
         run: |
           git clone "https://x-access-token:${TOKEN}@github.com/sb0rka/docs-site.git" target-repo
 
@@ -54,7 +54,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         id: push
         env:
-          TOKEN: ${{ secrets.DOCS_SITE_TOKEN }}
+          TOKEN: ${{ secrets.DOCS_SITE_SYNC_TOKEN }}
         run: |
           BRANCH="sync-docs-${GITHUB_SHA::7}-${GITHUB_RUN_ID}"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
@@ -71,7 +71,7 @@ jobs:
       - name: Create pull request
         if: steps.changes.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.DOCS_SITE_TOKEN }}
+          GH_TOKEN: ${{ secrets.DOCS_SITE_SYNC_TOKEN }}
           BRANCH: ${{ steps.push.outputs.branch }}
         run: |
           gh pr create \
