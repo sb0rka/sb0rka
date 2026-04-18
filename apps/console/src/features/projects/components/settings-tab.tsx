@@ -7,8 +7,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { TabsContent } from "@/components/ui/tabs"
+import { ApiError } from "@/lib/api-client"
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { useDeactivateProject } from "../hooks"
 
 interface ProjectSettingsProps {
+  projectId: string
   projectName: string
   createdAt?: string
 }
@@ -31,7 +36,37 @@ function formatCreatedAt(value?: string): string {
   }).format(date)
 }
 
-export function ProjectSettings({ projectName, createdAt }: ProjectSettingsProps) {
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message || fallback
+  if (error instanceof Error) return error.message || fallback
+  return fallback
+}
+
+export function ProjectSettings({
+  projectId,
+  projectName,
+  createdAt,
+}: ProjectSettingsProps) {
+  const navigate = useNavigate()
+  const deactivateProject = useDeactivateProject()
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function handleDeleteProject() {
+    if (!projectId || deactivateProject.isPending) return
+
+    const confirmed = window.confirm("Удалить проект и все связанные с ним данные?")
+    if (!confirmed) return
+
+    setDeleteError(null)
+    try {
+      await deactivateProject.mutateAsync(projectId)
+      window.alert("Проект удален")
+      navigate("/projects")
+    } catch (error) {
+      setDeleteError(getErrorMessage(error, "Не удалось удалить проект. Попробуйте снова."))
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h2 className="text-2xl font-semibold tracking-tight">Настройки</h2>
@@ -59,7 +94,16 @@ export function ProjectSettings({ projectName, createdAt }: ProjectSettingsProps
           </p>
         </CardHeader>
         <CardFooter className="p-6">
-          <Button variant="destructive">Удалить проект</Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="destructive"
+              onClick={() => void handleDeleteProject()}
+              disabled={deactivateProject.isPending}
+            >
+              {deactivateProject.isPending ? "Удаление…" : "Удалить проект"}
+            </Button>
+            {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
+          </div>
         </CardFooter>
       </Card>
     </div>
@@ -67,14 +111,15 @@ export function ProjectSettings({ projectName, createdAt }: ProjectSettingsProps
 }
 
 interface SettingsTabProps {
+  projectId: string
   projectName: string
   createdAt?: string
 }
 
-export function SettingsTab({ projectName, createdAt }: SettingsTabProps) {
+export function SettingsTab({ projectId, projectName, createdAt }: SettingsTabProps) {
   return (
     <TabsContent value="settings">
-      <ProjectSettings projectName={projectName} createdAt={createdAt} />
+      <ProjectSettings projectId={projectId} projectName={projectName} createdAt={createdAt} />
     </TabsContent>
   )
 }
