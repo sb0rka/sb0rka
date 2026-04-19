@@ -128,7 +128,7 @@ export function DatabasesTab({
             {databaseSuccess ? <p className="text-sm text-emerald-600">{databaseSuccess}</p> : null}
           </CardContent>
           <div className="border-t border-border px-6 py-6">
-            <Button type="submit" disabled={!newDatabaseName.trim() || isCreatePending}>
+            <Button type="button" onClick={onSubmitCreateDatabase} disabled={!newDatabaseName.trim() || isCreatePending}>
               {isCreatePending ? "Создание…" : "Создать"}
             </Button>
           </div>
