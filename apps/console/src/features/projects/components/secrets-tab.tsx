@@ -17,8 +17,7 @@ import { TabsContent } from "@/components/ui/tabs"
 import { ApiError } from "@/lib/api-client"
 import type { CreateSecretRequest } from "../api"
 import type { SecretRow } from "./project-detail-tab-types"
-import { ResourceTable } from "./resource-table"
-import { SecretDetails } from "./secret-details"
+import { SecretDetails, SecretDetailsTable } from "./secret-details"
 
 interface SecretsTabProps {
   projectId: string
@@ -108,7 +107,7 @@ export function SecretsTab({
       </div>
 
       <Card className="overflow-hidden">
-        <CardContent className="pb-6 px-6">
+        <CardContent className="p-0">
           {openedSecret ? (
             <SecretDetails
               projectId={projectId}
@@ -116,14 +115,12 @@ export function SecretsTab({
               onClose={() => setOpenedSecretId(null)}
             />
           ) : (
-            <div>
-              <ResourceTable
-                rows={secretRows}
-                emptyMessage="Нет секретов"
-                cellPaddingClassName="px-4"
-                onRowClick={(row) => setOpenedSecretId(row.id)}
-              />
-            </div>
+            <SecretDetailsTable
+              projectId={projectId}
+              rows={secretRows}
+              emptyMessage="Нет секретов"
+              onRowClick={(row) => setOpenedSecretId(row.id)}
+            />
           )}
         </CardContent>
       </Card>
