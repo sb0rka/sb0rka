@@ -46,10 +46,9 @@ function SecretDetailsTableRow({
       }
       className={cn(
         SECRET_DETAILS_TABLE_GRID_CLASS,
-        row.isHighlighted && "bg-muted",
         !isLastRow && "border-b border-border",
         isInteractive &&
-          "cursor-pointer transition-colors hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none",
+          "cursor-pointer transition-colors hover:bg-muted focus-visible:outline-none",
       )}
     >
       <div className="flex min-h-14 items-center px-4 py-4">
