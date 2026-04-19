@@ -107,14 +107,15 @@ export function DatabaseDetailPage() {
     description.trim() !== (databaseQuery.data?.description ?? "").trim()
 
   const maskedUri = useMemo(() => {
-    if (!databaseUri.data) {
-      return "postgres://********.*****:123456.psql.sb0rka.ru/my-db"
-    }
+    const dbId = databaseQuery.data?.resource_id ?? "{db.id}"
+    const dbName = databaseQuery.data?.name ?? "{db.name}"
+    const hiddenUri = `postgresql://********:********@${dbId}.psql.sb0rka.ru:5432/${dbName}?sslmode=require&sslnegotiation=direct`
+
     if (!isUriVisible) {
-      return databaseUri.data.replace(/\/\/([^@]+)@/, "//********:********@")
+      return hiddenUri
     }
-    return databaseUri.data
-  }, [databaseUri.data, isUriVisible])
+    return databaseUri.data ?? hiddenUri
+  }, [databaseQuery.data?.name, databaseQuery.data?.resource_id, databaseUri.data, isUriVisible])
 
   async function handleSave() {
     if (!hasDescriptionChange || updateDatabase.isPending) return
