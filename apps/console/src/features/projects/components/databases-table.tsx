@@ -8,7 +8,7 @@ interface DatabasesTableProps {
 }
 
 const DATABASES_TABLE_GRID_CLASS =
-  "grid grid-cols-[220px_115px_120px_160px_22ch_22ch]"
+  "grid w-full grid-cols-[minmax(220px,2fr)_160px_minmax(120px,1fr)_minmax(160px,1fr)_160px_160px]"
 
 function formatLocalDateTime(value: string): string {
   if (!value) return "—"
@@ -37,10 +37,10 @@ export function DatabasesTable({
           <div className="flex h-12 items-center px-4">ID</div>
           <div className="flex h-12 items-center px-4">Статус</div>
           <div className="flex h-12 items-center px-4">Использование диска</div>
-          <div className="flex h-12 w-[22ch] items-center justify-end whitespace-nowrap px-4">
+          <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
             Дата создания
           </div>
-          <div className="flex h-12 w-[22ch] items-center justify-end whitespace-nowrap px-4">
+          <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
             Дата изменения
           </div>
         </div>
@@ -83,7 +83,7 @@ export function DatabasesTable({
                   ) : null}
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                  <span className="truncate" title={row.id}>
+                  <span className="break-all" title={row.id}>
                     {row.id}
                   </span>
                 </div>
