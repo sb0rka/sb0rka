@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
+import { DatabasesTable } from "./databases-table"
 import type { DatabaseRow, DraftTag } from "./project-detail-tab-types"
-import { ResourceTable } from "./resource-table"
 
 interface DatabasesTabProps {
   databaseRows: DatabaseRow[]
@@ -62,11 +62,10 @@ export function DatabasesTab({
       </div>
 
       <Card className="overflow-hidden">
-        <CardContent className="p-0">
-          <ResourceTable
+        <CardContent className="p-6">
+          <DatabasesTable
             rows={databaseRows}
             emptyMessage="Нет баз данных"
-            containerPaddingClassName="px-4"
             onRowClick={(row) => onOpenDatabaseDetails(row.id)}
           />
         </CardContent>
