@@ -6,7 +6,7 @@ import { useResourceTags } from "../hooks"
 import type { SecretRow } from "./project-detail-tab-types"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
-  "grid grid-cols-[200px_minmax(220px,1fr)_fit-content(8.5rem)_fit-content(8.5rem)] items-stretch"
+  "grid grid-cols-[400px_minmax(220px,1fr)_160px_160px] items-stretch"
 
 interface SecretDetailsTableProps {
   projectId: string
