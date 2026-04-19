@@ -4,10 +4,7 @@ import {
   type FormEvent,
 } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { Settings } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs } from "@/components/ui/tabs"
 import { ApiError } from "@/lib/api-client"
 import {
   useProject,
@@ -206,14 +203,6 @@ export function ProjectDetailPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">
-          {project.name}
-        </h1>
-        <Badge variant={project.is_active ? "active-solid" : "inactive"}>
-          {project.is_active ? "Активен" : "Неактивен"}
-        </Badge>
-      </div>
 
       <Tabs
         value={activeTab}
