@@ -8,7 +8,16 @@ interface DatabasesTableProps {
 }
 
 const DATABASES_TABLE_GRID_CLASS =
-  "grid grid-cols-[256px_115px_103px_minmax(120px,1fr)_minmax(120px,1fr)_185px]"
+  "grid grid-cols-[220px_115px_120px_160px_22ch_22ch]"
+
+function formatLocalDateTime(value: string): string {
+  if (!value) return "—"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+
+  return date.toLocaleString()
+}
 
 export function DatabasesTable({
   rows,
@@ -26,10 +35,14 @@ export function DatabasesTable({
         >
           <div className="flex h-12 items-center px-4">Название</div>
           <div className="flex h-12 items-center px-4">ID</div>
-          <div className="flex h-12 items-center px-4">Колонки</div>
-          <div className="flex h-12 items-center justify-end px-4">Дата создания</div>
-          <div className="flex h-12 items-center justify-end px-4">Дата изменения</div>
-          <div className="flex h-12 items-center justify-end px-4">Использование диска</div>
+          <div className="flex h-12 items-center px-4">Статус</div>
+          <div className="flex h-12 items-center px-4">Использование диска</div>
+          <div className="flex h-12 w-[22ch] items-center justify-end whitespace-nowrap px-4">
+            Дата создания
+          </div>
+          <div className="flex h-12 w-[22ch] items-center justify-end whitespace-nowrap px-4">
+            Дата изменения
+          </div>
         </div>
 
         {rows.length === 0 ? (
@@ -75,16 +88,16 @@ export function DatabasesTable({
                   </span>
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                  {row.columnsCount}
+                  pending
                 </div>
-                <div className="flex min-h-20 items-center justify-end px-4 py-4 text-sm text-foreground">
-                  {row.createdAt}
+                <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
+                  0%
                 </div>
-                <div className="flex min-h-20 items-center justify-end px-4 py-4 text-sm text-foreground">
-                  {row.updatedAt}
+                <div className="flex min-h-20 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
+                  {formatLocalDateTime(row.createdAt)}
                 </div>
-                <div className="flex min-h-20 items-center justify-end px-4 py-4 text-sm text-foreground">
-                  —
+                <div className="flex min-h-20 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
+                  {formatLocalDateTime(row.updatedAt)}
                 </div>
               </div>
             )
