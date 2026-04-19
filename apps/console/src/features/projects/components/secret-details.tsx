@@ -1,5 +1,4 @@
 import { useEffect, useState, type KeyboardEvent } from "react"
-import { ChevronLeft } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -179,16 +178,16 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
   return (
     <div className="flex flex-col gap-6">
-      <Button variant="ghost" className="w-fit px-0" onClick={onClose}>
-        <ChevronLeft className="mr-1 h-4 w-4" />
-        Назад к списку секретов
-      </Button>
-
       <div className="flex flex-col gap-2">
         <h3 className="text-2xl font-semibold tracking-tight">{secret.name}</h3>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {tagsQuery.data?.tags.map((tag) => (
-            <Badge key={tag.id}>{`${tag.tag_key}:${tag.tag_value}`}</Badge>
+            <Badge
+              key={tag.id}
+              className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold leading-4 text-secondary-foreground hover:bg-secondary"
+            >
+              {`${tag.tag_key}:${tag.tag_value}`}
+            </Badge>
           ))}
           {isAddingTag ? (
             <div className="flex items-center gap-2">
@@ -227,7 +226,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full px-2.5 py-0.5 text-xs font-semibold leading-4"
+              className="h-5 rounded-full px-2.5 py-0.5 text-xs font-semibold leading-4"
               onClick={() => {
                 setIsAddingTag(true)
                 setTagActionError(null)
@@ -302,7 +301,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               onClick={() => void handleDeleteSecret()}
               disabled={deactivateResource.isPending}
             >
-              {deactivateResource.isPending ? "Удаление…" : "Удалить секрет"}
+              {deactivateResource.isPending ? "Удаление…" : "Удалить базу данных"}
             </Button>
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </div>

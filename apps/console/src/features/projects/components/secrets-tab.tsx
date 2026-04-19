@@ -94,20 +94,22 @@ export function SecretsTab({
 
   return (
     <TabsContent value="secrets" className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Секреты</h2>
-          <p className="text-sm text-muted-foreground">
-            Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
-          </p>
+      {openedSecret ? null : (
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-semibold tracking-tight">Секреты</h2>
+            <p className="text-sm text-muted-foreground">
+              Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
+            </p>
+          </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Создать секрет
+          </Button>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Создать секрет
-        </Button>
-      </div>
+      )}
 
-      <Card className="overflow-hidden">
+      <Card className={openedSecret ? "overflow-hidden border-0 shadow-none" : "overflow-hidden"}>
         <CardContent className="p-0">
           {openedSecret ? (
             <SecretDetails
