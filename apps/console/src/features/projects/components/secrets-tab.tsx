@@ -17,7 +17,8 @@ import { TabsContent } from "@/components/ui/tabs"
 import { ApiError } from "@/lib/api-client"
 import type { CreateSecretRequest } from "../api"
 import type { SecretRow } from "./project-detail-tab-types"
-import { SecretDetails, SecretDetailsTable } from "./secret-details"
+import { SecretDetails } from "./secret-details"
+import { SecretDetailsTable } from "./secret-details-table"
 
 interface SecretsTabProps {
   projectId: string
