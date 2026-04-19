@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import {
   Home,
-  DollarSign,
+  RussianRuble,
   FileText,
   Code2,
   ExternalLink,
@@ -15,7 +15,7 @@ import { SborkaLogo } from "@/components/logo"
 
 const navItems = [
   { label: "Проекты", icon: Home, href: "/projects" },
-  { label: "Подписка", icon: DollarSign, href: "/subscription" },
+  { label: "Подписка", icon: RussianRuble, href: "/subscription" },
   { label: "Профиль", icon: User, href: "/profile" },
 ]
 
