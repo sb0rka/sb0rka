@@ -100,7 +100,7 @@ export function ProjectDetailPage() {
   )
   const secretRows: SecretRow[] = useMemo(
     () =>
-      (secretsData?.secrets ?? []).map((secret, index) => ({
+      (secretsData?.secrets ?? []).map((secret) => ({
         id: secret.resource_id,
         name: secret.name,
         description: secret.description,
@@ -109,7 +109,6 @@ export function ProjectDetailPage() {
         createdAt: formatDateForTable(project?.created_at),
         updatedAt: formatDateForTable(secret.revealed_at),
         revealedAt: secret.revealed_at,
-        isHighlighted: index === 0,
       })),
     [project?.created_at, secretsData?.secrets],
   )

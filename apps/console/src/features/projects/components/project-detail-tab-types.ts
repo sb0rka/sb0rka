@@ -23,5 +23,4 @@ export interface SecretRow {
   createdAt: string
   updatedAt: string
   revealedAt?: string
-  isHighlighted: boolean
 }
