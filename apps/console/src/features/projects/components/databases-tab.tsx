@@ -1,5 +1,4 @@
 import { useRef, type FormEvent, type KeyboardEvent } from "react"
-import { Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -60,10 +59,6 @@ export function DatabasesTab({
             Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
           </p>
         </div>
-        <Button onClick={() => dbNameInputRef.current?.focus()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Создать базу данных
-        </Button>
       </div>
 
       <Card className="overflow-hidden">
