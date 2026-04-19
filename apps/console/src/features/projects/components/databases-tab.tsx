@@ -1,7 +1,7 @@
 import { useRef, type FormEvent, type KeyboardEvent } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
@@ -73,10 +73,11 @@ export function DatabasesTab({
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl font-semibold tracking-tight">
+        <CardHeader className="gap-1.5">
+          <CardTitle className="text-xl font-semibold leading-5 tracking-[-0.015em]">
             Создать новую базу данных
           </CardTitle>
+          <CardDescription className="leading-5">PostgreSQL v18</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmitCreateDatabase}>
           <CardContent className="space-y-4 pb-6">
