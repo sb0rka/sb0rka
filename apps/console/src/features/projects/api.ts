@@ -152,17 +152,39 @@ export async function getDatabaseUri(
   })
 }
 
-export interface ResourceResponse {
+export interface DeactivateResourceResponse {
   resource_id: string
   name: string
   description?: string
 }
 
+export interface ProjectResourceResponse {
+  id: string
+  project_id: string
+  is_active: boolean
+  resource_type: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectResourceListResponse {
+  resources: ProjectResourceResponse[]
+}
+
+export async function listResources(
+  projectId: string,
+): Promise<ProjectResourceListResponse> {
+  return apiRequest<ProjectResourceListResponse>({
+    path: `/projects/${projectId}/resources`,
+    base: "resource",
+  })
+}
+
 export async function deactivateResource(
   projectId: string,
   resourceId: string,
-): Promise<ResourceResponse> {
-  return apiRequest<ResourceResponse>({
+): Promise<DeactivateResourceResponse> {
+  return apiRequest<DeactivateResourceResponse>({
     method: "POST",
     path: `/projects/${projectId}/resources/${resourceId}/deactivate`,
     base: "resource",
