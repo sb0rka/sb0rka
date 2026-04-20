@@ -24,6 +24,15 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
+function formatLocalDateTime(value: string): string {
+  if (!value) return "—"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+
+  return date.toLocaleString()
+}
+
 function renderHighlightedText(value: string, query: string): React.ReactNode {
   const normalizedQuery = query.trim()
   if (!normalizedQuery) return value
@@ -107,10 +116,10 @@ function SecretDetailsTableRow({
         )}
       </div>
       <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-        {row.createdAt}
+        {formatLocalDateTime(row.createdAt)}
       </div>
       <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-        {row.updatedAt}
+        {formatLocalDateTime(row.updatedAt)}
       </div>
     </div>
   )

@@ -26,13 +26,6 @@ interface SecretDetailsProps {
   onClose: () => void
 }
 
-function formatDate(value?: string): string {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat("sv-SE").format(date)
-}
-
 function formatDateTime(value?: string): string {
   if (!value) return "—"
   const date = new Date(value)
@@ -265,9 +258,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           </div>
           <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-foreground">Дата изменения</p>
-            <p className="text-base text-muted-foreground">
-              {secret.revealedAt ? formatDate(secret.revealedAt) : secret.updatedAt}
-            </p>
+            <p className="text-base text-muted-foreground">{formatDateTime(secret.updatedAt)}</p>
           </div>
         </CardContent>
       </Card>
