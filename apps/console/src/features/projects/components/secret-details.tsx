@@ -332,7 +332,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               onClick={() => void handleDeleteSecret()}
               disabled={deactivateResource.isPending}
             >
-              {deactivateResource.isPending ? "Удаление…" : "Удалить базу данных"}
+              {deactivateResource.isPending ? "Удаление…" : "Удалить секрет"}
             </Button>
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </div>
