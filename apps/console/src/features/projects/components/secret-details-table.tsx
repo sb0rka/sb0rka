@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react"
+import { useQueries } from "@tanstack/react-query"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { useResourceTags } from "../hooks"
+import { listResourceTags, type TagResponse } from "../api"
 import type { SecretRow } from "./project-detail-tab-types"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
@@ -15,18 +16,53 @@ interface SecretDetailsTableProps {
   onRowClick?: (row: SecretRow) => void
 }
 
+function buildTagLabel(tag: TagResponse): string {
+  return `${tag.tag_key}:${tag.tag_value}`
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function renderHighlightedText(value: string, query: string): React.ReactNode {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) return value
+
+  const regex = new RegExp(`(${escapeRegExp(normalizedQuery)})`, "gi")
+  const parts = value.split(regex)
+
+  return parts.map((part, index) => {
+    if (!part) return null
+    const isMatch = part.toLowerCase() === normalizedQuery.toLowerCase()
+
+    return (
+      <span
+        key={`${part}-${index}`}
+        className={
+          isMatch
+            ? "font-semibold text-[#2b9a66] underline decoration-[#2b9a66]/60"
+            : ""
+        }
+      >
+        {part}
+      </span>
+    )
+  })
+}
+
 function SecretDetailsTableRow({
-  projectId,
   row,
+  tags,
+  searchQuery,
   isLastRow,
   onRowClick,
 }: {
-  projectId: string
   row: SecretRow
+  tags: TagResponse[]
+  searchQuery: string
   isLastRow: boolean
   onRowClick?: (row: SecretRow) => void
 }) {
-  const tagsQuery = useResourceTags(projectId, row.id)
   const isInteractive = Boolean(onRowClick)
 
   return (
@@ -52,16 +88,18 @@ function SecretDetailsTableRow({
       )}
     >
       <div className="flex min-h-14 items-center px-4 py-4">
-        <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
+        <p className="truncate text-sm font-medium text-foreground">
+          {renderHighlightedText(row.name, searchQuery)}
+        </p>
       </div>
       <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 py-4">
-        {tagsQuery.data?.tags.length ? (
-          tagsQuery.data.tags.map((tag) => (
+        {tags.length ? (
+          tags.map((tag) => (
             <Badge
               key={tag.id}
               className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold leading-4 text-secondary-foreground hover:bg-secondary"
             >
-              {`${tag.tag_key}:${tag.tag_value}`}
+              {renderHighlightedText(buildTagLabel(tag), searchQuery)}
             </Badge>
           ))
         ) : (
@@ -85,12 +123,31 @@ export function SecretDetailsTable({
   onRowClick,
 }: SecretDetailsTableProps) {
   const [search, setSearch] = useState("")
+  const tagQueries = useQueries({
+    queries: rows.map((row) => ({
+      queryKey: ["projects", projectId, "resources", row.id, "tags"],
+      queryFn: () => listResourceTags(projectId, row.id),
+      enabled: !!projectId,
+    })),
+  })
+  const tagsByRowId = useMemo(() => {
+    const map = new Map<string, TagResponse[]>()
+    for (let index = 0; index < rows.length; index += 1) {
+      map.set(rows[index].id, tagQueries[index]?.data?.tags ?? [])
+    }
+    return map
+  }, [rows, tagQueries])
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return rows
-    return rows.filter((row) => row.name.toLowerCase().includes(query))
-  }, [rows, search])
+    return rows.filter((row) => {
+      if (row.name.toLowerCase().includes(query)) return true
+
+      const tags = tagsByRowId.get(row.id) ?? []
+      return tags.some((tag) => buildTagLabel(tag).toLowerCase().includes(query))
+    })
+  }, [rows, search, tagsByRowId])
 
   return (
     <div className="flex flex-col">
@@ -128,8 +185,9 @@ export function SecretDetailsTable({
               filteredRows.map((row, index) => (
                 <SecretDetailsTableRow
                   key={row.id}
-                  projectId={projectId}
                   row={row}
+                  tags={tagsByRowId.get(row.id) ?? []}
+                  searchQuery={search}
                   isLastRow={index === filteredRows.length - 1}
                   onRowClick={onRowClick}
                 />
