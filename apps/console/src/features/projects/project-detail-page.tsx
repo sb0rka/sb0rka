@@ -36,6 +36,7 @@ const validTabs = new Set<ProjectTab>([
   "secrets",
   "settings",
 ])
+const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
 
 function formatDateForTable(value?: string): string {
   if (!value) return "—"
@@ -60,6 +61,10 @@ function parseDraftTag(input: string): DraftTag | null {
   if (!tag_key || !tag_value) return null
 
   return { tag_key, tag_value }
+}
+
+function isFinalSyncState(syncState?: string): boolean {
+  return syncState === "synced" || syncState === "failed"
 }
 
 export function ProjectDetailPage() {
@@ -92,6 +97,12 @@ export function ProjectDetailPage() {
       queryKey: ["projects", id, "resources", database.resource_id, "database"],
       queryFn: () => getDatabase(id, database.resource_id),
       enabled: !!id,
+      refetchInterval: (query: {
+        state: { data?: Awaited<ReturnType<typeof getDatabase>> }
+      }) => {
+        const syncState = query.state.data?.sync_state
+        return isFinalSyncState(syncState) ? false : DATABASE_STATUS_POLL_INTERVAL_MS
+      },
     })),
   })
   const databaseDetailsById = useMemo(() => {
