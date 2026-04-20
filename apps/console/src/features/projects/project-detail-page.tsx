@@ -2,7 +2,6 @@ import {
   useMemo,
   useState,
 } from "react"
-import { useQueries } from "@tanstack/react-query"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Tabs } from "@/components/ui/tabs"
 import { ApiError } from "@/lib/api-client"
@@ -14,6 +13,7 @@ import {
   useProjectTableCount,
   useCreateDatabase,
   useAttachResourceTag,
+  useResources,
 } from "./hooks"
 import {
   DatabasesTab,
@@ -21,13 +21,11 @@ import {
   type SecretRow,
   SecretsTab,
   SettingsTab,
-  type DatabaseRow,
   type DraftTag,
   type CreateDatabaseFormState,
   type CreateDatabaseFormActions,
 } from "./components/project-detail-tabs"
-import { getDatabase } from "./api"
-import type { CreateSecretRequest } from "./api"
+import type { CreateSecretRequest, DatabaseResponse } from "./api"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
 const validTabs = new Set<ProjectTab>([
@@ -36,16 +34,6 @@ const validTabs = new Set<ProjectTab>([
   "secrets",
   "settings",
 ])
-const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
-
-function formatDateForTable(value?: string): string {
-  if (!value) return "—"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-
-  return new Intl.DateTimeFormat("sv-SE").format(date)
-}
 
 function parseDraftTag(input: string): DraftTag | null {
   const normalized = input.trim()
@@ -63,10 +51,6 @@ function parseDraftTag(input: string): DraftTag | null {
   return { tag_key, tag_value }
 }
 
-function isFinalSyncState(syncState?: string): boolean {
-  return syncState === "synced" || syncState === "failed"
-}
-
 export function ProjectDetailPage() {
   const { id = "" } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -80,6 +64,7 @@ export function ProjectDetailPage() {
   const { data: project, isLoading } = useProject(id)
   const { data: dbData } = useDatabases(id)
   const { data: secretsData } = useSecrets(id)
+  const { data: resourcesData } = useResources(id)
   const { data: tableCount } = useProjectTableCount(id)
   const createDatabase = useCreateDatabase(id)
   const createSecret = useCreateSecret(id)
@@ -92,47 +77,19 @@ export function ProjectDetailPage() {
   const [databaseSuccess, setDatabaseSuccess] = useState<string | null>(null)
 
   const dbCount = dbData?.databases.length ?? 0
-  const databaseDetailsQueries = useQueries({
-    queries: (dbData?.databases ?? []).map((database) => ({
-      queryKey: ["projects", id, "resources", database.resource_id, "database"],
-      queryFn: () => getDatabase(id, database.resource_id),
-      enabled: !!id,
-      refetchInterval: (query: {
-        state: { data?: Awaited<ReturnType<typeof getDatabase>> }
-      }) => {
-        const syncState = query.state.data?.sync_state
-        return isFinalSyncState(syncState) ? false : DATABASE_STATUS_POLL_INTERVAL_MS
-      },
-    })),
-  })
-  const databaseDetailsById = useMemo(() => {
-    const details = new Map<string, Awaited<ReturnType<typeof getDatabase>>>()
-    for (const query of databaseDetailsQueries) {
-      if (!query.data) continue
-      details.set(query.data.resource_id, query.data)
-    }
-    return details
-  }, [databaseDetailsQueries])
-
-  const databaseRows: DatabaseRow[] = useMemo(
+  const databases: DatabaseResponse[] = dbData?.databases ?? []
+  const resourceTimestampsById = useMemo(
     () =>
-      (dbData?.databases ?? []).map((databaseFromList, index) => {
-        const database = databaseDetailsById.get(databaseFromList.resource_id) ?? databaseFromList
-
-        return {
-          id: databaseFromList.resource_id,
-          name: databaseFromList.name,
-          description: databaseFromList.description,
-          tablesCount: Math.max(databaseFromList.next_table_id - 1, 0),
-          columnsCount: "—",
-          syncState: database.sync_state,
-          desiredState: database.desired_state,
-          createdAt: project?.created_at ?? "",
-          updatedAt: project?.updated_at ?? "",
-          isHighlighted: index === 0,
-        }
-      }),
-    [databaseDetailsById, dbData?.databases, project?.created_at, project?.updated_at],
+      Object.fromEntries(
+        (resourcesData?.resources ?? []).map((resource) => [
+          String(resource.id),
+          {
+            createdAt: resource.created_at,
+            updatedAt: resource.updated_at,
+          },
+        ]),
+      ),
+    [resourcesData?.resources],
   )
   const secretRows: SecretRow[] = useMemo(
     () =>
@@ -142,11 +99,11 @@ export function ProjectDetailPage() {
         description: secret.description,
         tablesCount: "—",
         columnsCount: "—",
-        createdAt: formatDateForTable(project?.created_at),
-        updatedAt: formatDateForTable(secret.revealed_at),
+        createdAt: resourceTimestampsById[secret.resource_id]?.createdAt ?? "",
+        updatedAt: resourceTimestampsById[secret.resource_id]?.updatedAt ?? "",
         revealedAt: secret.revealed_at,
       })),
-    [project?.created_at, secretsData?.secrets],
+    [resourceTimestampsById, secretsData?.secrets],
   )
 
   function openDatabaseDetails(resourceId: string) {
@@ -281,7 +238,9 @@ export function ProjectDetailPage() {
 
         <OverviewTab dbCount={dbCount} tableCount={tableCount} />
         <DatabasesTab
-          databaseRows={databaseRows}
+          projectId={id}
+          databases={databases}
+          resourceTimestampsById={resourceTimestampsById}
           createForm={createDatabaseForm}
           createActions={createDatabaseActions}
           onOpenDatabaseDetails={openDatabaseDetails}

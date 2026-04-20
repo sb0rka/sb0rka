@@ -1,10 +1,12 @@
-import { useRef, type FormEvent, type KeyboardEvent } from "react"
+import { useMemo, useRef, type FormEvent, type KeyboardEvent } from "react"
+import { useQueries } from "@tanstack/react-query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
+import { getDatabase, type DatabaseResponse } from "../api"
 import { DatabasesTable } from "./databases-table"
 import type {
   CreateDatabaseFormActions,
@@ -12,20 +14,71 @@ import type {
   DatabaseRow,
 } from "./project-detail-tab-types"
 
+const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
+
+function isFinalSyncState(syncState?: string): boolean {
+  return syncState === "synced" || syncState === "failed"
+}
+
 interface DatabasesTabProps {
-  databaseRows: DatabaseRow[]
+  projectId: string
+  databases: DatabaseResponse[]
+  resourceTimestampsById: Record<string, { createdAt?: string; updatedAt?: string }>
   createForm: CreateDatabaseFormState
   createActions: CreateDatabaseFormActions
   onOpenDatabaseDetails: (resourceId: string) => void
 }
 
 export function DatabasesTab({
-  databaseRows,
+  projectId,
+  databases,
+  resourceTimestampsById,
   createForm,
   createActions,
   onOpenDatabaseDetails,
 }: DatabasesTabProps) {
   const dbNameInputRef = useRef<HTMLInputElement>(null)
+  const databaseDetailsQueries = useQueries({
+    queries: databases.map((database) => ({
+      queryKey: ["projects", projectId, "resources", database.resource_id, "database"],
+      queryFn: () => getDatabase(projectId, database.resource_id),
+      enabled: !!projectId,
+      refetchInterval: (query: {
+        state: { data?: Awaited<ReturnType<typeof getDatabase>> }
+      }) => {
+        const syncState = query.state.data?.sync_state
+        return isFinalSyncState(syncState) ? false : DATABASE_STATUS_POLL_INTERVAL_MS
+      },
+    })),
+  })
+  const databaseDetailsById = useMemo(() => {
+    const details = new Map<string, Awaited<ReturnType<typeof getDatabase>>>()
+    for (const query of databaseDetailsQueries) {
+      if (!query.data) continue
+      details.set(query.data.resource_id, query.data)
+    }
+    return details
+  }, [databaseDetailsQueries])
+  const databaseRows: DatabaseRow[] = useMemo(
+    () =>
+      databases.map((databaseFromList, index) => {
+        const database = databaseDetailsById.get(databaseFromList.resource_id) ?? databaseFromList
+
+        return {
+          id: databaseFromList.resource_id,
+          name: databaseFromList.name,
+          description: databaseFromList.description,
+          tablesCount: Math.max(databaseFromList.next_table_id - 1, 0),
+          columnsCount: "—",
+          syncState: database.sync_state,
+          desiredState: database.desired_state,
+          createdAt: resourceTimestampsById[databaseFromList.resource_id]?.createdAt ?? "",
+          updatedAt: resourceTimestampsById[databaseFromList.resource_id]?.updatedAt ?? "",
+          isHighlighted: index === 0,
+        }
+      }),
+    [databaseDetailsById, databases, resourceTimestampsById],
+  )
 
   function handleTagInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {

@@ -18,6 +18,7 @@ import {
   deactivateResource,
   createSecret,
   revealSecretValue,
+  listResources,
 } from "./api"
 import type {
   ProjectResponse,
@@ -33,6 +34,7 @@ import type {
   DatabaseResponse,
   UpdateDatabaseRequest,
   RevealSecretValueResponse,
+  ProjectResourceListResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -265,6 +267,16 @@ export function useCreateSecret(projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
     },
+  })
+}
+
+export function useResources(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<ProjectResourceListResponse>({
+    queryKey: ["projects", projectId, "resources"],
+    queryFn: () => listResources(projectId),
+    enabled: isAuthenticated && !!projectId,
   })
 }
 
