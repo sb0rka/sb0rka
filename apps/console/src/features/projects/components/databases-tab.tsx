@@ -6,48 +6,37 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
 import { DatabasesTable } from "./databases-table"
-import type { DatabaseRow, DraftTag } from "./project-detail-tab-types"
+import type {
+  CreateDatabaseFormActions,
+  CreateDatabaseFormState,
+  DatabaseRow,
+} from "./project-detail-tab-types"
 
 interface DatabasesTabProps {
   databaseRows: DatabaseRow[]
-  newDatabaseName: string
-  newDatabaseDescription: string
-  newTagInput: string
-  draftTags: DraftTag[]
-  databaseError: string | null
-  databaseSuccess: string | null
-  isCreatePending: boolean
+  createForm: CreateDatabaseFormState
+  createActions: CreateDatabaseFormActions
   onOpenDatabaseDetails: (resourceId: string) => void
-  onSubmitCreateDatabase: (e: FormEvent) => Promise<void>
-  onAddDraftTag: () => void
-  onNewDatabaseNameChange: (value: string) => void
-  onNewDatabaseDescriptionChange: (value: string) => void
-  onNewTagInputChange: (value: string) => void
 }
 
 export function DatabasesTab({
   databaseRows,
-  newDatabaseName,
-  newDatabaseDescription,
-  newTagInput,
-  draftTags,
-  databaseError,
-  databaseSuccess,
-  isCreatePending,
+  createForm,
+  createActions,
   onOpenDatabaseDetails,
-  onSubmitCreateDatabase,
-  onAddDraftTag,
-  onNewDatabaseNameChange,
-  onNewDatabaseDescriptionChange,
-  onNewTagInputChange,
 }: DatabasesTabProps) {
   const dbNameInputRef = useRef<HTMLInputElement>(null)
 
   function handleTagInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault()
-      onAddDraftTag()
+      createActions.onAddDraftTag()
     }
+  }
+
+  function handleCreateDatabaseSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    void createActions.onSubmitCreateDatabase()
   }
 
   return (
@@ -78,7 +67,7 @@ export function DatabasesTab({
           </CardTitle>
           <CardDescription className="leading-5">PostgreSQL v18.3</CardDescription>
         </CardHeader>
-        <form onSubmit={onSubmitCreateDatabase}>
+        <form onSubmit={handleCreateDatabaseSubmit}>
           <CardContent className="space-y-4 pb-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -86,8 +75,8 @@ export function DatabasesTab({
                 <Input
                   id="new-db-name"
                   placeholder="Введите название базы данных"
-                  value={newDatabaseName}
-                  onChange={(e) => onNewDatabaseNameChange(e.target.value)}
+                  value={createForm.newDatabaseName}
+                  onChange={(e) => createActions.onNewDatabaseNameChange(e.target.value)}
                   ref={dbNameInputRef}
                 />
               </div>
@@ -96,8 +85,10 @@ export function DatabasesTab({
                 <Input
                   id="new-db-description"
                   placeholder="Добавьте описание базы данных"
-                  value={newDatabaseDescription}
-                  onChange={(e) => onNewDatabaseDescriptionChange(e.target.value)}
+                  value={createForm.newDatabaseDescription}
+                  onChange={(e) =>
+                    createActions.onNewDatabaseDescriptionChange(e.target.value)
+                  }
                 />
               </div>
             </div>
@@ -105,26 +96,41 @@ export function DatabasesTab({
             <div className="flex flex-col gap-1.5">
               <Label>Теги</Label>
               <div className="flex flex-wrap items-center gap-2 pb-1">
-                {draftTags.map((tag) => (
+                {createForm.draftTags.map((tag) => (
                   <Badge key={`${tag.tag_key}:${tag.tag_value}`}>{`${tag.tag_key}:${tag.tag_value}`}</Badge>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={onAddDraftTag}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={createActions.onAddDraftTag}
+                >
                   + добавить тег
                 </Button>
               </div>
               <Input
                 placeholder="Например: env:production"
-                value={newTagInput}
-                onChange={(e) => onNewTagInputChange(e.target.value)}
+                value={createForm.newTagInput}
+                onChange={(e) => createActions.onNewTagInputChange(e.target.value)}
                 onKeyDown={handleTagInputKeyDown}
               />
             </div>
-            {databaseError ? <p className="text-sm text-destructive">{databaseError}</p> : null}
-            {databaseSuccess ? <p className="text-sm text-emerald-600">{databaseSuccess}</p> : null}
+            {createForm.databaseError ? (
+              <p className="text-sm text-destructive">{createForm.databaseError}</p>
+            ) : null}
+            {createForm.databaseSuccess ? (
+              <p className="text-sm text-emerald-600">{createForm.databaseSuccess}</p>
+            ) : null}
           </CardContent>
           <div className="border-t border-border px-6 py-6">
-            <Button type="button" onClick={onSubmitCreateDatabase} disabled={!newDatabaseName.trim() || isCreatePending}>
-              {isCreatePending ? "Создание…" : "Создать"}
+            <Button
+              type="button"
+              onClick={() => void createActions.onSubmitCreateDatabase()}
+              disabled={
+                !createForm.newDatabaseName.trim() || createForm.isCreatePending
+              }
+            >
+              {createForm.isCreatePending ? "Создание…" : "Создать"}
             </Button>
           </div>
         </form>

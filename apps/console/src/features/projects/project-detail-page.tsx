@@ -1,7 +1,6 @@
 import {
   useMemo,
   useState,
-  type FormEvent,
 } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Tabs } from "@/components/ui/tabs"
@@ -23,6 +22,8 @@ import {
   SettingsTab,
   type DatabaseRow,
   type DraftTag,
+  type CreateDatabaseFormState,
+  type CreateDatabaseFormActions,
 } from "./components/project-detail-tabs"
 import type { CreateSecretRequest } from "./api"
 
@@ -92,6 +93,8 @@ export function ProjectDetailPage() {
         description: database.description,
         tablesCount: Math.max(database.next_table_id - 1, 0),
         columnsCount: "—",
+        syncState: database.sync_state,
+        desiredState: database.desired_state,
         createdAt: project?.created_at ?? "",
         updatedAt: project?.updated_at ?? "",
         isHighlighted: index === 0,
@@ -141,8 +144,7 @@ export function ProjectDetailPage() {
     setNewTagInput("")
   }
 
-  async function handleCreateDatabase(e: FormEvent) {
-    e.preventDefault()
+  async function handleCreateDatabase() {
     if (!newDatabaseName.trim() || createDatabase.isPending) return
 
     setDatabaseError(null)
@@ -182,6 +184,24 @@ export function ProjectDetailPage() {
 
   async function handleCreateSecret(data: CreateSecretRequest) {
     await createSecret.mutateAsync(data)
+  }
+
+  const createDatabaseForm: CreateDatabaseFormState = {
+    newDatabaseName,
+    newDatabaseDescription,
+    newTagInput,
+    draftTags,
+    databaseError,
+    databaseSuccess,
+    isCreatePending: createDatabase.isPending,
+  }
+
+  const createDatabaseActions: CreateDatabaseFormActions = {
+    onSubmitCreateDatabase: handleCreateDatabase,
+    onAddDraftTag: addDraftTag,
+    onNewDatabaseNameChange: setNewDatabaseName,
+    onNewDatabaseDescriptionChange: setNewDatabaseDescription,
+    onNewTagInputChange: setNewTagInput,
   }
 
   if (isLoading) {
@@ -229,19 +249,9 @@ export function ProjectDetailPage() {
         <OverviewTab dbCount={dbCount} tableCount={tableCount} />
         <DatabasesTab
           databaseRows={databaseRows}
-          newDatabaseName={newDatabaseName}
-          newDatabaseDescription={newDatabaseDescription}
-          newTagInput={newTagInput}
-          draftTags={draftTags}
-          databaseError={databaseError}
-          databaseSuccess={databaseSuccess}
-          isCreatePending={createDatabase.isPending}
+          createForm={createDatabaseForm}
+          createActions={createDatabaseActions}
           onOpenDatabaseDetails={openDatabaseDetails}
-          onSubmitCreateDatabase={handleCreateDatabase}
-          onAddDraftTag={addDraftTag}
-          onNewDatabaseNameChange={setNewDatabaseName}
-          onNewDatabaseDescriptionChange={setNewDatabaseDescription}
-          onNewTagInputChange={setNewTagInput}
         />
         <SecretsTab
           projectId={id}
