@@ -14,3 +14,13 @@ Sb0rka gives you managed PostgreSQL databases with instant connection URIs, encr
 - [Encrypted Secrets](solutions/secrets) - Store API keys, passwords, and environment variables securely. Reveal them only when needed. [lock]
 
 </CardGroup>
+
+## Interfaces
+
+<CardGroup cols={2}>
+
+- [Console](console/quickstart_en) - A web interface for managing projects and databases. Use it to create your first project, provision a database, and retrieve a ready-to-use connection string for any application. [rocket]
+
+- [s0c CLI](cli/overview_en) - The command-line interface, it wraps the Sb0rka API in a focused set of commands so you can manage projects, databases, and connections, and work in `psql` without leaving the terminal. [terminal]
+
+</CardGroup>
