@@ -1,11 +1,10 @@
-import path from "path"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "tailwindcss"
 import autoprefixer from "autoprefixer"
 
 export default defineConfig({
-  base: "/console/",
+  base: "/",
   plugins: [react()],
   css: {
     postcss: {
@@ -14,7 +13,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": "/src",
     },
   },
   server: {

@@ -17,7 +17,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider defaultTheme="light">
-          <BrowserRouter basename="/console">
+          <BrowserRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
