@@ -9,6 +9,8 @@ export interface DatabaseRow {
   description?: string
   tablesCount: number
   columnsCount: string
+  syncState?: "pending" | "ongoing" | "synced" | "failed"
+  desiredState?: "present" | "absent"
   createdAt: string
   updatedAt: string
   isHighlighted: boolean
@@ -23,4 +25,22 @@ export interface SecretRow {
   createdAt: string
   updatedAt: string
   revealedAt?: string
+}
+
+export interface CreateDatabaseFormState {
+  newDatabaseName: string
+  newDatabaseDescription: string
+  newTagInput: string
+  draftTags: DraftTag[]
+  databaseError: string | null
+  databaseSuccess: string | null
+  isCreatePending: boolean
+}
+
+export interface CreateDatabaseFormActions {
+  onSubmitCreateDatabase: () => Promise<void>
+  onAddDraftTag: () => void
+  onNewDatabaseNameChange: (value: string) => void
+  onNewDatabaseDescriptionChange: (value: string) => void
+  onNewTagInputChange: (value: string) => void
 }
