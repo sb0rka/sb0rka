@@ -85,10 +85,10 @@ export function ProjectsPage() {
         <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm min-h-[500px]">
           <div className="flex flex-col items-center gap-1">
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              У вас нет проектов.
+              У вас нет проектов
             </h2>
             <p className="text-sm tracking-tight text-muted-foreground">
-              Добавьте проект всего за несколько простых шагов.
+              Добавьте проект всего за несколько простых шагов
             </p>
             <Button className="mt-4" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />

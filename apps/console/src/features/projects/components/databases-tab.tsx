@@ -76,7 +76,7 @@ export function DatabasesTab({
           <CardTitle className="text-xl font-semibold leading-5 tracking-[-0.015em]">
             Создать новую базу данных
           </CardTitle>
-          <CardDescription className="leading-5">PostgreSQL v18</CardDescription>
+          <CardDescription className="leading-5">PostgreSQL v18.3</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmitCreateDatabase}>
           <CardContent className="space-y-4 pb-6">

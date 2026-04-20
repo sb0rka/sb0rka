@@ -58,12 +58,12 @@ export function RegisterPage() {
           <CardContent>
             <form id="register-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="username">Юзернейм</Label>
+                <Label htmlFor="username">Имя пользователя</Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Введите ваш юзернейм"
+                  placeholder="Введите ваш username"
                   autoComplete="username"
                   required
                 />
@@ -114,7 +114,7 @@ export function RegisterPage() {
                   id="invite-code"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Введите инвайт код"
+                  placeholder="Введите код приглашения"
                   required
                 />
               </div>

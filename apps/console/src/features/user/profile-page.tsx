@@ -239,7 +239,7 @@ export function ProfilePage() {
               Учетная запись
             </CardTitle>
             <CardDescription>
-              Перманентно удалить вашу учетную запись и все связанные с ней данные.
+              Безвозвратно удалить вашу учетную запись и все связанные с ней данные.
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex flex-row pt-6">

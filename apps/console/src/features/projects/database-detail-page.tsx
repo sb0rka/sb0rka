@@ -412,7 +412,7 @@ export function DatabaseDetailPage() {
         <CardHeader className="border-b border-border pb-6">
           <CardTitle className="text-3xl font-semibold tracking-tight">Опасная зона</CardTitle>
           <CardDescription>
-            Перманентно удалить базу данных и все связанные с ней данные.
+            Безвозвратно удалить базу данных.
           </CardDescription>
         </CardHeader>
         <CardFooter className="pt-6">

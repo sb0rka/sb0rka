@@ -36,12 +36,12 @@ export function LoginPage() {
           <CardContent>
             <form id="login-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="login">Email или Юзернейм</Label>
+                <Label htmlFor="login">Имя пользователя или Email</Label>
                 <Input
                   id="login"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
-                  placeholder="Введите email или юзернейм"
+                  placeholder="Введите username или email"
                   autoComplete="username"
                   required
                 />
@@ -50,18 +50,19 @@ export function LoginPage() {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Пароль</Label>
-                  <Link
+                  {/* <Link
                     to="/forgot-password"
                     className="text-sm text-foreground underline"
                   >
                     Forgot your password?
-                  </Link>
+                  </Link> */}
                 </div>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Введите пароль"
                   autoComplete="current-password"
                   required
                 />
@@ -84,7 +85,7 @@ export function LoginPage() {
               className="w-full"
               disabled={loginMutation.isPending}
             >
-              {loginMutation.isPending ? "Вход…" : "Login"}
+              {loginMutation.isPending ? "Вход…" : "Войти"}
             </Button>
 
             <p className="pt-4 text-center text-sm text-foreground">

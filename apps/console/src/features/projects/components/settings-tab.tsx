@@ -90,7 +90,7 @@ export function ProjectSettings({
             Опасная зона
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Перманентно удалить проект и все связанные с ним данные.
+            Безвозвратно удалить проект и все связанные с ним данные.
           </p>
         </CardHeader>
         <CardFooter className="p-6">

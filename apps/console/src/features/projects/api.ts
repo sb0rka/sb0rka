@@ -59,7 +59,7 @@ export async function deactivateProject(
 ): Promise<void> {
   return apiRequest<void>({
     method: "DELETE",
-    path: `/projects/${projectId}/deactivate`,
+    path: `/projects/${projectId}`,
     base: "resource",
   })
 }

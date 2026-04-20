@@ -99,7 +99,7 @@ export function SecretsTab({
           <div className="flex flex-col gap-1">
             <h2 className="text-2xl font-semibold tracking-tight">Секреты</h2>
             <p className="text-sm text-muted-foreground">
-              Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
+              Безопасно храните и организуйте работу с конфиденциальными переменными.
             </p>
           </div>
           <Button onClick={() => setIsCreateDialogOpen(true)}>

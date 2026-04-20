@@ -330,7 +330,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         <CardHeader className="border-b border-border pb-6">
           <CardTitle className="text-[20px] font-semibold tracking-tight">Опасная зона</CardTitle>
           <CardDescription>
-            Перманентно удалить секрет и все связанные с ним данные.
+            Безвозвратно удалить секрет.
           </CardDescription>
         </CardHeader>
         <CardFooter className="pt-6">
