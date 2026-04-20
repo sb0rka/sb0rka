@@ -11,7 +11,7 @@ const FORM_PATHS = [
   "/user",
   "/user/password",
 ]
-const AUTH_DEBUG = true
+const AUTH_DEBUG = false
 
 function authLog(message: string, meta?: Record<string, unknown>): void {
   if (!AUTH_DEBUG) return
