@@ -69,6 +69,8 @@ export interface DatabaseResponse {
   name: string
   description?: string
   next_table_id: number
+  sync_state?: "pending" | "ongoing" | "synced" | "failed"
+  desired_state?: "present" | "absent"
 }
 
 export interface DatabaseListResponse {

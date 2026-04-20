@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 import type { DatabaseRow } from "./project-detail-tab-types"
+import { getDatabaseStatusLabel } from "./get-database-status-label"
 
 interface DatabasesTableProps {
   rows: DatabaseRow[]
@@ -88,7 +89,7 @@ export function DatabasesTable({
                   </span>
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                  pending
+                  {getDatabaseStatusLabel(row.syncState, row.desiredState)}
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
                   0%

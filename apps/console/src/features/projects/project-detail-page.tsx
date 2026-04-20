@@ -2,6 +2,7 @@ import {
   useMemo,
   useState,
 } from "react"
+import { useQueries } from "@tanstack/react-query"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Tabs } from "@/components/ui/tabs"
 import { ApiError } from "@/lib/api-client"
@@ -25,6 +26,7 @@ import {
   type CreateDatabaseFormState,
   type CreateDatabaseFormActions,
 } from "./components/project-detail-tabs"
+import { getDatabase } from "./api"
 import type { CreateSecretRequest } from "./api"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
@@ -85,21 +87,41 @@ export function ProjectDetailPage() {
   const [databaseSuccess, setDatabaseSuccess] = useState<string | null>(null)
 
   const dbCount = dbData?.databases.length ?? 0
+  const databaseDetailsQueries = useQueries({
+    queries: (dbData?.databases ?? []).map((database) => ({
+      queryKey: ["projects", id, "resources", database.resource_id, "database"],
+      queryFn: () => getDatabase(id, database.resource_id),
+      enabled: !!id,
+    })),
+  })
+  const databaseDetailsById = useMemo(() => {
+    const details = new Map<string, Awaited<ReturnType<typeof getDatabase>>>()
+    for (const query of databaseDetailsQueries) {
+      if (!query.data) continue
+      details.set(query.data.resource_id, query.data)
+    }
+    return details
+  }, [databaseDetailsQueries])
+
   const databaseRows: DatabaseRow[] = useMemo(
     () =>
-      (dbData?.databases ?? []).map((database, index) => ({
-        id: database.resource_id,
-        name: database.name,
-        description: database.description,
-        tablesCount: Math.max(database.next_table_id - 1, 0),
-        columnsCount: "—",
-        syncState: database.sync_state,
-        desiredState: database.desired_state,
-        createdAt: project?.created_at ?? "",
-        updatedAt: project?.updated_at ?? "",
-        isHighlighted: index === 0,
-      })),
-    [dbData?.databases, project?.created_at, project?.updated_at],
+      (dbData?.databases ?? []).map((databaseFromList, index) => {
+        const database = databaseDetailsById.get(databaseFromList.resource_id) ?? databaseFromList
+
+        return {
+          id: databaseFromList.resource_id,
+          name: databaseFromList.name,
+          description: databaseFromList.description,
+          tablesCount: Math.max(databaseFromList.next_table_id - 1, 0),
+          columnsCount: "—",
+          syncState: database.sync_state,
+          desiredState: database.desired_state,
+          createdAt: project?.created_at ?? "",
+          updatedAt: project?.updated_at ?? "",
+          isHighlighted: index === 0,
+        }
+      }),
+    [databaseDetailsById, dbData?.databases, project?.created_at, project?.updated_at],
   )
   const secretRows: SecretRow[] = useMemo(
     () =>
