@@ -124,6 +124,34 @@ func NewCmdAPIProjects() *cobra.Command {
 	}
 	cmd.Flags().Bool("pretty", false, "Pretty-print JSON response")
 
+	createCmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a project",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, err := cmd.Flags().GetString("name")
+			if err != nil {
+				return err
+			}
+			description, err := cmd.Flags().GetString("description")
+			if err != nil {
+				return err
+			}
+
+			payload, err := platformService.CreateProject(cmd.Context(), name, description)
+			if err != nil {
+				return err
+			}
+
+			return printJSON(cmd, payload)
+		},
+	}
+	createCmd.Flags().String("name", "", "Project name")
+	createCmd.Flags().String("description", "", "Project description")
+	createCmd.Flags().Bool("pretty", false, "Pretty-print JSON response")
+	_ = createCmd.MarkFlagRequired("name")
+	cmd.AddCommand(createCmd)
+
 	return cmd
 }
 

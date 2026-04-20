@@ -1,0 +1,114 @@
+name: Release contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/contract/**"
+      - ".github/workflows/release-contract.yml"
+      - ".github/actions/go-build/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-contract
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      exists: ${{ steps.version.outputs.exists }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Read version and check tag
+        id: version
+        run: |
+          version=$(tr -d '[:space:]' < packages/contract/version.txt)
+          if [ -z "${version}" ]; then
+            echo "packages/contract/version.txt is empty" >&2
+            exit 1
+          fi
+          case "${version}" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "version '${version}' must match vMAJOR.MINOR.PATCH" >&2
+              exit 1
+              ;;
+          esac
+          tag="packages/contract/${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  verify:
+    name: Verify
+    needs: check
+    if: needs.check.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build contract
+        uses: ./.github/actions/go-build
+        with:
+          module-dir: packages/contract
+          version-file: version.txt
+
+      - name: Verify modules
+        working-directory: packages/contract
+        run: go mod verify
+
+      - name: Vet
+        working-directory: packages/contract
+        run: go vet ./...
+
+      - name: Test
+        working-directory: packages/contract
+        run: go test -race -count=1 ./...
+
+  publish:
+    name: Publish release
+    needs: [check, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create tag
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          git tag "${TAG}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${TAG}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.check.outputs.tag }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh release create "${TAG}" \
+            --title "contract ${VERSION}" \
+            --notes "Automated release of github.com/sb0rka/sb0rka/packages/contract ${VERSION}." \
+            --target "${GITHUB_SHA}"

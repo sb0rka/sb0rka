@@ -1,12 +1,17 @@
 package cli
 
 import (
+	_ "embed"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
-const S0CVersion = "v0.0.1"
+//go:embed version.txt
+var versionFile string
+
+var S0CVersion = strings.TrimSpace(versionFile)
 
 func NewCmdVersion() *cobra.Command {
 	return &cobra.Command{

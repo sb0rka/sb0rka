@@ -1,0 +1,87 @@
+name: Sync docs to docs-site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/sync-docs-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clone target repo
+        env:
+          TOKEN: ${{ secrets.DOCS_SITE_SYNC_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TOKEN}@github.com/sb0rka/docs-site.git" target-repo
+
+      - name: Copy docs into target repo
+        run: |
+          mkdir -p target-repo/docs
+          rsync -av --delete docs/ target-repo/docs/
+          cat > target-repo/docs/README.md <<'EOF'
+          # DO NOT EDIT MANUALLY
+
+          This directory is synced automatically from `sb0rka/sb0rka`.
+          Make changes in the source repository and let the sync workflow update this copy.
+          EOF
+
+      - name: Detect changes
+        id: changes
+        run: |
+          cd target-repo
+          # `git diff` misses newly added untracked files under docs/.
+          if [[ -z "$(git status --porcelain -- docs)" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create branch, commit, and push
+        if: steps.changes.outputs.changed == 'true'
+        id: push
+        env:
+          TOKEN: ${{ secrets.DOCS_SITE_SYNC_TOKEN }}
+        run: |
+          BRANCH="sync-docs-${GITHUB_SHA::7}-${GITHUB_RUN_ID}"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+          cd target-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add docs
+          git commit -m "sync docs from sb0rka@${GITHUB_SHA::7}"
+          git push origin "$BRANCH"
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_SITE_SYNC_TOKEN }}
+          BRANCH: ${{ steps.push.outputs.branch }}
+        run: |
+          gh pr create \
+            --repo sb0rka/docs-site \
+            --base main \
+            --head "$BRANCH" \
+            --title "Sync docs from sb0rka@${GITHUB_SHA::7}" \
+            --body "$(cat <<EOF
+          Automated sync of \`docs/\` from \`sb0rka/sb0rka\`.
+
+          Source commit: \`${GITHUB_SHA}\`
+          EOF
+          )"

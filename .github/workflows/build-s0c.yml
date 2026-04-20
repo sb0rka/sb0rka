@@ -1,0 +1,60 @@
+name: Build s0c
+
+on:
+  pull_request:
+    paths:
+      - "apps/s0c/**"
+      - ".github/workflows/build-s0c.yml"
+      - ".github/actions/go-build/**"
+  push:
+    branches: [main]
+    paths:
+      - "apps/s0c/**"
+      - ".github/workflows/build-s0c.yml"
+      - ".github/actions/go-build/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-s0c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build s0c
+        id: s0c
+        uses: ./.github/actions/go-build
+        with:
+          module-dir: apps/s0c
+          version-file: internal/cli/version.txt
+          binary-name: s0c
+
+      - name: Verify modules
+        working-directory: apps/s0c
+        run: go mod verify
+
+      - name: Vet
+        working-directory: apps/s0c
+        run: go vet ./...
+
+      - name: Test
+        working-directory: apps/s0c
+        run: go test -race -count=1 ./...
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.s0c.outputs.binary-name }}
+          path: ${{ steps.s0c.outputs.binary-path }}
+          if-no-files-found: error
+          retention-days: 7

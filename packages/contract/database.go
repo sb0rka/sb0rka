@@ -33,7 +33,7 @@ type UpdateDatabaseColumnRequest struct {
 }
 
 type DatabaseResponse struct {
-	ResourceID  int64   `json:"resource_id"`
+	ResourceID  string  `json:"resource_id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 	NextTableID int64   `json:"next_table_id"`
@@ -45,7 +45,7 @@ type DatabaseListResponse struct {
 
 type DBTableResponse struct {
 	ID           int64     `json:"id"`
-	DBID         int64     `json:"db_id"`
+	DBID         string    `json:"db_id"`
 	Name         string    `json:"name"`
 	Description  *string   `json:"description,omitempty"`
 	NextColumnID int64     `json:"next_column_id"`
@@ -60,7 +60,7 @@ type DBTableListResponse struct {
 type DBTableColumnResponse struct {
 	ID           int64     `json:"id"`
 	TableID      int64     `json:"table_id"`
-	DBID         int64     `json:"db_id"`
+	DBID         string    `json:"db_id"`
 	Name         string    `json:"name"`
 	DataType     string    `json:"data_type"`
 	IsPK         bool      `json:"is_pk"`

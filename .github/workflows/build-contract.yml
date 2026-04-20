@@ -1,0 +1,50 @@
+name: Build contract
+
+on:
+  pull_request:
+    paths:
+      - "packages/contract/**"
+      - ".github/workflows/build-contract.yml"
+      - ".github/actions/go-build/**"
+  push:
+    branches: [main]
+    paths:
+      - "packages/contract/**"
+      - ".github/workflows/build-contract.yml"
+      - ".github/actions/go-build/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Vet and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build contract
+        uses: ./.github/actions/go-build
+        with:
+          module-dir: packages/contract
+          version-file: version.txt
+
+      - name: Verify modules
+        working-directory: packages/contract
+        run: go mod verify
+
+      - name: Vet
+        working-directory: packages/contract
+        run: go vet ./...
+
+      - name: Test
+        working-directory: packages/contract
+        run: go test -race -count=1 ./...

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/s0c/internal/app"
 	"github.com/sb0rka/sb0rka/apps/s0c/internal/config"
@@ -26,11 +27,48 @@ func NewCmdPsql() *cobra.Command {
 				return err
 			}
 
-			projectID, err := projectIDFromFlagsOrConfig(cmd, cfg)
+			projectFlag, err := cmd.Flags().GetString("project-id")
 			if err != nil {
 				return err
 			}
-			dbID, err := databaseIDFromFlagsOrConfig(cmd, cfg)
+			databaseFlag, err := cmd.Flags().GetString("database-id")
+			if err != nil {
+				return err
+			}
+
+			projectID := strings.TrimSpace(projectFlag)
+			if projectID == "" {
+				projectID = strings.TrimSpace(cfg.ProjectID)
+			}
+			dbID := strings.TrimSpace(databaseFlag)
+			if dbID == "" {
+				dbID = strings.TrimSpace(cfg.DatabaseID)
+			}
+
+			switch {
+			case projectID == "" && dbID == "":
+				projectID, dbID, err = bootstrapPsqlDefaults(cmd, platformService, cfg)
+				if err != nil {
+					return err
+				}
+			case projectID == "" || dbID == "":
+				return fmt.Errorf("s0c is not configured with project and database defaults; use `s0c config -p <project-id> -d <database-id>`")
+			}
+
+			project, err := platformService.GetProject(cmd.Context(), projectID)
+			if err != nil {
+				return err
+			}
+			database, err := platformService.GetDatabase(cmd.Context(), projectID, dbID)
+			if err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Operating in project %s ID: %s\n", project.Name, project.ID)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Connecting to database %s ID: %s\n", database.Name, database.ResourceID)
 			if err != nil {
 				return err
 			}
@@ -93,6 +131,43 @@ func NewCmdPsql() *cobra.Command {
 	cmd.Flags().StringP("database-id", "d", "", "Database resource ID (overrides default from `s0c config`)")
 
 	return cmd
+}
+
+func bootstrapPsqlDefaults(cmd *cobra.Command, platformService *app.PlatformService, cfg config.Config) (string, string, error) {
+	projects, err := platformService.ListProjects(cmd.Context())
+	if err != nil {
+		return "", "", fmt.Errorf("list projects: %w", err)
+	}
+	if len(projects.Projects) > 0 {
+		return "", "", fmt.Errorf("s0c is not configured with project and database defaults; use `s0c config -p <project-id> -d <database-id>`")
+	}
+
+	project, err := platformService.CreateProject(cmd.Context(), "default", "")
+	if err != nil {
+		return "", "", fmt.Errorf("create project: %w", err)
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created project %s ID: %s\n", project.Name, project.ID)
+	if err != nil {
+		return "", "", err
+	}
+
+	databasePayload, err := platformService.CreateDatabase(cmd.Context(), project.ID, "default_db", "")
+	if err != nil {
+		return "", "", fmt.Errorf("create database: %w", err)
+	}
+	database := databasePayload.Database
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created database %s ID: %s\n", database.Name, database.ResourceID)
+	if err != nil {
+		return "", "", err
+	}
+
+	cfg.ProjectID = project.ID
+	cfg.DatabaseID = database.ResourceID
+	if err := config.Save(cfg); err != nil {
+		return "", "", fmt.Errorf("save config: %w", err)
+	}
+
+	return project.ID, database.ResourceID, nil
 }
 
 func withoutPGPassword(env []string) []string {

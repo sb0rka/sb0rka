@@ -14,9 +14,10 @@ import (
 const defaultHTTPTimeout = 15 * time.Second
 
 type Client struct {
-	baseURL    string
-	userAgent  string
-	httpClient *http.Client
+	baseURL                string
+	userAgent              string
+	httpClient             *http.Client
+	refreshTokenCookieName string
 }
 
 type ClientOption func(*Client)
@@ -37,6 +38,15 @@ func WithTimeout(timeout time.Duration) ClientOption {
 	}
 }
 
+func WithRefreshTokenCookieName(cookieName string) ClientOption {
+	return func(c *Client) {
+		cookieName = strings.TrimSpace(cookieName)
+		if cookieName != "" {
+			c.refreshTokenCookieName = cookieName
+		}
+	}
+}
+
 type HTTPError struct {
 	StatusCode int
 	Body       string
@@ -48,8 +58,9 @@ func (e *HTTPError) Error() string {
 
 func NewClient(baseURL string, userAgent string, opts ...ClientOption) *Client {
 	client := &Client{
-		baseURL:   strings.TrimRight(strings.TrimSpace(baseURL), "/"),
-		userAgent: strings.TrimSpace(userAgent),
+		baseURL:                strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		userAgent:              strings.TrimSpace(userAgent),
+		refreshTokenCookieName: "__Secure-refresh_token",
 		httpClient: &http.Client{
 			Timeout: defaultHTTPTimeout,
 		},
