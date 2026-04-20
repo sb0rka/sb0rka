@@ -254,7 +254,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-foreground">Дата создания</p>
-            <p className="text-base text-muted-foreground">{secret.createdAt}</p>
+            <p className="text-base text-muted-foreground">{formatDateTime(secret.createdAt)}</p>
           </div>
           <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-foreground">Дата изменения</p>
