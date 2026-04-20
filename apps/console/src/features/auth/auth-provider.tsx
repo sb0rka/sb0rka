@@ -5,7 +5,7 @@ import { ApiError } from "@/lib/api-client"
 import { clearToken, getToken } from "@/lib/auth-store"
 import { bootstrapAuth } from "./api"
 import type { User } from "./api"
-const AUTH_DEBUG = true
+const AUTH_DEBUG = false
 
 function authLog(message: string, meta?: Record<string, unknown>): void {
   if (!AUTH_DEBUG) return

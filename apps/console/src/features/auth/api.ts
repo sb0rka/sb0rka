@@ -1,6 +1,6 @@
 import { apiRequest, ApiError, refresh } from "@/lib/api-client"
 import { getToken, setToken, clearToken } from "@/lib/auth-store"
-const AUTH_DEBUG = true
+const AUTH_DEBUG = false
 
 function authLog(message: string, meta?: Record<string, unknown>): void {
   if (!AUTH_DEBUG) return

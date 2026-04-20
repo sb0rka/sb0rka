@@ -4,7 +4,7 @@ const REFRESH_MARGIN_MS = 30_000
 let accessToken: string | null = localStorage.getItem(STORAGE_KEY)
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let onRefresh: (() => Promise<void>) | null = null
-const AUTH_DEBUG = true
+const AUTH_DEBUG = false
 
 function authLog(message: string, meta?: Record<string, unknown>): void {
   if (!AUTH_DEBUG) return
