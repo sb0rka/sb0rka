@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { KeyboardEvent, ReactNode } from "react"
 import { Database, HardDrive, Table2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TabsContent } from "@/components/ui/tabs"
@@ -8,11 +8,28 @@ interface MetricCardProps {
   value: string | number
   description?: string
   icon: ReactNode
+  onClick?: () => void
 }
 
-function MetricCard({ title, value, description, icon }: MetricCardProps) {
+function MetricCard({ title, value, description, icon, onClick }: MetricCardProps) {
+  const isClickable = Boolean(onClick)
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!onClick) return
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      onClick()
+    }
+  }
+
   return (
-    <Card className="flex-1">
+    <Card
+      className={`flex-1 ${isClickable ? "cursor-pointer transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" : ""}`}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+    >
       <CardHeader className="pb-3 pt-6 px-6">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium tracking-tight">{title}</CardTitle>
@@ -116,13 +133,19 @@ const MOCK_CHARTS: ChartCardProps[] = [
 interface OverviewTabProps {
   dbCount: number
   tableCount?: number
+  onOpenDatabases?: () => void
 }
 
-export function OverviewTab({ dbCount, tableCount }: OverviewTabProps) {
+export function OverviewTab({ dbCount, tableCount, onOpenDatabases }: OverviewTabProps) {
   return (
     <TabsContent value="overview" className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard title="Базы данных" value={dbCount} icon={<Database className="h-4 w-4" />} />
+        <MetricCard
+          title="Базы данных"
+          value={dbCount}
+          icon={<Database className="h-4 w-4" />}
+          onClick={onOpenDatabases}
+        />
         <MetricCard
           title="Таблицы"
           value={tableCount ?? 0}

@@ -236,7 +236,11 @@ export function ProjectDetailPage() {
           </Button>
         </div> */}
 
-        <OverviewTab dbCount={dbCount} tableCount={tableCount} />
+        <OverviewTab
+          dbCount={dbCount}
+          tableCount={tableCount}
+          onOpenDatabases={() => setSearchParams({ tab: "databases" })}
+        />
         <DatabasesTab
           projectId={id}
           databases={databases}
