@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
@@ -49,7 +48,22 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.AssertCanCreateProject(r.Context(), userID); err != nil {
+	err = h.deps.PlatformDatabase.AssertCanCreateProject(r.Context(), userID)
+	if errors.Is(err, db.ErrUserPlanNotFound) {
+		attachErr := h.deps.PlatformDatabase.AttachPlanByName(r.Context(), userID, "free")
+		if attachErr != nil && !errors.Is(attachErr, db.ErrUserPlanAlreadyAttached) {
+			if errors.Is(attachErr, db.ErrPlanNotFound) {
+				http.Error(w, "Plan not found", http.StatusNotFound)
+				return
+			}
+			h.deps.Log.Error("attach_free_plan_failed", "error", attachErr)
+			http.Error(w, "Failed to create project", http.StatusInternalServerError)
+			return
+		}
+
+		err = h.deps.PlatformDatabase.AssertCanCreateProject(r.Context(), userID)
+	}
+	if err != nil {
 		if errors.Is(err, db.ErrUserPlanNotFound) {
 			http.Error(w, "Plan not found", http.StatusNotFound)
 			return
@@ -69,6 +83,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Project already exists", http.StatusConflict)
 			return
 		}
+
 		h.deps.Log.Error("create_project_failed", "error", err)
 		http.Error(w, "Failed to create project", http.StatusInternalServerError)
 		return
@@ -91,7 +106,7 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -155,7 +170,7 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -214,7 +229,7 @@ func (h *Handler) DeactivateProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -232,16 +247,10 @@ func (h *Handler) DeactivateProject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func parsePathInt64(raw, name string) (int64, error) {
-	if raw == "" {
-		return 0, errors.New(name + " is required")
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, errors.New(name + " must be a valid integer")
-	}
-	if id == 0 {
-		return 0, errors.New("id is required")
+func parsePathID(raw, name string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if id == "" {
+		return "", errors.New(name + " is required")
 	}
 	return id, nil
 }

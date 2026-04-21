@@ -16,6 +16,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/config"
 	"github.com/sb0rka/sb0rka/apps/api/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store"
+	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -51,11 +52,24 @@ func runServer() error {
 	}
 	log.Info("platform database connection established successfully")
 
+	telemetryAdapter, err := telemetry.NewPrometheusInfraAdapter(platformDatabase, telemetry.AdapterConfig{
+		PrometheusURI:          cfg.Server.Telemetry.PrometheusURI,
+		PrometheusQueryTimeout: cfg.Server.Telemetry.PrometheusQueryTimeout,
+		PrometheusUsername:     cfg.Server.Telemetry.PrometheusUsername,
+		PrometheusPassword:     cfg.Server.Telemetry.PrometheusPassword,
+		PrometheusBearerToken:  cfg.Server.Telemetry.PrometheusBearerToken,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize telemetry adapter: %v", err)
+	}
+	telemetryService := telemetry.NewService(platformDatabase, telemetryAdapter)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	newSrv := transport.NewServer(transport.Dependencies{
 		PlatformDatabase: platformDatabase,
+		Telemetry:        telemetryService,
 		Cfg:              cfg.Server,
 		Log:              log,
 	})

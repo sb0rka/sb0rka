@@ -37,7 +37,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -55,6 +55,13 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
 	}
+
+	err = service.ValidateDatabaseName(req.Name)
+	if err != nil {
+		http.Error(w, "Invalid database name", http.StatusBadRequest)
+		return
+	}
+
 	if req.Description != nil {
 		trimmed := strings.TrimSpace(*req.Description)
 		if trimmed == "" {
@@ -64,7 +71,31 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	dbRow, err := h.deps.PlatformDatabase.CreateDatabase(r.Context(), userID, projectID, req.Name, req.Description)
+	if err := h.deps.PlatformDatabase.AssertCanCreateResourceWithType(r.Context(), userID, projectID, "database"); err != nil {
+		if errors.Is(err, db.ErrUserPlanNotFound) {
+			http.Error(w, "Plan not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrResourceLimitReached) {
+			http.Error(w, "Resource limit reached", http.StatusForbidden)
+			return
+		}
+		if errors.Is(err, db.ErrInvalidResourceType) {
+			http.Error(w, "Invalid resource type", http.StatusBadRequest)
+			return
+		}
+		h.deps.Log.Error("assert_resource_quota_failed", "error", err)
+		http.Error(w, "Failed to create database", http.StatusInternalServerError)
+		return
+	}
+
+	dbName := service.CleanDatabaseName(req.Name)
+
+	dbRow, err := h.deps.PlatformDatabase.CreateDatabase(r.Context(), userID, projectID, dbName, req.Description)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -75,8 +106,8 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secretName := fmt.Sprintf("DATABASE_%d_PASSWORD", dbRow.ResourceID)
-	secretDescription := fmt.Sprintf("Password for database %s with ID %d", dbRow.Name, dbRow.ResourceID)
+	secretName := fmt.Sprintf("DATABASE_%s_PASSWORD", dbRow.ResourceID)
+	secretDescription := fmt.Sprintf("Password for database %s with ID %s", dbRow.Name, dbRow.ResourceID)
 	secretValue, err := service.GenerateAlphaNumPassword()
 	if err != nil {
 		h.deps.Log.Error("generate_password_failed", "error", err)
@@ -97,7 +128,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tagKey := "database_resource_id"
-	tagValue := strconv.FormatInt(dbRow.ResourceID, 10)
+	tagValue := dbRow.ResourceID
 	if _, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, dbRow.ResourceID, tagKey, tagValue, nil, true); err != nil {
 		h.deps.Log.Error("attach_resource_tag_failed", "error", err)
 		http.Error(w, "Failed to attach resource tag", http.StatusInternalServerError)
@@ -135,7 +166,7 @@ func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -173,12 +204,12 @@ func (h *Handler) GetDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -216,12 +247,12 @@ func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -244,6 +275,13 @@ func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "name is required", http.StatusBadRequest)
 			return
 		}
+
+		err = service.ValidateDatabaseName(trimmed)
+		if err != nil {
+			http.Error(w, "Invalid database name", http.StatusBadRequest)
+			return
+		}
+
 		req.Name = &trimmed
 	}
 	if req.Description != nil {
@@ -279,12 +317,12 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -308,8 +346,8 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbTagValue := strconv.FormatInt(dbRow.ResourceID, 10)
-	var secretResourceID int64
+	dbTagValue := dbRow.ResourceID
+	var secretResourceID string
 	for _, secretCandidate := range secrets {
 		tags, listTagsErr := h.deps.PlatformDatabase.ListResourceTags(r.Context(), userID, projectID, secretCandidate.ResourceID)
 		if listTagsErr != nil {
@@ -323,11 +361,11 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		if secretResourceID != 0 {
+		if secretResourceID != "" {
 			break
 		}
 	}
-	if secretResourceID == 0 {
+	if secretResourceID == "" {
 		http.Error(w, "Database credentials are not available", http.StatusNotFound)
 		return
 	}
@@ -355,8 +393,8 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 
 	// TODO(kompotkot): Replace with actual hostname
 	uri := fmt.Sprintf(
-		"postgresql://tenant_%d:%s@%d.localhost:5432/tenant_%d?sslmode=require&sslnegotiation=direct",
-		resourceID, decryptedSecretValue, resourceID, resourceID,
+		"postgresql://root:%s@%s.%s:%d/%s?sslmode=require&sslnegotiation=direct",
+		decryptedSecretValue, resourceID, resourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost, h.deps.Cfg.TenantsDatabasePublicPort, dbRow.Name,
 	)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
@@ -375,12 +413,12 @@ func (h *Handler) CreateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -434,12 +472,12 @@ func (h *Handler) ListDatabaseTables(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -475,12 +513,12 @@ func (h *Handler) GetDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -517,12 +555,12 @@ func (h *Handler) UpdateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -584,12 +622,12 @@ func (h *Handler) DeleteDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -623,12 +661,12 @@ func (h *Handler) CreateDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -681,12 +719,12 @@ func (h *Handler) ListDatabaseColumns(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -727,12 +765,12 @@ func (h *Handler) GetDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -774,12 +812,12 @@ func (h *Handler) UpdateDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -834,12 +872,12 @@ func (h *Handler) DeleteDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -876,6 +914,14 @@ func parsePathInt64(raw, name string) (int64, error) {
 	}
 	if id == 0 {
 		return 0, errors.New("id is required")
+	}
+	return id, nil
+}
+
+func parsePathID(raw, name string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if id == "" {
+		return "", errors.New(name + " is required")
 	}
 	return id, nil
 }

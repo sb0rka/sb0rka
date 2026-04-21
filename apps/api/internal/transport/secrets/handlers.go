@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
@@ -29,9 +28,31 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.deps.PlatformDatabase.AssertCanCreateResourceWithType(r.Context(), userID, projectID, "secret"); err != nil {
+		if errors.Is(err, db.ErrUserPlanNotFound) {
+			http.Error(w, "Plan not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrResourceLimitReached) {
+			http.Error(w, "Resource limit reached", http.StatusForbidden)
+			return
+		}
+		if errors.Is(err, db.ErrInvalidResourceType) {
+			http.Error(w, "Invalid resource type", http.StatusBadRequest)
+			return
+		}
+		h.deps.Log.Error("assert_resource_quota_failed", "error", err)
+		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
 		return
 	}
 
@@ -86,7 +107,7 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -121,12 +142,12 @@ func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -161,12 +182,12 @@ func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -219,16 +240,10 @@ func parseUserID(r *http.Request) (uuid.UUID, bool) {
 	return userID, true
 }
 
-func parsePathInt64(raw, name string) (int64, error) {
-	if raw == "" {
-		return 0, errors.New(name + " is required")
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, errors.New(name + " must be a valid integer")
-	}
-	if id == 0 {
-		return 0, errors.New("id is required")
+func parsePathID(raw, name string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if id == "" {
+		return "", errors.New(name + " is required")
 	}
 	return id, nil
 }

@@ -29,7 +29,7 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -55,12 +55,12 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -90,12 +90,12 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -145,12 +145,12 @@ func (h *Handler) DeleteResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -202,6 +202,14 @@ func parsePathInt64(raw, name string) (int64, error) {
 	}
 	if id == 0 {
 		return 0, errors.New("id is required")
+	}
+	return id, nil
+}
+
+func parsePathID(raw, name string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if id == "" {
+		return "", errors.New(name + " is required")
 	}
 	return id, nil
 }

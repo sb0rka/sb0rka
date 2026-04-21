@@ -24,14 +24,20 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 		wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(wrapped, r)
 		duration := time.Since(start)
-		s.deps.Log.Info(
-			"http_request",
+		args := []any{
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", wrapped.status,
 			"duration_ms", duration.Milliseconds(),
 			"remote_addr", r.RemoteAddr,
-		)
+		}
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			args = append(args, "x_forwarded_for", xff)
+		}
+		if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+			args = append(args, "x_real_ip", xrip)
+		}
+		s.deps.Log.Info("http_request", args...)
 	})
 }
 

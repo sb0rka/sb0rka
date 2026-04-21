@@ -32,6 +32,17 @@ const (
 	DefaultAccessTokenAudience = "api.local"
 	DefaultAccessTokenKid      = "ed25519-v1" // TODO(kompotkot): Add rotation of access token kid logic
 	DefaultAccessTokenTyp      = "access+jwt"
+
+	// Tenants database defaults
+	DefaultTenantsDatabasePublicBaseHost = "localhost.sslip.io"
+	DefaultTenantsDatabasePublicPort     = 5432
+
+	// Telemetry defaults
+	DefaultTelemetryPrometheusURI          = "http://localhost:9090"
+	DefaultTelemetryPrometheusQueryTimeout = 10 * time.Second
+	DefaultTelemetryPrometheusUsername     = ""
+	DefaultTelemetryPrometheusPassword     = ""
+	DefaultTelemetryPrometheusBearerToken  = ""
 )
 
 func getStringEnv(key, fallback string) string {
@@ -176,6 +187,15 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("create xchacha20poly1305 error: %w", err)
 	}
 
+	tenantsDatabasePublicBaseHost := getStringEnv("TENANTS_DATABASE_PUBLIC_BASE_HOST", DefaultTenantsDatabasePublicBaseHost)
+	tenantsDatabasePublicPort := getIntEnv("TENANTS_DATABASE_PUBLIC_PORT", DefaultTenantsDatabasePublicPort)
+
+	telemetryPrometheusURI := getStringEnv("TELEMETRY_PROMETHEUS_URI", DefaultTelemetryPrometheusURI)
+	telemetryPrometheusQueryTimeout := getDurationEnv("TELEMETRY_PROMETHEUS_QUERY_TIMEOUT_SEC", DefaultTelemetryPrometheusQueryTimeout)
+	telemetryPrometheusUsername := getStringEnv("TELEMETRY_PROMETHEUS_USERNAME", DefaultTelemetryPrometheusUsername)
+	telemetryPrometheusPassword := getStringEnv("TELEMETRY_PROMETHEUS_PASSWORD", DefaultTelemetryPrometheusPassword)
+	telemetryPrometheusBearerToken := getStringEnv("TELEMETRY_PROMETHEUS_BEARER_TOKEN", DefaultTelemetryPrometheusBearerToken)
+
 	cfg = Config{
 		Logger: LoggerConfig{
 			Level:  logLevelEnv,
@@ -201,6 +221,17 @@ func Load() (*Config, error) {
 				AccessTokenTyp:        accessTokenTyp,
 
 				SecretMasterKey: secretMasterKey,
+			},
+
+			TenantsDatabasePublicBaseHost: tenantsDatabasePublicBaseHost,
+			TenantsDatabasePublicPort:     tenantsDatabasePublicPort,
+
+			Telemetry: TelemetryConfig{
+				PrometheusURI:          telemetryPrometheusURI,
+				PrometheusQueryTimeout: telemetryPrometheusQueryTimeout,
+				PrometheusUsername:     telemetryPrometheusUsername,
+				PrometheusPassword:     telemetryPrometheusPassword,
+				PrometheusBearerToken:  telemetryPrometheusBearerToken,
 			},
 		},
 	}

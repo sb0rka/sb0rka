@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
@@ -34,7 +33,7 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -79,12 +78,12 @@ func (h *Handler) GetResource(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -128,18 +127,18 @@ func (h *Handler) DeactivateResource(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid user_id", http.StatusInternalServerError)
 		return
 	}
-	projectID, err := parsePathInt64(r.PathValue("project_id"), "project_id")
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathInt64(r.PathValue("resource_id"), "resource_id")
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	row, err := h.deps.PlatformDatabase.DeactivateResource(r.Context(), userID, projectID, resourceID)
+	res, err := h.deps.PlatformDatabase.DeactivateResource(r.Context(), userID, projectID, resourceID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -153,28 +152,32 @@ func (h *Handler) DeactivateResource(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to deactivate resource", http.StatusInternalServerError)
 		return
 	}
+
+	// TODO(kompotkot): CreateJob for resource deletion
+
+	err = h.deps.PlatformDatabase.DeleteResource(r.Context(), userID, projectID, resourceID)
+	if err != nil {
+		h.deps.Log.Error("delete_resource_failed", "error", err)
+		http.Error(w, "Failed to delete resource", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ResourceResponse{
-		ID:           row.ID,
-		ProjectID:    row.ProjectID,
-		IsActive:     row.IsActive,
-		ResourceType: row.ResourceType,
-		CreatedAt:    row.CreatedAt,
-		UpdatedAt:    row.UpdatedAt,
+		ID:           res.ID,
+		ProjectID:    res.ProjectID,
+		IsActive:     res.IsActive,
+		ResourceType: res.ResourceType,
+		CreatedAt:    res.CreatedAt,
+		UpdatedAt:    res.UpdatedAt,
 	})
 }
 
-func parsePathInt64(raw, name string) (int64, error) {
-	if raw == "" {
-		return 0, errors.New(name + " is required")
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, errors.New(name + " must be a valid integer")
-	}
-	if id == 0 {
-		return 0, errors.New("id is required")
+func parsePathID(raw, name string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if id == "" {
+		return "", errors.New(name + " is required")
 	}
 	return id, nil
 }

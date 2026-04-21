@@ -5,8 +5,8 @@ import (
 )
 
 type Resource struct {
-	ID           int64     `json:"id"`
-	ProjectID    int64     `json:"project_id"`
+	ID           string    `json:"id"`
+	ProjectID    string    `json:"project_id"`
 	IsActive     bool      `json:"is_active"`
 	ResourceType string    `json:"resource_type"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -14,7 +14,7 @@ type Resource struct {
 }
 
 type Secret struct {
-	ResourceID      int64      `json:"resource_id"`
+	ResourceID      string     `json:"resource_id"`
 	Name            string     `json:"name"`
 	Description     *string    `json:"description,omitempty"`
 	SecretValueHash string     `json:"secret_value_hash"`
@@ -22,7 +22,7 @@ type Secret struct {
 }
 
 type DB struct {
-	ResourceID  int64   `json:"resource_id"`
+	ResourceID  string  `json:"resource_id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 	Endpoint    *string `json:"endpoint,omitempty"`
@@ -31,7 +31,7 @@ type DB struct {
 
 type DBTable struct {
 	ID           int64     `json:"id"`
-	DBID         int64     `json:"db_id"`
+	DBID         string    `json:"db_id"`
 	Name         string    `json:"name"`
 	Description  *string   `json:"description,omitempty"`
 	NextColumnID int64     `json:"next_column_id"`
@@ -42,7 +42,7 @@ type DBTable struct {
 type DBTableColumn struct {
 	ID           int64     `json:"id"`
 	TableID      int64     `json:"table_id"`
-	DBID         int64     `json:"db_id"`
+	DBID         string    `json:"db_id"`
 	Name         string    `json:"name"`
 	DataType     string    `json:"data_type"`
 	IsPrimaryKey bool      `json:"is_primary_key"`
@@ -57,7 +57,7 @@ type DBTableColumn struct {
 
 type Tag struct {
 	ID        int64   `json:"id"`
-	ProjectID int64   `json:"project_id"`
+	ProjectID string  `json:"project_id"`
 	TagKey    string  `json:"tag_key"`
 	TagValue  string  `json:"tag_value"`
 	Color     *string `json:"color,omitempty"`
@@ -65,7 +65,7 @@ type Tag struct {
 }
 
 type ResourceTag struct {
-	TagID      int64 `json:"tag_id"`
-	ProjectID  int64 `json:"project_id"`
-	ResourceID int64 `json:"resource_id"`
+	TagID      int64  `json:"tag_id"`
+	ProjectID  string `json:"project_id"`
+	ResourceID string `json:"resource_id"`
 }

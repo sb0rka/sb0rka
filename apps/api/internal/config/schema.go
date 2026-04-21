@@ -26,6 +26,14 @@ type AuthConfig struct {
 	SecretMasterKey       cipher.AEAD
 }
 
+type TelemetryConfig struct {
+	PrometheusURI          string
+	PrometheusQueryTimeout time.Duration
+	PrometheusUsername     string
+	PrometheusPassword     string
+	PrometheusBearerToken  string
+}
+
 type ServerConfig struct {
 	Addr string
 	Port string
@@ -34,6 +42,11 @@ type ServerConfig struct {
 	CORSAllowedDefaultMethods string
 
 	AuthConfig AuthConfig
+
+	TenantsDatabasePublicBaseHost string
+	TenantsDatabasePublicPort     int
+
+	Telemetry TelemetryConfig
 }
 
 type Config struct {

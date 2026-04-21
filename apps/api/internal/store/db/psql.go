@@ -79,7 +79,7 @@ func (p *PsqlDB) CreateProject(ctx context.Context, userID uuid.UUID, name strin
 	return project, nil
 }
 
-func (p *PsqlDB) GetProject(ctx context.Context, userID uuid.UUID, id int64) (model.Project, error) {
+func (p *PsqlDB) GetProject(ctx context.Context, userID uuid.UUID, id string) (model.Project, error) {
 	const query = `
 		SELECT id, user_id, name, description, is_active, created_at, updated_at
 		FROM projects
@@ -229,8 +229,54 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 	return plans, nil
 }
 
-// AssertCanCreateProject returns nil if the user is under the maximum project_limit
-// among all plans attached in user_plans (and has at least one such row).
+func (p *PsqlDB) AttachPlanByID(ctx context.Context, userID uuid.UUID, planID uuid.UUID) error {
+	const query = `
+		INSERT INTO user_plans (user_id, plan_id)
+		SELECT $1, id
+		FROM plans
+		WHERE id = $2
+		LIMIT 1
+	`
+
+	commandTag, err := p.pool.Exec(ctx, query, userID, planID)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return ErrUserPlanAlreadyAttached
+		}
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return ErrPlanNotFound
+	}
+
+	return nil
+}
+
+func (p *PsqlDB) AttachPlanByName(ctx context.Context, userID uuid.UUID, planName string) error {
+	const query = `
+		INSERT INTO user_plans (user_id, plan_id)
+		SELECT $1, id
+		FROM plans
+		WHERE name = $2
+		LIMIT 1
+	`
+
+	commandTag, err := p.pool.Exec(ctx, query, userID, planName)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return ErrUserPlanAlreadyAttached
+		}
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return ErrPlanNotFound
+	}
+
+	return nil
+}
+
 func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, userID uuid.UUID) error {
 	const hasPlansQuery = `SELECT EXISTS(SELECT 1 FROM user_plans WHERE user_id = $1)`
 	var hasPlans bool
@@ -264,7 +310,87 @@ func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, userID uuid.UUID) e
 	return nil
 }
 
-func (p *PsqlDB) UpdateProject(ctx context.Context, userID uuid.UUID, id int64, name *string, description *string) (model.Project, error) {
+func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, userID uuid.UUID, projectID string, resourceType string) error {
+	const hasPlansQuery = `SELECT EXISTS(SELECT 1 FROM user_plans WHERE user_id = $1)`
+	var hasPlans bool
+	if err := p.pool.QueryRow(ctx, hasPlansQuery, userID).Scan(&hasPlans); err != nil {
+		return err
+	}
+	if !hasPlans {
+		return ErrUserPlanNotFound
+	}
+
+	const projectExistsQuery = `SELECT EXISTS(SELECT 1 FROM projects WHERE user_id = $1 AND id = $2)`
+	var projectExists bool
+	if err := p.pool.QueryRow(ctx, projectExistsQuery, userID, projectID).Scan(&projectExists); err != nil {
+		return err
+	}
+	if !projectExists {
+		return ErrProjectNotFound
+	}
+
+	var maxLimitQuery string
+	switch resourceType {
+	case "database":
+		maxLimitQuery = `
+			SELECT COALESCE(MAX(p.db_limit), 0)
+			FROM user_plans up
+			INNER JOIN plans p ON p.id = up.plan_id
+			WHERE up.user_id = $1
+		`
+	case "secret":
+		maxLimitQuery = `
+			SELECT COALESCE(MAX(p.secret_limit), 0)
+			FROM user_plans up
+			INNER JOIN plans p ON p.id = up.plan_id
+			WHERE up.user_id = $1
+		`
+	case "code":
+		maxLimitQuery = `
+			SELECT COALESCE(MAX(p.code_limit), 0)
+			FROM user_plans up
+			INNER JOIN plans p ON p.id = up.plan_id
+			WHERE up.user_id = $1
+		`
+	case "function":
+		maxLimitQuery = `
+			SELECT COALESCE(MAX(p.function_limit), 0)
+			FROM user_plans up
+			INNER JOIN plans p ON p.id = up.plan_id
+			WHERE up.user_id = $1
+		`
+	default:
+		return ErrInvalidResourceType
+	}
+
+	var maxLimit int
+	if err := p.pool.QueryRow(ctx, maxLimitQuery, userID).Scan(&maxLimit); err != nil {
+		return err
+	}
+	if maxLimit <= 0 {
+		return ErrResourceLimitReached
+	}
+
+	const countQuery = `
+		SELECT COUNT(*)
+		FROM resources r
+		INNER JOIN projects p ON p.id = r.project_id
+		WHERE p.user_id = $1
+		  AND p.id = $2
+		  AND r.resource_type = $3
+		  AND r.is_active = true
+	`
+	var n int64
+	if err := p.pool.QueryRow(ctx, countQuery, userID, projectID, resourceType).Scan(&n); err != nil {
+		return err
+	}
+	if n >= int64(maxLimit) {
+		return ErrResourceLimitReached
+	}
+	return nil
+}
+
+func (p *PsqlDB) UpdateProject(ctx context.Context, userID uuid.UUID, id string, name *string, description *string) (model.Project, error) {
 	const query = `
 		UPDATE projects
 		SET
@@ -296,7 +422,7 @@ func (p *PsqlDB) UpdateProject(ctx context.Context, userID uuid.UUID, id int64, 
 	return project, nil
 }
 
-func (p *PsqlDB) DeactivateProject(ctx context.Context, userID uuid.UUID, id int64) error {
+func (p *PsqlDB) DeactivateProject(ctx context.Context, userID uuid.UUID, id string) error {
 	const query = `
 		UPDATE projects
 		SET is_active = false,
@@ -315,7 +441,7 @@ func (p *PsqlDB) DeactivateProject(ctx context.Context, userID uuid.UUID, id int
 	return nil
 }
 
-func (p *PsqlDB) ListResources(ctx context.Context, userID uuid.UUID, projectID int64) ([]model.Resource, error) {
+func (p *PsqlDB) ListResources(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Resource, error) {
 	const query = `
 		SELECT
 			r.id,
@@ -360,7 +486,7 @@ func (p *PsqlDB) ListResources(ctx context.Context, userID uuid.UUID, projectID 
 	return out, nil
 }
 
-func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64) (model.Resource, error) {
+func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error) {
 	if _, err := p.GetProject(ctx, userID, projectID); err != nil {
 		return model.Resource{}, err
 	}
@@ -389,7 +515,7 @@ func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID in
 	return res, nil
 }
 
-func (p *PsqlDB) DeactivateResource(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64) (model.Resource, error) {
+func (p *PsqlDB) DeactivateResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error) {
 	const query = `
 		UPDATE resources r
 		SET is_active = false,
@@ -420,7 +546,26 @@ func (p *PsqlDB) DeactivateResource(ctx context.Context, userID uuid.UUID, proje
 	return res, nil
 }
 
-func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID int64, name string, description *string) (model.DB, error) {
+func (p *PsqlDB) DeleteResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error {
+	const query = `
+		DELETE FROM resources r
+		USING projects p
+		WHERE r.project_id = p.id
+		  AND p.user_id = $1
+		  AND r.project_id = $2
+		  AND r.id = $3
+	`
+	cmd, err := p.pool.Exec(ctx, query, userID, projectID, resourceID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrResourceNotFound
+	}
+	return nil
+}
+
+func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string) (model.DB, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return model.DB{}, err
@@ -436,7 +581,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 		RETURNING id
 	`
 
-	var resourceID int64
+	var resourceID string
 	if err := tx.QueryRow(ctx, createResourceQuery, projectID, userID).Scan(&resourceID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.DB{}, ErrProjectNotFound
@@ -468,7 +613,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	return dbRow, nil
 }
 
-func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID int64) ([]model.DB, error) {
+func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID string) ([]model.DB, error) {
 	const query = `
 		SELECT d.resource_id, d.name, d.description, d.endpoint, d.next_table_id
 		FROM dbs d
@@ -501,7 +646,7 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID 
 	return out, nil
 }
 
-func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64) (model.DB, error) {
+func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error) {
 	const query = `
 		SELECT d.resource_id, d.name, d.description, d.endpoint, d.next_table_id
 		FROM dbs d
@@ -531,7 +676,7 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID in
 	return dbRow, nil
 }
 
-func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, name *string, description *string) (model.DB, error) {
+func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name *string, description *string) (model.DB, error) {
 	const query = `
 		WITH updated_db AS (
 			UPDATE dbs d
@@ -576,7 +721,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	return row, nil
 }
 
-func (p *PsqlDB) CreateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, name string, description *string) (model.DBTable, error) {
+func (p *PsqlDB) CreateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name string, description *string) (model.DBTable, error) {
 	const query = `
 		WITH bumped_db AS (
 			UPDATE dbs d
@@ -616,7 +761,7 @@ func (p *PsqlDB) CreateDatabaseTable(ctx context.Context, userID uuid.UUID, proj
 	return table, nil
 }
 
-func (p *PsqlDB) ListDatabaseTables(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64) ([]model.DBTable, error) {
+func (p *PsqlDB) ListDatabaseTables(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) ([]model.DBTable, error) {
 	const query = `
 		SELECT
 			t.id,
@@ -666,7 +811,7 @@ func (p *PsqlDB) ListDatabaseTables(ctx context.Context, userID uuid.UUID, proje
 	return out, nil
 }
 
-func (p *PsqlDB) GetDatabaseTable(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64) (model.DBTable, error) {
+func (p *PsqlDB) GetDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) (model.DBTable, error) {
 	const query = `
 		SELECT
 			t.id,
@@ -707,7 +852,7 @@ func (p *PsqlDB) GetDatabaseTable(ctx context.Context, userID uuid.UUID, project
 	return row, nil
 }
 
-func (p *PsqlDB) UpdateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64, name *string, description *string) (model.DBTable, error) {
+func (p *PsqlDB) UpdateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, name *string, description *string) (model.DBTable, error) {
 	const query = `
 		UPDATE db_tables t
 		SET
@@ -746,7 +891,7 @@ func (p *PsqlDB) UpdateDatabaseTable(ctx context.Context, userID uuid.UUID, proj
 	return row, nil
 }
 
-func (p *PsqlDB) DeleteDatabaseTable(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64) error {
+func (p *PsqlDB) DeleteDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) error {
 	const query = `
 		DELETE FROM db_tables t
 		USING dbs d, resources r, projects p
@@ -770,7 +915,7 @@ func (p *PsqlDB) DeleteDatabaseTable(ctx context.Context, userID uuid.UUID, proj
 	return nil
 }
 
-func (p *PsqlDB) CreateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64, name string, dataType string, isPrimaryKey bool, isNullable bool, isUnique bool, isArray bool, defaultValue *string, foreignKey *string) (model.DBTableColumn, error) {
+func (p *PsqlDB) CreateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, name string, dataType string, isPrimaryKey bool, isNullable bool, isUnique bool, isArray bool, defaultValue *string, foreignKey *string) (model.DBTableColumn, error) {
 	const query = `
 		WITH bumped_table AS (
 			UPDATE db_tables t
@@ -840,7 +985,7 @@ func (p *PsqlDB) CreateDatabaseColumn(ctx context.Context, userID uuid.UUID, pro
 	return col, nil
 }
 
-func (p *PsqlDB) ListDatabaseColumns(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64) ([]model.DBTableColumn, error) {
+func (p *PsqlDB) ListDatabaseColumns(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) ([]model.DBTableColumn, error) {
 	const query = `
 		SELECT
 			c.id,
@@ -904,7 +1049,7 @@ func (p *PsqlDB) ListDatabaseColumns(ctx context.Context, userID uuid.UUID, proj
 	return out, nil
 }
 
-func (p *PsqlDB) GetDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64, columnID int64) (model.DBTableColumn, error) {
+func (p *PsqlDB) GetDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64) (model.DBTableColumn, error) {
 	const query = `
 		SELECT
 			c.id,
@@ -959,7 +1104,7 @@ func (p *PsqlDB) GetDatabaseColumn(ctx context.Context, userID uuid.UUID, projec
 	return row, nil
 }
 
-func (p *PsqlDB) UpdateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64, columnID int64, name string) (model.DBTableColumn, error) {
+func (p *PsqlDB) UpdateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64, name string) (model.DBTableColumn, error) {
 	const query = `
 		UPDATE db_table_columns c
 		SET
@@ -1018,7 +1163,7 @@ func (p *PsqlDB) UpdateDatabaseColumn(ctx context.Context, userID uuid.UUID, pro
 	return row, nil
 }
 
-func (p *PsqlDB) DeleteDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tableID int64, columnID int64) error {
+func (p *PsqlDB) DeleteDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64) error {
 	const query = `
 		DELETE FROM db_table_columns c
 		USING db_tables t, dbs d, resources r, projects p
@@ -1047,7 +1192,7 @@ func (p *PsqlDB) DeleteDatabaseColumn(ctx context.Context, userID uuid.UUID, pro
 func (p *PsqlDB) CreateSecret(
 	ctx context.Context,
 	userID uuid.UUID,
-	projectID int64,
+	projectID string,
 	name string,
 	description *string,
 	secretValueHash string,
@@ -1067,7 +1212,7 @@ func (p *PsqlDB) CreateSecret(
 		RETURNING id
 	`
 
-	var resourceID int64
+	var resourceID string
 	if err := tx.QueryRow(ctx, createResourceQuery, projectID, userID).Scan(&resourceID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Secret{}, ErrProjectNotFound
@@ -1099,7 +1244,7 @@ func (p *PsqlDB) CreateSecret(
 	return secret, nil
 }
 
-func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID int64) ([]model.Secret, error) {
+func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Secret, error) {
 	const query = `
 		SELECT s.resource_id, s.name, s.description, s.revealed_at
 		FROM secrets s
@@ -1132,7 +1277,7 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID in
 	return out, nil
 }
 
-func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64) (model.Secret, error) {
+func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
 	const query = `
 		UPDATE secrets s
 		SET revealed_at = NOW()
@@ -1169,7 +1314,7 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID i
 	return secret, nil
 }
 
-func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, secretValueHash string) (model.Secret, error) {
+func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, secretValueHash string) (model.Secret, error) {
 	const query = `
 		WITH updated_secret AS (
 			UPDATE secrets s
@@ -1212,7 +1357,7 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 	return secret, nil
 }
 
-func (p *PsqlDB) ListProjectTags(ctx context.Context, userID uuid.UUID, projectID int64) ([]model.Tag, error) {
+func (p *PsqlDB) ListProjectTags(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Tag, error) {
 	if _, err := p.GetProject(ctx, userID, projectID); err != nil {
 		return nil, err
 	}
@@ -1247,7 +1392,7 @@ func (p *PsqlDB) ListProjectTags(ctx context.Context, userID uuid.UUID, projectI
 	return out, nil
 }
 
-func (p *PsqlDB) ListResourceTags(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64) ([]model.Tag, error) {
+func (p *PsqlDB) ListResourceTags(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) ([]model.Tag, error) {
 	if _, err := p.GetResource(ctx, userID, projectID, resourceID); err != nil {
 		return nil, err
 	}
@@ -1286,8 +1431,8 @@ func (p *PsqlDB) ListResourceTags(ctx context.Context, userID uuid.UUID, project
 func (p *PsqlDB) AttachResourceTag(
 	ctx context.Context,
 	userID uuid.UUID,
-	projectID int64,
-	resourceID int64,
+	projectID string,
+	resourceID string,
 	tagKey string,
 	tagValue string,
 	color *string,
@@ -1320,8 +1465,8 @@ func (p *PsqlDB) AttachResourceTag(
 		LIMIT 1
 	`
 
-	var resolvedResourceID int64
-	var resolvedProjectID int64
+	var resolvedResourceID string
+	var resolvedProjectID string
 	var existingTagID *int64
 	var existingTagKey *string
 	var existingTagValue *string
@@ -1418,7 +1563,7 @@ func (p *PsqlDB) AttachResourceTag(
 	return tag, nil
 }
 
-func (p *PsqlDB) DeleteResourceTag(ctx context.Context, userID uuid.UUID, projectID int64, resourceID int64, tagID int64) error {
+func (p *PsqlDB) DeleteResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagID int64) error {
 	if _, err := p.GetResource(ctx, userID, projectID, resourceID); err != nil {
 		return err
 	}
