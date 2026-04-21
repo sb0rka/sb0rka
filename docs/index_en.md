@@ -9,9 +9,9 @@ Sb0rka gives you managed PostgreSQL databases with instant connection URIs, encr
 
 <CardGroup cols={2}>
 
-- [Managed Databases](solutions/databases) - Provision dedicated PostgreSQL databases inside any project. Each database gets a secure connection URI. [database]
+- [Managed Databases](solutions/databases_en) - Provision dedicated PostgreSQL databases inside any project. Each database gets a secure connection URI. [database]
 
-- [Encrypted Secrets](solutions/secrets) - Store API keys, passwords, and environment variables securely. Reveal them only when needed. [lock]
+- [Encrypted Secrets](solutions/secrets_en) - Store API keys, passwords, and environment variables securely. Reveal them only when needed. [lock]
 
 </CardGroup>
 
