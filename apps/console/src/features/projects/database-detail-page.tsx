@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { ApiError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import {
   Card,
   CardContent,
@@ -61,6 +62,7 @@ function parseTagInput(input: string): { tag_key: string; tag_value: string } | 
 }
 
 export function DatabaseDetailPage() {
+  const confirm = useConfirmDialog()
   const { id = "", resourceId = "" } = useParams<{
     id: string
     resourceId: string
@@ -135,9 +137,13 @@ export function DatabaseDetailPage() {
   async function handleDeactivate() {
     if (deactivateResource.isPending) return
 
-    const confirmed = window.confirm(
-      "Удалить базу данных и деактивировать связанный ресурс?",
-    )
+    const confirmed = await confirm({
+      title: "Удалить базу данных?",
+      description: "Связанный ресурс будет деактивирован без возможности восстановления.",
+      confirmText: "Удалить",
+      cancelText: "Отменить",
+      confirmVariant: "destructive",
+    })
     if (!confirmed) return
 
     setDeleteError(null)

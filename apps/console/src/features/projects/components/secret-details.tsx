@@ -3,6 +3,7 @@ import { Copy } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import {
   Card,
   CardContent,
@@ -59,6 +60,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps) {
+  const confirm = useConfirmDialog()
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
   const revealSecret = useRevealSecretValue(projectId, secret.id)
@@ -168,7 +170,13 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   async function handleDeleteSecret() {
     if (deactivateResource.isPending) return
 
-    const confirmed = window.confirm("Удалить секрет и деактивировать связанный ресурс?")
+    const confirmed = await confirm({
+      title: "Удалить секрет?",
+      description: "Связанный ресурс будет деактивирован без возможности восстановления.",
+      confirmText: "Удалить",
+      cancelText: "Отменить",
+      confirmVariant: "destructive",
+    })
     if (!confirmed) return
 
     setDeleteError(null)

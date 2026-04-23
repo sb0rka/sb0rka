@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import {
   Card,
   CardContent,
@@ -47,6 +48,7 @@ export function ProjectSettings({
   projectName,
   createdAt,
 }: ProjectSettingsProps) {
+  const confirm = useConfirmDialog()
   const navigate = useNavigate()
   const deactivateProject = useDeactivateProject()
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -54,7 +56,13 @@ export function ProjectSettings({
   async function handleDeleteProject() {
     if (!projectId || deactivateProject.isPending) return
 
-    const confirmed = window.confirm("Удалить проект и все связанные с ним данные?")
+    const confirmed = await confirm({
+      title: "Удалить проект?",
+      description: "Все связанные данные будут удалены без возможности восстановления.",
+      confirmText: "Удалить",
+      cancelText: "Отменить",
+      confirmVariant: "destructive",
+    })
     if (!confirmed) return
 
     setDeleteError(null)
