@@ -1,0 +1,130 @@
+import { Link } from "react-router-dom"
+import { ChevronRight, Sun, Moon, User } from "lucide-react"
+import { useTheme } from "@/components/theme-provider"
+import { useAuth } from "@/features/auth/auth-provider"
+import { useLogout } from "@/features/auth/hooks"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+interface BreadcrumbItem {
+  label: string
+  href?: string
+}
+
+interface HeaderProps {
+  breadcrumbs: BreadcrumbItem[]
+}
+
+export function Header({ breadcrumbs }: HeaderProps) {
+  const { theme, setTheme } = useTheme()
+  const { user } = useAuth()
+  const logoutMutation = useLogout()
+  const isDark = theme === "dark"
+
+  return (
+    <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
+      <nav className="flex items-center gap-2.5">
+        {breadcrumbs.map((item, index) => {
+          const isLast = index === breadcrumbs.length - 1
+          const isLink = !!item.href && !isLast
+          return (
+            <div key={`${item.label}-${index}`} className="flex items-center gap-2.5">
+              {index > 0 && (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+              {isLink ? (
+                <Link
+                  to={item.href as string}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <span
+                  className={
+                    isLast
+                      ? "text-sm text-foreground"
+                      : "text-sm text-muted-foreground"
+                  }
+                >
+                  {item.label}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </nav>
+
+      <div className="flex items-center gap-3">
+        {/* <Button variant="ghost" size="sm" className="text-sm font-medium">
+          Оставить фидбек
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 rounded-full"
+          aria-label="Помощь"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </Button> */}
+
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 rounded-full"
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          aria-label="Переключить тему"
+        >
+          {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="h-auto gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-muted/60"
+              aria-label="Открыть меню профиля"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <User className="h-5 w-5 text-muted-foreground" />
+              </div>
+              {user ? (
+                <span className="text-sm font-medium text-foreground">{user.username}</span>
+              ) : null}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={8}
+            className="w-56 rounded-md border border-border bg-popover p-1 shadow-md"
+          >
+            <div className="rounded-sm px-2 py-1.5 text-sm font-semibold text-popover-foreground">
+              Мой аккаунт
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="px-2 py-1.5">
+              <Link to="/profile" className="w-full">
+                Настройки профиля
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="px-2 py-1.5 text-destructive focus:text-destructive"
+              onSelect={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+            >
+              Выйти из аккаунта
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
+  )
+}
