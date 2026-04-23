@@ -64,3 +64,48 @@
     min-height: 100vh;
   }
 }
+
+@layer components {
+  .timeseries-window-slider {
+    --slider-thumb-size: 16px;
+    --slider-thumb-bg: var(--card);
+    --slider-thumb-border: var(--border);
+    --slider-thumb-shadow: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .timeseries-window-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: var(--slider-thumb-size);
+    height: var(--slider-thumb-size);
+    border-radius: 9999px;
+    border: 1px solid var(--slider-thumb-border);
+    background: var(--slider-thumb-bg);
+    box-shadow: var(--slider-thumb-shadow);
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .timeseries-window-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.05);
+  }
+
+  .timeseries-window-slider::-moz-range-thumb {
+    width: var(--slider-thumb-size);
+    height: var(--slider-thumb-size);
+    border-radius: 9999px;
+    border: 1px solid var(--slider-thumb-border);
+    background: var(--slider-thumb-bg);
+    box-shadow: var(--slider-thumb-shadow);
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .timeseries-window-slider::-moz-range-thumb:hover {
+    transform: scale(1.05);
+  }
+}

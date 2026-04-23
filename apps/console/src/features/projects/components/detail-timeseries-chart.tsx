@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 import { useEffect, useMemo, useState } from "react"
 import {
   CartesianGrid,
@@ -27,13 +28,82 @@ interface ChartPoint {
 const DEFAULT_WINDOW_MS = 2 * 60 * 60 * 1000
 const MIN_WINDOW_PERCENT = 0.01
 
+const axisDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+})
+
+const axisTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
+  hour: "2-digit",
+  minute: "2-digit",
+})
+
+const axisDateOnlyFormatter = new Intl.DateTimeFormat("ru-RU", {
+  day: "2-digit",
+  month: "2-digit",
+})
+
+function formatAxisDateOnlyLabel(timestampMs: number): string {
+  return axisDateOnlyFormatter.format(new Date(timestampMs))
+}
+
+function getAxisDayKey(timestampMs: number): string {
+  const date = new Date(timestampMs)
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+function formatAxisDateTimeLabel(timestampMs: number): string {
+  return axisDateTimeFormatter.format(new Date(timestampMs))
+}
+
 function formatAxisTimeLabel(timestampMs: number): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(timestampMs))
+  return axisTimeFormatter.format(new Date(timestampMs))
+}
+
+const AXIS_TICK_STEPS_MS: readonly number[] = [
+  1_000,
+  5_000,
+  10_000,
+  15_000,
+  30_000,
+  60_000,
+  2 * 60_000,
+  5 * 60_000,
+  10 * 60_000,
+  15 * 60_000,
+  30 * 60_000,
+  60 * 60_000,
+  2 * 60 * 60_000,
+  3 * 60 * 60_000,
+  6 * 60 * 60_000,
+  12 * 60 * 60_000,
+  24 * 60 * 60_000,
+  2 * 24 * 60 * 60_000,
+  7 * 24 * 60 * 60_000,
+]
+
+function pickAxisStepMs(rangeMs: number, targetTickCount = 8): number {
+  if (rangeMs <= 0) return AXIS_TICK_STEPS_MS[0]!
+  const idealStep = rangeMs / Math.max(1, targetTickCount)
+  for (const step of AXIS_TICK_STEPS_MS) {
+    if (step >= idealStep) return step
+  }
+  return AXIS_TICK_STEPS_MS[AXIS_TICK_STEPS_MS.length - 1]!
+}
+
+function generateAxisTicks(minMs: number, maxMs: number, stepMs: number): number[] {
+  if (!Number.isFinite(minMs) || !Number.isFinite(maxMs) || stepMs <= 0) return []
+  const anchor = new Date(minMs)
+  anchor.setHours(0, 0, 0, 0)
+  const anchorMs = anchor.getTime()
+  const firstTick = anchorMs + Math.ceil((minMs - anchorMs) / stepMs) * stepMs
+  const ticks: number[] = []
+  for (let t = firstTick; t <= maxMs; t += stepMs) {
+    ticks.push(t)
+  }
+  return ticks
 }
 
 function asNumber(value: unknown): number | null {
@@ -62,7 +132,7 @@ function formatWindowDuration(durationMs: number): string {
 
 export function DetailTimeseriesChart({
   title,
-  xAxisLabel = "Время",
+  xAxisLabel = "",
   yAxisLabel = "Значение",
   points,
   formatValue,
@@ -121,12 +191,16 @@ export function DetailTimeseriesChart({
     if (xWindowDomain[1] <= xWindowDomain[0]) return 0
     return xWindowDomain[1] - xWindowDomain[0]
   }, [xWindowDomain])
-  const sliderTrackStyle = useMemo(
+  const sliderStyle = useMemo(
     () => {
       const fillStartPercent = Math.max(0, 100 - windowPercent)
       return {
         background: `linear-gradient(to right, var(--border) 0%, var(--border) ${fillStartPercent}%, var(--primary) ${fillStartPercent}%, var(--primary) 100%)`,
-      }
+        "--slider-thumb-size": "16px",
+        "--slider-thumb-bg": "color-mix(in srgb, var(--primary) 12%, var(--card) 88%)",
+        "--slider-thumb-border": "var(--primary)",
+        "--slider-thumb-shadow": "0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent)",
+      } as CSSProperties
     },
     [windowPercent],
   )
@@ -145,8 +219,86 @@ export function DetailTimeseriesChart({
     return [min - padding, max + padding]
   }, [visibleChartData])
 
+  const axisTicks = useMemo(() => {
+    const [minMs, maxMs] = xWindowDomain
+    if (!Number.isFinite(minMs) || !Number.isFinite(maxMs) || maxMs <= minMs) {
+      return [] as number[]
+    }
+    const step = pickAxisStepMs(maxMs - minMs)
+    return generateAxisTicks(minMs, maxMs, step)
+  }, [xWindowDomain])
+
+  const firstOfDayTickSet = useMemo(() => {
+    const result = new Set<number>()
+    const seen = new Set<string>()
+    for (const tick of axisTicks) {
+      const dayKey = getAxisDayKey(tick)
+      if (!seen.has(dayKey)) {
+        seen.add(dayKey)
+        result.add(tick)
+      }
+    }
+    return result
+  }, [axisTicks])
+
+  const renderXAxisTick = useMemo(
+    () => {
+      return (props: {
+        x?: number | string
+        y?: number | string
+        payload?: { value?: number | string }
+      }) => {
+        const { x = 0, y = 0, payload } = props
+        const xNum = typeof x === "number" ? x : Number(x) || 0
+        const yNum = typeof y === "number" ? y : Number(y) || 0
+        const rawValue = payload?.value
+        const timestampMs =
+          typeof rawValue === "number"
+            ? rawValue
+            : typeof rawValue === "string"
+              ? Number(rawValue)
+              : NaN
+        if (!Number.isFinite(timestampMs)) return <g />
+
+        const isFirstOfDay = firstOfDayTickSet.has(timestampMs)
+
+        if (isFirstOfDay) {
+          return (
+            <g transform={`translate(${xNum},${yNum})`}>
+              <text
+                textAnchor="middle"
+                dy="0.71em"
+                fontSize={12}
+                fill="var(--muted-foreground)"
+              >
+                <tspan fill="var(--foreground)" fontWeight={600}>
+                  {formatAxisDateOnlyLabel(timestampMs)}
+                </tspan>
+                {/* <tspan dx={4}>{formatAxisTimeLabel(timestampMs)}</tspan> */}
+              </text>
+            </g>
+          )
+        }
+
+        return (
+          <g transform={`translate(${xNum},${yNum})`}>
+            <text
+              textAnchor="middle"
+              dy="0.71em"
+              fontSize={12}
+              fill="var(--muted-foreground)"
+            >
+              {formatAxisTimeLabel(timestampMs)}
+            </text>
+          </g>
+        )
+      }
+    },
+    [firstOfDayTickSet],
+  )
+
   return (
-    <div className="h-[420px] w-full rounded-xl border border-border/70 bg-card p-4 sm:p-6">
+    <div className="w-full rounded-xl border border-border/70 bg-card p-4 sm:p-6">
       <div className="mb-5">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
       </div>
@@ -164,10 +316,10 @@ export function DetailTimeseriesChart({
               dataKey="timestampMs"
               domain={xWindowDomain}
               scale="time"
-              tickFormatter={formatAxisTimeLabel}
+              ticks={axisTicks.length > 0 ? axisTicks : undefined}
               tickLine={false}
               axisLine={{ stroke: "var(--border)" }}
-              tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+              tick={renderXAxisTick}
               minTickGap={18}
               label={{
                 value: xAxisLabel,
@@ -203,13 +355,15 @@ export function DetailTimeseriesChart({
               labelFormatter={(label: unknown) => {
                 const timestamp = asNumber(label)
                 if (timestamp === null) return "—"
-                return formatAxisTimeLabel(timestamp)
+                return formatAxisDateTimeLabel(timestamp)
               }}
               contentStyle={{
                 borderRadius: "0.5rem",
                 borderColor: "var(--border)",
                 backgroundColor: "var(--card)",
               }}
+              labelStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
+              itemStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
             />
             <Line
               dataKey="value"
@@ -224,11 +378,8 @@ export function DetailTimeseriesChart({
         </ResponsiveContainer>
       )}
       {hasData ? (
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                Окно по X: {windowPercent >= 1 ? windowPercent.toFixed(0) : windowPercent.toFixed(2)}%
-              </span>
+        <div className="pt-4 space-y-2">
+          <div className="flex items-center justify-end text-xs text-muted-foreground">
             <span>
               {windowPercent >= 100
                 ? "Все данные"
@@ -242,8 +393,8 @@ export function DetailTimeseriesChart({
             step={0.01}
             value={sliderPosition}
             onChange={(event) => setWindowPercent(100 - Number(event.target.value))}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
-            style={sliderTrackStyle}
+            className="timeseries-window-slider h-1.5 w-full cursor-pointer appearance-none rounded-full"
+            style={sliderStyle}
             aria-label="Масштаб окна по времени"
           />
         </div>
