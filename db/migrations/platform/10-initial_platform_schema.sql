@@ -113,8 +113,8 @@ CREATE TABLE IF NOT EXISTS secrets (
 CREATE TABLE IF NOT EXISTS dbs (
     resource_id VARCHAR(12) NOT NULL,
     name VARCHAR NOT NULL,
+    normalized_name VARCHAR NOT NULL,
     description VARCHAR,
-    endpoint_id VARCHAR,
     next_table_id INTEGER DEFAULT 1 NOT NULL,
     CONSTRAINT pk_dbs PRIMARY KEY (resource_id),
     CONSTRAINT fk_dbs_resource_id_resources FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE
