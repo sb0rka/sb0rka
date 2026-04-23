@@ -10,7 +10,6 @@ import {
   useDatabases,
   useSecrets,
   useCreateSecret,
-  useProjectTableCount,
   useCreateDatabase,
   useAttachResourceTag,
   useResources,
@@ -71,7 +70,6 @@ export function ProjectDetailPage() {
     [dbData?.databases],
   )
   const { data: metricsTimeseries } = useProjectMetricsTimeseries(id, metricResourceIds)
-  const { data: tableCount } = useProjectTableCount(id)
   const createDatabase = useCreateDatabase(id)
   const createSecret = useCreateSecret(id)
   const attachResourceTag = useAttachResourceTag(id)
@@ -83,6 +81,7 @@ export function ProjectDetailPage() {
   const [databaseSuccess, setDatabaseSuccess] = useState<string | null>(null)
 
   const dbCount = dbData?.databases.length ?? 0
+  const secretCount = secretsData?.secrets.length ?? 0
   const databases: DatabaseResponse[] = dbData?.databases ?? []
   const resourceTimestampsById = useMemo(
     () =>
@@ -244,9 +243,10 @@ export function ProjectDetailPage() {
 
         <OverviewTab
           dbCount={dbCount}
-          tableCount={tableCount}
+          secretCount={secretCount}
           metricsTimeseries={metricsTimeseries}
           onOpenDatabases={() => setSearchParams({ tab: "databases" })}
+          onOpenSecrets={() => setSearchParams({ tab: "secrets" })}
         />
         <DatabasesTab
           projectId={id}
