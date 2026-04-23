@@ -84,7 +84,7 @@ const AXIS_TICK_STEPS_MS: readonly number[] = [
   7 * 24 * 60 * 60_000,
 ]
 
-function pickAxisStepMs(rangeMs: number, targetTickCount = 8): number {
+function pickAxisStepMs(rangeMs: number, targetTickCount = 16): number {
   if (rangeMs <= 0) return AXIS_TICK_STEPS_MS[0]!
   const idealStep = rangeMs / Math.max(1, targetTickCount)
   for (const step of AXIS_TICK_STEPS_MS) {
@@ -320,7 +320,7 @@ export function DetailTimeseriesChart({
               tickLine={false}
               axisLine={{ stroke: "var(--border)" }}
               tick={renderXAxisTick}
-              minTickGap={18}
+              interval={0}
               label={{
                 value: xAxisLabel,
                 offset: 14,
