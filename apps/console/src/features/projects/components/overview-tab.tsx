@@ -1,7 +1,9 @@
-import type { KeyboardEvent, ReactNode } from "react"
+import { useMemo, type KeyboardEvent, type ReactNode } from "react"
 import { Database, HardDrive, Table2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TabsContent } from "@/components/ui/tabs"
+import type { ObservabilityMetricPoint } from "../api"
+import type { ProjectMetricsTimeseries } from "../hooks"
 
 interface MetricCardProps {
   title: string
@@ -68,9 +70,9 @@ function ChartCard({ title, value, description, bars }: ChartCardProps) {
       <CardContent className="px-6 pb-6">
         <p className="text-xs text-muted-foreground">{description}</p>
         <div className="mt-4 flex h-40 items-end gap-2">
-          {bars.map((bar) => (
+          {bars.map((bar, index) => (
             <div
-              key={bar.label}
+              key={`${bar.label}-${index}`}
               className="flex flex-1 flex-col items-center justify-end gap-0.5 h-full"
             >
               <div className="w-full rounded bg-card-foreground" style={{ height: `${bar.height}%` }} />
@@ -83,60 +85,151 @@ function ChartCard({ title, value, description, bars }: ChartCardProps) {
   )
 }
 
-const MOCK_CHARTS: ChartCardProps[] = [
-  {
-    title: "Использование диска",
-    value: 100,
-    description: "+25% с прошлой недели",
-    bars: [
-      { label: "Jan", height: 70 },
-      { label: "Feb", height: 60 },
-      { label: "Mar", height: 100 },
-      { label: "Apr", height: 47 },
-    ],
-  },
-  {
-    title: "Активные подключения",
-    value: 4,
-    description: "+25% с прошлой недели",
-    bars: [
-      { label: "Jan", height: 42 },
-      { label: "Feb", height: 52 },
-      { label: "Mar", height: 71 },
-      { label: "Apr", height: 79 },
-    ],
-  },
-  {
-    title: "Сетевой исходящий трафик",
-    value: 649,
-    description: "+25% с прошлой недели",
-    bars: [
-      { label: "Jan", height: 57 },
-      { label: "Feb", height: 75 },
-      { label: "Mar", height: 24 },
-      { label: "Apr", height: 52 },
-    ],
-  },
-  {
-    title: "Сетевой входящий трафик",
-    value: 3,
-    description: "+25% с прошлой недели",
-    bars: [
-      { label: "Jan", height: 32 },
-      { label: "Feb", height: 68 },
-      { label: "Mar", height: 57 },
-      { label: "Apr", height: 71 },
-    ],
-  },
+const FALLBACK_BARS: ChartBar[] = [
+  { label: "—", height: 0 },
+  { label: "—", height: 0 },
+  { label: "—", height: 0 },
+  { label: "—", height: 0 },
 ]
+
+const METRIC_FORMATTER = new Intl.NumberFormat("ru-RU", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
+
+function formatPointLabel(timestamp: string): string {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return "—"
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)
+}
+
+function buildBarsFromSeries(series: ObservabilityMetricPoint[]): ChartBar[] {
+  if (series.length === 0) return FALLBACK_BARS
+
+  const tail = series.slice(-4)
+  const maxValue = Math.max(...tail.map((point) => point.value), 1)
+
+  return tail.map((point) => ({
+    label: formatPointLabel(point.timestamp),
+    height: Math.round((Math.max(point.value, 0) / maxValue) * 100),
+  }))
+}
 
 interface OverviewTabProps {
   dbCount: number
   tableCount?: number
+  metricsTimeseries?: ProjectMetricsTimeseries
   onOpenDatabases?: () => void
 }
 
-export function OverviewTab({ dbCount, tableCount, onOpenDatabases }: OverviewTabProps) {
+export function OverviewTab({
+  dbCount,
+  tableCount,
+  metricsTimeseries,
+  onOpenDatabases,
+}: OverviewTabProps) {
+  function formatDiskUsagePercent(value: number, unit?: string): string {
+    if (unit === "ratio") {
+      return `${(value * 100).toFixed(1)}%`
+    }
+
+    const normalized = value > 1 ? value : value * 100
+    return `${normalized.toFixed(1)}%`
+  }
+
+  function formatMetricValue(value: number, unit?: string): string {
+    if (unit === "bytes_per_second" || unit === "bytes") {
+      const units = unit === "bytes_per_second"
+        ? ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]
+        : ["B", "KB", "MB", "GB", "TB"]
+      let normalized = value
+      let index = 0
+
+      while (normalized >= 1024 && index < units.length - 1) {
+        normalized /= 1024
+        index += 1
+      }
+
+      const decimals = normalized >= 100 ? 0 : normalized >= 10 ? 1 : 2
+      return `${normalized.toFixed(decimals)} ${units[index]}`
+    }
+
+    if (unit === "count") {
+      return Math.round(value).toString()
+    }
+
+    if (unit === "ratio" || unit === "percent") {
+      return `${(value * 100).toFixed(1)}%`
+    }
+
+    if (unit === "bytes_per_minute") {
+      return `${METRIC_FORMATTER.format(value)} B/min`
+    }
+
+    if (unit === "bytes_per_hour") {
+      return `${METRIC_FORMATTER.format(value)} B/h`
+    }
+
+    if (unit === "bytes_per_day") {
+      return `${METRIC_FORMATTER.format(value)} B/day`
+    }
+
+    if (unit === "bytes_per_second") {
+      return METRIC_FORMATTER.format(value)
+    }
+
+    if (!unit || unit === "unknown") {
+      return METRIC_FORMATTER.format(value)
+    }
+
+    return `${METRIC_FORMATTER.format(value)} ${unit}`
+  }
+
+  const charts = useMemo<ChartCardProps[]>(() => {
+    const meta = [
+      {
+        metric: "db_size",
+        title: "Использование диска",
+      },
+      {
+        metric: "active_connections",
+        title: "Активные подключения",
+      },
+      {
+        metric: "net_transmit",
+        title: "Сетевой исходящий трафик",
+      },
+      {
+        metric: "net_receive",
+        title: "Сетевой входящий трафик",
+      },
+    ] as const
+
+    return meta.map(({ metric, title }) => {
+      const series = metricsTimeseries?.[metric]?.points ?? []
+      const unit = metricsTimeseries?.[metric]?.unit
+      const lastValue = series.at(-1)?.value ?? 0
+
+      return {
+        title,
+        value: formatMetricValue(lastValue, unit),
+        description:
+          series.length > 0
+            ? ""
+            : "Данные еще не поступили",
+        bars: buildBarsFromSeries(series),
+      }
+    })
+  }, [metricsTimeseries])
+
+  const diskUsageSeries = metricsTimeseries?.db_size_rate?.points ?? []
+  const diskUsageUnit = metricsTimeseries?.db_size_rate?.unit
+  const diskUsageValue = diskUsageSeries.at(-1)?.value ?? 0
+
   return (
     <TabsContent value="overview" className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -149,19 +242,22 @@ export function OverviewTab({ dbCount, tableCount, onOpenDatabases }: OverviewTa
         <MetricCard
           title="Таблицы"
           value={tableCount ?? 0}
-          description="+5% с прошлого месяца"
           icon={<Table2 className="h-4 w-4" />}
         />
         <MetricCard
           title="Диск"
-          value="12 %"
-          description="+19% с прошлого месяца"
+          value={formatDiskUsagePercent(diskUsageValue, diskUsageUnit)}
+          description={
+            diskUsageSeries.length > 0
+              ? "Текущее заполнение диска"
+              : "Данные еще не поступили"
+          }
           icon={<HardDrive className="h-4 w-4" />}
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {MOCK_CHARTS.map((chart) => (
+        {charts.map((chart) => (
           <ChartCard key={chart.title} {...chart} />
         ))}
       </div>

@@ -14,6 +14,7 @@ import {
   useCreateDatabase,
   useAttachResourceTag,
   useResources,
+  useProjectMetricsTimeseries,
 } from "./hooks"
 import {
   DatabasesTab,
@@ -65,6 +66,11 @@ export function ProjectDetailPage() {
   const { data: dbData } = useDatabases(id)
   const { data: secretsData } = useSecrets(id)
   const { data: resourcesData } = useResources(id)
+  const metricResourceIds = useMemo(
+    () => (dbData?.databases ?? []).map((database) => String(database.resource_id)),
+    [dbData?.databases],
+  )
+  const { data: metricsTimeseries } = useProjectMetricsTimeseries(id, metricResourceIds)
   const { data: tableCount } = useProjectTableCount(id)
   const createDatabase = useCreateDatabase(id)
   const createSecret = useCreateSecret(id)
@@ -239,6 +245,7 @@ export function ProjectDetailPage() {
         <OverviewTab
           dbCount={dbCount}
           tableCount={tableCount}
+          metricsTimeseries={metricsTimeseries}
           onOpenDatabases={() => setSearchParams({ tab: "databases" })}
         />
         <DatabasesTab

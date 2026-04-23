@@ -311,3 +311,111 @@ export async function revealSecretValue(
     base: "resource",
   })
 }
+
+export interface ObservabilityMetricPoint {
+  timestamp: string
+  value: number
+}
+
+export interface ResourceMetricTimeseries {
+  unit: string
+  points: ObservabilityMetricPoint[]
+}
+
+export interface ObservabilityMetricRange {
+  from: string
+  to: string
+  step_seconds: number
+}
+
+export interface ObservabilityMetricRawPoint {
+  ts: string
+  value: number
+}
+
+export interface ObservabilityMetricTimeseriesResponse {
+  metric: string
+  unit: string
+  range: ObservabilityMetricRange
+  points: ObservabilityMetricRawPoint[]
+  series_name: string
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object"
+}
+
+function parseTimeseriesResponse(payload: unknown): ObservabilityMetricTimeseriesResponse {
+  if (!isObject(payload)) {
+    throw new Error("Invalid observability response payload")
+  }
+
+  const { metric, unit, range, points, series_name } = payload
+
+  if (
+    typeof metric !== "string" ||
+    typeof unit !== "string" ||
+    typeof series_name !== "string"
+  ) {
+    throw new Error("Invalid observability response metadata")
+  }
+
+  if (
+    !isObject(range) ||
+    typeof range.from !== "string" ||
+    typeof range.to !== "string" ||
+    typeof range.step_seconds !== "number"
+  ) {
+    throw new Error("Invalid observability range payload")
+  }
+
+  if (!Array.isArray(points)) {
+    throw new Error("Invalid observability points payload")
+  }
+
+  const parsedPoints: ObservabilityMetricRawPoint[] = points.map((point) => {
+    if (!isObject(point) || typeof point.ts !== "string" || typeof point.value !== "number") {
+      throw new Error("Invalid observability point payload")
+    }
+
+    return {
+      ts: point.ts,
+      value: point.value,
+    }
+  })
+
+  return {
+    metric,
+    unit,
+    range: {
+      from: range.from,
+      to: range.to,
+      step_seconds: range.step_seconds,
+    },
+    points: parsedPoints,
+    series_name,
+  }
+}
+
+export async function getResourceMetricTimeseries(
+  projectId: string,
+  resourceId: string,
+  metric: string,
+): Promise<ResourceMetricTimeseries> {
+  const payload = await apiRequest<unknown>({
+    path: `/projects/${projectId}/resources/${resourceId}/observability/metrics/timeseries?metric=${encodeURIComponent(metric)}`,
+    base: "resource",
+  })
+
+  const parsed = parseTimeseriesResponse(payload)
+
+  return {
+    unit: parsed.unit,
+    points: parsed.points
+    .map((point) => ({
+      timestamp: point.ts,
+      value: point.value,
+    }))
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+  }
+}

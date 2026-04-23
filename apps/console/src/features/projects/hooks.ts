@@ -19,6 +19,7 @@ import {
   createSecret,
   revealSecretValue,
   listResources,
+  getResourceMetricTimeseries,
 } from "./api"
 import type {
   ProjectResponse,
@@ -35,9 +36,21 @@ import type {
   UpdateDatabaseRequest,
   RevealSecretValueResponse,
   ProjectResourceListResponse,
+  ObservabilityMetricPoint,
+  ResourceMetricTimeseries,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
+const PROJECT_TIMESERIES_METRICS = [
+  "active_connections",
+  "db_size_rate",
+  "db_size",
+  "net_receive",
+  "net_transmit",
+] as const
+
+export type ProjectTimeseriesMetric = (typeof PROJECT_TIMESERIES_METRICS)[number]
+export type ProjectMetricsTimeseries = Record<ProjectTimeseriesMetric, ResourceMetricTimeseries>
 
 export function useProjects() {
   const { isAuthenticated } = useAuth()
@@ -304,5 +317,94 @@ export function useProjectTableCount(projectId: string) {
       return results.reduce((sum, r) => sum + r.tables.length, 0)
     },
     enabled: databases.length > 0,
+  })
+}
+
+export function useProjectMetricTimeseries(
+  projectId: string,
+  metric: string,
+  resourceIds: string[],
+) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<ResourceMetricTimeseries>({
+    queryKey: ["projects", projectId, "observability", "timeseries", metric, resourceIds],
+    queryFn: async () => {
+      const perResourceSeries = await Promise.all(
+        resourceIds.map(async (resourceId) => {
+          try {
+            return await getResourceMetricTimeseries(projectId, resourceId, metric)
+          } catch {
+            return null
+          }
+        }),
+      )
+
+      const aggregatedByTimestamp = new Map<string, number>()
+      let unit = "bytes_per_second"
+
+      for (const series of perResourceSeries) {
+        if (!series) continue
+        unit = series.unit || unit
+
+        for (const point of series.points) {
+          const current = aggregatedByTimestamp.get(point.timestamp) ?? 0
+          aggregatedByTimestamp.set(point.timestamp, current + point.value)
+        }
+      }
+
+      const points: ObservabilityMetricPoint[] = [...aggregatedByTimestamp.entries()]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([timestamp, value]) => ({ timestamp, value }))
+
+      return { unit, points }
+    },
+    enabled: isAuthenticated && !!projectId && !!metric && resourceIds.length > 0,
+  })
+}
+
+export function useProjectMetricsTimeseries(projectId: string, resourceIds: string[]) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<ProjectMetricsTimeseries>({
+    queryKey: ["projects", projectId, "observability", "timeseries", "all", resourceIds],
+    queryFn: async () => {
+      const byMetric = await Promise.all(
+        PROJECT_TIMESERIES_METRICS.map(async (metric) => {
+          const perResourceSeries = await Promise.all(
+            resourceIds.map(async (resourceId) => {
+              try {
+                return await getResourceMetricTimeseries(projectId, resourceId, metric)
+              } catch {
+                return null
+              }
+            }),
+          )
+
+          const aggregatedByTimestamp = new Map<string, number>()
+          let unit = "bytes_per_second"
+
+          for (const series of perResourceSeries) {
+            if (!series) continue
+            unit = series.unit || unit
+
+            for (const point of series.points) {
+              const current = aggregatedByTimestamp.get(point.timestamp) ?? 0
+              aggregatedByTimestamp.set(point.timestamp, current + point.value)
+            }
+          }
+
+          const points: ObservabilityMetricPoint[] = [...aggregatedByTimestamp.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([timestamp, value]) => ({ timestamp, value }))
+
+          return [metric, { unit, points }] as const
+        }),
+      )
+
+      return Object.fromEntries(byMetric) as ProjectMetricsTimeseries
+    },
+    enabled: isAuthenticated && !!projectId && resourceIds.length > 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }
