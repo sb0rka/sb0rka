@@ -22,11 +22,11 @@ type Secret struct {
 }
 
 type DB struct {
-	ResourceID  string  `json:"resource_id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	Endpoint    *string `json:"endpoint,omitempty"`
-	NextTableID int64   `json:"next_table_id"`
+	ResourceID     string  `json:"resource_id"`
+	Name           string  `json:"name"`
+	NormalizedName string  `json:"normalized_name"`
+	Description    *string `json:"description,omitempty"`
+	NextTableID    int64   `json:"next_table_id"`
 }
 
 type DBTable struct {

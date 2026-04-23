@@ -235,7 +235,22 @@ func (h *Handler) DeactivateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.DeactivateProject(r.Context(), userID, projectID); err != nil {
+	dbs, err := h.deps.PlatformDatabase.ListDatabases(r.Context(), userID, projectID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("list_databases_failed", "error", err)
+		http.Error(w, "Failed to list databases", http.StatusInternalServerError)
+		return
+	}
+	if len(dbs) > 0 {
+		http.Error(w, "Project contains databases. Delete all databases first", http.StatusForbidden)
+		return
+	}
+
+	if err := h.deps.PlatformDatabase.DeleteProject(r.Context(), userID, projectID); err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return

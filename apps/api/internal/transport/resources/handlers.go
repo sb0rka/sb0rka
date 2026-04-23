@@ -115,65 +115,6 @@ func (h *Handler) GetResource(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) DeactivateResource(w http.ResponseWriter, r *http.Request) {
-	userIDStr, ok := runtime.AuthUserIDFromContext(r.Context())
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := uuid.Parse(strings.TrimSpace(userIDStr))
-	if err != nil {
-		http.Error(w, "invalid user_id", http.StatusInternalServerError)
-		return
-	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	res, err := h.deps.PlatformDatabase.DeactivateResource(r.Context(), userID, projectID, resourceID)
-	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		if errors.Is(err, db.ErrResourceNotFound) {
-			http.Error(w, "Resource not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("deactivate_resource_failed", "error", err)
-		http.Error(w, "Failed to deactivate resource", http.StatusInternalServerError)
-		return
-	}
-
-	// TODO(kompotkot): CreateJob for resource deletion
-
-	err = h.deps.PlatformDatabase.DeleteResource(r.Context(), userID, projectID, resourceID)
-	if err != nil {
-		h.deps.Log.Error("delete_resource_failed", "error", err)
-		http.Error(w, "Failed to delete resource", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ResourceResponse{
-		ID:           res.ID,
-		ProjectID:    res.ProjectID,
-		IsActive:     res.IsActive,
-		ResourceType: res.ResourceType,
-		CreatedAt:    res.CreatedAt,
-		UpdatedAt:    res.UpdatedAt,
-	})
-}
-
 func parsePathID(raw, name string) (string, error) {
 	id := strings.TrimSpace(raw)
 	if id == "" {

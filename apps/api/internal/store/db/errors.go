@@ -15,6 +15,7 @@ var (
 	ErrResourceNotFound     = errors.New("resource not found")
 	ErrResourceTagNotFound  = errors.New("resource tag not found")
 	ErrInvalidResourceType  = errors.New("invalid resource type")
+	ErrMultipleResourceRows = errors.New("multiple resources found")
 
 	ErrUnexpectedEmptyReturn = errors.New("unexpected empty insert return")
 )

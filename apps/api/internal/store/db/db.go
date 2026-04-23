@@ -33,7 +33,7 @@ type Database interface {
 	GetProject(ctx context.Context, userID uuid.UUID, id string) (model.Project, error)
 	ListProjects(ctx context.Context, userID uuid.UUID) ([]model.Project, error)
 	UpdateProject(ctx context.Context, userID uuid.UUID, id string, name, description *string) (model.Project, error)
-	DeactivateProject(ctx context.Context, userID uuid.UUID, id string) error
+	DeleteProject(ctx context.Context, userID uuid.UUID, id string) error
 
 	// Resources
 	// Should not operate separately as a single entity.
@@ -43,10 +43,11 @@ type Database interface {
 	DeleteResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error
 
 	// Databases
-	CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string) (model.DB, error)
+	CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string) (model.DB, error)
 	ListDatabases(ctx context.Context, userID uuid.UUID, projectID string) ([]model.DB, error)
 	GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error)
 	UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name *string, description *string) (model.DB, error)
+	GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
 
 	// Database Tables
 	CreateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name string, description *string) (model.DBTable, error)

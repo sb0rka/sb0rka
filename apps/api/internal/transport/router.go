@@ -50,12 +50,11 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects", s.authMiddleware(http.HandlerFunc(s.projects.ListProjects)))
 	mux.Handle("GET /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.GetProject)))
 	mux.Handle("PATCH /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.UpdateProject)))
-	mux.Handle("DELETE /projects/{project_id}/deactivate", s.authMiddleware(http.HandlerFunc(s.projects.DeactivateProject)))
+	mux.Handle("DELETE /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.DeactivateProject)))
 
 	// Resources
 	mux.Handle("GET /projects/{project_id}/resources", s.authMiddleware(http.HandlerFunc(s.resources.ListResources)))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}", s.authMiddleware(http.HandlerFunc(s.resources.GetResource)))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/deactivate", s.authMiddleware(http.HandlerFunc(s.resources.DeactivateResource)))
 
 	// Databases
 	mux.Handle("POST /projects/{project_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.CreateDatabase)))
@@ -63,6 +62,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabase)))
 	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.UpdateDatabase)))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/uri", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseURI)))
+	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabase)))
 
 	// Database Tables
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/table", s.authMiddleware(http.HandlerFunc(s.databases.CreateDatabaseTable)))

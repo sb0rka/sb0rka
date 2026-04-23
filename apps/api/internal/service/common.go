@@ -8,13 +8,37 @@ import (
 	"unicode/utf8"
 )
 
-var databaseNameRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+var secretNameRe = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
 
-func CleanDatabaseName(rawName string) string {
-	s := strings.ToLower(strings.TrimSpace(rawName))
-	if s == "" {
-		return "unnamed"
+// ValidateSecretName validates a secret name - less then 32 characters.
+// Allowed symbols: letters, numbers, '-', '_', '/', '.'
+func ValidateSecretName(name string) error {
+	if name == "" {
+		return errors.New("secret name is empty")
 	}
+
+	if utf8.RuneCountInString(name) >= 32 {
+		return errors.New("secret name must be less than 32 characters")
+	}
+
+	if !secretNameRe.MatchString(name) {
+		return fmt.Errorf("%s: %q", "secret name may contain only letters, numbers, and symbols '-', '_', '/', '.'", name)
+	}
+
+	return nil
+}
+
+// NormalizeDatabaseName modifies a database name to less then 32 characters, only lowercase letters, numbers and underscores
+func NormalizeDatabaseName(name string) (string, error) {
+	if name == "" {
+		return "", errors.New("database name is empty")
+	}
+
+	if utf8.RuneCountInString(name) >= 32 {
+		return "", errors.New("database name must be less than 32 characters")
+	}
+
+	s := strings.ToLower(strings.TrimSpace(name))
 
 	out := make([]rune, 0, len(s))
 	for _, r := range s {
@@ -29,22 +53,6 @@ func CleanDatabaseName(rawName string) string {
 			out = append(out, '_')
 		}
 	}
-	return string(out)
-}
 
-// ValidateDatabaseName validates a database name - less then 32 characters, only lowercase letters, numbers and underscores are allowed
-func ValidateDatabaseName(name string) error {
-	if name == "" {
-		return errors.New("database name is empty")
-	}
-
-	if utf8.RuneCountInString(name) >= 32 {
-		return errors.New("database name must be less than 32 characters")
-	}
-
-	if !databaseNameRe.MatchString(name) {
-		return fmt.Errorf("%w: %q", "database name may contain only lowercase letters, numbers, and underscores", name)
-	}
-
-	return nil
+	return string(out), nil
 }
