@@ -168,7 +168,6 @@ function ChartCard({ title, value, description, bars }: ChartCardProps) {
   const linePath = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ")
-  const areaPath = `${linePath} L 100 34 L 0 34 Z`
 
   return (
     <Card className="flex-1">
