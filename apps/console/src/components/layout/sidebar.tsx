@@ -23,7 +23,7 @@ const externalItems = [
   {
     label: "Документация",
     icon: FileText,
-    href: "https://docs.sb0rka.com",
+    href: "https://docs.sb0rka.com/ru",
     external: true,
   },
   {
