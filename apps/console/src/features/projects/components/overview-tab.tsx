@@ -94,8 +94,11 @@ function downsampleBars(bars: ChartBar[]): ChartBar[] {
   if (sampled[0]?.timestamp !== bars[0]?.timestamp) {
     sampled.unshift(bars[0])
   }
-  if (sampled.at(-1)?.timestamp !== bars.at(-1)?.timestamp && bars.at(-1)) {
-    sampled.push(bars.at(-1)!)
+  if (
+    sampled[sampled.length - 1]?.timestamp !== bars[bars.length - 1]?.timestamp &&
+    bars[bars.length - 1]
+  ) {
+    sampled.push(bars[bars.length - 1]!)
   }
 
   return sampled
@@ -191,7 +194,7 @@ function ChartCard({ title, value, description, bars }: ChartCardProps) {
           </svg>
           <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatRangeLabel(sampledBars[0]?.timestamp ?? "")}</span>
-            <span>{formatRangeLabel(sampledBars.at(-1)?.timestamp ?? "")}</span>
+            <span>{formatRangeLabel(sampledBars[sampledBars.length - 1]?.timestamp ?? "")}</span>
           </div>
         </div>
       </CardContent>
@@ -326,7 +329,7 @@ export function OverviewTab({
     return meta.map(({ metric, title }) => {
       const series = metricsTimeseries?.[metric]?.points ?? []
       const unit = metricsTimeseries?.[metric]?.unit
-      const lastValue = series.at(-1)?.value ?? 0
+      const lastValue = series[series.length - 1]?.value ?? 0
 
       return {
         title,
@@ -342,7 +345,7 @@ export function OverviewTab({
 
   const diskUsageSeries = metricsTimeseries?.db_size_rate?.points ?? []
   const diskUsageUnit = metricsTimeseries?.db_size_rate?.unit
-  const diskUsageValue = diskUsageSeries.at(-1)?.value ?? 0
+  const diskUsageValue = diskUsageSeries[diskUsageSeries.length - 1]?.value ?? 0
 
   return (
     <TabsContent value="overview" className="flex flex-col gap-4">
