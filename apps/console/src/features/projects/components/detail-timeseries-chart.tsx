@@ -133,7 +133,7 @@ function formatWindowDuration(durationMs: number): string {
 export function DetailTimeseriesChart({
   title,
   xAxisLabel = "",
-  yAxisLabel = "Значение",
+  yAxisLabel = "",
   points,
   formatValue,
 }: DetailTimeseriesChartProps) {
