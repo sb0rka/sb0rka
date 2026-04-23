@@ -250,12 +250,11 @@ export function OverviewTab({
   onOpenSecrets,
 }: OverviewTabProps) {
   function formatDiskUsagePercent(value: number, unit?: string): string {
-    if (unit === "ratio") {
-      return `${(value * 100).toFixed(1)}%`
+    if (unit === "ratio" || unit === "percent") {
+      return `${value.toFixed(2)}%`
     }
 
-    const normalized = value > 1 ? value : value * 100
-    return `${normalized.toFixed(1)}%`
+    return `${value.toFixed(2)}%`
   }
 
   function formatMetricValue(value: number, unit?: string): string {
