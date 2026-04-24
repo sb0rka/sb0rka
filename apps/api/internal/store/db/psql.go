@@ -43,7 +43,7 @@ func (p *PsqlDB) Close() error {
 	return nil
 }
 
-func (p *PsqlDB) CreateProject(ctx context.Context, userID uuid.UUID, name string, description string, isActive bool) (model.Project, error) {
+func (p *PsqlDB) CreateProject(ctx context.Context, userID uuid.UUID, name string, description *string, isActive bool) (model.Project, error) {
 	const query = `
 		INSERT INTO projects (user_id, name, description, is_active)
 		VALUES ($1, $2, $3, $4)
@@ -1325,6 +1325,32 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID st
 	return out, nil
 }
 
+func (p *PsqlDB) GetSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
+	const query = `
+		SELECT s.resource_id, s.name, s.description, s.revealed_at
+		FROM secrets s
+		INNER JOIN resources r ON r.id = s.resource_id
+		WHERE r.project_id = $1
+		  AND s.resource_id = $2
+		  AND r.resource_type = 'secret'
+	`
+
+	var secret model.Secret
+	err := p.pool.QueryRow(ctx, query, projectID, resourceID).Scan(
+		&secret.ResourceID,
+		&secret.Name,
+		&secret.Description,
+		&secret.RevealedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Secret{}, ErrResourceNotFound
+		}
+		return model.Secret{}, err
+	}
+	return secret, nil
+}
+
 func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
 	const query = `
 		UPDATE secrets s
@@ -1403,6 +1429,55 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 	}
 
 	return secret, nil
+}
+
+func (p *PsqlDB) DeleteSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const deleteSecretQuery = `
+		DELETE FROM secrets s
+		USING resources r
+		WHERE s.resource_id = r.id
+		  AND r.project_id = $1
+		  AND s.resource_id = $2
+		  AND r.resource_type = 'secret'
+		RETURNING s.resource_id
+	`
+
+	var deletedResourceID string
+	if err := tx.QueryRow(ctx, deleteSecretQuery, projectID, resourceID).Scan(&deletedResourceID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrResourceNotFound
+		}
+		return err
+	}
+
+	const deleteResourceQuery = `
+		DELETE FROM resources r
+		USING projects p
+		WHERE r.project_id = p.id
+		  AND p.user_id = $1
+		  AND r.project_id = $2
+		  AND r.id = $3
+		  AND r.resource_type = 'secret'
+	`
+	cmd, err := tx.Exec(ctx, deleteResourceQuery, userID, projectID, deletedResourceID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrResourceNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *PsqlDB) ListProjectTags(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Tag, error) {
@@ -1611,15 +1686,13 @@ func (p *PsqlDB) AttachResourceTag(
 	return tag, nil
 }
 
-func (p *PsqlDB) DeleteResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagID int64) error {
-	if _, err := p.GetResource(ctx, userID, projectID, resourceID); err != nil {
-		return err
-	}
-
+func (p *PsqlDB) DetachResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagID int64) error {
 	const query = `
 		DELETE FROM resource_tags rt
-		USING projects p
+		USING projects p, tags t
 		WHERE p.id = rt.project_id
+		  AND t.project_id = rt.project_id
+		  AND t.id = rt.tag_id
 		  AND p.user_id = $1
 		  AND rt.project_id = $2
 		  AND rt.resource_id = $3

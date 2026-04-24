@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
@@ -42,9 +43,14 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+	name, err := service.ValidateCommonName(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	description, err := service.ValidateCommonDescription(&req.Description)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -77,7 +83,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), userID, req.Name, req.Description, true)
+	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), userID, name, description, true)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectAlreadyExists) {
 			http.Error(w, "Project already exists", http.StatusConflict)
@@ -188,20 +194,25 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var name, description *string
+
 	if req.Name != nil {
-		trimmed := strings.TrimSpace(*req.Name)
-		if trimmed == "" {
-			http.Error(w, "name is required", http.StatusBadRequest)
+		validatedName, err := service.ValidateCommonName(*req.Name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		req.Name = &trimmed
+		name = &validatedName
 	}
 	if req.Description != nil {
-		trimmed := strings.TrimSpace(*req.Description)
-		req.Description = &trimmed
+		description, err = service.ValidateCommonDescription(req.Description)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
-	project, err := h.deps.PlatformDatabase.UpdateProject(r.Context(), userID, projectID, req.Name, req.Description)
+	project, err := h.deps.PlatformDatabase.UpdateProject(r.Context(), userID, projectID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -217,7 +228,7 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toProject(project))
 }
 
-func (h *Handler) DeactivateProject(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	userIDStr, ok := runtime.AuthUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -259,6 +270,7 @@ func (h *Handler) DeactivateProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to delete project", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -271,15 +283,11 @@ func parsePathID(raw, name string) (string, error) {
 }
 
 func toProject(p model.Project) contract.ProjectResponse {
-	var desc *string
-	if p.Description != "" {
-		desc = &p.Description
-	}
 	return contract.ProjectResponse{
 		ID:          p.ID,
 		UserID:      p.UserID.String(),
 		Name:        p.Name,
-		Description: desc,
+		Description: p.Description,
 		IsActive:    p.IsActive,
 		CreatedAt:   p.CreatedAt,
 		UpdatedAt:   p.UpdatedAt,

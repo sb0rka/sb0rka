@@ -50,26 +50,22 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+	name, err := service.ValidateCommonName(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	normalizedName, err := service.NormalizeDatabaseName(req.Name)
 	if err != nil {
-		h.deps.Log.Error("normalize_database_name_failed", "error", err)
-		http.Error(w, "Normalize database name failed", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if req.Description != nil {
-		trimmed := strings.TrimSpace(*req.Description)
-		if trimmed == "" {
-			req.Description = nil
-		} else {
-			req.Description = &trimmed
-		}
+	description, err := service.ValidateCommonDescription(req.Description)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	if err := h.deps.PlatformDatabase.AssertCanCreateResourceWithType(r.Context(), userID, projectID, "database"); err != nil {
@@ -94,7 +90,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRow, err := h.deps.PlatformDatabase.CreateDatabase(r.Context(), userID, projectID, req.Name, normalizedName, req.Description)
+	dbRow, err := h.deps.PlatformDatabase.CreateDatabase(r.Context(), userID, projectID, name, normalizedName, description)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -148,6 +144,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 			RevealedAt:  secret.RevealedAt,
 		},
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(resp)
@@ -186,6 +183,7 @@ func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
 	for _, d := range dbs {
 		out = append(out, toDatabaseResponse(d))
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.DatabaseListResponse{Databases: out})
@@ -224,6 +222,7 @@ func (h *Handler) GetDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get database", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(toDatabaseResponse(row))
@@ -264,21 +263,25 @@ func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var name, description *string
+
 	if req.Name != nil {
-		trimmedName := strings.TrimSpace(*req.Name)
-		if trimmedName == "" {
-			http.Error(w, "name is required", http.StatusBadRequest)
+		validatedName, err := service.ValidateCommonName(*req.Name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		req.Name = &trimmedName
+		name = &validatedName
 	}
 	if req.Description != nil {
-		trimmed := strings.TrimSpace(*req.Description)
-		req.Description = &trimmed
+		description, err = service.ValidateCommonDescription(req.Description)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
-	row, err := h.deps.PlatformDatabase.UpdateDatabase(r.Context(), userID, projectID, resourceID, req.Name, req.Description)
+	row, err := h.deps.PlatformDatabase.UpdateDatabase(r.Context(), userID, projectID, resourceID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -353,6 +356,7 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		"postgresql://root:%s@%s.%s:%d/%s?sslmode=require&sslnegotiation=direct",
 		decryptedSecretValue, resourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost, h.deps.Cfg.TenantsDatabasePublicPort, dbRow.NormalizedName,
 	)
+
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(uri))
@@ -397,6 +401,7 @@ func (h *Handler) DeleteDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO(kompotkot): CreateJob for database and secret deletion
+	// TODO(kompotkot): Delete databases, secret and related tag
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -440,21 +445,18 @@ func (h *Handler) CreateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+	name, err := service.ValidateCommonName(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.Description != nil {
-		trimmed := strings.TrimSpace(*req.Description)
-		if trimmed == "" {
-			req.Description = nil
-		} else {
-			req.Description = &trimmed
-		}
+	description, err := service.ValidateCommonDescription(req.Description)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	row, err := h.deps.PlatformDatabase.CreateDatabaseTable(r.Context(), userID, projectID, resourceID, req.Name, req.Description)
+	row, err := h.deps.PlatformDatabase.CreateDatabaseTable(r.Context(), userID, projectID, resourceID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -464,6 +466,7 @@ func (h *Handler) CreateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create table", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(toTableResponse(row))
@@ -591,20 +594,26 @@ func (h *Handler) UpdateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "at least one of name or description must be provided", http.StatusBadRequest)
 		return
 	}
+
+	var name, description *string
+
 	if req.Name != nil {
-		trimmed := strings.TrimSpace(*req.Name)
-		if trimmed == "" {
-			http.Error(w, "name is required", http.StatusBadRequest)
+		validatedName, err := service.ValidateCommonName(*req.Name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		req.Name = &trimmed
+		name = &validatedName
 	}
 	if req.Description != nil {
-		trimmed := strings.TrimSpace(*req.Description)
-		req.Description = &trimmed
+		description, err = service.ValidateCommonDescription(req.Description)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
-	row, err := h.deps.PlatformDatabase.UpdateDatabaseTable(r.Context(), userID, projectID, resourceID, tableID, req.Name, req.Description)
+	row, err := h.deps.PlatformDatabase.UpdateDatabaseTable(r.Context(), userID, projectID, resourceID, tableID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Table not found", http.StatusNotFound)
@@ -614,6 +623,7 @@ func (h *Handler) UpdateDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update table", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(toTableResponse(row))
@@ -655,6 +665,7 @@ func (h *Handler) DeleteDatabaseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to delete table", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -693,9 +704,13 @@ func (h *Handler) CreateDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.Name = strings.TrimSpace(req.Name)
 	req.DataType = strings.TrimSpace(req.DataType)
-	if req.Name == "" || req.DataType == "" {
+	req.Name, err = service.ValidateCommonName(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.DataType == "" {
 		http.Error(w, "name and data_type are required", http.StatusBadRequest)
 		return
 	}
@@ -849,9 +864,9 @@ func (h *Handler) UpdateDatabaseColumn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+	req.Name, err = service.ValidateCommonName(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	row, err := h.deps.PlatformDatabase.UpdateDatabaseColumn(r.Context(), userID, projectID, resourceID, tableID, columnID, req.Name)

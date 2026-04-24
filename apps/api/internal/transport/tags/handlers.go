@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
@@ -34,6 +35,7 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	tags, err := h.deps.PlatformDatabase.ListProjectTags(r.Context(), userID, projectID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
@@ -44,6 +46,7 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to list project tags", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{Tags: toTags(tags)})
@@ -65,6 +68,7 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	tags, err := h.deps.PlatformDatabase.ListResourceTags(r.Context(), userID, projectID, resourceID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
@@ -79,6 +83,7 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to list resource tags", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{Tags: toTags(tags)})
@@ -107,13 +112,23 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.TagKey = strings.TrimSpace(req.TagKey)
-	req.TagValue = strings.TrimSpace(req.TagValue)
-	if req.TagKey == "" || req.TagValue == "" {
-		http.Error(w, "tag_key and tag_value are required", http.StatusBadRequest)
+	tagKey, err := service.ValidateTagKey(req.TagKey)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, resourceID, req.TagKey, req.TagValue, req.Color, false)
+	tagValue, err := service.ValidateTagValue(req.TagValue)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	tagColor, err := service.ValidateTagColor(req.Color)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, resourceID, tagKey, tagValue, tagColor, false)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -127,6 +142,7 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to attach resource tag", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(contract.TagResponse{
@@ -139,7 +155,7 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) DeleteResourceTag(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 	userID, ok := parseUserID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -160,7 +176,8 @@ func (h *Handler) DeleteResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := h.deps.PlatformDatabase.DeleteResourceTag(r.Context(), userID, projectID, resourceID, tagID); err != nil {
+
+	if err := h.deps.PlatformDatabase.DetachResourceTag(r.Context(), userID, projectID, resourceID, tagID); err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -177,6 +194,7 @@ func (h *Handler) DeleteResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to delete resource tag", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

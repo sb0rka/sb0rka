@@ -50,7 +50,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects", s.authMiddleware(http.HandlerFunc(s.projects.ListProjects)))
 	mux.Handle("GET /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.GetProject)))
 	mux.Handle("PATCH /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.UpdateProject)))
-	mux.Handle("DELETE /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.DeactivateProject)))
+	mux.Handle("DELETE /projects/{project_id}", s.authMiddleware(http.HandlerFunc(s.projects.DeleteProject)))
 
 	// Resources
 	mux.Handle("GET /projects/{project_id}/resources", s.authMiddleware(http.HandlerFunc(s.resources.ListResources)))
@@ -64,31 +64,33 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/uri", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseURI)))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabase)))
 
-	// Database Tables
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/table", s.authMiddleware(http.HandlerFunc(s.databases.CreateDatabaseTable)))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables", s.authMiddleware(http.HandlerFunc(s.databases.ListDatabaseTables)))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables/{table_id}", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseTable)))
-	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/tables/{table_id}", s.authMiddleware(http.HandlerFunc(s.databases.UpdateDatabaseTable)))
-	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tables/{table_id}", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabaseTable)))
+	// // Database Tables
+	// mux.Handle("POST /projects/{project_id}/resources/{resource_id}/table", s.authMiddleware(http.HandlerFunc(s.databases.CreateDatabaseTable)))
+	// mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables", s.authMiddleware(http.HandlerFunc(s.databases.ListDatabaseTables)))
+	// mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables/{table_id}", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseTable)))
+	// mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/tables/{table_id}", s.authMiddleware(http.HandlerFunc(s.databases.UpdateDatabaseTable)))
+	// mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tables/{table_id}", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabaseTable)))
 
-	// Database Columns
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/tables/{table_id}/column", s.authMiddleware(http.HandlerFunc(s.databases.CreateDatabaseColumn)))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns", s.authMiddleware(http.HandlerFunc(s.databases.ListDatabaseColumns)))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns/{column_id}", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseColumn)))
-	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns/{column_id}", s.authMiddleware(http.HandlerFunc(s.databases.UpdateDatabaseColumn)))
-	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns/{column_id}", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabaseColumn)))
+	// // Database Columns
+	// mux.Handle("POST /projects/{project_id}/resources/{resource_id}/tables/{table_id}/column", s.authMiddleware(http.HandlerFunc(s.databases.CreateDatabaseColumn)))
+	// mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns", s.authMiddleware(http.HandlerFunc(s.databases.ListDatabaseColumns)))
+	// mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns/{column_id}", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseColumn)))
+	// mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns/{column_id}", s.authMiddleware(http.HandlerFunc(s.databases.UpdateDatabaseColumn)))
+	// mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tables/{table_id}/columns/{column_id}", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabaseColumn)))
 
 	// Secrets
 	mux.Handle("POST /projects/{project_id}/secret", s.authMiddleware(http.HandlerFunc(s.secrets.CreateSecret)))
 	mux.Handle("GET /projects/{project_id}/secrets", s.authMiddleware(http.HandlerFunc(s.secrets.ListSecrets)))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/reveal", s.authMiddleware(http.HandlerFunc(s.secrets.RevealSecret)))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret", s.authMiddleware(http.HandlerFunc(s.secrets.GetSecret)))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret/reveal", s.authMiddleware(http.HandlerFunc(s.secrets.RevealSecret)))
 	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/secret", s.authMiddleware(http.HandlerFunc(s.secrets.UpdateSecretValue)))
+	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/secret", s.authMiddleware(http.HandlerFunc(s.secrets.DeleteSecret)))
 
 	// Tags
 	mux.Handle("GET /projects/{project_id}/tags", s.authMiddleware(http.HandlerFunc(s.tags.ListProjectTags)))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tags", s.authMiddleware(http.HandlerFunc(s.tags.ListResourceTags)))
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/tag", s.authMiddleware(http.HandlerFunc(s.tags.AttachResourceTag)))
-	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tags/{tag_id}", s.authMiddleware(http.HandlerFunc(s.tags.DeleteResourceTag)))
+	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach", s.authMiddleware(http.HandlerFunc(s.tags.DetachResourceTag)))
 
 	commonHandler := s.loggerMiddleware(mux)
 	commonHandler = s.corsMiddleware(commonHandler)

@@ -29,7 +29,7 @@ type Database interface {
 	AssertCanCreateResourceWithType(ctx context.Context, userID uuid.UUID, projectID string, resourceType string) error
 
 	// Projects
-	CreateProject(ctx context.Context, userID uuid.UUID, name, description string, isActive bool) (model.Project, error)
+	CreateProject(ctx context.Context, userID uuid.UUID, name string, description *string, isActive bool) (model.Project, error)
 	GetProject(ctx context.Context, userID uuid.UUID, id string) (model.Project, error)
 	ListProjects(ctx context.Context, userID uuid.UUID) ([]model.Project, error)
 	UpdateProject(ctx context.Context, userID uuid.UUID, id string, name, description *string) (model.Project, error)
@@ -66,12 +66,14 @@ type Database interface {
 	// Secrets
 	CreateSecret(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string, secretValueHash string) (model.Secret, error)
 	ListSecrets(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Secret, error)
+	GetSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
 	RevealSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
 	UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, secretValueHash string) (model.Secret, error)
+	DeleteSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error
 
 	// Tags
 	ListProjectTags(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Tag, error)
 	ListResourceTags(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) ([]model.Tag, error)
 	AttachResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagKey string, tagValue string, color *string, is_system bool) (model.Tag, error)
-	DeleteResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagID int64) error
+	DetachResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagID int64) error
 }

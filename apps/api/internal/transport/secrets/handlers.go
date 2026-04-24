@@ -63,25 +63,28 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" || req.SecretValue == "" {
-		http.Error(w, "name and secret_value are required", http.StatusBadRequest)
+	name, err := service.ValidateSecretName(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.Description != nil {
-		trimmed := strings.TrimSpace(*req.Description)
-		if trimmed == "" {
-			req.Description = nil
-		} else {
-			req.Description = &trimmed
-		}
+	description, err := service.ValidateCommonDescription(req.Description)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
-	encrypted, err := service.EncryptSecret(req.SecretValue, h.deps.Cfg.AuthConfig.SecretMasterKey)
+	secretValue, err := service.ValidateSecretValue(req.SecretValue)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	encryptedSecretValue, err := service.EncryptSecret(secretValue, h.deps.Cfg.AuthConfig.SecretMasterKey)
 	if err != nil {
 		http.Error(w, "Failed to encrypt secret value", http.StatusInternalServerError)
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.CreateSecret(r.Context(), userID, projectID, req.Name, req.Description, encrypted)
+	secret, err := h.deps.PlatformDatabase.CreateSecret(r.Context(), userID, projectID, name, description, encryptedSecretValue)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -91,6 +94,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(contract.SecretResponse{
@@ -131,9 +135,45 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 			RevealedAt:  s.RevealedAt,
 		})
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.SecretListResponse{Secrets: out})
+}
+
+func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
+	userID, ok := parseUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	secret, err := h.deps.PlatformDatabase.GetSecret(r.Context(), userID, projectID, resourceID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(contract.SecretResponse{
+		ResourceID:  secret.ResourceID,
+		Name:        secret.Name,
+		Description: secret.Description,
+		RevealedAt:  secret.RevealedAt,
+	})
 }
 
 func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
@@ -152,6 +192,7 @@ func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	secret, err := h.deps.PlatformDatabase.RevealSecret(r.Context(), userID, projectID, resourceID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
@@ -166,14 +207,16 @@ func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to reveal secret", http.StatusInternalServerError)
 		return
 	}
+
 	value, err := service.DecryptSecret(secret.SecretValueHash, h.deps.Cfg.AuthConfig.SecretMasterKey)
 	if err != nil {
 		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+
+	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.RevealSecretValueResponse{SecretValue: value})
+	_, _ = w.Write([]byte(value))
 }
 
 func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
@@ -199,16 +242,19 @@ func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	if req.SecretValue == "" {
-		http.Error(w, "secret_value is required", http.StatusBadRequest)
+
+	secretValue, err := service.ValidateSecretValue(req.SecretValue)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	encrypted, err := service.EncryptSecret(req.SecretValue, h.deps.Cfg.AuthConfig.SecretMasterKey)
+
+	encryptedSecretValue, err := service.EncryptSecret(secretValue, h.deps.Cfg.AuthConfig.SecretMasterKey)
 	if err != nil {
 		http.Error(w, "Failed to encrypt secret value", http.StatusInternalServerError)
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.UpdateSecretValue(r.Context(), userID, projectID, resourceID, encrypted)
+	secret, err := h.deps.PlatformDatabase.UpdateSecretValue(r.Context(), userID, projectID, resourceID, encryptedSecretValue)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Resource not found", http.StatusNotFound)
@@ -218,6 +264,7 @@ func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update secret value", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.SecretResponse{
@@ -226,6 +273,62 @@ func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
 		Description: secret.Description,
 		RevealedAt:  secret.RevealedAt,
 	})
+}
+
+func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
+	userID, ok := parseUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	tags, err := h.deps.PlatformDatabase.ListResourceTags(r.Context(), userID, projectID, resourceID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrResourceNotFound) {
+			http.Error(w, "Resource not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("list_resource_tags_failed", "error", err)
+		http.Error(w, "Failed to check secret tags", http.StatusInternalServerError)
+		return
+	}
+	for _, tag := range tags {
+		if tag.IsSystem {
+			http.Error(w, "Cannot delete secret with system tags", http.StatusForbidden)
+			return
+		}
+	}
+
+	err = h.deps.PlatformDatabase.DeleteSecret(r.Context(), userID, projectID, resourceID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrResourceNotFound) {
+			http.Error(w, "Secret not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("delete_secret_failed", "error", err)
+		http.Error(w, "Failed to delete secret", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseUserID(r *http.Request) (uuid.UUID, bool) {
