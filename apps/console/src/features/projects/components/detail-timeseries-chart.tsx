@@ -27,6 +27,16 @@ interface ChartPoint {
 
 const DEFAULT_WINDOW_MS = 2 * 60 * 60 * 1000
 const MIN_WINDOW_PERCENT = 0.01
+const BASE_STEP_MS = 5 * 60_000
+
+const STEP_OPTIONS = [
+  { label: "5м", ms: BASE_STEP_MS },
+  { label: "10м", ms: 10 * 60_000 },
+  { label: "15м", ms: 15 * 60_000 },
+  { label: "30м", ms: 30 * 60_000 },
+  { label: "1ч", ms: 60 * 60_000 },
+  { label: "2ч", ms: 2 * 60 * 60_000 },
+] as const
 
 const axisDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
   day: "2-digit",
@@ -130,6 +140,28 @@ function formatWindowDuration(durationMs: number): string {
   return `${days}д ${remainingHours}ч`
 }
 
+function aggregateChartPoints(points: ChartPoint[], bucketMs: number): ChartPoint[] {
+  if (points.length === 0 || bucketMs <= BASE_STEP_MS) return points
+  const buckets = new Map<number, { sum: number; count: number }>()
+  for (const point of points) {
+    const bucketStartMs = Math.floor(point.timestampMs / bucketMs) * bucketMs
+    const current = buckets.get(bucketStartMs)
+    if (current) {
+      current.sum += point.value
+      current.count += 1
+      continue
+    }
+    buckets.set(bucketStartMs, { sum: point.value, count: 1 })
+  }
+  return Array.from(buckets.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([timestampMs, { sum, count }]) => ({
+      timestampMs,
+      timestampIso: new Date(timestampMs).toISOString(),
+      value: sum / count,
+    }))
+}
+
 export function DetailTimeseriesChart({
   title,
   xAxisLabel = "",
@@ -138,8 +170,9 @@ export function DetailTimeseriesChart({
   formatValue,
 }: DetailTimeseriesChartProps) {
   const [windowPercent, setWindowPercent] = useState(100)
+  const [selectedStepMs, setSelectedStepMs] = useState(BASE_STEP_MS)
 
-  const chartData = useMemo<ChartPoint[]>(
+  const normalizedChartData = useMemo<ChartPoint[]>(
     () =>
       points
         .map((point) => ({
@@ -150,6 +183,11 @@ export function DetailTimeseriesChart({
         .filter((point) => Number.isFinite(point.timestampMs))
         .sort((left, right) => left.timestampMs - right.timestampMs),
     [points],
+  )
+
+  const chartData = useMemo(
+    () => aggregateChartPoints(normalizedChartData, selectedStepMs),
+    [normalizedChartData, selectedStepMs],
   )
 
   const hasData = chartData.length > 0
@@ -299,8 +337,30 @@ export function DetailTimeseriesChart({
 
   return (
     <div className="w-full rounded-xl border border-border/70 bg-card p-4 sm:p-6">
-      <div className="mb-5">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center gap-1">
+            {STEP_OPTIONS.map((option) => {
+              const isActive = option.ms === selectedStepMs
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => setSelectedStepMs(option.ms)}
+                  aria-pressed={isActive}
+                  className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                    isActive
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {!hasData ? (
