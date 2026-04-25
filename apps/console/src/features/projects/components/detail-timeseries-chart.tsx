@@ -336,7 +336,7 @@ export function DetailTimeseriesChart({
   )
 
   return (
-    <div className="w-full rounded-xl border border-border/70 bg-card p-4 sm:p-6">
+    <div className="flex h-full min-h-0 w-full flex-col rounded-xl border border-border/70 bg-card p-4 sm:p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -364,78 +364,80 @@ export function DetailTimeseriesChart({
       </div>
 
       {!hasData ? (
-        <div className="flex h-[320px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
+        <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
           <p className="text-sm text-muted-foreground">Данные еще не поступили</p>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={320}>
-          <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 4, bottom: 26 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.35} />
-            <XAxis
-              type="number"
-              dataKey="timestampMs"
-              domain={xWindowDomain}
-              scale="time"
-              ticks={axisTicks.length > 0 ? axisTicks : undefined}
-              tickLine={false}
-              axisLine={{ stroke: "var(--border)" }}
-              tick={renderXAxisTick}
-              interval={0}
-              label={{
-                value: xAxisLabel,
-                offset: 14,
-                position: "insideBottom",
-                fill: "var(--muted-foreground)",
-                fontSize: 12,
-              }}
-            />
-            <YAxis
-              type="number"
-              domain={yDomain}
-              tickFormatter={formatValue}
-              tickLine={false}
-              axisLine={{ stroke: "var(--border)" }}
-              tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-              width={82}
-              label={{
-                value: yAxisLabel,
-                angle: -90,
-                position: "insideLeft",
-                fill: "var(--muted-foreground)",
-                fontSize: 12,
-              }}
-            />
-            <Tooltip
-              cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}
-              formatter={(value: unknown) => {
-                const numberValue = asNumber(value)
-                if (numberValue === null) return "—"
-                return formatValue(numberValue)
-              }}
-              labelFormatter={(label: unknown) => {
-                const timestamp = asNumber(label)
-                if (timestamp === null) return "—"
-                return formatAxisDateTimeLabel(timestamp)
-              }}
-              contentStyle={{
-                borderRadius: "0.5rem",
-                borderColor: "var(--border)",
-                backgroundColor: "var(--card)",
-              }}
-              labelStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
-              itemStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
-            />
-            <Line
-              dataKey="value"
-              type="monotone"
-              stroke="var(--primary)"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <div className="min-h-[320px] max-h-[500px] flex-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 4, bottom: 26 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.35} />
+              <XAxis
+                type="number"
+                dataKey="timestampMs"
+                domain={xWindowDomain}
+                scale="time"
+                ticks={axisTicks.length > 0 ? axisTicks : undefined}
+                tickLine={false}
+                axisLine={{ stroke: "var(--border)" }}
+                tick={renderXAxisTick}
+                interval={0}
+                label={{
+                  value: xAxisLabel,
+                  offset: 14,
+                  position: "insideBottom",
+                  fill: "var(--muted-foreground)",
+                  fontSize: 12,
+                }}
+              />
+              <YAxis
+                type="number"
+                domain={yDomain}
+                tickFormatter={formatValue}
+                tickLine={false}
+                axisLine={{ stroke: "var(--border)" }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                width={82}
+                label={{
+                  value: yAxisLabel,
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: "var(--muted-foreground)",
+                  fontSize: 12,
+                }}
+              />
+              <Tooltip
+                cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}
+                formatter={(value: unknown) => {
+                  const numberValue = asNumber(value)
+                  if (numberValue === null) return "—"
+                  return formatValue(numberValue)
+                }}
+                labelFormatter={(label: unknown) => {
+                  const timestamp = asNumber(label)
+                  if (timestamp === null) return "—"
+                  return formatAxisDateTimeLabel(timestamp)
+                }}
+                contentStyle={{
+                  borderRadius: "0.5rem",
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--card)",
+                }}
+                labelStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
+                itemStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
+              />
+              <Line
+                dataKey="value"
+                type="monotone"
+                stroke="var(--primary)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       )}
       {hasData ? (
         <div className="pt-4 space-y-2">
