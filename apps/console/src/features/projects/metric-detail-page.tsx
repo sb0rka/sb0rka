@@ -121,7 +121,7 @@ export function MetricDetailPage() {
   const latestValue = metricSeries[metricSeries.length - 1]?.value ?? 0
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex h-full min-h-0 flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight">{meta.title}</h1>
@@ -162,11 +162,13 @@ export function MetricDetailPage() {
           <p className="text-sm text-destructive">Не удалось загрузить данные метрики.</p>
         </div>
       ) : (
-        <DetailTimeseriesChart
-          title={meta.title}
-          points={metricSeries}
-          formatValue={(value) => formatMetricValue(value, metricUnit)}
-        />
+        <div className="min-h-0 flex-1">
+          <DetailTimeseriesChart
+            title={meta.title}
+            points={metricSeries}
+            formatValue={(value) => formatMetricValue(value, metricUnit)}
+          />
+        </div>
       )}
     </div>
   )
