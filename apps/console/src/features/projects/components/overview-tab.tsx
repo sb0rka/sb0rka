@@ -55,10 +55,12 @@ interface ChartBar {
 }
 
 interface ChartCardProps {
+  metricKey: "db_size" | "active_connections" | "net_transmit" | "net_receive"
   title: string
   value: string | number
   description: string
   bars: ChartBar[]
+  onClick?: () => void
 }
 
 const MAX_CHART_POINTS = 96
@@ -156,12 +158,13 @@ function formatRangeLabel(timestamp: string): string {
   }).format(date)
 }
 
-function ChartCard({ title, value, description, bars }: ChartCardProps) {
+function ChartCard({ title, value, description, bars, onClick }: ChartCardProps) {
   const sampledBars = downsampleBars(bars)
   const hasData = sampledBars.some((point) => point.value > 0)
   const displayValues = normalizeFirstPointOutlier(sampledBars.map((point) => point.value))
   const domain = getPaddedDomain(displayValues)
   const valueRange = Math.max(domain.max - domain.min, 1)
+  const isClickable = Boolean(onClick)
   const xStep = sampledBars.length > 1 ? 100 / (sampledBars.length - 1) : 100
   const points = sampledBars.map((point, index) => {
     const x = Math.round(index * xStep * 100) / 100
@@ -172,8 +175,22 @@ function ChartCard({ title, value, description, bars }: ChartCardProps) {
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ")
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!onClick) return
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      onClick()
+    }
+  }
+
   return (
-    <Card className="flex-1">
+    <Card
+      className={`flex-1 ${isClickable ? "cursor-pointer transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" : ""}`}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+    >
       <CardHeader className="gap-1.5 pb-3 pt-6 px-6">
         <p className="text-sm font-normal tracking-tight text-muted-foreground">{title}</p>
         <p className="text-4xl font-bold tracking-tight">{value}</p>
@@ -240,6 +257,9 @@ interface OverviewTabProps {
   metricsTimeseries?: ProjectMetricsTimeseries
   onOpenDatabases?: () => void
   onOpenSecrets?: () => void
+  onOpenMetricDetail?: (
+    metric: "db_size" | "active_connections" | "net_transmit" | "net_receive",
+  ) => void
 }
 
 export function OverviewTab({
@@ -248,6 +268,7 @@ export function OverviewTab({
   metricsTimeseries,
   onOpenDatabases,
   onOpenSecrets,
+  onOpenMetricDetail,
 }: OverviewTabProps) {
   function formatDiskUsagePercent(value: number, unit?: string): string {
     if (unit === "ratio" || unit === "percent") {
@@ -308,29 +329,34 @@ export function OverviewTab({
   const charts = useMemo<ChartCardProps[]>(() => {
     const meta = [
       {
+        metricKey: "db_size",
         metric: "db_size",
         title: "Использование диска",
       },
       {
+        metricKey: "active_connections",
         metric: "active_connections",
         title: "Активные подключения",
       },
       {
+        metricKey: "net_transmit",
         metric: "net_transmit",
         title: "Сетевой исходящий трафик",
       },
       {
+        metricKey: "net_receive",
         metric: "net_receive",
         title: "Сетевой входящий трафик",
       },
     ] as const
 
-    return meta.map(({ metric, title }) => {
+    return meta.map(({ metricKey, metric, title }) => {
       const series = metricsTimeseries?.[metric]?.points ?? []
       const unit = metricsTimeseries?.[metric]?.unit
       const lastValue = series[series.length - 1]?.value ?? 0
 
       return {
+        metricKey,
         title,
         value: formatMetricValue(lastValue, unit),
         description:
@@ -338,9 +364,10 @@ export function OverviewTab({
             ? ""
             : "Данные еще не поступили",
         bars: buildBarsFromSeries(series),
+        onClick: onOpenMetricDetail ? () => onOpenMetricDetail(metricKey) : undefined,
       }
     })
-  }, [metricsTimeseries])
+  }, [metricsTimeseries, onOpenMetricDetail])
 
   const diskUsageSeries = metricsTimeseries?.db_size_rate?.points ?? []
   const diskUsageUnit = metricsTimeseries?.db_size_rate?.unit

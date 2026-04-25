@@ -42,6 +42,7 @@ export function ProjectSidebar() {
   const { id = "" } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const isDatabaseDetailsRoute = useMatch("/projects/:id/databases/:resourceId") !== null
+  const isMetricDetailsRoute = useMatch("/projects/:id/metrics/:metric") !== null
   const { data: project } = useProject(id)
   const { data: projectsData } = useProjects()
   const tabParam = searchParams.get("tab")
@@ -52,6 +53,8 @@ export function ProjectSidebar() {
     value === "settings"
   const activeTab: ProjectTab = isDatabaseDetailsRoute
     ? "databases"
+    : isMetricDetailsRoute
+      ? "overview"
     : isProjectTab(tabParam)
       ? tabParam
       : "overview"

@@ -247,6 +247,7 @@ export function ProjectDetailPage() {
           metricsTimeseries={metricsTimeseries}
           onOpenDatabases={() => setSearchParams({ tab: "databases" })}
           onOpenSecrets={() => setSearchParams({ tab: "secrets" })}
+          onOpenMetricDetail={(metric) => navigate(`/projects/${id}/metrics/${metric}`)}
         />
         <DatabasesTab
           projectId={id}
