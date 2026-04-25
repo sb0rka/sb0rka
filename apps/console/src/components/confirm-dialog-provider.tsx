@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -28,6 +29,7 @@ type ConfirmDialogContextValue = (options: ConfirmDialogOptions) => Promise<bool
 const ConfirmDialogContext = createContext<ConfirmDialogContextValue | null>(null)
 
 export function ConfirmDialogProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const requestIdRef = useRef(0)
   const [queue, setQueue] = useState<ConfirmRequest[]>([])
   const activeRequest = queue[0] ?? null
@@ -85,7 +87,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
                 if (activeRequest) resolveRequest(activeRequest.id, false)
               }}
             >
-              {activeRequest?.options.cancelText ?? "Отменить"}
+              {activeRequest?.options.cancelText ?? t("common.actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -94,7 +96,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
                 if (activeRequest) resolveRequest(activeRequest.id, true)
               }}
             >
-              {activeRequest?.options.confirmText ?? "Подтвердить"}
+              {activeRequest?.options.confirmText ?? t("common.actions.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

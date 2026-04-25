@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useTranslation } from "react-i18next"
+import { getResolvedLanguage } from "@/lib/i18n"
 import {
   Card,
   CardContent,
@@ -19,13 +21,13 @@ interface ProjectSettingsProps {
   createdAt?: string
 }
 
-function formatCreatedAt(value?: string): string {
+function formatCreatedAt(value: string | undefined, locale: string): string {
   if (!value) return "—"
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
 
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -48,6 +50,8 @@ export function ProjectSettings({
   projectName,
   createdAt,
 }: ProjectSettingsProps) {
+  const { t } = useTranslation()
+  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const navigate = useNavigate()
   const deactivateProject = useDeactivateProject()
@@ -57,10 +61,10 @@ export function ProjectSettings({
     if (!projectId || deactivateProject.isPending) return
 
     const confirmed = await confirm({
-      title: "Удалить проект?",
-      description: "Все связанные данные будут удалены без возможности восстановления.",
-      confirmText: "Удалить",
-      cancelText: "Отменить",
+      title: t("projects.settings.deleteTitle"),
+      description: t("projects.settings.deleteDescription"),
+      confirmText: t("common.actions.delete"),
+      cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",
     })
     if (!confirmed) return
@@ -68,16 +72,16 @@ export function ProjectSettings({
     setDeleteError(null)
     try {
       await deactivateProject.mutateAsync(projectId)
-      window.alert("Проект удален")
+      window.alert(t("projects.settings.deleted"))
       navigate("/projects")
     } catch (error) {
-      setDeleteError(getErrorMessage(error, "Не удалось удалить проект. Попробуйте снова."))
+      setDeleteError(getErrorMessage(error, t("projects.settings.deleteError")))
     }
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-2xl font-semibold tracking-tight">Настройки</h2>
+      <h2 className="text-2xl font-semibold tracking-tight">{t("projects.settings.title")}</h2>
 
       <Card className="overflow-hidden shadow-sm">
         <CardContent className="p-6">
@@ -86,7 +90,7 @@ export function ProjectSettings({
               {projectName}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Дата создания: {formatCreatedAt(createdAt)}
+              {t("projects.settings.createdAt", { date: formatCreatedAt(createdAt, locale) })}
             </p>
           </div>
         </CardContent>
@@ -95,10 +99,10 @@ export function ProjectSettings({
       <Card className="overflow-hidden shadow-sm">
         <CardHeader className="gap-1 border-b border-border p-6">
           <CardTitle className="text-xl font-semibold tracking-tight">
-            Опасная зона
+            {t("projects.settings.dangerTitle")}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Безвозвратно удалить проект и все связанные с ним данные.
+            {t("projects.settings.dangerDescription")}
           </p>
         </CardHeader>
         <CardFooter className="p-6">
@@ -109,7 +113,7 @@ export function ProjectSettings({
               onClick={() => void handleDeleteProject()}
               disabled={deactivateProject.isPending}
             >
-              {deactivateProject.isPending ? "Удаление…" : "Удалить проект"}
+              {deactivateProject.isPending ? t("common.deleting") : t("projects.settings.deleteButton")}
             </Button>
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </div>

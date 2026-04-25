@@ -1,5 +1,6 @@
 import { useMemo, useRef, type FormEvent, type KeyboardEvent } from "react"
 import { useQueries } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,6 +38,7 @@ export function DatabasesTab({
   createActions,
   onOpenDatabaseDetails,
 }: DatabasesTabProps) {
+  const { t } = useTranslation()
   const dbNameInputRef = useRef<HTMLInputElement>(null)
   const databaseDetailsQueries = useQueries({
     queries: databases.map((database) => ({
@@ -96,9 +98,9 @@ export function DatabasesTab({
     <TabsContent value="databases" className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold tracking-tight">База данных</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{t("databases.singularTitle")}</h2>
           <p className="text-sm text-muted-foreground">
-            Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.
+            {t("databases.description")}
           </p>
         </div>
       </div>
@@ -107,7 +109,7 @@ export function DatabasesTab({
         <CardContent className="p-6">
           <DatabasesTable
             rows={databaseRows}
-            emptyMessage="Нет баз данных"
+            emptyMessage={t("databases.empty")}
             onRowClick={(row) => onOpenDatabaseDetails(row.id)}
           />
         </CardContent>
@@ -116,7 +118,7 @@ export function DatabasesTab({
       <Card className="overflow-hidden">
         <CardHeader className="gap-1.5">
           <CardTitle className="text-xl font-semibold leading-5 tracking-[-0.015em]">
-            Создать новую базу данных
+            {t("databases.createTitle")}
           </CardTitle>
           <CardDescription className="leading-5">PostgreSQL v18.3</CardDescription>
         </CardHeader>
@@ -124,20 +126,20 @@ export function DatabasesTab({
           <CardContent className="space-y-4 pb-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-db-name">Название</Label>
+                <Label htmlFor="new-db-name">{t("common.labels.name")}</Label>
                 <Input
                   id="new-db-name"
-                  placeholder="Введите название базы данных"
+                  placeholder={t("databases.namePlaceholder")}
                   value={createForm.newDatabaseName}
                   onChange={(e) => createActions.onNewDatabaseNameChange(e.target.value)}
                   ref={dbNameInputRef}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-db-description">Описание</Label>
+                <Label htmlFor="new-db-description">{t("common.labels.description")}</Label>
                 <Input
                   id="new-db-description"
-                  placeholder="Добавьте описание базы данных"
+                  placeholder={t("databases.descriptionPlaceholder")}
                   value={createForm.newDatabaseDescription}
                   onChange={(e) =>
                     createActions.onNewDatabaseDescriptionChange(e.target.value)
@@ -147,7 +149,7 @@ export function DatabasesTab({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>Теги</Label>
+              <Label>{t("common.labels.tags")}</Label>
               <div className="flex flex-wrap items-center gap-2 pb-1">
                 {createForm.draftTags.map((tag) => (
                   <Badge key={`${tag.tag_key}:${tag.tag_value}`}>{`${tag.tag_key}:${tag.tag_value}`}</Badge>
@@ -158,11 +160,11 @@ export function DatabasesTab({
                   size="sm"
                   onClick={createActions.onAddDraftTag}
                 >
-                  + добавить тег
+                  {t("databases.addTag")}
                 </Button>
               </div>
               <Input
-                placeholder="Например: env:production"
+                placeholder={t("databases.tagExample")}
                 value={createForm.newTagInput}
                 onChange={(e) => createActions.onNewTagInputChange(e.target.value)}
                 onKeyDown={handleTagInputKeyDown}
@@ -183,7 +185,7 @@ export function DatabasesTab({
                 !createForm.newDatabaseName.trim() || createForm.isCreatePending
               }
             >
-              {createForm.isCreatePending ? "Создание…" : "Создать"}
+              {createForm.isCreatePending ? t("common.creating") : t("common.actions.create")}
             </Button>
           </div>
         </form>

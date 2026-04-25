@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge"
+import { useTranslation } from "react-i18next"
 import {
   Card,
   CardContent,
@@ -22,17 +23,17 @@ interface LimitItem {
     | "code_limit"
     | "group_limit"
   >
-  label: string
+  labelKey: string
   usageKey?: keyof SubscriptionUsage
 }
 
 const LIMIT_ITEMS: LimitItem[] = [
-  { key: "project_limit", label: "Проекты", usageKey: "projects" },
-  { key: "db_limit", label: "Базы\u00a0данных", usageKey: "databases" },
-  { key: "secret_limit", label: "Секреты", usageKey: "secrets" },
-  { key: "function_limit", label: "Функции" },
-  { key: "code_limit", label: "Кодовые единицы" },
-  { key: "group_limit", label: "Группы" },
+  { key: "project_limit", labelKey: "subscription.limits.projects", usageKey: "projects" },
+  { key: "db_limit", labelKey: "subscription.limits.databases", usageKey: "databases" },
+  { key: "secret_limit", labelKey: "subscription.limits.secrets", usageKey: "secrets" },
+  { key: "function_limit", labelKey: "subscription.limits.functions" },
+  { key: "code_limit", labelKey: "subscription.limits.codeUnits" },
+  { key: "group_limit", labelKey: "subscription.limits.groups" },
 ]
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -47,6 +48,7 @@ function getUsageProgress(used: number, limit: number): number {
 }
 
 export function SubscriptionPage() {
+  const { t } = useTranslation()
   const currentPlanQuery = useCurrentPlan()
   const plansQuery = usePlans()
   const usageQuery = useSubscriptionUsage()
@@ -60,7 +62,7 @@ export function SubscriptionPage() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center min-h-[500px]">
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       </div>
     )
   }
@@ -69,7 +71,7 @@ export function SubscriptionPage() {
     return (
       <div className="flex flex-1 items-center justify-center min-h-[500px]">
         <p className="text-sm text-destructive">
-          {getErrorMessage(error, "Не удалось загрузить данные подписки")}
+          {getErrorMessage(error, t("subscription.loadError"))}
         </p>
       </div>
     )
@@ -79,19 +81,19 @@ export function SubscriptionPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-foreground">Подписка</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{t("subscription.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Текущий план и лимиты ресурсов вашего аккаунта.
+            {t("subscription.description")}
           </p>
         </div>
-        <Badge variant="active">Текущий план</Badge>
+        <Badge variant="active">{t("subscription.currentPlan")}</Badge>
       </div>
 
       <Card>
         <CardHeader className="gap-2">
           <CardTitle>{currentPlan.name}</CardTitle>
           <CardDescription>
-            {currentPlan.description || "Описание тарифа не указано"}
+            {currentPlan.description || t("subscription.noPlanDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-4">
@@ -107,10 +109,10 @@ export function SubscriptionPage() {
                 key={item.key}
                 className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-border p-4"
               >
-                <p className="text-sm text-muted-foreground">{item.label}</p>
+                <p className="text-sm text-muted-foreground">{t(item.labelKey)}</p>
                 <p className="mt-2 text-2xl font-bold tracking-tight">{limit}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Использовано:{" "}
+                  {t("subscription.used")}{" "}
                   {typeof used === "number" ? `${used} / ${limit}` : "—"}
                 </p>
                 {/* {item.usageKey ? ( */}
@@ -129,14 +131,14 @@ export function SubscriptionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Доступные планы</CardTitle>
+          <CardTitle className="text-xl">{t("subscription.availablePlans")}</CardTitle>
           <CardDescription>
-            Сравните условия и выберите подходящий тариф.
+            {t("subscription.comparePlans")}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-4">
           {plans.length === 0 ? (
-            <p className="w-full text-sm text-muted-foreground">Список тарифов пуст</p>
+            <p className="w-full text-sm text-muted-foreground">{t("subscription.emptyPlans")}</p>
           ) : (
             plans.map((plan) => {
               const isCurrent = plan.id === currentPlan.id
@@ -154,10 +156,10 @@ export function SubscriptionPage() {
                         {plan.name}
                       </h3>
                       <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                        {plan.description || "Описание тарифа не указано"}
+                        {plan.description || t("subscription.noPlanDescription")}
                       </p>
                     </div>
-                    {isCurrent ? <Badge variant="active-solid">Текущий</Badge> : null}
+                    {isCurrent ? <Badge variant="active-solid">{t("subscription.current")}</Badge> : null}
                   </div>
 
                   <ul className="mt-4 overflow-hidden rounded-md">
@@ -166,7 +168,7 @@ export function SubscriptionPage() {
                         key={item.key}
                         className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
                       >
-                        <span className="text-muted-foreground">{item.label}</span>
+                        <span className="text-muted-foreground">{t(item.labelKey)}</span>
                         <span className="font-semibold tabular-nums">{plan[item.key]}</span>
                       </li>
                     ))}

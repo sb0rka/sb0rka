@@ -1,7 +1,9 @@
-import { useMemo, type KeyboardEvent, type ReactNode } from "react"
+import { useCallback, useMemo, type KeyboardEvent, type ReactNode } from "react"
 import { Database, HardDrive, KeyRound } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TabsContent } from "@/components/ui/tabs"
+import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 import type { ProjectMetricsTimeseries } from "../hooks"
 
@@ -60,6 +62,8 @@ interface ChartCardProps {
   value: string | number
   description: string
   bars: ChartBar[]
+  locale: string
+  sparklineLabel: string
   onClick?: () => void
 }
 
@@ -119,11 +123,11 @@ function getPaddedDomain(values: number[]): { min: number; max: number } {
   }
 }
 
-function formatRangeLabel(timestamp: string): string {
+function formatRangeLabel(timestamp: string, locale: string): string {
   const date = new Date(timestamp)
   if (Number.isNaN(date.getTime())) return "—"
 
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -131,7 +135,15 @@ function formatRangeLabel(timestamp: string): string {
   }).format(date)
 }
 
-function ChartCard({ title, value, description, bars, onClick }: ChartCardProps) {
+function ChartCard({
+  title,
+  value,
+  description,
+  bars,
+  locale,
+  sparklineLabel,
+  onClick,
+}: ChartCardProps) {
   const sampledBars = downsampleBars(bars)
   const hasData = sampledBars.some((point) => point.value > 0)
   const displayValues = sampledBars.map((point) => point.value)
@@ -172,7 +184,7 @@ function ChartCard({ title, value, description, bars, onClick }: ChartCardProps)
       <CardContent className="px-6 pb-6">
         <p className="text-xs text-muted-foreground">{description}</p>
         <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <svg viewBox="0 0 100 36" className="h-28 w-full" preserveAspectRatio="none" role="img" aria-label={`${title} sparkline`}>
+          <svg viewBox="0 0 100 36" className="h-28 w-full" preserveAspectRatio="none" role="img" aria-label={sparklineLabel}>
             <line x1="0" y1={CHART_Y_MAX} x2="100" y2={CHART_Y_MAX} className="stroke-border/80" strokeWidth="1" />
             <path
               d={linePath}
@@ -184,8 +196,8 @@ function ChartCard({ title, value, description, bars, onClick }: ChartCardProps)
             />
           </svg>
           <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>{formatRangeLabel(sampledBars[0]?.timestamp ?? "")}</span>
-            <span>{formatRangeLabel(sampledBars[sampledBars.length - 1]?.timestamp ?? "")}</span>
+            <span>{formatRangeLabel(sampledBars[0]?.timestamp ?? "", locale)}</span>
+            <span>{formatRangeLabel(sampledBars[sampledBars.length - 1]?.timestamp ?? "", locale)}</span>
           </div>
         </div>
       </CardContent>
@@ -200,26 +212,21 @@ const FALLBACK_BARS: ChartBar[] = [
   { label: "—", timestamp: "", value: 0 },
 ]
 
-const METRIC_FORMATTER = new Intl.NumberFormat("ru-RU", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-})
-
-function formatPointLabel(timestamp: string): string {
+function formatPointLabel(timestamp: string, locale: string): string {
   const date = new Date(timestamp)
   if (Number.isNaN(date.getTime())) return "—"
 
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date)
 }
 
-function buildBarsFromSeries(series: ObservabilityMetricPoint[]): ChartBar[] {
+function buildBarsFromSeries(series: ObservabilityMetricPoint[], locale: string): ChartBar[] {
   if (series.length === 0) return FALLBACK_BARS
 
   return series.map((point) => ({
-    label: formatPointLabel(point.timestamp),
+    label: formatPointLabel(point.timestamp, locale),
     timestamp: point.timestamp,
     value: Math.max(point.value, 0),
   }))
@@ -244,6 +251,17 @@ export function OverviewTab({
   onOpenSecrets,
   onOpenMetricDetail,
 }: OverviewTabProps) {
+  const { t } = useTranslation()
+  const locale = getResolvedLanguage()
+  const metricFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }),
+    [locale],
+  )
+
   function formatDiskUsagePercent(value: number, unit?: string): string {
     if (unit === "ratio" || unit === "percent") {
       return `${value.toFixed(2)}%`
@@ -252,7 +270,7 @@ export function OverviewTab({
     return `${value.toFixed(2)}%`
   }
 
-  function formatMetricValue(value: number, unit?: string): string {
+  const formatMetricValue = useCallback((value: number, unit?: string): string => {
     if (unit === "bytes_per_second" || unit === "bytes") {
       const units = unit === "bytes_per_second"
         ? ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]
@@ -278,49 +296,49 @@ export function OverviewTab({
     }
 
     if (unit === "bytes_per_minute") {
-      return `${METRIC_FORMATTER.format(value)} B/min`
+      return `${metricFormatter.format(value)} B/min`
     }
 
     if (unit === "bytes_per_hour") {
-      return `${METRIC_FORMATTER.format(value)} B/h`
+      return `${metricFormatter.format(value)} B/h`
     }
 
     if (unit === "bytes_per_day") {
-      return `${METRIC_FORMATTER.format(value)} B/day`
+      return `${metricFormatter.format(value)} B/day`
     }
 
     if (unit === "bytes_per_second") {
-      return METRIC_FORMATTER.format(value)
+      return metricFormatter.format(value)
     }
 
     if (!unit || unit === "unknown") {
-      return METRIC_FORMATTER.format(value)
+      return metricFormatter.format(value)
     }
 
-    return `${METRIC_FORMATTER.format(value)} ${unit}`
-  }
+    return `${metricFormatter.format(value)} ${unit}`
+  }, [metricFormatter])
 
   const charts = useMemo<ChartCardProps[]>(() => {
     const meta = [
       {
         metricKey: "db_size",
         metric: "db_size",
-        title: "Использование диска",
+        title: t("metrics.db_size.title"),
       },
       {
         metricKey: "active_connections",
         metric: "active_connections",
-        title: "Активные подключения",
+        title: t("metrics.active_connections.title"),
       },
       {
         metricKey: "net_transmit",
         metric: "net_transmit",
-        title: "Сетевой исходящий трафик",
+        title: t("metrics.net_transmit.title"),
       },
       {
         metricKey: "net_receive",
         metric: "net_receive",
-        title: "Сетевой входящий трафик",
+        title: t("metrics.net_receive.title"),
       },
     ] as const
 
@@ -336,12 +354,14 @@ export function OverviewTab({
         description:
           series.length > 0
             ? ""
-            : "Данные еще не поступили",
-        bars: buildBarsFromSeries(series),
+            : t("common.messages.noDataYet"),
+        bars: buildBarsFromSeries(series, locale),
+        locale,
+        sparklineLabel: t("metrics.sparkline", { title }),
         onClick: onOpenMetricDetail ? () => onOpenMetricDetail(metricKey) : undefined,
       }
     })
-  }, [metricsTimeseries, onOpenMetricDetail])
+  }, [formatMetricValue, locale, metricsTimeseries, onOpenMetricDetail, t])
 
   const diskUsageSeries = metricsTimeseries?.db_size_rate?.points ?? []
   const diskUsageUnit = metricsTimeseries?.db_size_rate?.unit
@@ -351,24 +371,24 @@ export function OverviewTab({
     <TabsContent value="overview" className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard
-          title="Базы данных"
+          title={t("metrics.databases")}
           value={dbCount}
           icon={<Database className="h-4 w-4" />}
           onClick={onOpenDatabases}
         />
         <MetricCard
-          title="Секреты"
+          title={t("tabs.secrets")}
           value={secretCount ?? 0}
           icon={<KeyRound className="h-4 w-4" />}
           onClick={onOpenSecrets}
         />
         <MetricCard
-          title="Диск"
+          title={t("metrics.disk")}
           value={formatDiskUsagePercent(diskUsageValue, diskUsageUnit)}
           description={
             diskUsageSeries.length > 0
               ? ""
-              : "Данные еще не поступили"
+              : t("common.messages.noDataYet")
           }
           icon={<HardDrive className="h-4 w-4" />}
         />

@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom"
 import { ChevronRight, Sun, Moon, User } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { Button } from "@/components/ui/button"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +24,7 @@ interface HeaderProps {
 }
 
 export function Header({ breadcrumbs }: HeaderProps) {
+  const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
   const { user } = useAuth()
   const logoutMutation = useLogout()
@@ -80,17 +83,19 @@ export function Header({ breadcrumbs }: HeaderProps) {
           size="icon"
           className="h-10 w-10 rounded-full"
           onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label="Переключить тему"
+          aria-label={t("header.toggleTheme")}
         >
           {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
+
+        <LanguageSwitcher />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               className="h-auto gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-muted/60"
-              aria-label="Открыть меню профиля"
+              aria-label={t("header.openProfileMenu")}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                 <User className="h-5 w-5 text-muted-foreground" />
@@ -106,12 +111,12 @@ export function Header({ breadcrumbs }: HeaderProps) {
             className="w-56 rounded-md border border-border bg-popover p-1 shadow-md"
           >
             <div className="rounded-sm px-2 py-1.5 text-sm font-semibold text-popover-foreground">
-              Мой аккаунт
+              {t("header.account")}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="px-2 py-1.5">
               <Link to="/profile" className="w-full">
-                Настройки профиля
+                {t("header.profileSettings")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -120,7 +125,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
               onSelect={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
             >
-              Выйти из аккаунта
+              {t("header.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

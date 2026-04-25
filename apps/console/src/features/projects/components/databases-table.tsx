@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next"
 import type { DatabaseRow } from "./project-detail-tab-types"
 import { getDatabaseStatusLabel } from "./get-database-status-label"
 
@@ -25,6 +26,7 @@ export function DatabasesTable({
   emptyMessage,
   onRowClick,
 }: DatabasesTableProps) {
+  const { t } = useTranslation()
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[860px]">
@@ -34,15 +36,15 @@ export function DatabasesTable({
             "border-b border-border text-sm font-medium text-muted-foreground",
           )}
         >
-          <div className="flex h-12 items-center px-4">Название</div>
-          <div className="flex h-12 items-center px-4">ID</div>
-          <div className="flex h-12 items-center px-4">Статус</div>
-          <div className="flex h-12 items-center px-4">Использование диска</div>
+          <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
+          <div className="flex h-12 items-center px-4">{t("common.labels.id")}</div>
+          <div className="flex h-12 items-center px-4">{t("common.labels.status")}</div>
+          <div className="flex h-12 items-center px-4">{t("tables.diskUsage")}</div>
           <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-            Дата создания
+            {t("common.labels.createdAt")}
           </div>
           <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-            Дата изменения
+            {t("common.labels.updatedAt")}
           </div>
         </div>
 
@@ -89,7 +91,7 @@ export function DatabasesTable({
                   </span>
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                  {getDatabaseStatusLabel(row.syncState, row.desiredState)}
+                  {getDatabaseStatusLabel(t, row.syncState, row.desiredState)}
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
                   0%

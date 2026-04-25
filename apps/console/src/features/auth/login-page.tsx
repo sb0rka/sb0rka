@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { SborkaLogo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLogin } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
   const loginMutation = useLogin()
@@ -20,6 +23,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <a href={import.meta.env.VITE_LANDING_URL || "/"}>
           <SborkaLogo />
@@ -27,21 +33,21 @@ export function LoginPage() {
 
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Вход</CardTitle>
+            <CardTitle>{t("auth.login.title")}</CardTitle>
             <CardDescription>
-              Введите ваши данные, чтобы войти в аккаунт.
+              {t("auth.login.description")}
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             <form id="login-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="login">Имя пользователя или Email</Label>
+                <Label htmlFor="login">{t("auth.login.loginLabel")}</Label>
                 <Input
                   id="login"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
-                  placeholder="Введите username или email"
+                  placeholder={t("auth.login.loginPlaceholder")}
                   autoComplete="username"
                   required
                 />
@@ -49,7 +55,7 @@ export function LoginPage() {
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Пароль</Label>
+                  <Label htmlFor="password">{t("auth.login.passwordLabel")}</Label>
                   {/* <Link
                     to="/forgot-password"
                     className="text-sm text-foreground underline"
@@ -62,7 +68,7 @@ export function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Введите пароль"
+                  placeholder={t("auth.login.passwordPlaceholder")}
                   autoComplete="current-password"
                   required
                 />
@@ -72,7 +78,7 @@ export function LoginPage() {
                 <p className="text-sm text-destructive">
                   {loginMutation.error instanceof ApiError
                     ? loginMutation.error.message
-                    : "Не удалось войти. Попробуйте снова."}
+                    : t("auth.login.fallbackError")}
                 </p>
               )}
             </form>
@@ -85,13 +91,13 @@ export function LoginPage() {
               className="w-full"
               disabled={loginMutation.isPending}
             >
-              {loginMutation.isPending ? "Вход…" : "Войти"}
+              {loginMutation.isPending ? t("auth.login.submitting") : t("auth.login.submit")}
             </Button>
 
             <p className="pt-4 text-center text-sm text-foreground">
-              Нет аккаунта?{" "}
+              {t("auth.login.noAccount")}{" "}
               <Link to="/register" className="underline">
-                Зарегистрируйтесь
+                {t("auth.login.registerLink")}
               </Link>
             </p>
           </CardFooter>

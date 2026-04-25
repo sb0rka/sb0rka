@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react"
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   CartesianGrid,
   Line,
@@ -9,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 
 interface DetailTimeseriesChartProps {
@@ -30,33 +32,19 @@ const MIN_WINDOW_PERCENT = 0.01
 const BASE_STEP_MS = 5 * 60_000
 
 const STEP_OPTIONS = [
-  { label: "5м", ms: BASE_STEP_MS },
-  { label: "10м", ms: 10 * 60_000 },
-  { label: "15м", ms: 15 * 60_000 },
-  { label: "30м", ms: 30 * 60_000 },
-  { label: "1ч", ms: 60 * 60_000 },
-  { label: "2ч", ms: 2 * 60 * 60_000 },
+  { ms: BASE_STEP_MS },
+  { ms: 10 * 60_000 },
+  { ms: 15 * 60_000 },
+  { ms: 30 * 60_000 },
+  { ms: 60 * 60_000 },
+  { ms: 2 * 60 * 60_000 },
 ] as const
 
-const axisDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-})
-
-const axisTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
-  hour: "2-digit",
-  minute: "2-digit",
-})
-
-const axisDateOnlyFormatter = new Intl.DateTimeFormat("ru-RU", {
-  day: "2-digit",
-  month: "2-digit",
-})
-
-function formatAxisDateOnlyLabel(timestampMs: number): string {
-  return axisDateOnlyFormatter.format(new Date(timestampMs))
+function formatAxisDateOnlyLabel(timestampMs: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(timestampMs))
 }
 
 function getAxisDayKey(timestampMs: number): string {
@@ -64,12 +52,20 @@ function getAxisDayKey(timestampMs: number): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 }
 
-function formatAxisDateTimeLabel(timestampMs: number): string {
-  return axisDateTimeFormatter.format(new Date(timestampMs))
+function formatAxisDateTimeLabel(timestampMs: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestampMs))
 }
 
-function formatAxisTimeLabel(timestampMs: number): string {
-  return axisTimeFormatter.format(new Date(timestampMs))
+function formatAxisTimeLabel(timestampMs: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestampMs))
 }
 
 const AXIS_TICK_STEPS_MS: readonly number[] = [
@@ -125,19 +121,30 @@ function asNumber(value: unknown): number | null {
   return null
 }
 
-function formatWindowDuration(durationMs: number): string {
+function getDurationUnits(locale: string) {
+  return locale === "ru"
+    ? { minute: "м", hour: "ч", day: "д" }
+    : { minute: "m", hour: "h", day: "d" }
+}
+
+function formatWindowDuration(durationMs: number, locale: string): string {
+  const units = getDurationUnits(locale)
   const minutes = Math.max(1, Math.round(durationMs / 60_000))
-  if (minutes < 60) return `${minutes}м`
+  if (minutes < 60) return `${minutes}${units.minute}`
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
   if (hours < 24) {
-    if (remainingMinutes === 0) return `${hours}ч`
-    return `${hours}ч ${remainingMinutes}м`
+    if (remainingMinutes === 0) return `${hours}${units.hour}`
+    return `${hours}${units.hour} ${remainingMinutes}${units.minute}`
   }
   const days = Math.floor(hours / 24)
   const remainingHours = hours % 24
-  if (remainingHours === 0) return `${days}д`
-  return `${days}д ${remainingHours}ч`
+  if (remainingHours === 0) return `${days}${units.day}`
+  return `${days}${units.day} ${remainingHours}${units.hour}`
+}
+
+function formatStepLabel(stepMs: number, locale: string): string {
+  return formatWindowDuration(stepMs, locale)
 }
 
 function aggregateChartPoints(points: ChartPoint[], bucketMs: number): ChartPoint[] {
@@ -169,6 +176,8 @@ export function DetailTimeseriesChart({
   points,
   formatValue,
 }: DetailTimeseriesChartProps) {
+  const { t } = useTranslation()
+  const locale = getResolvedLanguage()
   const [windowPercent, setWindowPercent] = useState(100)
   const [selectedStepMs, setSelectedStepMs] = useState(BASE_STEP_MS)
 
@@ -310,7 +319,7 @@ export function DetailTimeseriesChart({
                 fill="var(--muted-foreground)"
               >
                 <tspan fill="var(--foreground)" fontWeight={600}>
-                  {formatAxisDateOnlyLabel(timestampMs)}
+                  {formatAxisDateOnlyLabel(timestampMs, locale)}
                 </tspan>
                 {/* <tspan dx={4}>{formatAxisTimeLabel(timestampMs)}</tspan> */}
               </text>
@@ -326,13 +335,13 @@ export function DetailTimeseriesChart({
               fontSize={12}
               fill="var(--muted-foreground)"
             >
-              {formatAxisTimeLabel(timestampMs)}
+              {formatAxisTimeLabel(timestampMs, locale)}
             </text>
           </g>
         )
       }
     },
-    [firstOfDayTickSet],
+    [firstOfDayTickSet, locale],
   )
 
   return (
@@ -343,9 +352,10 @@ export function DetailTimeseriesChart({
           <div className="flex flex-wrap items-center gap-1">
             {STEP_OPTIONS.map((option) => {
               const isActive = option.ms === selectedStepMs
+              const label = formatStepLabel(option.ms, locale)
               return (
                 <button
-                  key={option.label}
+                  key={option.ms}
                   type="button"
                   onClick={() => setSelectedStepMs(option.ms)}
                   aria-pressed={isActive}
@@ -355,7 +365,7 @@ export function DetailTimeseriesChart({
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {option.label}
+                  {label}
                 </button>
               )
             })}
@@ -365,7 +375,7 @@ export function DetailTimeseriesChart({
 
       {!hasData ? (
         <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
-          <p className="text-sm text-muted-foreground">Данные еще не поступили</p>
+          <p className="text-sm text-muted-foreground">{t("common.messages.noDataYet")}</p>
         </div>
       ) : (
         <div className="min-h-[320px] max-h-[500px] flex-1">
@@ -416,7 +426,7 @@ export function DetailTimeseriesChart({
                 labelFormatter={(label: unknown) => {
                   const timestamp = asNumber(label)
                   if (timestamp === null) return "—"
-                  return formatAxisDateTimeLabel(timestamp)
+                  return formatAxisDateTimeLabel(timestamp, locale)
                 }}
                 contentStyle={{
                   borderRadius: "0.5rem",
@@ -444,8 +454,8 @@ export function DetailTimeseriesChart({
           <div className="flex items-center justify-end text-xs text-muted-foreground">
             <span>
               {windowPercent >= 100
-                ? "Все данные"
-                : `~${formatWindowDuration(activeWindowMs)}`}
+                ? t("metrics.allData")
+                : `~${formatWindowDuration(activeWindowMs, locale)}`}
             </span>
           </div>
           <input
@@ -457,7 +467,7 @@ export function DetailTimeseriesChart({
             onChange={(event) => setWindowPercent(100 - Number(event.target.value))}
             className="timeseries-window-slider h-1.5 w-full cursor-pointer appearance-none rounded-full"
             style={sliderStyle}
-            aria-label="Масштаб окна по времени"
+            aria-label={t("metrics.timeWindowZoom")}
           />
         </div>
       ) : null}

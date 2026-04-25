@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,14 +19,8 @@ function copyProjectId(id: string) {
   navigator.clipboard.writeText(id)
 }
 
-function dbCountLabel(count: number): string {
-  if (count === 0) return "0 баз данных"
-  if (count === 1) return "1 база данных"
-  if (count >= 2 && count <= 4) return `${count} базы данных`
-  return `${count} баз данных`
-}
-
 function ProjectCard({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data } = useDatabases(project.id)
   const dbCount = data?.databases.length ?? 0
@@ -38,10 +33,10 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
             {project.name}
           </CardTitle>
           <Badge variant={project.is_active ? "active" : "inactive"}>
-            {project.is_active ? "Активен" : "Неактивен"}
+            {project.is_active ? t("projects.active") : t("projects.inactive")}
           </Badge>
         </div>
-        <CardDescription>{dbCountLabel(dbCount)}</CardDescription>
+        <CardDescription>{t("projects.dbCount", { count: dbCount })}</CardDescription>
       </CardHeader>
       <CardFooter className="flex-row items-center gap-6">
         <button
@@ -55,7 +50,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
           </span>
         </button>
         <Button onClick={() => navigate(`/projects/${project.id}`)}>
-          Открыть
+          {t("common.actions.open")}
         </Button>
       </CardFooter>
     </Card>
@@ -63,6 +58,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
 }
 
 export function ProjectsPage() {
+  const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
   const { data, isLoading } = useProjects()
   const projects = data?.projects ?? []
@@ -70,29 +66,29 @@ export function ProjectsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Проекты</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Создать проект
+          {t("projects.create")}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center min-h-[500px]">
-          <p className="text-sm text-muted-foreground">Загрузка…</p>
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
       ) : projects.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm min-h-[500px]">
           <div className="flex flex-col items-center gap-1">
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              У вас нет проектов
+              {t("projects.emptyTitle")}
             </h2>
             <p className="text-sm tracking-tight text-muted-foreground">
-              Добавьте проект всего за несколько простых шагов
+              {t("projects.emptyDescription")}
             </p>
             <Button className="mt-4" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Создать проект
+              {t("projects.create")}
             </Button>
           </div>
         </div>
