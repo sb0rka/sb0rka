@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Outlet, useLocation, useMatch, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
@@ -11,11 +12,11 @@ type BreadcrumbItem = {
   href?: string
 }
 
-const tabLabelById: Record<ProjectTab, string> = {
-  overview: "Главная",
-  databases: "Базы данных",
-  secrets: "Секреты",
-  settings: "Настройки",
+const projectTabLabelKeyById: Record<ProjectTab, string> = {
+  overview: "tabs.overview",
+  databases: "tabs.databases",
+  secrets: "tabs.secrets",
+  settings: "tabs.settings",
 }
 
 const isProjectTab = (value: string | null): value is ProjectTab =>
@@ -24,17 +25,18 @@ const isProjectTab = (value: string | null): value is ProjectTab =>
   value === "secrets" ||
   value === "settings"
 
-function breadcrumbsForPath(pathname: string) {
+function breadcrumbsForPath(pathname: string, t: (key: string) => string) {
   if (pathname.startsWith("/subscription")) {
-    return [{ label: "sb0rka", href: "/projects" }, { label: "Подписка" }]
+    return [{ label: "sb0rka", href: "/projects" }, { label: t("nav.subscription") }]
   }
   if (pathname.startsWith("/profile")) {
-    return [{ label: "sb0rka", href: "/projects" }, { label: "Профиль" }]
+    return [{ label: "sb0rka", href: "/projects" }, { label: t("nav.profile") }]
   }
-  return [{ label: "sb0rka", href: "/projects" }, { label: "Проекты" }]
+  return [{ label: "sb0rka", href: "/projects" }, { label: t("nav.projects") }]
 }
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const isProjectRoot = useMatch("/projects/:id") !== null
@@ -65,18 +67,24 @@ export function AppLayout() {
       : undefined
   const activeProjectTabHref = `/projects/${projectId}?tab=${activeTab}`
   const projectOverviewHref = `/projects/${projectId}?tab=overview`
+  const tabLabelById: Record<ProjectTab, string> = {
+    overview: t(projectTabLabelKeyById.overview),
+    databases: t(projectTabLabelKeyById.databases),
+    secrets: t(projectTabLabelKeyById.secrets),
+    settings: t(projectTabLabelKeyById.settings),
+  }
   const breadcrumbs: BreadcrumbItem[] = isProjectOpen
     ? [
         { label: "sb0rka", href: "/projects" },
-        { label: "Проекты", href: "/projects" },
-        { label: project?.name ?? "Проект", href: projectOverviewHref },
+        { label: t("nav.projects"), href: "/projects" },
+        { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
         ...(databaseDetailsMatch
           ? [
               {
                 label: tabLabelById.databases,
                 href: `/projects/${projectId}?tab=databases`,
               },
-              { label: database?.name ?? resourceId ?? "Ресурс" },
+              { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
             ]
           : activeTab === "secrets" && selectedSecretId
             ? [
@@ -88,7 +96,7 @@ export function AppLayout() {
               ]
             : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
       ]
-    : breadcrumbsForPath(location.pathname)
+    : breadcrumbsForPath(location.pathname, t)
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next"
 
 interface ResourceTableRow {
   id: string
@@ -84,6 +85,7 @@ export function ResourceTable<T extends ResourceTableRow>({
   cellPaddingClassName,
   onRowClick,
 }: ResourceTableProps<T>) {
+  const { t } = useTranslation()
   return (
     <>
       <div
@@ -93,14 +95,20 @@ export function ResourceTable<T extends ResourceTableRow>({
           containerPaddingClassName,
         )}
       >
-        <div className={cn("flex h-12 items-center", cellPaddingClassName)}>Название</div>
-        <div className={cn("flex h-12 items-center", cellPaddingClassName)}>Таблицы</div>
-        <div className={cn("flex h-12 items-center", cellPaddingClassName)}>Колонки</div>
-        <div className={cn("flex h-12 items-center justify-end", cellPaddingClassName)}>
-          Дата создания
+        <div className={cn("flex h-12 items-center", cellPaddingClassName)}>
+          {t("common.labels.name")}
+        </div>
+        <div className={cn("flex h-12 items-center", cellPaddingClassName)}>
+          {t("tables.tables")}
+        </div>
+        <div className={cn("flex h-12 items-center", cellPaddingClassName)}>
+          {t("tables.columns")}
         </div>
         <div className={cn("flex h-12 items-center justify-end", cellPaddingClassName)}>
-          Дата изменения
+          {t("common.labels.createdAt")}
+        </div>
+        <div className={cn("flex h-12 items-center justify-end", cellPaddingClassName)}>
+          {t("common.labels.updatedAt")}
         </div>
       </div>
 

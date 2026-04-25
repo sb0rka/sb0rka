@@ -3,6 +3,7 @@ import {
   useState,
 } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Tabs } from "@/components/ui/tabs"
 import { ApiError } from "@/lib/api-client"
 import {
@@ -52,6 +53,7 @@ function parseDraftTag(input: string): DraftTag | null {
 }
 
 export function ProjectDetailPage() {
+  const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -125,7 +127,7 @@ export function ProjectDetailPage() {
   function addDraftTag() {
     const parsed = parseDraftTag(newTagInput)
     if (!parsed) {
-      setDatabaseError("Тег должен быть в формате key:value")
+      setDatabaseError(t("common.messages.tagFormat"))
       return
     }
 
@@ -162,17 +164,17 @@ export function ProjectDetailPage() {
             ),
           )
         } catch {
-          setDatabaseSuccess("База данных создана, но не все теги удалось добавить")
+          setDatabaseSuccess(t("databases.createdPartial"))
           resetCreateDatabaseForm()
           return
         }
       }
 
-      setDatabaseSuccess("База данных успешно создана")
+      setDatabaseSuccess(t("databases.created"))
       resetCreateDatabaseForm()
     } catch (error) {
       const message =
-        error instanceof ApiError ? error.message : "Не удалось создать базу данных"
+        error instanceof ApiError ? error.message : t("databases.createError")
       setDatabaseError(message)
     }
   }
@@ -202,7 +204,7 @@ export function ProjectDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center min-h-[500px]">
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       </div>
     )
   }
@@ -210,7 +212,7 @@ export function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="flex flex-1 items-center justify-center min-h-[500px]">
-        <p className="text-sm text-muted-foreground">Проект не найден</p>
+        <p className="text-sm text-muted-foreground">{t("projects.notFound")}</p>
       </div>
     )
   }

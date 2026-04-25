@@ -13,6 +13,7 @@ import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
+import "@/lib/i18n"
 
 export default function App() {
   return (

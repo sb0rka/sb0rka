@@ -8,26 +8,27 @@ import {
   PanelLeft,
   User,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SborkaLogo } from "@/components/logo"
 
 const navItems = [
-  { label: "Проекты", icon: Home, href: "/projects" },
-  { label: "Подписка", icon: RussianRuble, href: "/subscription" },
-  { label: "Профиль", icon: User, href: "/profile" },
+  { labelKey: "nav.projects", icon: Home, href: "/projects" },
+  { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
+  { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
 
 const externalItems = [
   {
-    label: "Документация",
+    labelKey: "nav.documentation",
     icon: FileText,
-    href: "https://docs.sb0rka.com/ru",
+    hrefKey: "nav.docsHref",
     external: true,
   },
   {
-    label: "Код",
+    labelKey: "nav.code",
     icon: Code2,
     href: "https://github.com/sb0rka/sb0rka",
     external: true,
@@ -40,6 +41,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) {
+  const { t } = useTranslation()
   const location = useLocation()
 
   return (
@@ -65,6 +67,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
 
         <nav className={cn("flex flex-col gap-3", collapsed ? "px-2" : "px-4")}>
           {navItems.map((item) => {
+            const label = t(item.labelKey)
             const isActive =
               item.href === "/projects"
                 ? location.pathname === "/projects" ||
@@ -81,37 +84,40 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                     ? "bg-muted text-foreground"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? label : undefined}
               >
                 <item.icon className="h-4 w-4" />
-                {!collapsed && item.label}
+                {!collapsed && label}
               </Link>
             )
           })}
 
           <Separator />
 
-          {externalItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                "flex items-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
-                collapsed ? "justify-center" : "gap-3",
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-4 w-4" />
-              {!collapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  <ExternalLink className="h-4 w-4" />
-                </>
-              )}
-            </a>
-          ))}
+          {externalItems.map((item) => {
+            const href = "hrefKey" in item ? t(item.hrefKey ?? "") : item.href
+            return (
+              <a
+                key={item.labelKey}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "flex items-center rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
+                  collapsed ? "justify-center" : "gap-3",
+                )}
+                title={collapsed ? t(item.labelKey) : undefined}
+              >
+                <item.icon className="h-4 w-4" />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{t(item.labelKey)}</span>
+                    <ExternalLink className="h-4 w-4" />
+                  </>
+                )}
+              </a>
+            )
+          })}
         </nav>
       </div>
 
@@ -123,7 +129,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
       >
         {!collapsed && (
           <Button variant="outline" className="w-full">
-            Повысить лимиты
+            {t("nav.upgradeLimits")}
           </Button>
         )}
         <Separator />
@@ -136,8 +142,8 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
           )}
           aria-label={
             collapsed
-              ? "Развернуть боковую панель"
-              : "Свернуть боковую панель"
+              ? t("nav.expandSidebar")
+              : t("nav.collapseSidebar")
           }
         >
           <PanelLeft className="h-4 w-4" />

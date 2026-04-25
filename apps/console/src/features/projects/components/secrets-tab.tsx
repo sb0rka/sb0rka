@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -33,6 +34,7 @@ export function SecretsTab({
   isCreateSecretPending,
   onCreateSecret,
 }: SecretsTabProps) {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newSecretName, setNewSecretName] = useState("")
@@ -87,7 +89,7 @@ export function SecretsTab({
       })
       handleCreateDialogOpenChange(false)
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "Не удалось создать секрет"
+      const message = error instanceof ApiError ? error.message : t("secrets.createError")
       setCreateSecretError(message)
     }
   }
@@ -97,14 +99,14 @@ export function SecretsTab({
       {openedSecret ? null : (
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-semibold tracking-tight">Секреты</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">{t("secrets.title")}</h2>
             <p className="text-sm text-muted-foreground">
-              Безопасно храните и организуйте работу с конфиденциальными переменными.
+              {t("secrets.description")}
             </p>
           </div>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Создать секрет
+            {t("secrets.create")}
           </Button>
         </div>
       )}
@@ -121,7 +123,7 @@ export function SecretsTab({
             <SecretDetailsTable
               projectId={projectId}
               rows={secretRows}
-              emptyMessage="Нет секретов"
+              emptyMessage={t("secrets.empty")}
               onRowClick={(row) => setOpenedSecretId(row.id)}
             />
           )}
@@ -132,38 +134,38 @@ export function SecretsTab({
         <DialogContent>
           <form onSubmit={handleCreateSecretSubmit} autoComplete="off">
             <DialogHeader>
-              <DialogTitle>Создать секрет</DialogTitle>
+              <DialogTitle>{t("secrets.create")}</DialogTitle>
               <DialogDescription>
-                Добавьте защищенное значение для использования в проекте.
+                {t("secrets.createDescription")}
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col gap-4 px-6 pb-6">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-secret-name">Название</Label>
+                <Label htmlFor="new-secret-name">{t("common.labels.name")}</Label>
                 <Input
                   id="new-secret-name"
                   name="secret-name"
                   autoComplete="off"
-                  placeholder="Например: STRIPE_KEY"
+                  placeholder={t("secrets.nameExample")}
                   value={newSecretName}
                   onChange={(e) => setNewSecretName(e.target.value)}
                   autoFocus
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-secret-description">Описание</Label>
+                <Label htmlFor="new-secret-description">{t("common.labels.description")}</Label>
                 <Input
                   id="new-secret-description"
                   name="secret-description"
                   autoComplete="off"
-                  placeholder="Опишите назначение секрета"
+                  placeholder={t("secrets.descriptionPlaceholder")}
                   value={newSecretDescription}
                   onChange={(e) => setNewSecretDescription(e.target.value)}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-secret-value">Значение</Label>
+                <Label htmlFor="new-secret-value">{t("secrets.valueLabel")}</Label>
                 <Input
                   id="new-secret-value"
                   name="secret-value"
@@ -176,7 +178,7 @@ export function SecretsTab({
                   data-1p-ignore="true"
                   data-form-type="other"
                   className="[-webkit-text-security:disc]"
-                  placeholder="Введите значение секрета"
+                  placeholder={t("secrets.valuePlaceholder")}
                   value={newSecretValue}
                   onChange={(e) => setNewSecretValue(e.target.value)}
                 />
@@ -191,7 +193,7 @@ export function SecretsTab({
                 onClick={() => handleCreateDialogOpenChange(false)}
                 disabled={isCreateSecretPending}
               >
-                Отменить
+                {t("common.actions.cancel")}
               </Button>
               <Button
                 type="submit"
@@ -199,7 +201,7 @@ export function SecretsTab({
                   !newSecretName.trim() || !newSecretValue.trim() || isCreateSecretPending
                 }
               >
-                {isCreateSecretPending ? "Создание…" : "Создать секрет"}
+                {isCreateSecretPending ? t("common.creating") : t("secrets.create")}
               </Button>
             </DialogFooter>
           </form>

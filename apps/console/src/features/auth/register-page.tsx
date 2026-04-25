@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { SborkaLogo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import { useSignup } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 
 export function RegisterPage() {
+  const { t } = useTranslation()
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -22,7 +25,7 @@ export function RegisterPage() {
     setClientError("")
 
     if (password !== confirmPassword) {
-      setClientError("Пароли не совпадают.")
+      setClientError(t("auth.register.passwordMismatch"))
       return
     }
 
@@ -37,11 +40,14 @@ export function RegisterPage() {
   const error = clientError || (signupMutation.error
     ? signupMutation.error instanceof ApiError
       ? signupMutation.error.message
-      : "Не удалось создать аккаунт. Попробуйте снова."
+      : t("auth.register.fallbackError")
     : "")
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <a href={import.meta.env.VITE_LANDING_URL || "/"}>
           <SborkaLogo />
@@ -49,72 +55,72 @@ export function RegisterPage() {
 
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Регистрация</CardTitle>
+            <CardTitle>{t("auth.register.title")}</CardTitle>
             <CardDescription>
-              Введите свои данные для создания аккаунта.
+              {t("auth.register.description")}
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             <form id="register-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="username">Имя пользователя</Label>
+                <Label htmlFor="username">{t("auth.register.usernameLabel")}</Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Введите ваш username"
+                  placeholder={t("auth.register.usernamePlaceholder")}
                   autoComplete="username"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("auth.register.emailLabel")}</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Введите ваш email"
+                  placeholder={t("auth.register.emailPlaceholder")}
                   autoComplete="email"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="password">Пароль</Label>
+                <Label htmlFor="password">{t("auth.register.passwordLabel")}</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Введите пароль"
+                  placeholder={t("auth.register.passwordPlaceholder")}
                   autoComplete="new-password"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="confirm-password">Подтверждение пароля</Label>
+                <Label htmlFor="confirm-password">{t("auth.register.confirmPasswordLabel")}</Label>
                 <Input
                   id="confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Введите пароль снова"
+                  placeholder={t("auth.register.confirmPasswordPlaceholder")}
                   autoComplete="new-password"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="invite-code">Код приглашения</Label>
+                <Label htmlFor="invite-code">{t("auth.register.inviteCodeLabel")}</Label>
                 <Input
                   id="invite-code"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Введите код приглашения"
+                  placeholder={t("auth.register.inviteCodePlaceholder")}
                   required
                 />
               </div>
@@ -132,13 +138,15 @@ export function RegisterPage() {
               className="w-full"
               disabled={signupMutation.isPending}
             >
-              {signupMutation.isPending ? "Создание…" : "Создать аккаунт"}
+              {signupMutation.isPending
+                ? t("auth.register.submitting")
+                : t("auth.register.submit")}
             </Button>
 
             <p className="text-center text-sm text-foreground">
-              Уже есть аккаунт?{" "}
+              {t("auth.register.hasAccount")}{" "}
               <Link to="/login" className="underline">
-                Войдите
+                {t("auth.register.loginLink")}
               </Link>
             </p>
           </CardFooter>

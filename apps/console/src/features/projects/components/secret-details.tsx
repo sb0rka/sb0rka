@@ -1,5 +1,6 @@
 import { useEffect, useState, type KeyboardEvent } from "react"
 import { Copy } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { getResolvedLanguage } from "@/lib/i18n"
 import {
   useAttachResourceTag,
   useDeactivateResource,
@@ -27,11 +29,11 @@ interface SecretDetailsProps {
   onClose: () => void
 }
 
-function formatDateTime(value?: string): string {
+function formatDateTime(value: string | undefined, locale: string): string {
   if (!value) return "—"
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat("sv-SE", {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "short",
     timeStyle: "medium",
   }).format(date)
@@ -60,6 +62,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps) {
+  const { t } = useTranslation()
+  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
@@ -102,7 +106,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         const response = await revealSecret.mutateAsync()
         setRevealedValue(response.secret_value)
       } catch (error) {
-        setRevealError(getErrorMessage(error, "Не удалось получить значение секрета"))
+        setRevealError(getErrorMessage(error, t("secrets.revealError")))
         return
       }
     }
@@ -114,10 +118,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     if (!revealedValue || revealSecret.isPending) return
     try {
       await navigator.clipboard.writeText(revealedValue)
-      setCopySecretMessage("Секрет скопирован")
+      setCopySecretMessage(t("secrets.copied"))
       window.setTimeout(() => setCopySecretMessage(null), 2000)
     } catch {
-      setCopySecretMessage("Не удалось скопировать")
+      setCopySecretMessage(t("common.messages.copyFailed"))
       window.setTimeout(() => setCopySecretMessage(null), 3000)
     }
   }
@@ -130,7 +134,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
     const parsed = parseTagInput(newTagInput)
     if (!parsed) {
-      setTagActionError("Тег должен быть в формате key:value")
+      setTagActionError(t("common.messages.tagFormat"))
       return
     }
 
@@ -138,7 +142,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       (tag) => tag.tag_key === parsed.tag_key && tag.tag_value === parsed.tag_value,
     )
     if (duplicate) {
-      setTagActionError("Такой тег уже добавлен")
+      setTagActionError(t("common.messages.tagDuplicate"))
       return
     }
 
@@ -147,11 +151,11 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         resourceId: secret.id,
         data: parsed,
       })
-      setTagActionSuccess("Тег добавлен")
+      setTagActionSuccess(t("common.messages.tagAdded"))
       setNewTagInput("")
       setIsAddingTag(false)
     } catch (error) {
-      setTagActionError(getErrorMessage(error, "Не удалось добавить тег"))
+      setTagActionError(getErrorMessage(error, t("common.messages.tagAddError")))
     }
   }
 
@@ -171,10 +175,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     if (deactivateResource.isPending) return
 
     const confirmed = await confirm({
-      title: "Удалить секрет?",
-      description: "Связанный ресурс будет деактивирован без возможности восстановления.",
-      confirmText: "Удалить",
-      cancelText: "Отменить",
+      title: t("secrets.deleteTitle"),
+      description: t("secrets.deleteDescription"),
+      confirmText: t("common.actions.delete"),
+      cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",
     })
     if (!confirmed) return
@@ -182,10 +186,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
-      window.alert("Секрет удален")
+      window.alert(t("secrets.deleted"))
       onClose()
     } catch (error) {
-      setDeleteError(getErrorMessage(error, "Не удалось удалить секрет. Попробуйте снова."))
+      setDeleteError(getErrorMessage(error, t("secrets.deleteError")))
     }
   }
 
@@ -223,7 +227,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                 onClick={() => void handleAddTag()}
                 disabled={attachResourceTag.isPending}
               >
-                Добавить
+                {t("common.actions.add")}
               </Button>
               <Button
                 type="button"
@@ -235,7 +239,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   setTagActionError(null)
                 }}
               >
-                Отмена
+                {t("common.actions.cancel")}
               </Button>
             </div>
           ) : (
@@ -250,7 +254,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                 setTagActionSuccess(null)
               }}
             >
-              + добавить тег
+              {t("databases.addTag")}
             </Button>
           )}
         </div>
@@ -261,25 +265,25 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       <Card className="overflow-hidden">
         <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">Дата создания</p>
-            <p className="text-base text-muted-foreground">{formatDateTime(secret.createdAt)}</p>
+            <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
+            <p className="text-base text-muted-foreground">{formatDateTime(secret.createdAt, locale)}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">Дата изменения</p>
-            <p className="text-base text-muted-foreground">{formatDateTime(secret.updatedAt)}</p>
+            <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
+            <p className="text-base text-muted-foreground">{formatDateTime(secret.updatedAt, locale)}</p>
           </div>
         </CardContent>
       </Card>
 
       <Card className="overflow-hidden">
         <CardHeader className="pb-4">
-          <CardTitle className="text-[20px] font-semibold tracking-tight">Секрет</CardTitle>
+          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.secret")}</CardTitle>
           <CardDescription>
-            {`Последний просмотр: ${formatDateTime(secret.revealedAt)}`}
+            {t("secrets.lastViewed", { date: formatDateTime(secret.revealedAt, locale) })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-1.5 pb-6">
-          <p className="text-sm font-medium text-foreground">Ключ</p>
+          <p className="text-sm font-medium text-foreground">{t("secrets.key")}</p>
           <div className="flex flex-wrap items-center gap-2">
             <div className="min-w-0 flex-1 rounded-md border border-input px-3 py-2">
               <p className="truncate text-base text-foreground">{displayedValue}</p>
@@ -291,8 +295,8 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                 size="icon"
                 onClick={() => void handleCopySecretValue()}
                 disabled={!revealedValue || revealSecret.isPending}
-                title="Копировать секрет"
-                aria-label="Копировать секрет"
+                title={t("secrets.copySecret")}
+                aria-label={t("secrets.copySecret")}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -304,16 +308,16 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               disabled={revealSecret.isPending}
             >
               {revealSecret.isPending
-                ? "Загрузка…"
+                ? t("common.loading")
                 : isValueVisible
-                  ? "Скрыть"
-                  : "Просмотреть"}
+                  ? t("common.actions.hide")
+                  : t("common.actions.view")}
             </Button>
           </div>
           {isValueVisible && copySecretMessage ? (
             <p
               className={
-                copySecretMessage === "Секрет скопирован"
+                copySecretMessage === t("secrets.copied")
                   ? "text-sm text-emerald-600"
                   : "text-sm text-destructive"
               }
@@ -327,9 +331,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-border pb-6">
-          <CardTitle className="text-[20px] font-semibold tracking-tight">Опасная зона</CardTitle>
+          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("projects.settings.dangerTitle")}</CardTitle>
           <CardDescription>
-            Безвозвратно удалить секрет.
+            {t("secrets.dangerDescription")}
           </CardDescription>
         </CardHeader>
         <CardFooter className="pt-6">
@@ -340,7 +344,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               onClick={() => void handleDeleteSecret()}
               disabled={deactivateResource.isPending}
             >
-              {deactivateResource.isPending ? "Удаление…" : "Удалить секрет"}
+              {deactivateResource.isPending ? t("common.deleting") : t("secrets.deleteButton")}
             </Button>
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </div>

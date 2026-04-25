@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
 import { Copy } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
+import { getResolvedLanguage } from "@/lib/i18n"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
@@ -25,11 +27,11 @@ import {
   useUpdateDatabase,
 } from "./hooks"
 
-function formatDate(value?: string): string {
+function formatDate(value: string | undefined, locale: string): string {
   if (!value) return "—"
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date)
@@ -62,6 +64,8 @@ function parseTagInput(input: string): { tag_key: string; tag_value: string } | 
 }
 
 export function DatabaseDetailPage() {
+  const { t } = useTranslation()
+  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const { id = "", resourceId = "" } = useParams<{
     id: string
@@ -128,9 +132,9 @@ export function DatabaseDetailPage() {
       await updateDatabase.mutateAsync({
         description,
       })
-      setSaveSuccess("Изменения сохранены")
+      setSaveSuccess(t("common.messages.changesSaved"))
     } catch (error) {
-      setSaveError(getErrorMessage(error, "Не удалось сохранить изменения"))
+      setSaveError(getErrorMessage(error, t("profile.emailSaveError")))
     }
   }
 
@@ -138,10 +142,10 @@ export function DatabaseDetailPage() {
     if (deactivateResource.isPending) return
 
     const confirmed = await confirm({
-      title: "Удалить базу данных?",
-      description: "Связанный ресурс будет деактивирован без возможности восстановления.",
-      confirmText: "Удалить",
-      cancelText: "Отменить",
+      title: t("databases.deleteTitle"),
+      description: t("databases.deleteDescription"),
+      confirmText: t("common.actions.delete"),
+      cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",
     })
     if (!confirmed) return
@@ -149,11 +153,11 @@ export function DatabaseDetailPage() {
     setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
-      window.alert("База данных деактивирована")
+      window.alert(t("databases.deleted"))
       navigate(`/projects/${id}?tab=databases`)
     } catch (error) {
       setDeleteError(
-        getErrorMessage(error, "Не удалось удалить базу данных. Попробуйте снова."),
+        getErrorMessage(error, t("databases.deleteError")),
       )
     }
   }
@@ -166,7 +170,7 @@ export function DatabaseDetailPage() {
 
     const parsedTag = parseTagInput(newTagInput)
     if (!parsedTag) {
-      setTagActionError("Тег должен быть в формате key:value")
+      setTagActionError(t("common.messages.tagFormat"))
       return
     }
 
@@ -175,7 +179,7 @@ export function DatabaseDetailPage() {
         tag.tag_key === parsedTag.tag_key && tag.tag_value === parsedTag.tag_value,
     )
     if (duplicate) {
-      setTagActionError("Такой тег уже добавлен")
+      setTagActionError(t("common.messages.tagDuplicate"))
       return
     }
 
@@ -184,11 +188,11 @@ export function DatabaseDetailPage() {
         resourceId: normalizedResourceId,
         data: parsedTag,
       })
-      setTagActionSuccess("Тег добавлен")
+      setTagActionSuccess(t("common.messages.tagAdded"))
       setNewTagInput("")
       setIsAddingTag(false)
     } catch (error) {
-      setTagActionError(getErrorMessage(error, "Не удалось добавить тег"))
+      setTagActionError(getErrorMessage(error, t("common.messages.tagAddError")))
     }
   }
 
@@ -196,10 +200,10 @@ export function DatabaseDetailPage() {
     if (!databaseUri.data || databaseUri.isFetching) return
     try {
       await navigator.clipboard.writeText(databaseUri.data)
-      setCopyUriMessage("URI скопирован")
+      setCopyUriMessage(t("databases.uriCopied"))
       window.setTimeout(() => setCopyUriMessage(null), 2000)
     } catch {
-      setCopyUriMessage("Не удалось скопировать")
+      setCopyUriMessage(t("common.messages.copyFailed"))
       window.setTimeout(() => setCopyUriMessage(null), 3000)
     }
   }
@@ -219,10 +223,10 @@ export function DatabaseDetailPage() {
   if (!isValidResourceId) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-destructive">Некорректный идентификатор базы данных.</p>
+        <p className="text-sm text-destructive">{t("databases.invalidId")}</p>
         <div>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=databases`)}>
-            Назад к списку баз
+            {t("databases.backToList")}
           </Button>
         </div>
       </div>
@@ -230,18 +234,18 @@ export function DatabaseDetailPage() {
   }
 
   if (databaseQuery.isLoading) {
-    return <p className="text-sm text-muted-foreground">Загрузка базы данных…</p>
+    return <p className="text-sm text-muted-foreground">{t("databases.loading")}</p>
   }
 
   if (databaseQuery.isError || !databaseQuery.data) {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-destructive">
-          {getErrorMessage(databaseQuery.error, "Не удалось загрузить базу данных.")}
+          {getErrorMessage(databaseQuery.error, t("databases.loadError"))}
         </p>
         <div>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=databases`)}>
-            Назад к списку баз
+            {t("databases.backToList")}
           </Button>
         </div>
       </div>
@@ -253,7 +257,7 @@ export function DatabaseDetailPage() {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-semibold tracking-tight">{databaseQuery.data.name}</h1>
-          <Badge className="bg-lime-700 text-lime-100 hover:bg-lime-700">Онлайн</Badge>
+          <Badge className="bg-lime-700 text-lime-100 hover:bg-lime-700">{t("databases.online")}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tagsQuery.data?.tags.map((tag) => (
@@ -276,7 +280,7 @@ export function DatabaseDetailPage() {
                 onClick={() => void handleAddTag()}
                 disabled={attachResourceTag.isPending}
               >
-                Добавить
+                {t("common.actions.add")}
               </Button>
               <Button
                 type="button"
@@ -288,7 +292,7 @@ export function DatabaseDetailPage() {
                   setTagActionError(null)
                 }}
               >
-                Отмена
+                {t("common.actions.cancel")}
               </Button>
             </div>
           ) : (
@@ -303,7 +307,7 @@ export function DatabaseDetailPage() {
                 setTagActionSuccess(null)
               }}
             >
-              + добавить тег
+              {t("databases.addTag")}
             </Button>
           )}
         </div>
@@ -318,22 +322,22 @@ export function DatabaseDetailPage() {
       <Card className="overflow-hidden">
         <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">Дата создания</p>
-            <p className="text-base text-muted-foreground">{formatDate(project?.created_at)}</p>
+            <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
+            <p className="text-base text-muted-foreground">{formatDate(project?.created_at, locale)}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">Дата изменения</p>
-            <p className="text-base text-muted-foreground">{formatDate(project?.updated_at)}</p>
+            <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
+            <p className="text-base text-muted-foreground">{formatDate(project?.updated_at, locale)}</p>
           </div>
         </CardContent>
         <div className="border-t border-border px-6 pb-6">
           <div className="flex flex-col gap-1.5 pt-6">
-            <Label htmlFor="database-description">Описание</Label>
+            <Label htmlFor="database-description">{t("common.labels.description")}</Label>
             <Input
               id="database-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Добавьте описание базы данных"
+              placeholder={t("databases.descriptionPlaceholder")}
             />
           </div>
         </div>
@@ -344,7 +348,7 @@ export function DatabaseDetailPage() {
               onClick={handleSave}
               disabled={!hasDescriptionChange || updateDatabase.isPending}
             >
-              {updateDatabase.isPending ? "Сохранение…" : "Сохранить изменения"}
+              {updateDatabase.isPending ? t("common.saving") : t("common.actions.saveChanges")}
             </Button>
             {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
             {saveSuccess ? <p className="text-sm text-emerald-600">{saveSuccess}</p> : null}
@@ -371,8 +375,8 @@ export function DatabaseDetailPage() {
                   size="icon"
                   onClick={() => void handleCopyUri()}
                   disabled={!databaseUri.data || databaseUri.isFetching}
-                  title="Копировать URI"
-                  aria-label="Копировать URI"
+                  title={t("databases.copyUri")}
+                  aria-label={t("databases.copyUri")}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -389,14 +393,14 @@ export function DatabaseDetailPage() {
                 }
                 disabled={databaseUri.isFetching}
               >
-                {isUriVisible ? "Скрыть" : "Показать"}
+                {isUriVisible ? t("common.actions.hide") : t("common.actions.show")}
               </Button>
             </div>
           </div>
           {isUriVisible && copyUriMessage ? (
             <p
               className={
-                copyUriMessage === "URI скопирован"
+                copyUriMessage === t("databases.uriCopied")
                   ? "text-sm text-emerald-600"
                   : "text-sm text-destructive"
               }
@@ -408,7 +412,7 @@ export function DatabaseDetailPage() {
         {databaseUri.isError ? (
           <CardFooter className="pt-0">
             <p className="text-sm text-destructive">
-              {getErrorMessage(databaseUri.error, "Не удалось получить URI.")}
+              {getErrorMessage(databaseUri.error, t("databases.uriError"))}
             </p>
           </CardFooter>
         ) : null}
@@ -416,9 +420,9 @@ export function DatabaseDetailPage() {
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-border pb-6">
-          <CardTitle className="text-3xl font-semibold tracking-tight">Опасная зона</CardTitle>
+          <CardTitle className="text-3xl font-semibold tracking-tight">{t("projects.settings.dangerTitle")}</CardTitle>
           <CardDescription>
-            Безвозвратно удалить базу данных.
+            {t("databases.dangerDescription")}
           </CardDescription>
         </CardHeader>
         <CardFooter className="pt-6">
@@ -430,8 +434,8 @@ export function DatabaseDetailPage() {
               disabled={deactivateResource.isPending}
             >
               {deactivateResource.isPending
-                ? "Удаление…"
-                : "Удалить базу данных"}
+                ? t("common.deleting")
+                : t("databases.deleteButton")}
             </Button>
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </div>

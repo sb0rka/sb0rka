@@ -1,5 +1,6 @@
 import type { ComponentType } from "react"
 import { Link, useMatch, useParams, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import {
   BarChart3,
   Check,
@@ -23,22 +24,23 @@ import { useProject, useProjects } from "@/features/projects/hooks"
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
 
 const projectNavItems: Array<{
-  label: string
+  labelKey: string
   icon: ComponentType<{ className?: string }>
   tab: ProjectTab
 }> = [
-  { label: "Главная", icon: BarChart3, tab: "overview" },
-  { label: "Базы данных", icon: Database, tab: "databases" },
-  { label: "Секреты", icon: KeyRound, tab: "secrets" },
+  { labelKey: "tabs.overview", icon: BarChart3, tab: "overview" },
+  { labelKey: "tabs.databases", icon: Database, tab: "databases" },
+  { labelKey: "tabs.secrets", icon: KeyRound, tab: "secrets" },
 ]
 
 const settingsNavItem = {
-  label: "Настройки",
+  labelKey: "tabs.settings",
   icon: Settings,
   tab: "settings" as const,
 }
 
 export function ProjectSidebar() {
+  const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const isDatabaseDetailsRoute = useMatch("/projects/:id/databases/:resourceId") !== null
@@ -72,19 +74,19 @@ export function ProjectSidebar() {
               variant="outline"
               className="h-10 w-full justify-between gap-2 px-3 font-medium"
             >
-              <span className="truncate">{project?.name ?? "Project"}</span>
+              <span className="truncate">{project?.name ?? t("projects.fallbackProject")}</span>
               <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[220px]">
             <DropdownMenuItem asChild>
               <Link to="/projects" className="w-full">
-                Все проекты
+                {t("projects.allProjects")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {projects.length === 0 ? (
-              <DropdownMenuItem disabled>Нет проектов</DropdownMenuItem>
+              <DropdownMenuItem disabled>{t("projects.noProjects")}</DropdownMenuItem>
             ) : (
               projects.map((projectItem) => {
                 const isCurrentProject = projectItem.id === id
@@ -122,7 +124,7 @@ export function ProjectSidebar() {
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           )
         })}
@@ -139,7 +141,7 @@ export function ProjectSidebar() {
           )}
         >
           <settingsNavItem.icon className="h-4 w-4" />
-          {settingsNavItem.label}
+          {t(settingsNavItem.labelKey)}
         </Link>
       </nav>
     </aside>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useQueries } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -131,6 +132,7 @@ export function SecretDetailsTable({
   emptyMessage,
   onRowClick,
 }: SecretDetailsTableProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState("")
   const tagQueries = useQueries({
     queries: rows.map((row) => ({
@@ -164,7 +166,7 @@ export function SecretDetailsTable({
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Поиск..."
+          placeholder={t("secrets.searchPlaceholder")}
           className="h-9 max-w-96"
         />
       </div>
@@ -178,13 +180,13 @@ export function SecretDetailsTable({
                 "border-b border-border text-sm font-medium text-muted-foreground",
               )}
             >
-              <div className="flex h-12 items-center px-4">Название</div>
-              <div className="flex h-12 items-center px-4">Теги</div>
+              <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
+              <div className="flex h-12 items-center px-4">{t("common.labels.tags")}</div>
               <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                Дата создания
+                {t("common.labels.createdAt")}
               </div>
               <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                Дата изменения
+                {t("common.labels.updatedAt")}
               </div>
             </div>
 

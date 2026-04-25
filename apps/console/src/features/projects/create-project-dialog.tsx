@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ export function CreateProjectDialog({
   open,
   onOpenChange,
 }: CreateProjectDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const createProject = useCreateProject()
@@ -56,7 +58,7 @@ export function CreateProjectDialog({
     createProject.error instanceof ApiError
       ? createProject.error.message
       : createProject.error
-        ? "Не удалось создать проект"
+        ? t("projects.createDialog.fallbackError")
         : null
 
   return (
@@ -64,28 +66,28 @@ export function CreateProjectDialog({
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Создать проект</DialogTitle>
+            <DialogTitle>{t("projects.createDialog.title")}</DialogTitle>
             <DialogDescription>
-              Разверните ваш новый проект одним кликом.
+              {t("projects.createDialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 px-6 pb-6">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-name">Название</Label>
+              <Label htmlFor="project-name">{t("common.labels.name")}</Label>
               <Input
                 id="project-name"
-                placeholder="Введите название проекта"
+                placeholder={t("projects.createDialog.namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-description">Описание</Label>
+              <Label htmlFor="project-description">{t("common.labels.description")}</Label>
               <Input
                 id="project-description"
-                placeholder="Введите описание проекта"
+                placeholder={t("projects.createDialog.descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -103,13 +105,13 @@ export function CreateProjectDialog({
               onClick={() => handleOpenChange(false)}
               disabled={createProject.isPending}
             >
-              Отменить
+              {t("common.actions.cancel")}
             </Button>
             <Button
               type="submit"
               disabled={!name.trim() || createProject.isPending}
             >
-              {createProject.isPending ? "Создание…" : "Создать проект"}
+              {createProject.isPending ? t("common.creating") : t("projects.create")}
             </Button>
           </DialogFooter>
         </form>
