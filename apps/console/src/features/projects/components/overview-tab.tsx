@@ -64,16 +64,8 @@ interface ChartCardProps {
 }
 
 const MAX_CHART_POINTS = 96
-
-function getMedian(values: number[]): number {
-  if (values.length === 0) return 0
-  const sorted = [...values].sort((a, b) => a - b)
-  const middle = Math.floor(sorted.length / 2)
-  if (sorted.length % 2 === 0) {
-    return (sorted[middle - 1] + sorted[middle]) / 2
-  }
-  return sorted[middle]
-}
+const CHART_Y_MIN = 4
+const CHART_Y_MAX = 34
 
 function downsampleBars(bars: ChartBar[]): ChartBar[] {
   if (bars.length <= MAX_CHART_POINTS) return bars
@@ -84,12 +76,11 @@ function downsampleBars(bars: ChartBar[]): ChartBar[] {
   for (let index = 0; index < bars.length; index += bucketSize) {
     const bucket = bars.slice(index, index + bucketSize)
     if (bucket.length === 0) continue
-    const avgValue = bucket.reduce((sum, point) => sum + point.value, 0) / bucket.length
     const tail = bucket[bucket.length - 1]
     sampled.push({
       label: tail.label,
       timestamp: tail.timestamp,
-      value: avgValue,
+      value: tail.value,
     })
   }
 
@@ -106,39 +97,21 @@ function downsampleBars(bars: ChartBar[]): ChartBar[] {
   return sampled
 }
 
-function normalizeFirstPointOutlier(values: number[]): number[] {
-  if (values.length < 4) return values
-
-  const diffs = values.slice(1).map((value, index) => Math.abs(value - values[index]))
-  const medianDiff = getMedian(diffs)
-  if (medianDiff === 0) return values
-
-  const firstDiff = Math.abs(values[0] - values[1])
-  const range = Math.max(...values) - Math.min(...values)
-  const isOutlier = firstDiff > medianDiff * 8 && firstDiff > range * 0.35
-
-  if (!isOutlier) return values
-
-  return [values[1], ...values.slice(1)]
-}
-
 function getPaddedDomain(values: number[]): { min: number; max: number } {
   if (values.length === 0) {
     return { min: 0, max: 1 }
   }
 
-  const sorted = [...values].sort((a, b) => a - b)
-  const q1 = sorted[Math.floor((sorted.length - 1) * 0.25)] ?? sorted[0]
-  const q3 = sorted[Math.floor((sorted.length - 1) * 0.75)] ?? sorted[sorted.length - 1]
-  const iqr = q3 - q1
-  const lowerFence = q1 - iqr * 1.5
-  const upperFence = q3 + iqr * 1.5
-  const trimmed = sorted.filter((value) => value >= lowerFence && value <= upperFence)
-  const domainValues = trimmed.length > 1 ? trimmed : sorted
-  const min = domainValues[0]
-  const max = domainValues[domainValues.length - 1]
-  const range = max - min || Math.max(Math.abs(max), 1)
-  const padding = range * 0.12
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  if (min === max) {
+    const offset = Math.max(Math.abs(min) * 0.1, 1)
+    return {
+      min: min - offset,
+      max: max + offset,
+    }
+  }
+  const padding = (max - min) * 0.08
 
   return {
     min: min - padding,
@@ -161,14 +134,15 @@ function formatRangeLabel(timestamp: string): string {
 function ChartCard({ title, value, description, bars, onClick }: ChartCardProps) {
   const sampledBars = downsampleBars(bars)
   const hasData = sampledBars.some((point) => point.value > 0)
-  const displayValues = normalizeFirstPointOutlier(sampledBars.map((point) => point.value))
+  const displayValues = sampledBars.map((point) => point.value)
   const domain = getPaddedDomain(displayValues)
   const valueRange = Math.max(domain.max - domain.min, 1)
   const isClickable = Boolean(onClick)
   const xStep = sampledBars.length > 1 ? 100 / (sampledBars.length - 1) : 100
   const points = sampledBars.map((point, index) => {
     const x = Math.round(index * xStep * 100) / 100
-    const y = Math.round((34 - ((displayValues[index] - domain.min) / valueRange) * 30) * 100) / 100
+    const rawY = CHART_Y_MAX - ((displayValues[index] - domain.min) / valueRange) * (CHART_Y_MAX - CHART_Y_MIN)
+    const y = Math.round(Math.min(CHART_Y_MAX, Math.max(CHART_Y_MIN, rawY)) * 100) / 100
     return { ...point, x, y }
   })
   const linePath = points
@@ -199,7 +173,7 @@ function ChartCard({ title, value, description, bars, onClick }: ChartCardProps)
         <p className="text-xs text-muted-foreground">{description}</p>
         <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
           <svg viewBox="0 0 100 36" className="h-28 w-full" preserveAspectRatio="none" role="img" aria-label={`${title} sparkline`}>
-            <line x1="0" y1="34" x2="100" y2="34" className="stroke-border/80" strokeWidth="1" />
+            <line x1="0" y1={CHART_Y_MAX} x2="100" y2={CHART_Y_MAX} className="stroke-border/80" strokeWidth="1" />
             <path
               d={linePath}
               className={hasData ? "stroke-primary" : "stroke-muted-foreground/40"}
