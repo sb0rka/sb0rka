@@ -26,33 +26,6 @@ type DB struct {
 	Name           string  `json:"name"`
 	NormalizedName string  `json:"normalized_name"`
 	Description    *string `json:"description,omitempty"`
-	NextTableID    int64   `json:"next_table_id"`
-}
-
-type DBTable struct {
-	ID           int64     `json:"id"`
-	DBID         string    `json:"db_id"`
-	Name         string    `json:"name"`
-	Description  *string   `json:"description,omitempty"`
-	NextColumnID int64     `json:"next_column_id"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-}
-
-type DBTableColumn struct {
-	ID           int64     `json:"id"`
-	TableID      int64     `json:"table_id"`
-	DBID         string    `json:"db_id"`
-	Name         string    `json:"name"`
-	DataType     string    `json:"data_type"`
-	IsPrimaryKey bool      `json:"is_primary_key"`
-	IsNullable   bool      `json:"is_nullable"`
-	IsUnique     bool      `json:"is_unique"`
-	IsArray      bool      `json:"is_array"`
-	DefaultValue *string   `json:"default_value,omitempty"`
-	ForeignKey   *string   `json:"foreign_key,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Tag struct {

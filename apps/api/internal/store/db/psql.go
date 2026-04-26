@@ -589,7 +589,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	const createDBQuery = `
 		INSERT INTO dbs (resource_id, name, normalized_name, description)
 		VALUES ($1, $2, $3, $4)
-		RETURNING resource_id, name, normalized_name, description, next_table_id
+		RETURNING resource_id, name, normalized_name, description
 	`
 
 	var dbRow model.DB
@@ -598,7 +598,6 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 		&dbRow.Name,
 		&dbRow.NormalizedName,
 		&dbRow.Description,
-		&dbRow.NextTableID,
 	); err != nil {
 		return model.DB{}, err
 	}
@@ -612,7 +611,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 
 func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID string) ([]model.DB, error) {
 	const query = `
-		SELECT d.resource_id, d.name, d.normalized_name, d.description, d.next_table_id
+		SELECT d.resource_id, d.name, d.normalized_name, d.description
 		FROM dbs d
 		INNER JOIN resources r ON r.id = d.resource_id
 		INNER JOIN projects p ON p.id = r.project_id
@@ -631,7 +630,7 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID 
 	out := make([]model.DB, 0)
 	for rows.Next() {
 		var row model.DB
-		if err := rows.Scan(&row.ResourceID, &row.Name, &row.NormalizedName, &row.Description, &row.NextTableID); err != nil {
+		if err := rows.Scan(&row.ResourceID, &row.Name, &row.NormalizedName, &row.Description); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
@@ -645,7 +644,7 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID 
 
 func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error) {
 	const query = `
-		SELECT d.resource_id, d.name, d.normalized_name, d.description, d.next_table_id
+		SELECT d.resource_id, d.name, d.normalized_name, d.description
 		FROM dbs d
 		JOIN resources r ON r.id = d.resource_id
 		JOIN projects p ON p.id = r.project_id
@@ -661,7 +660,6 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID st
 		&dbRow.Name,
 		&dbRow.NormalizedName,
 		&dbRow.Description,
-		&dbRow.NextTableID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -687,7 +685,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 			  AND r.project_id = $2
 			  AND p.user_id = $1
 			  AND r.resource_type = 'database'
-			RETURNING d.resource_id, d.name, d.normalized_name, d.description, d.next_table_id
+			RETURNING d.resource_id, d.name, d.normalized_name, d.description
 		),
 		updated_resource AS (
 			UPDATE resources r
@@ -696,7 +694,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 			WHERE r.id = ud.resource_id
 			RETURNING r.id
 		)
-		SELECT ud.resource_id, ud.name, ud.normalized_name, ud.description, ud.next_table_id
+		SELECT ud.resource_id, ud.name, ud.normalized_name, ud.description
 		FROM updated_db ud
 	`
 
@@ -706,7 +704,6 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 		&row.Name,
 		&row.NormalizedName,
 		&row.Description,
-		&row.NextTableID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -719,7 +716,20 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 }
 
 func (p *PsqlDB) GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
+	// target_db CTE first resolves the exact database
+	// then it scans secret resources in that same project
+	// it requires the same tag id to be attached to both secret and database via resource_tags
+	// it keeps strict tag checks: tag_key and tag_value
 	const query = `
+		WITH target_db AS (
+			SELECT r.id, r.project_id
+			FROM resources r
+			INNER JOIN projects p ON p.id = r.project_id
+			WHERE p.user_id = $1
+			  AND p.id = $2
+			  AND r.id = $3
+			  AND r.resource_type = 'database'
+		)
 		SELECT
 			s.resource_id,
 			s.name,
@@ -727,20 +737,23 @@ func (p *PsqlDB) GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projec
 			s.secret_value_hash,
 			s.revealed_at,
 			COUNT(*) OVER() AS total_matches
-		FROM secrets s
-		INNER JOIN resources rs ON rs.id = s.resource_id
-		INNER JOIN projects p ON p.id = rs.project_id
-		INNER JOIN resource_tags rt ON rt.project_id = rs.project_id AND rt.resource_id = rs.id
-		INNER JOIN tags t ON t.id = rt.tag_id AND t.project_id = rt.project_id
-		INNER JOIN resources db_r
-			ON db_r.id = $3
-		   AND db_r.project_id = p.id
-		   AND db_r.resource_type = 'database'
-		WHERE p.user_id = $1
-		  AND p.id = $2
-		  AND rs.resource_type = 'secret'
-		  AND t.tag_key = 'db_id'
-		  AND t.tag_value = db_r.id
+		FROM target_db db
+		INNER JOIN resources rs
+			ON rs.project_id = db.project_id
+		   AND rs.resource_type = 'secret'
+		INNER JOIN secrets s ON s.resource_id = rs.id
+		INNER JOIN resource_tags rs_rt
+			ON rs_rt.project_id = rs.project_id
+		   AND rs_rt.resource_id = rs.id
+		INNER JOIN resource_tags db_rt
+			ON db_rt.project_id = db.project_id
+		   AND db_rt.resource_id = db.id
+		   AND db_rt.tag_id = rs_rt.tag_id
+		INNER JOIN tags t
+			ON t.id = rs_rt.tag_id
+		   AND t.project_id = rs_rt.project_id
+		WHERE t.tag_key = 'db_secret'
+		  AND t.tag_value = CONCAT(db.id, '_', s.resource_id)
 		  AND t.is_system = true
 		ORDER BY s.resource_id DESC
 		LIMIT 1
@@ -767,474 +780,6 @@ func (p *PsqlDB) GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projec
 	}
 
 	return secret, nil
-}
-
-func (p *PsqlDB) CreateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name string, description *string) (model.DBTable, error) {
-	const query = `
-		WITH bumped_db AS (
-			UPDATE dbs d
-			SET next_table_id = d.next_table_id + 1
-			FROM resources r
-			JOIN projects p ON p.id = r.project_id
-			WHERE d.resource_id = r.id
-			  AND p.user_id = $1
-			  AND p.id = $2
-			  AND d.resource_id = $3
-			  AND r.resource_type = 'database'
-			RETURNING d.resource_id, d.next_table_id - 1 AS table_id
-		)
-		INSERT INTO db_tables (id, db_id, name, description)
-		SELECT bd.table_id, bd.resource_id, $4, $5
-		FROM bumped_db bd
-		RETURNING id, db_id, name, description, next_column_id, created_at, updated_at
-	`
-
-	var table model.DBTable
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, name, description).Scan(
-		&table.ID,
-		&table.DBID,
-		&table.Name,
-		&table.Description,
-		&table.NextColumnID,
-		&table.CreatedAt,
-		&table.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBTable{}, ErrResourceNotFound
-		}
-		return model.DBTable{}, err
-	}
-
-	return table, nil
-}
-
-func (p *PsqlDB) ListDatabaseTables(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) ([]model.DBTable, error) {
-	const query = `
-		SELECT
-			t.id,
-			t.db_id,
-			t.name,
-			t.description,
-			t.next_column_id,
-			t.created_at,
-			t.updated_at
-		FROM db_tables t
-		INNER JOIN dbs d ON d.resource_id = t.db_id
-		INNER JOIN resources r ON r.id = d.resource_id
-		INNER JOIN projects p ON p.id = r.project_id
-		WHERE p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		ORDER BY t.created_at DESC
-	`
-
-	rows, err := p.pool.Query(ctx, query, userID, projectID, resourceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := make([]model.DBTable, 0)
-	for rows.Next() {
-		var row model.DBTable
-		if err := rows.Scan(
-			&row.ID,
-			&row.DBID,
-			&row.Name,
-			&row.Description,
-			&row.NextColumnID,
-			&row.CreatedAt,
-			&row.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		out = append(out, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
-
-func (p *PsqlDB) GetDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) (model.DBTable, error) {
-	const query = `
-		SELECT
-			t.id,
-			t.db_id,
-			t.name,
-			t.description,
-			t.next_column_id,
-			t.created_at,
-			t.updated_at
-		FROM db_tables t
-		INNER JOIN dbs d ON d.resource_id = t.db_id
-		INNER JOIN resources r ON r.id = d.resource_id
-		INNER JOIN projects p ON p.id = r.project_id
-		WHERE p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		  AND t.id = $4
-	`
-
-	var row model.DBTable
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, tableID).Scan(
-		&row.ID,
-		&row.DBID,
-		&row.Name,
-		&row.Description,
-		&row.NextColumnID,
-		&row.CreatedAt,
-		&row.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBTable{}, ErrResourceNotFound
-		}
-		return model.DBTable{}, err
-	}
-
-	return row, nil
-}
-
-func (p *PsqlDB) UpdateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, name *string, description *string) (model.DBTable, error) {
-	const query = `
-		UPDATE db_tables t
-		SET
-			name = COALESCE($5, t.name),
-			description = COALESCE($6, t.description),
-			updated_at = NOW()
-		FROM dbs d
-		INNER JOIN resources r ON r.id = d.resource_id
-		INNER JOIN projects p ON p.id = r.project_id
-		WHERE t.db_id = d.resource_id
-		  AND t.id = $4
-		  AND p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		RETURNING t.id, t.db_id, t.name, t.description, t.next_column_id, t.created_at, t.updated_at
-	`
-
-	var row model.DBTable
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, tableID, name, description).Scan(
-		&row.ID,
-		&row.DBID,
-		&row.Name,
-		&row.Description,
-		&row.NextColumnID,
-		&row.CreatedAt,
-		&row.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBTable{}, ErrResourceNotFound
-		}
-		return model.DBTable{}, err
-	}
-
-	return row, nil
-}
-
-func (p *PsqlDB) DeleteDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) error {
-	const query = `
-		DELETE FROM db_tables t
-		USING dbs d, resources r, projects p
-		WHERE t.db_id = d.resource_id
-		  AND d.resource_id = r.id
-		  AND r.project_id = p.id
-		  AND p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		  AND t.id = $4
-	`
-
-	cmd, err := p.pool.Exec(ctx, query, userID, projectID, resourceID, tableID)
-	if err != nil {
-		return err
-	}
-	if cmd.RowsAffected() == 0 {
-		return ErrResourceNotFound
-	}
-	return nil
-}
-
-func (p *PsqlDB) CreateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, name string, dataType string, isPrimaryKey bool, isNullable bool, isUnique bool, isArray bool, defaultValue *string, foreignKey *string) (model.DBTableColumn, error) {
-	const query = `
-		WITH bumped_table AS (
-			UPDATE db_tables t
-			SET next_column_id = t.next_column_id + 1
-			FROM dbs d
-			INNER JOIN resources r ON r.id = d.resource_id
-			INNER JOIN projects p ON p.id = r.project_id
-			WHERE t.db_id = d.resource_id
-			  AND t.id = $4
-			  AND p.user_id = $1
-			  AND p.id = $2
-			  AND d.resource_id = $3
-			  AND r.resource_type = 'database'
-			RETURNING t.id AS table_id, t.db_id, t.next_column_id - 1 AS column_id
-		)
-		INSERT INTO db_table_columns (
-			id, table_id, db_id, name, data_type,
-			is_primary_key, is_nullable, is_unique, is_array,
-			default_value, foreign_key
-		)
-		SELECT
-			bt.column_id,
-			bt.table_id,
-			bt.db_id,
-			$5,
-			$6,
-			$7,
-			$8,
-			$9,
-			$10,
-			$11,
-			$12
-		FROM bumped_table bt
-		RETURNING
-			id, table_id, db_id, name, data_type,
-			is_primary_key, is_nullable, is_unique, is_array,
-			default_value, foreign_key,
-			created_at, updated_at
-	`
-
-	var col model.DBTableColumn
-	err := p.pool.QueryRow(ctx, query,
-		userID, projectID, resourceID, tableID,
-		name, dataType, isPrimaryKey, isNullable, isUnique, isArray, defaultValue, foreignKey,
-	).Scan(
-		&col.ID,
-		&col.TableID,
-		&col.DBID,
-		&col.Name,
-		&col.DataType,
-		&col.IsPrimaryKey,
-		&col.IsNullable,
-		&col.IsUnique,
-		&col.IsArray,
-		&col.DefaultValue,
-		&col.ForeignKey,
-		&col.CreatedAt,
-		&col.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBTableColumn{}, ErrResourceNotFound
-		}
-		return model.DBTableColumn{}, err
-	}
-
-	return col, nil
-}
-
-func (p *PsqlDB) ListDatabaseColumns(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) ([]model.DBTableColumn, error) {
-	const query = `
-		SELECT
-			c.id,
-			c.table_id,
-			c.db_id,
-			c.name,
-			c.data_type,
-			c.is_primary_key,
-			c.is_nullable,
-			c.is_unique,
-			c.is_array,
-			c.default_value,
-			c.foreign_key,
-			c.created_at,
-			c.updated_at
-		FROM db_table_columns c
-		INNER JOIN db_tables t ON t.id = c.table_id
-		INNER JOIN dbs d ON d.resource_id = t.db_id
-		INNER JOIN resources r ON r.id = d.resource_id
-		INNER JOIN projects p ON p.id = r.project_id
-		WHERE p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		  AND t.id = $4
-		ORDER BY c.created_at DESC
-	`
-
-	rows, err := p.pool.Query(ctx, query, userID, projectID, resourceID, tableID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := make([]model.DBTableColumn, 0)
-	for rows.Next() {
-		var row model.DBTableColumn
-		if err := rows.Scan(
-			&row.ID,
-			&row.TableID,
-			&row.DBID,
-			&row.Name,
-			&row.DataType,
-			&row.IsPrimaryKey,
-			&row.IsNullable,
-			&row.IsUnique,
-			&row.IsArray,
-			&row.DefaultValue,
-			&row.ForeignKey,
-			&row.CreatedAt,
-			&row.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		out = append(out, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
-
-func (p *PsqlDB) GetDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64) (model.DBTableColumn, error) {
-	const query = `
-		SELECT
-			c.id,
-			c.table_id,
-			c.db_id,
-			c.name,
-			c.data_type,
-			c.is_primary_key,
-			c.is_nullable,
-			c.is_unique,
-			c.is_array,
-			c.default_value,
-			c.foreign_key,
-			c.created_at,
-			c.updated_at
-		FROM db_table_columns c
-		INNER JOIN db_tables t ON t.id = c.table_id
-		INNER JOIN dbs d ON d.resource_id = t.db_id
-		INNER JOIN resources r ON r.id = d.resource_id
-		INNER JOIN projects p ON p.id = r.project_id
-		WHERE p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		  AND t.id = $4
-		  AND c.id = $5
-	`
-
-	var row model.DBTableColumn
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, tableID, columnID).Scan(
-		&row.ID,
-		&row.TableID,
-		&row.DBID,
-		&row.Name,
-		&row.DataType,
-		&row.IsPrimaryKey,
-		&row.IsNullable,
-		&row.IsUnique,
-		&row.IsArray,
-		&row.DefaultValue,
-		&row.ForeignKey,
-		&row.CreatedAt,
-		&row.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBTableColumn{}, ErrResourceNotFound
-		}
-		return model.DBTableColumn{}, err
-	}
-
-	return row, nil
-}
-
-func (p *PsqlDB) UpdateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64, name string) (model.DBTableColumn, error) {
-	const query = `
-		UPDATE db_table_columns c
-		SET
-			name = COALESCE($6, c.name),
-			updated_at = NOW()
-		FROM db_tables t
-		INNER JOIN dbs d ON d.resource_id = t.db_id
-		INNER JOIN resources r ON r.id = d.resource_id
-		INNER JOIN projects p ON p.id = r.project_id
-		WHERE c.table_id = t.id
-		  AND c.id = $5
-		  AND p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		  AND t.id = $4
-		RETURNING
-			c.id,
-			c.table_id,
-			c.db_id,
-			c.name,
-			c.data_type,
-			c.is_primary_key,
-			c.is_nullable,
-			c.is_unique,
-			c.is_array,
-			c.default_value,
-			c.foreign_key,
-			c.created_at,
-			c.updated_at
-	`
-
-	var row model.DBTableColumn
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, tableID, columnID, name).Scan(
-		&row.ID,
-		&row.TableID,
-		&row.DBID,
-		&row.Name,
-		&row.DataType,
-		&row.IsPrimaryKey,
-		&row.IsNullable,
-		&row.IsUnique,
-		&row.IsArray,
-		&row.DefaultValue,
-		&row.ForeignKey,
-		&row.CreatedAt,
-		&row.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBTableColumn{}, ErrResourceNotFound
-		}
-		return model.DBTableColumn{}, err
-	}
-
-	return row, nil
-}
-
-func (p *PsqlDB) DeleteDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64) error {
-	const query = `
-		DELETE FROM db_table_columns c
-		USING db_tables t, dbs d, resources r, projects p
-		WHERE c.table_id = t.id
-		  AND t.db_id = d.resource_id
-		  AND d.resource_id = r.id
-		  AND r.project_id = p.id
-		  AND p.user_id = $1
-		  AND p.id = $2
-		  AND d.resource_id = $3
-		  AND r.resource_type = 'database'
-		  AND t.id = $4
-		  AND c.id = $5
-	`
-
-	cmd, err := p.pool.Exec(ctx, query, userID, projectID, resourceID, tableID, columnID)
-	if err != nil {
-		return err
-	}
-	if cmd.RowsAffected() == 0 {
-		return ErrResourceNotFound
-	}
-	return nil
 }
 
 func (p *PsqlDB) CreateSecret(

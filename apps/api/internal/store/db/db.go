@@ -49,20 +49,6 @@ type Database interface {
 	UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name *string, description *string) (model.DB, error)
 	GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
 
-	// Database Tables
-	CreateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name string, description *string) (model.DBTable, error)
-	ListDatabaseTables(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) ([]model.DBTable, error)
-	GetDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) (model.DBTable, error)
-	UpdateDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, name *string, description *string) (model.DBTable, error)
-	DeleteDatabaseTable(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) error
-
-	// Database Columns
-	CreateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, name string, dataType string, isPrimaryKey bool, isNullable bool, isUnique bool, isArray bool, defaultValue *string, foreignKey *string) (model.DBTableColumn, error)
-	ListDatabaseColumns(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64) ([]model.DBTableColumn, error)
-	GetDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64) (model.DBTableColumn, error)
-	UpdateDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64, name string) (model.DBTableColumn, error)
-	DeleteDatabaseColumn(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tableID int64, columnID int64) error
-
 	// Secrets
 	CreateSecret(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string, secretValueHash string) (model.Secret, error)
 	ListSecrets(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Secret, error)
