@@ -5,12 +5,12 @@ import (
 )
 
 type Resource struct {
-	ID            string         `json:"id"`
-	ProjectID     string         `json:"project_id"`
-	Kind          string         `json:"kind"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	
+	ID        string    `json:"id"`
+	ProjectID string    `json:"project_id"`
+	Kind      string    `json:"kind"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
 	ResourceState *ResourceState `json:"resource_state,omitempty"`
 }
 
@@ -36,14 +36,19 @@ type DB struct {
 	NormalizedName      string  `json:"normalized_name"`
 	DesiredRuntimeState string  `json:"desired_runtime_state"`
 	Description         *string `json:"description,omitempty"`
+
+	ResourceState *ResourceState `json:"resource_state,omitempty"`
+
+	Tags []Tag `json:"tags,omitempty"`
 }
 
 type DBVerifier struct {
-	ProjectID        string `json:"project_id"`
-	DBID             string `json:"db_id"`
-	PasswordSecretID string `json:"password_secret_id"`
-	PasswordVerifier string `json:"password_verifier"`
-	PasswordVersion  int    `json:"password_version"`
+	ProjectID            string `json:"project_id"`
+	DBID                 string `json:"db_id"`
+	PasswordSecretID     string `json:"password_secret_id"`
+	PasswordVerifier     string `json:"password_verifier"`
+	PasswordVersion      int    `json:"password_version"`
+	PasswordDesiredState string `json:"password_desired_state"`
 }
 
 type Tag struct {
@@ -53,7 +58,7 @@ type Tag struct {
 	TagValue   string  `json:"tag_value"`
 	Color      *string `json:"color,omitempty"`
 	IsSystem   bool    `json:"is_system"`
-	IsEditable bool    `json:"is_editable"`
+	IsReadonly bool    `json:"is_readonly"`
 }
 
 type ResourceTag struct {

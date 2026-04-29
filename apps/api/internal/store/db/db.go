@@ -38,15 +38,14 @@ type Database interface {
 	// Resources
 	ListResources(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Resource, error)
 	GetResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error)
-	DeactivateResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error)
-	DeleteResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error
 
 	// Databases
-	CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string) (model.DB, error)
+	CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string, secretValueHash string, passwordVerifier string) (model.DB, model.Secret, error)
 	ListDatabases(ctx context.Context, userID uuid.UUID, projectID string) ([]model.DB, error)
 	GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error)
 	UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name *string, description *string) (model.DB, error)
-	GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
+	GetDatabaseConnParams(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, model.Secret, error)
+	ClaimDatabaseTermination(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, model.DBVerifier, error)
 
 	// Secrets
 	CreateSecret(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string, secretValueHash string) (model.Secret, error)

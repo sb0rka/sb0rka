@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
@@ -15,6 +16,21 @@ import (
 
 type PsqlDB struct {
 	pool *pgxpool.Pool
+}
+
+// DatabasePasswordSecretName returns the generated secret name for a database password.
+func DatabasePasswordSecretName(databaseResourceID string) string {
+	return fmt.Sprintf("DATABASE_%s_PASSWORD", databaseResourceID)
+}
+
+// DatabasePasswordSecretDescription returns the generated secret description for a database password.
+func DatabasePasswordSecretDescription(databaseName string, databaseResourceID string) string {
+	return fmt.Sprintf("Password for database %s with ID %s", databaseName, databaseResourceID)
+}
+
+// DatabaseSecretTag returns the system tag that links a database to its password secret.
+func DatabaseSecretTag(databaseResourceID string, secretResourceID string) (string, string) {
+	return "db_secret", fmt.Sprintf("%s_%s", databaseResourceID, secretResourceID)
 }
 
 func NewPsqlDB(uri string, maxConns int, connMaxLifetime time.Duration) (*PsqlDB, error) {
@@ -530,60 +546,10 @@ func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID st
 	return res, nil
 }
 
-// TODO(kompotkot)
-func (p *PsqlDB) DeactivateResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error) {
-	const query = `
-		UPDATE resources r
-		SET 
-			updated_at = NOW()
-		FROM projects p
-		WHERE r.project_id = p.id
-		  AND p.user_id = $1
-		  AND r.project_id = $2
-		  AND r.id = $3
-		RETURNING r.id, r.project_id, r.kind, r.created_at, r.updated_at
-	`
-
-	var res model.Resource
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID).Scan(
-		&res.ID,
-		&res.ProjectID,
-		&res.Kind,
-		&res.CreatedAt,
-		&res.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.Resource{}, ErrResourceNotFound
-		}
-		return model.Resource{}, err
-	}
-	return res, nil
-}
-
-func (p *PsqlDB) DeleteResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error {
-	const query = `
-		DELETE FROM resources r
-		USING projects p
-		WHERE r.project_id = p.id
-		  AND p.user_id = $1
-		  AND r.project_id = $2
-		  AND r.id = $3
-	`
-	cmd, err := p.pool.Exec(ctx, query, userID, projectID, resourceID)
-	if err != nil {
-		return err
-	}
-	if cmd.RowsAffected() == 0 {
-		return ErrResourceNotFound
-	}
-	return nil
-}
-
-func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string) (model.DB, error) {
+func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string, secretValueHash string, passwordVerifier string) (model.DB, model.Secret, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return model.DB{}, err
+		return model.DB{}, model.Secret{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -599,41 +565,121 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	var resourceID string
 	if err := tx.QueryRow(ctx, createResourceQuery, projectID, userID).Scan(&resourceID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, ErrProjectNotFound
+			return model.DB{}, model.Secret{}, ErrProjectNotFound
 		}
-		return model.DB{}, err
+		return model.DB{}, model.Secret{}, err
 	}
 
 	const createDBQuery = `
-		INSERT INTO dbs (resource_id, name, normalized_name, desired_runtime_state, description)
-		VALUES ($1, $2, $3, 'running', $4)
+		INSERT INTO dbs (project_id, resource_id, name, normalized_name, desired_runtime_state, description)
+		VALUES ($1, $2, $3, $4, 'running', $5)
 		RETURNING resource_id, name, normalized_name, desired_runtime_state, description
 	`
 
 	var dbRow model.DB
-	if err := tx.QueryRow(ctx, createDBQuery, resourceID, name, normalizedName, description).Scan(
+	if err := tx.QueryRow(ctx, createDBQuery, projectID, resourceID, name, normalizedName, description).Scan(
 		&dbRow.ResourceID,
 		&dbRow.Name,
 		&dbRow.NormalizedName,
 		&dbRow.DesiredRuntimeState,
 		&dbRow.Description,
 	); err != nil {
-		return model.DB{}, err
+		return model.DB{}, model.Secret{}, err
+	}
+
+	const createSecretResourceQuery = `
+		INSERT INTO resources (project_id, kind)
+		SELECT p.id, 'secret'
+		FROM projects p
+		WHERE p.id = $1
+		  AND p.user_id = $2
+		RETURNING id
+	`
+
+	var secretResourceID string
+	if err := tx.QueryRow(ctx, createSecretResourceQuery, projectID, userID).Scan(&secretResourceID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.DB{}, model.Secret{}, ErrProjectNotFound
+		}
+		return model.DB{}, model.Secret{}, err
+	}
+
+	secretName := DatabasePasswordSecretName(dbRow.ResourceID)
+	secretDescription := DatabasePasswordSecretDescription(dbRow.Name, dbRow.ResourceID)
+
+	const createSecretQuery = `
+		INSERT INTO secrets (project_id, resource_id, name, description, secret_value_hash, version)
+		VALUES ($1, $2, $3, $4, $5, 1)
+		RETURNING resource_id, name, description, secret_value_hash, version, revealed_at
+	`
+
+	var secret model.Secret
+	if err := tx.QueryRow(ctx, createSecretQuery, projectID, secretResourceID, secretName, &secretDescription, secretValueHash).Scan(
+		&secret.ResourceID,
+		&secret.Name,
+		&secret.Description,
+		&secret.SecretValueHash,
+		&secret.Version,
+		&secret.RevealedAt,
+	); err != nil {
+		return model.DB{}, model.Secret{}, err
+	}
+
+	const createDBVerifierQuery = `
+		INSERT INTO db_verifiers (project_id, db_id, password_secret_id, password_verifier, password_version, password_desired_state)
+		VALUES ($1, $2, $3, $4, $5, 'present')
+	`
+
+	if _, err := tx.Exec(ctx, createDBVerifierQuery, projectID, dbRow.ResourceID, secret.ResourceID, passwordVerifier, secret.Version); err != nil {
+		return model.DB{}, model.Secret{}, err
+	}
+
+	tagKey, tagValue := DatabaseSecretTag(dbRow.ResourceID, secret.ResourceID)
+	const createTagQuery = `
+		INSERT INTO tags (project_id, tag_key, tag_value, color, is_system, is_readonly)
+		VALUES ($1, $2, $3, NULL, true, true)
+		RETURNING id
+	`
+
+	var tagID int64
+	if err := tx.QueryRow(ctx, createTagQuery, projectID, tagKey, tagValue).Scan(&tagID); err != nil {
+		return model.DB{}, model.Secret{}, err
+	}
+
+	const attachTagQuery = `
+		INSERT INTO resource_tags (project_id, resource_id, tag_id)
+		VALUES ($1, $2, $3)
+	`
+
+	if _, err := tx.Exec(ctx, attachTagQuery, projectID, dbRow.ResourceID, tagID); err != nil {
+		return model.DB{}, model.Secret{}, err
+	}
+	if _, err := tx.Exec(ctx, attachTagQuery, projectID, secret.ResourceID, tagID); err != nil {
+		return model.DB{}, model.Secret{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return model.DB{}, err
+		return model.DB{}, model.Secret{}, err
 	}
 
-	return dbRow, nil
+	return dbRow, secret, nil
 }
 
 func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID string) ([]model.DB, error) {
 	const query = `
-		SELECT d.resource_id, d.name, d.normalized_name, d.description
+		SELECT
+			d.resource_id,
+			d.name,
+			d.normalized_name,
+			d.desired_runtime_state,
+			d.description,
+			rs.runtime_state,
+			rs.created_at,
+			rs.updated_at
 		FROM dbs d
 		INNER JOIN resources r ON r.id = d.resource_id
 		INNER JOIN projects p ON p.id = r.project_id
+		LEFT JOIN resource_states rs ON rs.resource_id = r.id
 		WHERE p.user_id = $1
 		  AND p.id = $2
 		  AND r.kind = 'database'
@@ -649,8 +695,28 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID 
 	out := make([]model.DB, 0)
 	for rows.Next() {
 		var row model.DB
-		if err := rows.Scan(&row.ResourceID, &row.Name, &row.NormalizedName, &row.Description); err != nil {
+		var runtimeState *string
+		var stateCreatedAt *time.Time
+		var stateUpdatedAt *time.Time
+		if err := rows.Scan(
+			&row.ResourceID,
+			&row.Name,
+			&row.NormalizedName,
+			&row.DesiredRuntimeState,
+			&row.Description,
+			&runtimeState,
+			&stateCreatedAt,
+			&stateUpdatedAt,
+		); err != nil {
 			return nil, err
+		}
+		if runtimeState != nil && stateCreatedAt != nil && stateUpdatedAt != nil {
+			row.ResourceState = &model.ResourceState{
+				ResourceID:   row.ResourceID,
+				RuntimeState: *runtimeState,
+				CreatedAt:    *stateCreatedAt,
+				UpdatedAt:    *stateUpdatedAt,
+			}
 		}
 		out = append(out, row)
 	}
@@ -663,10 +729,19 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID 
 
 func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error) {
 	const query = `
-		SELECT d.resource_id, d.name, d.normalized_name, d.description
+		SELECT
+			d.resource_id,
+			d.name,
+			d.normalized_name,
+			d.desired_runtime_state,
+			d.description,
+			rs.runtime_state,
+			rs.created_at,
+			rs.updated_at
 		FROM dbs d
 		JOIN resources r ON r.id = d.resource_id
 		JOIN projects p ON p.id = r.project_id
+		LEFT JOIN resource_states rs ON rs.resource_id = r.id
 		WHERE p.user_id = $1
 			AND p.id = $2
 			AND r.id = $3
@@ -674,16 +749,67 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID st
 	`
 
 	var dbRow model.DB
+	var runtimeState *string
+	var stateCreatedAt *time.Time
+	var stateUpdatedAt *time.Time
 	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID).Scan(
 		&dbRow.ResourceID,
 		&dbRow.Name,
 		&dbRow.NormalizedName,
+		&dbRow.DesiredRuntimeState,
 		&dbRow.Description,
+		&runtimeState,
+		&stateCreatedAt,
+		&stateUpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.DB{}, ErrResourceNotFound
 		}
+		return model.DB{}, err
+	}
+	if runtimeState != nil && stateCreatedAt != nil && stateUpdatedAt != nil {
+		dbRow.ResourceState = &model.ResourceState{
+			ResourceID:   dbRow.ResourceID,
+			RuntimeState: *runtimeState,
+			CreatedAt:    *stateCreatedAt,
+			UpdatedAt:    *stateUpdatedAt,
+		}
+	}
+
+	const tagsQuery = `
+		SELECT t.id, t.project_id, t.tag_key, t.tag_value, t.color, t.is_system, t.is_readonly
+		FROM tags t
+		INNER JOIN resource_tags rt ON rt.tag_id = t.id AND rt.project_id = t.project_id
+		INNER JOIN projects p ON p.id = t.project_id AND p.user_id = $1
+		WHERE rt.project_id = $2
+		  AND rt.resource_id = $3
+		ORDER BY t.tag_key, t.tag_value
+	`
+
+	rows, err := p.pool.Query(ctx, tagsQuery, userID, projectID, resourceID)
+	if err != nil {
+		return model.DB{}, err
+	}
+	defer rows.Close()
+
+	dbRow.Tags = make([]model.Tag, 0)
+	for rows.Next() {
+		var tag model.Tag
+		if err := rows.Scan(
+			&tag.ID,
+			&tag.ProjectID,
+			&tag.TagKey,
+			&tag.TagValue,
+			&tag.Color,
+			&tag.IsSystem,
+			&tag.IsReadonly,
+		); err != nil {
+			return model.DB{}, err
+		}
+		dbRow.Tags = append(dbRow.Tags, tag)
+	}
+	if err := rows.Err(); err != nil {
 		return model.DB{}, err
 	}
 
@@ -704,7 +830,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 			  AND r.project_id = $2
 			  AND p.user_id = $1
 			  AND r.kind = 'database'
-			RETURNING d.resource_id, d.name, d.normalized_name, d.description
+			RETURNING d.resource_id, d.name, d.normalized_name, d.desired_runtime_state, d.description
 		),
 		updated_resource AS (
 			UPDATE resources r
@@ -713,7 +839,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 			WHERE r.id = ud.resource_id
 			RETURNING r.id
 		)
-		SELECT ud.resource_id, ud.name, ud.normalized_name, ud.description
+		SELECT ud.resource_id, ud.name, ud.normalized_name, ud.desired_runtime_state, ud.description
 		FROM updated_db ud
 	`
 
@@ -722,6 +848,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 		&row.ResourceID,
 		&row.Name,
 		&row.NormalizedName,
+		&row.DesiredRuntimeState,
 		&row.Description,
 	)
 	if err != nil {
@@ -734,71 +861,161 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	return row, nil
 }
 
-func (p *PsqlDB) GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
-	// target_db CTE first resolves the exact database
-	// then it scans secret resources in that same project
-	// it requires the same tag id to be attached to both secret and database via resource_tags
-	// it keeps strict tag checks: tag_key and tag_value
+func (p *PsqlDB) GetDatabaseConnParams(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, model.Secret, error) {
+	dbRow, err := p.GetDatabase(ctx, userID, projectID, resourceID)
+	if err != nil {
+		return model.DB{}, model.Secret{}, err
+	}
+
+	var matchedSecret *model.Secret
+	for _, tag := range dbRow.Tags {
+		tagKey, _ := DatabaseSecretTag(dbRow.ResourceID, "")
+		if tag.TagKey != tagKey || !tag.IsSystem {
+			continue
+		}
+
+		secrets, err := p.listSecretsByTagID(ctx, userID, projectID, tag.ID)
+		if err != nil {
+			return model.DB{}, model.Secret{}, err
+		}
+		for _, secret := range secrets {
+			expectedTagKey, expectedTagValue := DatabaseSecretTag(dbRow.ResourceID, secret.ResourceID)
+			if tag.TagKey != expectedTagKey || tag.TagValue != expectedTagValue {
+				continue
+			}
+			if matchedSecret != nil {
+				return model.DB{}, model.Secret{}, ErrMultipleResourceRows
+			}
+			secretCopy := secret
+			matchedSecret = &secretCopy
+		}
+	}
+
+	if matchedSecret == nil {
+		return model.DB{}, model.Secret{}, ErrResourceNotFound
+	}
+
+	return dbRow, *matchedSecret, nil
+}
+
+func (p *PsqlDB) listSecretsByTagID(ctx context.Context, userID uuid.UUID, projectID string, tagID int64) ([]model.Secret, error) {
 	const query = `
-		WITH target_db AS (
-			SELECT r.id, r.project_id
-			FROM resources r
-			INNER JOIN projects p ON p.id = r.project_id
-			WHERE p.user_id = $1
-			  AND p.id = $2
-			  AND r.id = $3
-			  AND r.kind = 'database'
-		)
 		SELECT
 			s.resource_id,
 			s.name,
 			s.description,
 			s.secret_value_hash,
-			s.revealed_at,
-			COUNT(*) OVER() AS total_matches
-		FROM target_db db
-		INNER JOIN resources rs
-			ON rs.project_id = db.project_id
-		   AND rs.kind = 'secret'
-		INNER JOIN secrets s ON s.resource_id = rs.id
-		INNER JOIN resource_tags rs_rt
-			ON rs_rt.project_id = rs.project_id
-		   AND rs_rt.resource_id = rs.id
-		INNER JOIN resource_tags db_rt
-			ON db_rt.project_id = db.project_id
-		   AND db_rt.resource_id = db.id
-		   AND db_rt.tag_id = rs_rt.tag_id
-		INNER JOIN tags t
-			ON t.id = rs_rt.tag_id
-		   AND t.project_id = rs_rt.project_id
-		WHERE t.tag_key = 'db_secret'
-		  AND t.tag_value = CONCAT(db.id, '_', s.resource_id)
-		  AND t.is_system = true
+			s.version,
+			s.revealed_at
+		FROM resource_tags rt
+		INNER JOIN projects p
+			ON p.id = rt.project_id
+		   AND p.user_id = $1
+		INNER JOIN resources r
+			ON r.id = rt.resource_id
+		   AND r.project_id = rt.project_id
+		   AND r.kind = 'secret'
+		INNER JOIN secrets s ON s.resource_id = r.id
+		WHERE rt.project_id = $2
+		  AND rt.tag_id = $3
 		ORDER BY s.resource_id DESC
-		LIMIT 1
 	`
 
-	var secret model.Secret
-	var totalMatches int
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID).Scan(
-		&secret.ResourceID,
-		&secret.Name,
-		&secret.Description,
-		&secret.SecretValueHash,
-		&secret.RevealedAt,
-		&totalMatches,
+	rows, err := p.pool.Query(ctx, query, userID, projectID, tagID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]model.Secret, 0)
+	for rows.Next() {
+		var secret model.Secret
+		if err := rows.Scan(
+			&secret.ResourceID,
+			&secret.Name,
+			&secret.Description,
+			&secret.SecretValueHash,
+			&secret.Version,
+			&secret.RevealedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, secret)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (p *PsqlDB) ClaimDatabaseTermination(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, model.DBVerifier, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return model.DB{}, model.DBVerifier{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	const updateDBQuery = `
+		UPDATE dbs d
+		SET desired_runtime_state = 'terminated'
+		FROM resources r
+		INNER JOIN projects p ON p.id = r.project_id
+		WHERE d.resource_id = r.id
+		  AND d.resource_id = $3
+		  AND d.project_id = $2
+		  AND r.kind = 'database'
+		  AND p.user_id = $1
+		RETURNING d.resource_id, d.name, d.normalized_name, d.desired_runtime_state, d.description
+	`
+
+	var dbRow model.DB
+	err = tx.QueryRow(ctx, updateDBQuery, userID, projectID, resourceID).Scan(
+		&dbRow.ResourceID,
+		&dbRow.Name,
+		&dbRow.NormalizedName,
+		&dbRow.DesiredRuntimeState,
+		&dbRow.Description,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.Secret{}, ErrResourceNotFound
+			return model.DB{}, model.DBVerifier{}, ErrResourceNotFound
 		}
-		return model.Secret{}, err
-	}
-	if totalMatches > 1 {
-		return model.Secret{}, ErrMultipleResourceRows
+		return model.DB{}, model.DBVerifier{}, err
 	}
 
-	return secret, nil
+	const updateVerifiersQuery = `
+		UPDATE db_verifiers dv
+		SET password_desired_state = 'absent'
+		FROM projects p
+		WHERE dv.project_id = p.id
+		  AND p.user_id = $1
+		  AND dv.project_id = $2
+		  AND dv.db_id = $3
+		RETURNING dv.project_id, dv.db_id, dv.password_secret_id, dv.password_verifier, dv.password_version, dv.password_desired_state
+	`
+
+	var dbVerifier model.DBVerifier
+	err = tx.QueryRow(ctx, updateVerifiersQuery, userID, projectID, dbRow.ResourceID).Scan(
+		&dbVerifier.ProjectID,
+		&dbVerifier.DBID,
+		&dbVerifier.PasswordSecretID,
+		&dbVerifier.PasswordVerifier,
+		&dbVerifier.PasswordVersion,
+		&dbVerifier.PasswordDesiredState,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.DB{}, model.DBVerifier{}, ErrResourceNotFound
+		}
+		return model.DB{}, model.DBVerifier{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return model.DB{}, model.DBVerifier{}, err
+	}
+
+	return dbRow, dbVerifier, nil
 }
 
 func (p *PsqlDB) CreateSecret(
@@ -835,7 +1052,7 @@ func (p *PsqlDB) CreateSecret(
 	const createSecretQuery = `
 		INSERT INTO secrets (resource_id, name, description, secret_value_hash)
 		VALUES ($1, $2, $3, $4)
-		RETURNING resource_id, name, description, secret_value_hash, revealed_at
+		RETURNING resource_id, name, description, secret_value_hash, version, revealed_at
 	`
 
 	var secret model.Secret
@@ -844,6 +1061,7 @@ func (p *PsqlDB) CreateSecret(
 		&secret.Name,
 		&secret.Description,
 		&secret.SecretValueHash,
+		&secret.Version,
 		&secret.RevealedAt,
 	); err != nil {
 		return model.Secret{}, err
@@ -858,7 +1076,7 @@ func (p *PsqlDB) CreateSecret(
 
 func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Secret, error) {
 	const query = `
-		SELECT s.resource_id, s.name, s.description, s.revealed_at
+		SELECT s.resource_id, s.name, s.description, s.version, s.revealed_at
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id
 		INNER JOIN projects p ON p.id = r.project_id
@@ -877,7 +1095,7 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID st
 	out := make([]model.Secret, 0)
 	for rows.Next() {
 		var row model.Secret
-		if err := rows.Scan(&row.ResourceID, &row.Name, &row.Description, &row.RevealedAt); err != nil {
+		if err := rows.Scan(&row.ResourceID, &row.Name, &row.Description, &row.Version, &row.RevealedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
@@ -891,7 +1109,7 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID st
 
 func (p *PsqlDB) GetSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
 	const query = `
-		SELECT s.resource_id, s.name, s.description, s.revealed_at
+		SELECT s.resource_id, s.name, s.description, s.version, s.revealed_at
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id
 		WHERE r.project_id = $1
@@ -904,6 +1122,7 @@ func (p *PsqlDB) GetSecret(ctx context.Context, userID uuid.UUID, projectID stri
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
+		&secret.Version,
 		&secret.RevealedAt,
 	)
 	if err != nil {
@@ -931,6 +1150,7 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID s
 			s.name,
 			s.description,
 			s.secret_value_hash,
+			s.version,
 			s.revealed_at
 	`
 
@@ -940,6 +1160,7 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID s
 		&secret.Name,
 		&secret.Description,
 		&secret.SecretValueHash,
+		&secret.Version,
 		&secret.RevealedAt,
 	)
 	if err != nil {
@@ -965,7 +1186,7 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 			AND r.project_id = $2
 			AND p.user_id = $1
 			AND r.kind = 'secret'
-			RETURNING s.resource_id, s.name, s.description, s.revealed_at
+			RETURNING s.resource_id, s.name, s.description, s.version, s.revealed_at
 		),
 		updated_resource AS (
 			UPDATE resources r
@@ -974,7 +1195,7 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 			WHERE r.id = us.resource_id
 			RETURNING r.id
 		)
-		SELECT us.resource_id, us.name, us.description, us.revealed_at
+		SELECT us.resource_id, us.name, us.description, us.version, us.revealed_at
 		FROM updated_secret us;
 	`
 
@@ -983,6 +1204,7 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
+		&secret.Version,
 		&secret.RevealedAt,
 	)
 	if err != nil {

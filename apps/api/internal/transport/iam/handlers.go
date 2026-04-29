@@ -72,14 +72,14 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 
 func toPlanResponse(p model.Plan) contract.PlanResponse {
 	return contract.PlanResponse{
-		ID:            p.ID.String(),
-		Name:          p.Name,
-		Description:   p.Description,
-		DBLimit:       p.DBLimit,
-		SecretLimit:   p.SecretLimit,
-		ProjectLimit:  p.ProjectLimit,
-		GroupLimit:    p.GroupLimit,
-		CreatedAt:     p.CreatedAt,
-		UpdatedAt:     p.UpdatedAt,
+		ID:           p.ID.String(),
+		Name:         p.Name,
+		Description:  p.Description,
+		DBLimit:      p.DBLimit,
+		SecretLimit:  p.SecretLimit,
+		ProjectLimit: p.ProjectLimit,
+		GroupLimit:   p.GroupLimit,
+		CreatedAt:    p.CreatedAt,
+		UpdatedAt:    p.UpdatedAt,
 	}
 }

@@ -101,6 +101,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		ResourceID:  secret.ResourceID,
 		Name:        secret.Name,
 		Description: secret.Description,
+		Version:     secret.Version,
 		RevealedAt:  secret.RevealedAt,
 	})
 }
@@ -132,6 +133,7 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 			ResourceID:  s.ResourceID,
 			Name:        s.Name,
 			Description: s.Description,
+			Version:     s.Version,
 			RevealedAt:  s.RevealedAt,
 		})
 	}
@@ -172,6 +174,7 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 		ResourceID:  secret.ResourceID,
 		Name:        secret.Name,
 		Description: secret.Description,
+		Version:     secret.Version,
 		RevealedAt:  secret.RevealedAt,
 	})
 }
@@ -271,6 +274,7 @@ func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
 		ResourceID:  secret.ResourceID,
 		Name:        secret.Name,
 		Description: secret.Description,
+		Version:     secret.Version,
 		RevealedAt:  secret.RevealedAt,
 	})
 }

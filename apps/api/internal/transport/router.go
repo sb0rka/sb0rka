@@ -61,6 +61,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/databases", s.authMiddleware(http.HandlerFunc(s.databases.ListDatabases)))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabase)))
 	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.UpdateDatabase)))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/connection", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseConnection)))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/uri", s.authMiddleware(http.HandlerFunc(s.databases.GetDatabaseURI)))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/database", s.authMiddleware(http.HandlerFunc(s.databases.DeleteDatabase)))
 

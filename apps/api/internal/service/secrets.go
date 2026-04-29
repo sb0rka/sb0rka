@@ -2,7 +2,9 @@ package service
 
 import (
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -11,11 +13,17 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/pbkdf2"
 )
+
+const ()
 
 const (
 	dbPasswordLength  = 18
 	dbPasswordCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	scramIterations = 4096
+	scramSaltLen    = 16
 )
 
 var secretNameRe = regexp.MustCompile(`^[A-Za-z0-9._/-]+$`)
@@ -122,4 +130,57 @@ func GenerateAlphaNumPassword() (string, error) {
 	}
 
 	return string(out), nil
+}
+
+func GeneratePostgresSCRAMSHA256Verifier(password string) (string, error) {
+	return GeneratePostgresSCRAMSHA256VerifierWithParams(password, scramIterations, scramSaltLen)
+}
+
+// PostgreSQL SCRAM-SHA-256 verifier:
+// SaltedPassword := Hi(password, salt, iterations)
+// ClientKey      := HMAC(SaltedPassword, "Client Key")
+// StoredKey      := SHA256(ClientKey)
+// ServerKey      := HMAC(SaltedPassword, "Server Key")
+func GeneratePostgresSCRAMSHA256VerifierWithParams(password string, iterations int, saltLen int) (string, error) {
+	if password == "" {
+		return "", fmt.Errorf("password is empty")
+	}
+	if iterations <= 0 {
+		return "", fmt.Errorf("iterations must be greater than zero")
+	}
+	if saltLen <= 0 {
+		return "", fmt.Errorf("salt length must be greater than zero")
+	}
+
+	salt := make([]byte, saltLen)
+	if _, err := rand.Read(salt); err != nil {
+		return "", fmt.Errorf("generate salt: %w", err)
+	}
+
+	saltedPassword := pbkdf2.Key([]byte(password), salt, iterations, sha256.Size, sha256.New)
+
+	clientKey := hmacSHA256(saltedPassword, []byte("Client Key"))
+
+	storedKeyHash := sha256.Sum256(clientKey)
+	storedKey := storedKeyHash[:]
+
+	serverKey := hmacSHA256(saltedPassword, []byte("Server Key"))
+
+	enc := base64.StdEncoding
+
+	verifier := fmt.Sprintf(
+		"SCRAM-SHA-256$%d:%s$%s:%s",
+		iterations,
+		enc.EncodeToString(salt),
+		enc.EncodeToString(storedKey),
+		enc.EncodeToString(serverKey),
+	)
+
+	return verifier, nil
+}
+
+func hmacSHA256(key []byte, msg []byte) []byte {
+	mac := hmac.New(sha256.New, key)
+	mac.Write(msg)
+	return mac.Sum(nil)
 }

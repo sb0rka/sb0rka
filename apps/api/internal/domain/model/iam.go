@@ -14,15 +14,15 @@ type UserPlan struct {
 }
 
 type Plan struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Description   *string   `json:"description,omitempty"`
-	IsPublic      bool      `json:"is_public"`
-	IsAvailable   bool      `json:"is_available"`
-	DBLimit       int       `json:"db_limit"`
-	SecretLimit   int       `json:"secret_limit"`
-	ProjectLimit  int       `json:"project_limit"`
-	GroupLimit    int       `json:"group_limit"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Description  *string   `json:"description,omitempty"`
+	IsPublic     bool      `json:"is_public"`
+	IsAvailable  bool      `json:"is_available"`
+	DBLimit      int       `json:"db_limit"`
+	SecretLimit  int       `json:"secret_limit"`
+	ProjectLimit int       `json:"project_limit"`
+	GroupLimit   int       `json:"group_limit"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

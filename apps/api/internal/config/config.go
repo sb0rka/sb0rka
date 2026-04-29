@@ -36,6 +36,7 @@ const (
 	// Tenants database defaults
 	DefaultTenantsDatabasePublicBaseHost = "localhost.sslip.io"
 	DefaultTenantsDatabasePublicPort     = 5432
+	DefaultTenantsDatabaseUser           = "root"
 
 	// Telemetry defaults
 	DefaultTelemetryPrometheusURI          = "http://localhost:9090"
@@ -225,6 +226,7 @@ func Load() (*Config, error) {
 
 			TenantsDatabasePublicBaseHost: tenantsDatabasePublicBaseHost,
 			TenantsDatabasePublicPort:     tenantsDatabasePublicPort,
+			TenantsDatabaseUser:           DefaultTenantsDatabaseUser,
 
 			Telemetry: TelemetryConfig{
 				PrometheusURI:          telemetryPrometheusURI,

@@ -45,6 +45,7 @@ type ServerConfig struct {
 
 	TenantsDatabasePublicBaseHost string
 	TenantsDatabasePublicPort     int
+	TenantsDatabaseUser           string
 
 	Telemetry TelemetryConfig
 }

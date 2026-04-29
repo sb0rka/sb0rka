@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
@@ -90,19 +89,6 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRow, err := h.deps.PlatformDatabase.CreateDatabase(r.Context(), userID, projectID, name, normalizedName, description)
-	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("create_database_failed", "error", err)
-		http.Error(w, "Failed to create database", http.StatusInternalServerError)
-		return
-	}
-
-	secretName := fmt.Sprintf("DATABASE_%s_PASSWORD", dbRow.ResourceID)
-	secretDescription := fmt.Sprintf("Password for database %s with ID %s", dbRow.Name, dbRow.ResourceID)
 	secretValue, err := service.GenerateAlphaNumPassword()
 	if err != nil {
 		h.deps.Log.Error("generate_password_failed", "error", err)
@@ -114,34 +100,32 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encrypt secret value", http.StatusInternalServerError)
 		return
 	}
-
-	secret, err := h.deps.PlatformDatabase.CreateSecret(r.Context(), userID, projectID, secretName, &secretDescription, encryptedSecretValue)
+	passwordVerifier, err := service.GeneratePostgresSCRAMSHA256Verifier(secretValue)
 	if err != nil {
-		h.deps.Log.Error("create_secret_failed", "error", err)
-		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
+		h.deps.Log.Error("generate_password_verifier_failed", "error", err)
+		http.Error(w, "Failed to generate password verifier", http.StatusInternalServerError)
 		return
 	}
 
-	tagKey := "db_secret"
-	tagValue := fmt.Sprintf("%s_%s", dbRow.ResourceID, secret.ResourceID)
-	if _, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, dbRow.ResourceID, tagKey, tagValue, nil, true); err != nil {
-		h.deps.Log.Error("attach_resource_tag_failed", "error", err)
-		http.Error(w, "Failed to attach resource tag", http.StatusInternalServerError)
-		return
-	}
-	if _, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, secret.ResourceID, tagKey, tagValue, nil, true); err != nil {
-		h.deps.Log.Error("attach_resource_tag_failed", "error", err)
-		http.Error(w, "Failed to attach resource tag", http.StatusInternalServerError)
+	dbRow, secretRow, err := h.deps.PlatformDatabase.CreateDatabase(r.Context(), userID, projectID, name, normalizedName, description, encryptedSecretValue, passwordVerifier)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("create_database_failed", "error", err)
+		http.Error(w, "Failed to create database", http.StatusInternalServerError)
 		return
 	}
 
 	resp := contract.DatabaseWithSecretResponse{
 		Database: toDatabaseResponse(dbRow),
 		Secret: contract.SecretResponse{
-			ResourceID:  secret.ResourceID,
-			Name:        secret.Name,
-			Description: secret.Description,
-			RevealedAt:  secret.RevealedAt,
+			ResourceID:  secretRow.ResourceID,
+			Name:        secretRow.Name,
+			Description: secretRow.Description,
+			Version:     secretRow.Version,
+			RevealedAt:  secretRow.RevealedAt,
 		},
 	}
 
@@ -168,7 +152,7 @@ func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbs, err := h.deps.PlatformDatabase.ListDatabases(r.Context(), userID, projectID)
+	rows, err := h.deps.PlatformDatabase.ListDatabases(r.Context(), userID, projectID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -179,9 +163,9 @@ func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]contract.DatabaseResponse, 0, len(dbs))
-	for _, d := range dbs {
-		out = append(out, toDatabaseResponse(d))
+	out := make([]contract.DatabaseResponse, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, toDatabaseResponse(r))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -297,6 +281,55 @@ func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toDatabaseResponse(row))
 }
 
+func (h *Handler) GetDatabaseConnection(w http.ResponseWriter, r *http.Request) {
+	userIDStr, ok := runtime.AuthUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := uuid.Parse(strings.TrimSpace(userIDStr))
+	if err != nil {
+		http.Error(w, "invalid user_id", http.StatusInternalServerError)
+		return
+	}
+	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	dbRow, secret, err := h.deps.PlatformDatabase.GetDatabaseConnParams(r.Context(), userID, projectID, resourceID)
+	if err != nil {
+		if errors.Is(err, db.ErrResourceNotFound) {
+			http.Error(w, "Database not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrMultipleResourceRows) {
+			http.Error(w, "Database secret mapping is ambiguous", http.StatusConflict)
+			return
+		}
+		h.deps.Log.Error("get_database_uri_params_failed", "error", err)
+		http.Error(w, "Failed to get database URI params", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(contract.DatabaseConnParamsResponse{
+		Host:             fmt.Sprintf("%s.%s", dbRow.ResourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost),
+		Port:             h.deps.Cfg.TenantsDatabasePublicPort,
+		User:             h.deps.Cfg.TenantsDatabaseUser,
+		PasswordSecretID: secret.ResourceID,
+		DatabaseName:     dbRow.NormalizedName,
+	})
+}
+
 func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 	userIDStr, ok := runtime.AuthUserIDFromContext(r.Context())
 	if !ok {
@@ -320,29 +353,18 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbRow, err := h.deps.PlatformDatabase.GetDatabase(r.Context(), userID, projectID, resourceID)
+	dbRow, secret, err := h.deps.PlatformDatabase.GetDatabaseConnParams(r.Context(), userID, projectID, resourceID)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("get_database_failed", "error", err)
-		http.Error(w, "Failed to get database", http.StatusInternalServerError)
-		return
-	}
-
-	secret, err := h.deps.PlatformDatabase.GetDatabaseSecret(r.Context(), userID, projectID, resourceID)
-	if err != nil {
-		if errors.Is(err, db.ErrResourceNotFound) {
-			http.Error(w, "Database secret not found", http.StatusNotFound)
 			return
 		}
 		if errors.Is(err, db.ErrMultipleResourceRows) {
 			http.Error(w, "Database secret mapping is ambiguous", http.StatusConflict)
 			return
 		}
-		h.deps.Log.Error("get_database_secret_failed", "error", err)
-		http.Error(w, "Failed to get database secret", http.StatusInternalServerError)
+		h.deps.Log.Error("get_database_uri_params_failed", "error", err)
+		http.Error(w, "Failed to get database URI params", http.StatusInternalServerError)
 		return
 	}
 
@@ -352,9 +374,11 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	databaseHost := fmt.Sprintf("%s.%s", dbRow.ResourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost)
+
 	uri := fmt.Sprintf(
-		"postgresql://root:%s@%s.%s:%d/%s?sslmode=require&sslnegotiation=direct",
-		decryptedSecretValue, resourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost, h.deps.Cfg.TenantsDatabasePublicPort, dbRow.NormalizedName,
+		"postgresql://%s:%s@%s:%d/%s?sslmode=require&sslnegotiation=direct",
+		h.deps.Cfg.TenantsDatabaseUser, decryptedSecretValue, databaseHost, h.deps.Cfg.TenantsDatabasePublicPort, dbRow.NormalizedName,
 	)
 
 	w.Header().Set("Content-Type", "text/plain")
@@ -385,47 +409,20 @@ func (h *Handler) DeleteDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.deps.PlatformDatabase.DeactivateResource(r.Context(), userID, projectID, resourceID)
+	dbRow, dbVerifier, err := h.deps.PlatformDatabase.ClaimDatabaseTermination(r.Context(), userID, projectID, resourceID)
 	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
 		if errors.Is(err, db.ErrResourceNotFound) {
-			http.Error(w, "Resource not found", http.StatusNotFound)
+			http.Error(w, "Database not found", http.StatusNotFound)
 			return
 		}
-		h.deps.Log.Error("deactivate_resource_failed", "error", err)
-		http.Error(w, "Failed to deactivate resource", http.StatusInternalServerError)
+		h.deps.Log.Error("claim_database_termination_failed", "error", err)
+		http.Error(w, "Failed to delete database", http.StatusInternalServerError)
 		return
 	}
 
-	// TODO(kompotkot): CreateJob for database and secret deletion
-	// TODO(kompotkot): Delete databases, secret and related tag
+	h.deps.Log.Info("database_termination_claimed", "user_id", userID, "project_id", projectID, "db_id", dbRow.ResourceID, "secret_id", dbVerifier.PasswordSecretID)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ResourceResponse{
-		ID:           res.ID,
-		ProjectID:    res.ProjectID,
-		Kind:         res.Kind,
-		CreatedAt:    res.CreatedAt,
-		UpdatedAt:    res.UpdatedAt,
-	})
-}
-
-func parsePathInt64(raw, name string) (int64, error) {
-	if raw == "" {
-		return 0, errors.New(name + " is required")
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, errors.New(name + " must be a valid integer")
-	}
-	if id == 0 {
-		return 0, errors.New("id is required")
-	}
-	return id, nil
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parsePathID(raw, name string) (string, error) {
@@ -437,10 +434,35 @@ func parsePathID(raw, name string) (string, error) {
 }
 
 func toDatabaseResponse(d model.DB) contract.DatabaseResponse {
-	return contract.DatabaseResponse{
+	resp := contract.DatabaseResponse{
 		ResourceID:     d.ResourceID,
 		Name:           d.Name,
 		NormalizedName: d.NormalizedName,
 		Description:    d.Description,
 	}
+
+	if d.ResourceState != nil {
+		resp.ResourceState = &contract.ResourceStateResponse{
+			RuntimeState: d.ResourceState.RuntimeState,
+			CreatedAt:    d.ResourceState.CreatedAt,
+			UpdatedAt:    d.ResourceState.UpdatedAt,
+		}
+	}
+
+	if len(d.Tags) > 0 {
+		resp.Tags = make([]contract.TagResponse, 0, len(d.Tags))
+		for _, tag := range d.Tags {
+			resp.Tags = append(resp.Tags, contract.TagResponse{
+				ID:         tag.ID,
+				ProjectID:  tag.ProjectID,
+				TagKey:     tag.TagKey,
+				TagValue:   tag.TagValue,
+				Color:      tag.Color,
+				IsSystem:   tag.IsSystem,
+				IsReadonly: tag.IsReadonly,
+			})
+		}
+	}
+
+	return resp
 }
