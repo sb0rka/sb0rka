@@ -20,8 +20,6 @@ type Plan struct {
 	IsPublic      bool      `json:"is_public"`
 	IsAvailable   bool      `json:"is_available"`
 	DBLimit       int       `json:"db_limit"`
-	CodeLimit     int       `json:"code_limit"`
-	FunctionLimit int       `json:"function_limit"`
 	SecretLimit   int       `json:"secret_limit"`
 	ProjectLimit  int       `json:"project_limit"`
 	GroupLimit    int       `json:"group_limit"`

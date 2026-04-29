@@ -26,7 +26,7 @@ type Database interface {
 
 	// Assertions
 	AssertCanCreateProject(ctx context.Context, userID uuid.UUID) error
-	AssertCanCreateResourceWithType(ctx context.Context, userID uuid.UUID, projectID string, resourceType string) error
+	AssertCanCreateResourceWithType(ctx context.Context, userID uuid.UUID, projectID string, kind string) error
 
 	// Projects
 	CreateProject(ctx context.Context, userID uuid.UUID, name string, description *string, isActive bool) (model.Project, error)
@@ -36,7 +36,6 @@ type Database interface {
 	DeleteProject(ctx context.Context, userID uuid.UUID, id string) error
 
 	// Resources
-	// Should not operate separately as a single entity.
 	ListResources(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Resource, error)
 	GetResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error)
 	DeactivateResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error)

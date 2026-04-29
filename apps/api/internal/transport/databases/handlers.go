@@ -81,7 +81,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Resource limit reached", http.StatusForbidden)
 			return
 		}
-		if errors.Is(err, db.ErrInvalidResourceType) {
+		if errors.Is(err, db.ErrInvalidResourceKind) {
 			http.Error(w, "Invalid resource type", http.StatusBadRequest)
 			return
 		}
@@ -408,8 +408,7 @@ func (h *Handler) DeleteDatabase(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(contract.ResourceResponse{
 		ID:           res.ID,
 		ProjectID:    res.ProjectID,
-		IsActive:     res.IsActive,
-		ResourceType: res.ResourceType,
+		Kind:         res.Kind,
 		CreatedAt:    res.CreatedAt,
 		UpdatedAt:    res.UpdatedAt,
 	})

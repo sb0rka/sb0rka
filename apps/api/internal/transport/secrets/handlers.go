@@ -47,7 +47,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Resource limit reached", http.StatusForbidden)
 			return
 		}
-		if errors.Is(err, db.ErrInvalidResourceType) {
+		if errors.Is(err, db.ErrInvalidResourceKind) {
 			http.Error(w, "Invalid resource type", http.StatusBadRequest)
 			return
 		}

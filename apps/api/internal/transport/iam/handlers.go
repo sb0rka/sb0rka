@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
@@ -45,19 +46,7 @@ func (h *Handler) GetUserPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := contract.PlanResponse{
-		ID:            plan.ID.String(),
-		Name:          plan.Name,
-		Description:   plan.Description,
-		DBLimit:       plan.DBLimit,
-		CodeLimit:     plan.CodeLimit,
-		FunctionLimit: plan.FunctionLimit,
-		SecretLimit:   plan.SecretLimit,
-		ProjectLimit:  plan.ProjectLimit,
-		GroupLimit:    plan.GroupLimit,
-		CreatedAt:     plan.CreatedAt,
-		UpdatedAt:     plan.UpdatedAt,
-	}
+	resp := toPlanResponse(plan)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
@@ -73,22 +62,24 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]contract.PlanResponse, 0, len(plans))
 	for _, p := range plans {
-		out = append(out, contract.PlanResponse{
-			ID:            p.ID.String(),
-			Name:          p.Name,
-			Description:   p.Description,
-			DBLimit:       p.DBLimit,
-			CodeLimit:     p.CodeLimit,
-			FunctionLimit: p.FunctionLimit,
-			SecretLimit:   p.SecretLimit,
-			ProjectLimit:  p.ProjectLimit,
-			GroupLimit:    p.GroupLimit,
-			CreatedAt:     p.CreatedAt,
-			UpdatedAt:     p.UpdatedAt,
-		})
+		out = append(out, toPlanResponse(p))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]any{"plans": out})
+}
+
+func toPlanResponse(p model.Plan) contract.PlanResponse {
+	return contract.PlanResponse{
+		ID:            p.ID.String(),
+		Name:          p.Name,
+		Description:   p.Description,
+		DBLimit:       p.DBLimit,
+		SecretLimit:   p.SecretLimit,
+		ProjectLimit:  p.ProjectLimit,
+		GroupLimit:    p.GroupLimit,
+		CreatedAt:     p.CreatedAt,
+		UpdatedAt:     p.UpdatedAt,
+	}
 }

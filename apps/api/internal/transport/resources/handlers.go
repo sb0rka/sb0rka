@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
@@ -52,14 +53,7 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]contract.ResourceResponse, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, contract.ResourceResponse{
-			ID:           row.ID,
-			ProjectID:    row.ProjectID,
-			IsActive:     row.IsActive,
-			ResourceType: row.ResourceType,
-			CreatedAt:    row.CreatedAt,
-			UpdatedAt:    row.UpdatedAt,
-		})
+		out = append(out, toResourceResponse(row))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -105,14 +99,7 @@ func (h *Handler) GetResource(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ResourceResponse{
-		ID:           row.ID,
-		ProjectID:    row.ProjectID,
-		IsActive:     row.IsActive,
-		ResourceType: row.ResourceType,
-		CreatedAt:    row.CreatedAt,
-		UpdatedAt:    row.UpdatedAt,
-	})
+	_ = json.NewEncoder(w).Encode(toResourceResponse(row))
 }
 
 func parsePathID(raw, name string) (string, error) {
@@ -121,4 +108,24 @@ func parsePathID(raw, name string) (string, error) {
 		return "", errors.New(name + " is required")
 	}
 	return id, nil
+}
+
+func toResourceResponse(row model.Resource) contract.ResourceResponse {
+	resp := contract.ResourceResponse{
+		ID:        row.ID,
+		ProjectID: row.ProjectID,
+		Kind:      row.Kind,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+
+	if row.ResourceState != nil {
+		resp.ResourceState = &contract.ResourceStateResponse{
+			RuntimeState: row.ResourceState.RuntimeState,
+			CreatedAt:    row.ResourceState.CreatedAt,
+			UpdatedAt:    row.ResourceState.UpdatedAt,
+		}
+	}
+
+	return resp
 }

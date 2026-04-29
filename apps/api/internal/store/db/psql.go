@@ -148,7 +148,7 @@ func (p *PsqlDB) GetUserPlan(ctx context.Context, userID uuid.UUID) (model.Plan,
 	const query = `
 		SELECT
 			p.id, p.name, p.description, p.is_public, p.is_available,
-			p.db_limit, p.code_limit, p.function_limit, p.secret_limit, p.project_limit, p.group_limit,
+			p.db_limit, p.secret_limit, p.project_limit, p.group_limit,
 			p.created_at, p.updated_at
 		FROM user_plans up
 		INNER JOIN plans p ON p.id = up.plan_id
@@ -165,8 +165,6 @@ func (p *PsqlDB) GetUserPlan(ctx context.Context, userID uuid.UUID) (model.Plan,
 		&plan.IsPublic,
 		&plan.IsAvailable,
 		&plan.DBLimit,
-		&plan.CodeLimit,
-		&plan.FunctionLimit,
 		&plan.SecretLimit,
 		&plan.ProjectLimit,
 		&plan.GroupLimit,
@@ -187,7 +185,7 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 	const query = `
 		SELECT
 			id, name, description, is_public, is_available,
-			db_limit, code_limit, function_limit, secret_limit, project_limit, group_limit,
+			db_limit, secret_limit, project_limit, group_limit,
 			created_at, updated_at
 		FROM plans
 		WHERE is_public = true AND is_available = true
@@ -210,8 +208,6 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 			&plan.IsPublic,
 			&plan.IsAvailable,
 			&plan.DBLimit,
-			&plan.CodeLimit,
-			&plan.FunctionLimit,
 			&plan.SecretLimit,
 			&plan.ProjectLimit,
 			&plan.GroupLimit,
@@ -310,7 +306,7 @@ func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, userID uuid.UUID) e
 	return nil
 }
 
-func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, userID uuid.UUID, projectID string, resourceType string) error {
+func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, userID uuid.UUID, projectID string, kind string) error {
 	const hasPlansQuery = `SELECT EXISTS(SELECT 1 FROM user_plans WHERE user_id = $1)`
 	var hasPlans bool
 	if err := p.pool.QueryRow(ctx, hasPlansQuery, userID).Scan(&hasPlans); err != nil {
@@ -330,7 +326,7 @@ func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, userID uui
 	}
 
 	var maxLimitQuery string
-	switch resourceType {
+	switch kind {
 	case "database":
 		maxLimitQuery = `
 			SELECT COALESCE(MAX(p.db_limit), 0)
@@ -345,22 +341,8 @@ func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, userID uui
 			INNER JOIN plans p ON p.id = up.plan_id
 			WHERE up.user_id = $1
 		`
-	case "code":
-		maxLimitQuery = `
-			SELECT COALESCE(MAX(p.code_limit), 0)
-			FROM user_plans up
-			INNER JOIN plans p ON p.id = up.plan_id
-			WHERE up.user_id = $1
-		`
-	case "function":
-		maxLimitQuery = `
-			SELECT COALESCE(MAX(p.function_limit), 0)
-			FROM user_plans up
-			INNER JOIN plans p ON p.id = up.plan_id
-			WHERE up.user_id = $1
-		`
 	default:
-		return ErrInvalidResourceType
+		return ErrInvalidResourceKind
 	}
 
 	var maxLimit int
@@ -377,11 +359,10 @@ func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, userID uui
 		INNER JOIN projects p ON p.id = r.project_id
 		WHERE p.user_id = $1
 		  AND p.id = $2
-		  AND r.resource_type = $3
-		  AND r.is_active = true
+		  AND r.kind = $3
 	`
 	var n int64
-	if err := p.pool.QueryRow(ctx, countQuery, userID, projectID, resourceType).Scan(&n); err != nil {
+	if err := p.pool.QueryRow(ctx, countQuery, userID, projectID, kind).Scan(&n); err != nil {
 		return err
 	}
 	if n >= int64(maxLimit) {
@@ -443,12 +424,15 @@ func (p *PsqlDB) ListResources(ctx context.Context, userID uuid.UUID, projectID 
 		SELECT
 			r.id,
 			r.project_id,
-			r.is_active,
-			r.resource_type,
+			r.kind,
 			r.created_at,
-			r.updated_at
+			r.updated_at,
+			rs.runtime_state,
+			rs.created_at,
+			rs.updated_at
 		FROM resources r
 		INNER JOIN projects p ON p.id = r.project_id
+		LEFT JOIN resource_states rs ON rs.resource_id = r.id
 		WHERE p.id = $2
 		  AND p.user_id = $1
 		ORDER BY r.created_at DESC
@@ -463,15 +447,28 @@ func (p *PsqlDB) ListResources(ctx context.Context, userID uuid.UUID, projectID 
 	out := make([]model.Resource, 0)
 	for rows.Next() {
 		var res model.Resource
+		var runtimeState *string
+		var stateCreatedAt *time.Time
+		var stateUpdatedAt *time.Time
 		if err := rows.Scan(
 			&res.ID,
 			&res.ProjectID,
-			&res.IsActive,
-			&res.ResourceType,
+			&res.Kind,
 			&res.CreatedAt,
 			&res.UpdatedAt,
+			&runtimeState,
+			&stateCreatedAt,
+			&stateUpdatedAt,
 		); err != nil {
 			return nil, err
+		}
+		if runtimeState != nil && stateCreatedAt != nil && stateUpdatedAt != nil {
+			res.ResourceState = &model.ResourceState{
+				ResourceID:   res.ID,
+				RuntimeState: *runtimeState,
+				CreatedAt:    *stateCreatedAt,
+				UpdatedAt:    *stateUpdatedAt,
+			}
 		}
 		out = append(out, res)
 	}
@@ -484,24 +481,37 @@ func (p *PsqlDB) ListResources(ctx context.Context, userID uuid.UUID, projectID 
 }
 
 func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error) {
-	if _, err := p.GetProject(ctx, userID, projectID); err != nil {
-		return model.Resource{}, err
-	}
-
 	const query = `
-		SELECT id, project_id, is_active, resource_type, created_at, updated_at
-		FROM resources
-		WHERE project_id = $1 AND id = $2
+		SELECT
+			r.id,
+			r.project_id,
+			r.kind,
+			r.created_at,
+			r.updated_at,
+			rs.runtime_state,
+			rs.created_at,
+			rs.updated_at
+		FROM resources r
+		INNER JOIN projects p ON p.id = r.project_id
+		LEFT JOIN resource_states rs ON rs.resource_id = r.id
+		WHERE p.user_id = $1
+		  AND r.project_id = $2
+		  AND r.id = $3
 	`
 
 	var res model.Resource
-	err := p.pool.QueryRow(ctx, query, projectID, resourceID).Scan(
+	var runtimeState *string
+	var stateCreatedAt *time.Time
+	var stateUpdatedAt *time.Time
+	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID).Scan(
 		&res.ID,
 		&res.ProjectID,
-		&res.IsActive,
-		&res.ResourceType,
+		&res.Kind,
 		&res.CreatedAt,
 		&res.UpdatedAt,
+		&runtimeState,
+		&stateCreatedAt,
+		&stateUpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -509,28 +519,36 @@ func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID st
 		}
 		return model.Resource{}, err
 	}
+	if runtimeState != nil && stateCreatedAt != nil && stateUpdatedAt != nil {
+		res.ResourceState = &model.ResourceState{
+			ResourceID:   res.ID,
+			RuntimeState: *runtimeState,
+			CreatedAt:    *stateCreatedAt,
+			UpdatedAt:    *stateUpdatedAt,
+		}
+	}
 	return res, nil
 }
 
+// TODO(kompotkot)
 func (p *PsqlDB) DeactivateResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error) {
 	const query = `
 		UPDATE resources r
-		SET is_active = false,
+		SET 
 			updated_at = NOW()
 		FROM projects p
 		WHERE r.project_id = p.id
 		  AND p.user_id = $1
 		  AND r.project_id = $2
 		  AND r.id = $3
-		RETURNING r.id, r.project_id, r.is_active, r.resource_type, r.created_at, r.updated_at
+		RETURNING r.id, r.project_id, r.kind, r.created_at, r.updated_at
 	`
 
 	var res model.Resource
 	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID).Scan(
 		&res.ID,
 		&res.ProjectID,
-		&res.IsActive,
-		&res.ResourceType,
+		&res.Kind,
 		&res.CreatedAt,
 		&res.UpdatedAt,
 	)
@@ -570,7 +588,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	defer tx.Rollback(ctx)
 
 	const createResourceQuery = `
-		INSERT INTO resources (project_id, resource_type)
+		INSERT INTO resources (project_id, kind)
 		SELECT p.id, 'database'
 		FROM projects p
 		WHERE p.id = $1
@@ -587,9 +605,9 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	}
 
 	const createDBQuery = `
-		INSERT INTO dbs (resource_id, name, normalized_name, description)
-		VALUES ($1, $2, $3, $4)
-		RETURNING resource_id, name, normalized_name, description
+		INSERT INTO dbs (resource_id, name, normalized_name, desired_runtime_state, description)
+		VALUES ($1, $2, $3, 'running', $4)
+		RETURNING resource_id, name, normalized_name, desired_runtime_state, description
 	`
 
 	var dbRow model.DB
@@ -597,6 +615,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 		&dbRow.ResourceID,
 		&dbRow.Name,
 		&dbRow.NormalizedName,
+		&dbRow.DesiredRuntimeState,
 		&dbRow.Description,
 	); err != nil {
 		return model.DB{}, err
@@ -617,7 +636,7 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, userID uuid.UUID, projectID 
 		INNER JOIN projects p ON p.id = r.project_id
 		WHERE p.user_id = $1
 		  AND p.id = $2
-		  AND r.resource_type = 'database'
+		  AND r.kind = 'database'
 		ORDER BY d.resource_id DESC
 	`
 
@@ -651,7 +670,7 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, userID uuid.UUID, projectID st
 		WHERE p.user_id = $1
 			AND p.id = $2
 			AND r.id = $3
-			AND r.resource_type = 'database'
+			AND r.kind = 'database'
 	`
 
 	var dbRow model.DB
@@ -684,7 +703,7 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID
 			  AND r.id = $3
 			  AND r.project_id = $2
 			  AND p.user_id = $1
-			  AND r.resource_type = 'database'
+			  AND r.kind = 'database'
 			RETURNING d.resource_id, d.name, d.normalized_name, d.description
 		),
 		updated_resource AS (
@@ -728,7 +747,7 @@ func (p *PsqlDB) GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projec
 			WHERE p.user_id = $1
 			  AND p.id = $2
 			  AND r.id = $3
-			  AND r.resource_type = 'database'
+			  AND r.kind = 'database'
 		)
 		SELECT
 			s.resource_id,
@@ -740,7 +759,7 @@ func (p *PsqlDB) GetDatabaseSecret(ctx context.Context, userID uuid.UUID, projec
 		FROM target_db db
 		INNER JOIN resources rs
 			ON rs.project_id = db.project_id
-		   AND rs.resource_type = 'secret'
+		   AND rs.kind = 'secret'
 		INNER JOIN secrets s ON s.resource_id = rs.id
 		INNER JOIN resource_tags rs_rt
 			ON rs_rt.project_id = rs.project_id
@@ -797,7 +816,7 @@ func (p *PsqlDB) CreateSecret(
 	defer tx.Rollback(ctx)
 
 	const createResourceQuery = `
-		INSERT INTO resources (project_id, resource_type)
+		INSERT INTO resources (project_id, kind)
 		SELECT p.id, 'secret'
 		FROM projects p
 		WHERE p.id = $1
@@ -845,7 +864,7 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID st
 		INNER JOIN projects p ON p.id = r.project_id
 		WHERE p.user_id = $1
 		  AND p.id = $2
-		  AND r.resource_type = 'secret'
+		  AND r.kind = 'secret'
 		ORDER BY s.resource_id DESC
 	`
 
@@ -877,7 +896,7 @@ func (p *PsqlDB) GetSecret(ctx context.Context, userID uuid.UUID, projectID stri
 		INNER JOIN resources r ON r.id = s.resource_id
 		WHERE r.project_id = $1
 		  AND s.resource_id = $2
-		  AND r.resource_type = 'secret'
+		  AND r.kind = 'secret'
 	`
 
 	var secret model.Secret
@@ -906,7 +925,7 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID s
 		  AND r.id = $3
 		  AND r.project_id = $2
 		  AND p.user_id = $1
-		  AND r.resource_type = 'secret'
+		  AND r.kind = 'secret'
 		RETURNING
 			s.resource_id,
 			s.name,
@@ -945,7 +964,7 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 			AND r.id = $3
 			AND r.project_id = $2
 			AND p.user_id = $1
-			AND r.resource_type = 'secret'
+			AND r.kind = 'secret'
 			RETURNING s.resource_id, s.name, s.description, s.revealed_at
 		),
 		updated_resource AS (
@@ -989,7 +1008,7 @@ func (p *PsqlDB) DeleteSecret(ctx context.Context, userID uuid.UUID, projectID s
 		WHERE s.resource_id = r.id
 		  AND r.project_id = $1
 		  AND s.resource_id = $2
-		  AND r.resource_type = 'secret'
+		  AND r.kind = 'secret'
 		RETURNING s.resource_id
 	`
 
@@ -1008,7 +1027,7 @@ func (p *PsqlDB) DeleteSecret(ctx context.Context, userID uuid.UUID, projectID s
 		  AND p.user_id = $1
 		  AND r.project_id = $2
 		  AND r.id = $3
-		  AND r.resource_type = 'secret'
+		  AND r.kind = 'secret'
 	`
 	cmd, err := tx.Exec(ctx, deleteResourceQuery, userID, projectID, deletedResourceID)
 	if err != nil {

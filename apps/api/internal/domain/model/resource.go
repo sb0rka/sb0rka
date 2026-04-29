@@ -5,10 +5,18 @@ import (
 )
 
 type Resource struct {
-	ID           string    `json:"id"`
-	ProjectID    string    `json:"project_id"`
-	IsActive     bool      `json:"is_active"`
-	ResourceType string    `json:"resource_type"`
+	ID            string         `json:"id"`
+	ProjectID     string         `json:"project_id"`
+	Kind          string         `json:"kind"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	
+	ResourceState *ResourceState `json:"resource_state,omitempty"`
+}
+
+type ResourceState struct {
+	ResourceID   string    `json:"resource_id"`
+	RuntimeState string    `json:"runtime_state"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -18,23 +26,34 @@ type Secret struct {
 	Name            string     `json:"name"`
 	Description     *string    `json:"description,omitempty"`
 	SecretValueHash string     `json:"secret_value_hash"`
+	Version         int        `json:"version"`
 	RevealedAt      *time.Time `json:"revealed_at,omitempty"`
 }
 
 type DB struct {
-	ResourceID     string  `json:"resource_id"`
-	Name           string  `json:"name"`
-	NormalizedName string  `json:"normalized_name"`
-	Description    *string `json:"description,omitempty"`
+	ResourceID          string  `json:"resource_id"`
+	Name                string  `json:"name"`
+	NormalizedName      string  `json:"normalized_name"`
+	DesiredRuntimeState string  `json:"desired_runtime_state"`
+	Description         *string `json:"description,omitempty"`
+}
+
+type DBVerifier struct {
+	ProjectID        string `json:"project_id"`
+	DBID             string `json:"db_id"`
+	PasswordSecretID string `json:"password_secret_id"`
+	PasswordVerifier string `json:"password_verifier"`
+	PasswordVersion  int    `json:"password_version"`
 }
 
 type Tag struct {
-	ID        int64   `json:"id"`
-	ProjectID string  `json:"project_id"`
-	TagKey    string  `json:"tag_key"`
-	TagValue  string  `json:"tag_value"`
-	Color     *string `json:"color,omitempty"`
-	IsSystem  bool    `json:"is_system"`
+	ID         int64   `json:"id"`
+	ProjectID  string  `json:"project_id"`
+	TagKey     string  `json:"tag_key"`
+	TagValue   string  `json:"tag_value"`
+	Color      *string `json:"color,omitempty"`
+	IsSystem   bool    `json:"is_system"`
+	IsEditable bool    `json:"is_editable"`
 }
 
 type ResourceTag struct {

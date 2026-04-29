@@ -14,7 +14,7 @@ var (
 	ErrResourceLimitReached = errors.New("resource limit reached")
 	ErrResourceNotFound     = errors.New("resource not found")
 	ErrResourceTagNotFound  = errors.New("resource tag not found")
-	ErrInvalidResourceType  = errors.New("invalid resource type")
+	ErrInvalidResourceKind  = errors.New("invalid resource kind")
 	ErrMultipleResourceRows = errors.New("multiple resources found")
 
 	ErrUnexpectedEmptyReturn = errors.New("unexpected empty insert return")
