@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS core.resources (
 CREATE TABLE IF NOT EXISTS core.resource_states (
     resource_id VARCHAR(12) NOT NULL,
     runtime_state VARCHAR(16) NOT NULL
-        CHECK (runtime_state IN ('creating', 'available', 'stopping', 'stopped', 'starting', 'deleting', 'deleted', 'failed')),
+        CHECK (runtime_state IN ('syncing', 'creating', 'available', 'stopping', 'stopped', 'starting', 'deleting', 'deleted', 'failed')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     CONSTRAINT pk_resource_states PRIMARY KEY (resource_id),
@@ -138,6 +138,8 @@ CREATE TABLE IF NOT EXISTS core.db_verifiers (
     password_secret_id VARCHAR(12) NOT NULL,
     password_verifier VARCHAR NOT NULL,
     password_version INTEGER NOT NULL,
+    password_desired_state VARCHAR(16) NOT NULL
+        CHECK (password_desired_state IN ('present', 'absent')),
     CONSTRAINT pk_db_verifiers PRIMARY KEY (db_id, password_secret_id),
     CONSTRAINT fk_db_verifiers_db_id_dbs FOREIGN KEY (db_id) REFERENCES core.dbs (resource_id) ON DELETE CASCADE,
     CONSTRAINT fk_db_verifiers_password_secret_id_secrets FOREIGN KEY (password_secret_id) REFERENCES core.secrets (resource_id) ON DELETE CASCADE,
