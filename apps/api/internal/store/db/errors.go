@@ -14,6 +14,7 @@ var (
 	ErrResourceLimitReached = errors.New("resource limit reached")
 	ErrResourceNotFound     = errors.New("resource not found")
 	ErrResourceTagNotFound  = errors.New("resource tag not found")
+	ErrResourceTagImmutable = errors.New("resource tag is immutable")
 	ErrInvalidResourceKind  = errors.New("invalid resource kind")
 	ErrMultipleResourceRows = errors.New("multiple resources found")
 

@@ -28,6 +28,10 @@ type Secret struct {
 	SecretValueHash string     `json:"secret_value_hash"`
 	Version         int        `json:"version"`
 	RevealedAt      *time.Time `json:"revealed_at,omitempty"`
+
+	ResourceState *ResourceState `json:"resource_state,omitempty"`
+
+	Tags []Tag `json:"tags,omitempty"`
 }
 
 type DB struct {

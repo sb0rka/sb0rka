@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
@@ -97,13 +98,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(contract.SecretResponse{
-		ResourceID:  secret.ResourceID,
-		Name:        secret.Name,
-		Description: secret.Description,
-		Version:     secret.Version,
-		RevealedAt:  secret.RevealedAt,
-	})
+	_ = json.NewEncoder(w).Encode(toSecretResponse(secret))
 }
 
 func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
@@ -129,13 +124,7 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]contract.SecretResponse, 0, len(rows))
 	for _, s := range rows {
-		out = append(out, contract.SecretResponse{
-			ResourceID:  s.ResourceID,
-			Name:        s.Name,
-			Description: s.Description,
-			Version:     s.Version,
-			RevealedAt:  s.RevealedAt,
-		})
+		out = append(out, toSecretResponse(s))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -166,17 +155,18 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
 		}
+		if errors.Is(err, db.ErrResourceNotFound) {
+			http.Error(w, "Resource not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_secret_failed", "error", err)
+		http.Error(w, "Failed to get secret", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.SecretResponse{
-		ResourceID:  secret.ResourceID,
-		Name:        secret.Name,
-		Description: secret.Description,
-		Version:     secret.Version,
-		RevealedAt:  secret.RevealedAt,
-	})
+	_ = json.NewEncoder(w).Encode(toSecretResponse(secret))
 }
 
 func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
@@ -270,13 +260,7 @@ func (h *Handler) UpdateSecretValue(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.SecretResponse{
-		ResourceID:  secret.ResourceID,
-		Name:        secret.Name,
-		Description: secret.Description,
-		Version:     secret.Version,
-		RevealedAt:  secret.RevealedAt,
-	})
+	_ = json.NewEncoder(w).Encode(toSecretResponse(secret))
 }
 
 func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
@@ -353,4 +337,39 @@ func parsePathID(raw, name string) (string, error) {
 		return "", errors.New(name + " is required")
 	}
 	return id, nil
+}
+
+func toSecretResponse(s model.Secret) contract.SecretResponse {
+	resp := contract.SecretResponse{
+		ResourceID:  s.ResourceID,
+		Name:        s.Name,
+		Description: s.Description,
+		Version:     s.Version,
+		RevealedAt:  s.RevealedAt,
+	}
+
+	if s.ResourceState != nil {
+		resp.ResourceState = &contract.ResourceStateResponse{
+			RuntimeState: s.ResourceState.RuntimeState,
+			CreatedAt:    s.ResourceState.CreatedAt,
+			UpdatedAt:    s.ResourceState.UpdatedAt,
+		}
+	}
+
+	if len(s.Tags) > 0 {
+		resp.Tags = make([]contract.TagResponse, 0, len(s.Tags))
+		for _, tag := range s.Tags {
+			resp.Tags = append(resp.Tags, contract.TagResponse{
+				ID:         tag.ID,
+				ProjectID:  tag.ProjectID,
+				TagKey:     tag.TagKey,
+				TagValue:   tag.TagValue,
+				Color:      tag.Color,
+				IsSystem:   tag.IsSystem,
+				IsReadonly: tag.IsReadonly,
+			})
+		}
+	}
+
+	return resp
 }

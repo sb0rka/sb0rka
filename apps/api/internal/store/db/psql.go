@@ -1050,13 +1050,13 @@ func (p *PsqlDB) CreateSecret(
 	}
 
 	const createSecretQuery = `
-		INSERT INTO secrets (resource_id, name, description, secret_value_hash)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO secrets (project_id, resource_id, name, description, secret_value_hash, version)
+		VALUES ($1, $2, $3, $4, $5, 1)
 		RETURNING resource_id, name, description, secret_value_hash, version, revealed_at
 	`
 
 	var secret model.Secret
-	if err := tx.QueryRow(ctx, createSecretQuery, resourceID, name, description, secretValueHash).Scan(
+	if err := tx.QueryRow(ctx, createSecretQuery, projectID, resourceID, name, description, secretValueHash).Scan(
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
@@ -1109,21 +1109,38 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, userID uuid.UUID, projectID st
 
 func (p *PsqlDB) GetSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error) {
 	const query = `
-		SELECT s.resource_id, s.name, s.description, s.version, s.revealed_at
+		SELECT
+			s.resource_id,
+			s.name,
+			s.description,
+			s.version,
+			s.revealed_at,
+			rs.runtime_state,
+			rs.created_at,
+			rs.updated_at
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id
-		WHERE r.project_id = $1
-		  AND s.resource_id = $2
+		INNER JOIN projects p ON p.id = r.project_id
+		LEFT JOIN resource_states rs ON rs.resource_id = r.id
+		WHERE p.user_id = $1
+		  AND p.id = $2
+		  AND s.resource_id = $3
 		  AND r.kind = 'secret'
 	`
 
 	var secret model.Secret
-	err := p.pool.QueryRow(ctx, query, projectID, resourceID).Scan(
+	var runtimeState *string
+	var stateCreatedAt *time.Time
+	var stateUpdatedAt *time.Time
+	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID).Scan(
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
 		&secret.Version,
 		&secret.RevealedAt,
+		&runtimeState,
+		&stateCreatedAt,
+		&stateUpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1131,6 +1148,51 @@ func (p *PsqlDB) GetSecret(ctx context.Context, userID uuid.UUID, projectID stri
 		}
 		return model.Secret{}, err
 	}
+	if runtimeState != nil && stateCreatedAt != nil && stateUpdatedAt != nil {
+		secret.ResourceState = &model.ResourceState{
+			ResourceID:   secret.ResourceID,
+			RuntimeState: *runtimeState,
+			CreatedAt:    *stateCreatedAt,
+			UpdatedAt:    *stateUpdatedAt,
+		}
+	}
+
+	const tagsQuery = `
+		SELECT t.id, t.project_id, t.tag_key, t.tag_value, t.color, t.is_system, t.is_readonly
+		FROM tags t
+		INNER JOIN resource_tags rt ON rt.tag_id = t.id AND rt.project_id = t.project_id
+		INNER JOIN projects p ON p.id = t.project_id AND p.user_id = $1
+		WHERE rt.project_id = $2
+		  AND rt.resource_id = $3
+		ORDER BY t.tag_key, t.tag_value
+	`
+
+	rows, err := p.pool.Query(ctx, tagsQuery, userID, projectID, resourceID)
+	if err != nil {
+		return model.Secret{}, err
+	}
+	defer rows.Close()
+
+	secret.Tags = make([]model.Tag, 0)
+	for rows.Next() {
+		var tag model.Tag
+		if err := rows.Scan(
+			&tag.ID,
+			&tag.ProjectID,
+			&tag.TagKey,
+			&tag.TagValue,
+			&tag.Color,
+			&tag.IsSystem,
+			&tag.IsReadonly,
+		); err != nil {
+			return model.Secret{}, err
+		}
+		secret.Tags = append(secret.Tags, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return model.Secret{}, err
+	}
+
 	return secret, nil
 }
 
@@ -1272,7 +1334,7 @@ func (p *PsqlDB) ListProjectTags(ctx context.Context, userID uuid.UUID, projectI
 	}
 
 	const query = `
-		SELECT t.id, t.project_id, t.tag_key, t.tag_value, t.color, t.is_system
+		SELECT t.id, t.project_id, t.tag_key, t.tag_value, t.color, t.is_system, t.is_readonly
 		FROM tags t
 		INNER JOIN projects p ON p.id = t.project_id
 		WHERE p.user_id = $1
@@ -1289,7 +1351,7 @@ func (p *PsqlDB) ListProjectTags(ctx context.Context, userID uuid.UUID, projectI
 	out := make([]model.Tag, 0)
 	for rows.Next() {
 		var row model.Tag
-		if err := rows.Scan(&row.ID, &row.ProjectID, &row.TagKey, &row.TagValue, &row.Color, &row.IsSystem); err != nil {
+		if err := rows.Scan(&row.ID, &row.ProjectID, &row.TagKey, &row.TagValue, &row.Color, &row.IsSystem, &row.IsReadonly); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
@@ -1307,7 +1369,7 @@ func (p *PsqlDB) ListResourceTags(ctx context.Context, userID uuid.UUID, project
 	}
 
 	const query = `
-		SELECT t.id, t.project_id, t.tag_key, t.tag_value, t.color, t.is_system
+		SELECT t.id, t.project_id, t.tag_key, t.tag_value, t.color, t.is_system, t.is_readonly
 		FROM tags t
 		INNER JOIN resource_tags rt ON rt.tag_id = t.id AND rt.project_id = t.project_id
 		INNER JOIN projects p ON p.id = t.project_id AND p.user_id = $1
@@ -1325,7 +1387,7 @@ func (p *PsqlDB) ListResourceTags(ctx context.Context, userID uuid.UUID, project
 	out := make([]model.Tag, 0)
 	for rows.Next() {
 		var row model.Tag
-		if err := rows.Scan(&row.ID, &row.ProjectID, &row.TagKey, &row.TagValue, &row.Color, &row.IsSystem); err != nil {
+		if err := rows.Scan(&row.ID, &row.ProjectID, &row.TagKey, &row.TagValue, &row.Color, &row.IsSystem, &row.IsReadonly); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
@@ -1345,7 +1407,6 @@ func (p *PsqlDB) AttachResourceTag(
 	tagKey string,
 	tagValue string,
 	color *string,
-	is_system bool,
 ) (model.Tag, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -1361,7 +1422,8 @@ func (p *PsqlDB) AttachResourceTag(
 			t.tag_key,
 			t.tag_value,
 			t.color,
-			t.is_system
+			t.is_system,
+			t.is_readonly
 		FROM resources r
 		JOIN projects p ON p.id = r.project_id
 		LEFT JOIN tags t
@@ -1381,6 +1443,7 @@ func (p *PsqlDB) AttachResourceTag(
 	var existingTagValue *string
 	var existingTagColor *string
 	var existingTagIsSystem *bool
+	var existingTagIsReadonly *bool
 
 	err = tx.QueryRow(ctx, resolveQuery, userID, projectID, resourceID, tagKey, tagValue).Scan(
 		&resolvedResourceID,
@@ -1390,6 +1453,7 @@ func (p *PsqlDB) AttachResourceTag(
 		&existingTagValue,
 		&existingTagColor,
 		&existingTagIsSystem,
+		&existingTagIsReadonly,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1413,26 +1477,33 @@ func (p *PsqlDB) AttachResourceTag(
 		if existingTagIsSystem != nil {
 			tag.IsSystem = *existingTagIsSystem
 		}
+		if existingTagIsReadonly != nil {
+			tag.IsReadonly = *existingTagIsReadonly
+		}
+		if tag.IsSystem || tag.IsReadonly {
+			return model.Tag{}, ErrResourceTagImmutable
+		}
 	} else {
 		const createTagQuery = `
-			INSERT INTO tags (project_id, tag_key, tag_value, color, is_system)
-			VALUES ($1, $2, $3, $4, $5)
-			RETURNING id, project_id, tag_key, tag_value, color, is_system
+			INSERT INTO tags (project_id, tag_key, tag_value, color)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, project_id, tag_key, tag_value, color, is_system, is_readonly
 		`
 
-		err = tx.QueryRow(ctx, createTagQuery, resolvedProjectID, tagKey, tagValue, color, is_system).Scan(
+		err = tx.QueryRow(ctx, createTagQuery, resolvedProjectID, tagKey, tagValue, color).Scan(
 			&tag.ID,
 			&tag.ProjectID,
 			&tag.TagKey,
 			&tag.TagValue,
 			&tag.Color,
 			&tag.IsSystem,
+			&tag.IsReadonly,
 		)
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				const getTagQuery = `
-					SELECT id, project_id, tag_key, tag_value, color, is_system
+					SELECT id, project_id, tag_key, tag_value, color, is_system, is_readonly
 					FROM tags
 					WHERE project_id = $1
 					  AND tag_key = $2
@@ -1445,6 +1516,7 @@ func (p *PsqlDB) AttachResourceTag(
 					&tag.TagValue,
 					&tag.Color,
 					&tag.IsSystem,
+					&tag.IsReadonly,
 				)
 				if err != nil {
 					return model.Tag{}, err
@@ -1484,6 +1556,7 @@ func (p *PsqlDB) DetachResourceTag(ctx context.Context, userID uuid.UUID, projec
 		  AND rt.resource_id = $3
 		  AND rt.tag_id = $4
 		  AND t.is_system = false
+		  AND t.is_readonly = false
 	`
 
 	cmd, err := p.pool.Exec(ctx, query, userID, projectID, resourceID, tagID)

@@ -58,6 +58,6 @@ type Database interface {
 	// Tags
 	ListProjectTags(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Tag, error)
 	ListResourceTags(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) ([]model.Tag, error)
-	AttachResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagKey string, tagValue string, color *string, is_system bool) (model.Tag, error)
+	AttachResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagKey string, tagValue string, color *string) (model.Tag, error)
 	DetachResourceTag(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, tagID int64) error
 }

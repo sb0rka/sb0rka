@@ -128,7 +128,7 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, resourceID, tagKey, tagValue, tagColor, false)
+	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, resourceID, tagKey, tagValue, tagColor)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -138,6 +138,10 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Resource not found", http.StatusNotFound)
 			return
 		}
+		if errors.Is(err, db.ErrResourceTagImmutable) {
+			http.Error(w, "Cannot attach immutable tag", http.StatusForbidden)
+			return
+		}
 		h.deps.Log.Error("attach_resource_tag_failed", "error", err)
 		http.Error(w, "Failed to attach resource tag", http.StatusInternalServerError)
 		return
@@ -145,14 +149,7 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(contract.TagResponse{
-		ID:        tag.ID,
-		ProjectID: tag.ProjectID,
-		TagKey:    tag.TagKey,
-		TagValue:  tag.TagValue,
-		Color:     tag.Color,
-		IsSystem:  tag.IsSystem,
-	})
+	_ = json.NewEncoder(w).Encode(toTagResponse(tag))
 }
 
 func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +185,10 @@ func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, db.ErrResourceTagNotFound) {
 			http.Error(w, "Tag not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrResourceTagImmutable) {
+			http.Error(w, "Cannot detach immutable tag", http.StatusForbidden)
 			return
 		}
 		h.deps.Log.Error("delete_resource_tag_failed", "error", err)
@@ -232,17 +233,22 @@ func parsePathID(raw, name string) (string, error) {
 	return id, nil
 }
 
+func toTagResponse(tag model.Tag) contract.TagResponse {
+	return contract.TagResponse{
+		ID:         tag.ID,
+		ProjectID:  tag.ProjectID,
+		TagKey:     tag.TagKey,
+		TagValue:   tag.TagValue,
+		Color:      tag.Color,
+		IsSystem:   tag.IsSystem,
+		IsReadonly: tag.IsReadonly,
+	}
+}
+
 func toTags(tags []model.Tag) []contract.TagResponse {
 	out := make([]contract.TagResponse, 0, len(tags))
 	for _, tag := range tags {
-		out = append(out, contract.TagResponse{
-			ID:        tag.ID,
-			ProjectID: tag.ProjectID,
-			TagKey:    tag.TagKey,
-			TagValue:  tag.TagValue,
-			Color:     tag.Color,
-			IsSystem:  tag.IsSystem,
-		})
+		out = append(out, toTagResponse(tag))
 	}
 	return out
 }
