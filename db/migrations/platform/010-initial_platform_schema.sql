@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS core.tags (
     tag_value VARCHAR NOT NULL,
     color VARCHAR,
     is_system BOOLEAN DEFAULT false NOT NULL,
-    is_editable BOOLEAN DEFAULT true NOT NULL,
+    is_readonly BOOLEAN DEFAULT false NOT NULL,
     CONSTRAINT pk_tags PRIMARY KEY (id),
     CONSTRAINT fk_tags_project_id_projects FOREIGN KEY (project_id) REFERENCES core.projects (id) ON DELETE CASCADE,
     CONSTRAINT uq_tags_id_project_id UNIQUE (id, project_id),
