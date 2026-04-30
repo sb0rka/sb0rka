@@ -40,7 +40,7 @@ type Database interface {
 	GetResource(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Resource, error)
 
 	// Databases
-	CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string, secretValueHash string, passwordVerifier string) (model.DB, model.Secret, error)
+	CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string, encryptedValue string, passwordVerifier string) (model.DB, model.Secret, error)
 	ListDatabases(ctx context.Context, userID uuid.UUID, projectID string) ([]model.DB, error)
 	GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error)
 	UpdateDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, name *string, description *string) (model.DB, error)
@@ -48,11 +48,11 @@ type Database interface {
 	ClaimDatabaseTermination(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, model.DBVerifier, error)
 
 	// Secrets
-	CreateSecret(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string, secretValueHash string) (model.Secret, error)
+	CreateSecret(ctx context.Context, userID uuid.UUID, projectID string, name string, description *string, encryptedValue string) (model.Secret, error)
 	ListSecrets(ctx context.Context, userID uuid.UUID, projectID string) ([]model.Secret, error)
 	GetSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
 	RevealSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.Secret, error)
-	UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, secretValueHash string) (model.Secret, error)
+	UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, encryptedValue string) (model.Secret, error)
 	DeleteSecret(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) error
 
 	// Tags

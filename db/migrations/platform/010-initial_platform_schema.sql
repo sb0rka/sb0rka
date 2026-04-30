@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS core.secrets (
     resource_id VARCHAR(12) NOT NULL,
     name VARCHAR NOT NULL,
     description VARCHAR,
-    encrypted_value VARCHAR NOT NULL,
+    encrypted_value BYTEA NOT NULL,
     version INTEGER DEFAULT 1 NOT NULL,
     revealed_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT pk_secrets PRIMARY KEY (resource_id),

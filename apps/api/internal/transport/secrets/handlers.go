@@ -201,7 +201,7 @@ func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value, err := service.DecryptSecret(secret.SecretValueHash, h.deps.Cfg.AuthConfig.SecretMasterKey)
+	value, err := service.DecryptSecret(secret.EncryptedValue, h.deps.Cfg.AuthConfig.SecretMasterKey)
 	if err != nil {
 		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return

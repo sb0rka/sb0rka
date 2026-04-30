@@ -22,12 +22,12 @@ type ResourceState struct {
 }
 
 type Secret struct {
-	ResourceID      string     `json:"resource_id"`
-	Name            string     `json:"name"`
-	Description     *string    `json:"description,omitempty"`
-	SecretValueHash string     `json:"secret_value_hash"`
-	Version         int        `json:"version"`
-	RevealedAt      *time.Time `json:"revealed_at,omitempty"`
+	ResourceID     string     `json:"resource_id"`
+	Name           string     `json:"name"`
+	Description    *string    `json:"description,omitempty"`
+	EncryptedValue string     `json:"encrypted_value"`
+	Version        int        `json:"version"`
+	RevealedAt     *time.Time `json:"revealed_at,omitempty"`
 
 	ResourceState *ResourceState `json:"resource_state,omitempty"`
 
@@ -47,12 +47,12 @@ type DB struct {
 }
 
 type DBVerifier struct {
-	ProjectID            string `json:"project_id"`
-	DBID                 string `json:"db_id"`
-	PasswordSecretID     string `json:"password_secret_id"`
-	PasswordVerifier     string `json:"password_verifier"`
-	PasswordVersion      int    `json:"password_version"`
-	PasswordDesiredState string `json:"password_desired_state"`
+	ProjectID              string `json:"project_id"`
+	DBID                   string `json:"db_id"`
+	PasswordSecretID       string `json:"password_secret_id"`
+	PasswordVerifier       string `json:"password_verifier"`
+	PasswordDesiredVersion int    `json:"password_desired_version"`
+	PasswordDesiredState   string `json:"password_desired_state"`
 }
 
 type Tag struct {

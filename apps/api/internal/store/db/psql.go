@@ -546,7 +546,7 @@ func (p *PsqlDB) GetResource(ctx context.Context, userID uuid.UUID, projectID st
 	return res, nil
 }
 
-func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string, secretValueHash string, passwordVerifier string) (model.DB, model.Secret, error) {
+func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID string, name string, normalizedName string, description *string, encryptedValue string, passwordVerifier string) (model.DB, model.Secret, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return model.DB{}, model.Secret{}, err
@@ -608,17 +608,17 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	secretDescription := DatabasePasswordSecretDescription(dbRow.Name, dbRow.ResourceID)
 
 	const createSecretQuery = `
-		INSERT INTO secrets (project_id, resource_id, name, description, secret_value_hash, version)
+		INSERT INTO secrets (project_id, resource_id, name, description, encrypted_value, version)
 		VALUES ($1, $2, $3, $4, $5, 1)
-		RETURNING resource_id, name, description, secret_value_hash, version, revealed_at
+		RETURNING resource_id, name, description, encrypted_value, version, revealed_at
 	`
 
 	var secret model.Secret
-	if err := tx.QueryRow(ctx, createSecretQuery, projectID, secretResourceID, secretName, &secretDescription, secretValueHash).Scan(
+	if err := tx.QueryRow(ctx, createSecretQuery, projectID, secretResourceID, secretName, &secretDescription, encryptedValue).Scan(
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
-		&secret.SecretValueHash,
+		&secret.EncryptedValue,
 		&secret.Version,
 		&secret.RevealedAt,
 	); err != nil {
@@ -626,7 +626,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, userID uuid.UUID, projectID
 	}
 
 	const createDBVerifierQuery = `
-		INSERT INTO db_verifiers (project_id, db_id, password_secret_id, password_verifier, password_version, password_desired_state)
+		INSERT INTO db_verifiers (project_id, db_id, password_secret_id, password_verifier, password_desired_version, password_desired_state)
 		VALUES ($1, $2, $3, $4, $5, 'present')
 	`
 
@@ -904,7 +904,7 @@ func (p *PsqlDB) listSecretsByTagID(ctx context.Context, userID uuid.UUID, proje
 			s.resource_id,
 			s.name,
 			s.description,
-			s.secret_value_hash,
+			s.encrypted_value,
 			s.version,
 			s.revealed_at
 		FROM resource_tags rt
@@ -934,7 +934,7 @@ func (p *PsqlDB) listSecretsByTagID(ctx context.Context, userID uuid.UUID, proje
 			&secret.ResourceID,
 			&secret.Name,
 			&secret.Description,
-			&secret.SecretValueHash,
+			&secret.EncryptedValue,
 			&secret.Version,
 			&secret.RevealedAt,
 		); err != nil {
@@ -992,7 +992,7 @@ func (p *PsqlDB) ClaimDatabaseTermination(ctx context.Context, userID uuid.UUID,
 		  AND p.user_id = $1
 		  AND dv.project_id = $2
 		  AND dv.db_id = $3
-		RETURNING dv.project_id, dv.db_id, dv.password_secret_id, dv.password_verifier, dv.password_version, dv.password_desired_state
+		RETURNING dv.project_id, dv.db_id, dv.password_secret_id, dv.password_verifier, dv.password_desired_version, dv.password_desired_state
 	`
 
 	var dbVerifier model.DBVerifier
@@ -1001,7 +1001,7 @@ func (p *PsqlDB) ClaimDatabaseTermination(ctx context.Context, userID uuid.UUID,
 		&dbVerifier.DBID,
 		&dbVerifier.PasswordSecretID,
 		&dbVerifier.PasswordVerifier,
-		&dbVerifier.PasswordVersion,
+		&dbVerifier.PasswordDesiredVersion,
 		&dbVerifier.PasswordDesiredState,
 	)
 	if err != nil {
@@ -1024,7 +1024,7 @@ func (p *PsqlDB) CreateSecret(
 	projectID string,
 	name string,
 	description *string,
-	secretValueHash string,
+	encryptedValue string,
 ) (model.Secret, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -1050,17 +1050,17 @@ func (p *PsqlDB) CreateSecret(
 	}
 
 	const createSecretQuery = `
-		INSERT INTO secrets (project_id, resource_id, name, description, secret_value_hash, version)
+		INSERT INTO secrets (project_id, resource_id, name, description, encrypted_value, version)
 		VALUES ($1, $2, $3, $4, $5, 1)
-		RETURNING resource_id, name, description, secret_value_hash, version, revealed_at
+		RETURNING resource_id, name, description, encrypted_value, version, revealed_at
 	`
 
 	var secret model.Secret
-	if err := tx.QueryRow(ctx, createSecretQuery, projectID, resourceID, name, description, secretValueHash).Scan(
+	if err := tx.QueryRow(ctx, createSecretQuery, projectID, resourceID, name, description, encryptedValue).Scan(
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
-		&secret.SecretValueHash,
+		&secret.EncryptedValue,
 		&secret.Version,
 		&secret.RevealedAt,
 	); err != nil {
@@ -1211,7 +1211,7 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID s
 			s.resource_id,
 			s.name,
 			s.description,
-			s.secret_value_hash,
+			s.encrypted_value,
 			s.version,
 			s.revealed_at
 	`
@@ -1221,7 +1221,7 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID s
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,
-		&secret.SecretValueHash,
+		&secret.EncryptedValue,
 		&secret.Version,
 		&secret.RevealedAt,
 	)
@@ -1235,11 +1235,11 @@ func (p *PsqlDB) RevealSecret(ctx context.Context, userID uuid.UUID, projectID s
 	return secret, nil
 }
 
-func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, secretValueHash string) (model.Secret, error) {
+func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projectID string, resourceID string, encryptedValue string) (model.Secret, error) {
 	const query = `
 		WITH updated_secret AS (
 			UPDATE secrets s
-			SET secret_value_hash = $4,
+			SET encrypted_value = $4,
 				revealed_at = NULL
 			FROM resources r
 			JOIN projects p ON p.id = r.project_id
@@ -1262,7 +1262,7 @@ func (p *PsqlDB) UpdateSecretValue(ctx context.Context, userID uuid.UUID, projec
 	`
 
 	var secret model.Secret
-	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, secretValueHash).Scan(
+	err := p.pool.QueryRow(ctx, query, userID, projectID, resourceID, encryptedValue).Scan(
 		&secret.ResourceID,
 		&secret.Name,
 		&secret.Description,

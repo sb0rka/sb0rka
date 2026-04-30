@@ -368,7 +368,7 @@ func (h *Handler) GetDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	decryptedSecretValue, err := service.DecryptSecret(secret.SecretValueHash, h.deps.Cfg.AuthConfig.SecretMasterKey)
+	decryptedSecretValue, err := service.DecryptSecret(secret.EncryptedValue, h.deps.Cfg.AuthConfig.SecretMasterKey)
 	if err != nil {
 		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
