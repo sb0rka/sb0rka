@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS core.subjects (
     id UUID NOT NULL,
 
     kind VARCHAR NOT NULL
-        CHECK (kind IN ('user', 'organization', 'service_account')),
+        CHECK (kind IN ('user', 'organization')),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
@@ -51,49 +51,6 @@ CREATE TRIGGER trg_subjects_set_updated_at
 BEFORE UPDATE ON core.subjects
 FOR EACH ROW
 EXECUTE FUNCTION core.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS core.organizations (
-    id UUID NOT NULL,
-
-    name VARCHAR NOT NULL,
-    description VARCHAR,
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-
-    CONSTRAINT pk_organizations PRIMARY KEY (id),
-    CONSTRAINT fk_organizations_id_subjects FOREIGN KEY (id) REFERENCES core.subjects (id) ON DELETE CASCADE
-);
-
-DROP TRIGGER IF EXISTS trg_organizations_set_updated_at ON core.organizations;
-CREATE TRIGGER trg_organizations_set_updated_at
-BEFORE UPDATE ON core.organizations
-FOR EACH ROW
-EXECUTE FUNCTION core.set_updated_at();
-
-CREATE TABLE IF NOT EXISTS core.organization_members (
-    user_id UUID NOT NULL,
-    organization_id UUID NOT NULL,
-
-    role VARCHAR(8) NOT NULL
-        CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-
-    CONSTRAINT pk_organization_members PRIMARY KEY (user_id, organization_id),
-    CONSTRAINT fk_org_members_org_id_orgs FOREIGN KEY (organization_id) REFERENCES core.organizations (id) ON DELETE CASCADE,
-    CONSTRAINT fk_org_members_user_id_subjects FOREIGN KEY (user_id) REFERENCES core.subjects (id) ON DELETE CASCADE
-);
-
-DROP TRIGGER IF EXISTS trg_org_members_set_updated_at ON core.organization_members;
-CREATE TRIGGER trg_org_members_set_updated_at
-BEFORE UPDATE ON core.organization_members
-FOR EACH ROW
-EXECUTE FUNCTION core.set_updated_at();
-
-CREATE INDEX idx_org_members_organization_id
-    ON core.organization_members (organization_id);
 
 -- PLANS & QUOTAS
 
