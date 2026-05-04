@@ -19,6 +19,29 @@ type QueryResponse struct {
 	Truncated bool `json:"truncated"`
 }
 
+type SchemaRequest struct {
+	ProjectID  string `json:"project_id"`
+	DatabaseID string `json:"database_id"`
+}
+
+type SchemaColumn struct {
+	Name       string `json:"name"`
+	DataType   string `json:"data_type"`
+	IsNullable bool   `json:"is_nullable"`
+	IsPK       bool   `json:"is_pk"`
+}
+
+type SchemaTable struct {
+	Schema  string         `json:"schema"`
+	Name    string         `json:"name"`
+	Columns []SchemaColumn `json:"columns"`
+}
+
+type SchemaResponse struct {
+	Tables     []SchemaTable `json:"tables"`
+	DurationMS int64         `json:"duration_ms"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
