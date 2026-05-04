@@ -2,6 +2,8 @@ import { getToken, setToken, clearToken, registerRefreshHandler } from "./auth-s
 
 const AUTH_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru"
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_API_BASE_URL ?? "https://api.sb0rka.ru"
+const QUERY_RUNNER_BASE_URL =
+  import.meta.env.VITE_QUERY_RUNNER_BASE_URL ?? "http://localhost:8081"
 
 const COOKIE_PATHS = ["/auth/login", "/auth/refresh", "/auth/logout"]
 
@@ -38,7 +40,7 @@ interface RequestOptions {
   body?: Record<string, string>
   json?: unknown
   auth?: boolean
-  base?: "auth" | "resource"
+  base?: "auth" | "resource" | "queryRunner"
 }
 
 let refreshPromise: Promise<void> | null = null
@@ -115,7 +117,12 @@ export async function apiRequestText(opts: RequestOptions): Promise<string> {
 }
 
 async function performRequest(opts: RequestOptions): Promise<Response> {
-  const baseUrl = opts.base === "resource" ? RESOURCE_BASE_URL : AUTH_BASE_URL
+  const baseUrl =
+    opts.base === "resource"
+      ? RESOURCE_BASE_URL
+      : opts.base === "queryRunner"
+        ? QUERY_RUNNER_BASE_URL
+        : AUTH_BASE_URL
   const url = `${baseUrl}${opts.path}`
   let res = await fetch(url, buildFetchInit(opts))
 
