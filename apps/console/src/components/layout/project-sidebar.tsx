@@ -1,4 +1,5 @@
 import type { ComponentType } from "react"
+import { Fragment } from "react"
 import { Link, useMatch, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -43,7 +44,9 @@ export function ProjectSidebar() {
   const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
-  const isDatabaseDetailsRoute = useMatch("/projects/:id/databases/:resourceId") !== null
+  const isDatabaseDetailsRoute =
+    useMatch({ path: "/projects/:id/databases/:resourceId", end: false }) !== null
+  const isDataExplorerRoute = useMatch("/projects/:id/data-explorer") !== null
   const isMetricDetailsRoute = useMatch("/projects/:id/metrics/:metric") !== null
   const { data: project } = useProject(id)
   const { data: projectsData } = useProjects()
@@ -111,21 +114,35 @@ export function ProjectSidebar() {
 
       <nav className="flex flex-col gap-3 px-4 py-3">
         {projectNavItems.map((item) => {
-          const isActive = activeTab === item.tab
+          const isActive = activeTab === item.tab && !isDataExplorerRoute
           return (
-            <Link
-              key={item.tab}
-              to={getTabHref(item.tab)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {t(item.labelKey)}
-            </Link>
+            <Fragment key={item.tab}>
+              <Link
+                to={getTabHref(item.tab)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {t(item.labelKey)}
+              </Link>
+              {item.tab === "databases" ? (
+                <Link
+                  to={`/projects/${id}/data-explorer`}
+                  className={cn(
+                    "ml-2 block rounded-md py-1.5 pl-7 pr-2 text-xs font-medium transition-colors",
+                    isDataExplorerRoute
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                  )}
+                >
+                  {t("dataExplorer.nav")}
+                </Link>
+              ) : null}
+            </Fragment>
           )
         })}
 

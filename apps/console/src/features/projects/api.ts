@@ -177,6 +177,36 @@ export async function runDatabaseQuery(
   })
 }
 
+export interface QueryRunnerSchemaColumn {
+  name: string
+  data_type: string
+  is_nullable: boolean
+  is_pk: boolean
+}
+
+export interface QueryRunnerSchemaTable {
+  schema: string
+  name: string
+  columns: QueryRunnerSchemaColumn[]
+}
+
+export interface QueryRunnerSchemaResponse {
+  tables: QueryRunnerSchemaTable[]
+  duration_ms: number
+}
+
+export async function fetchQueryRunnerSchema(data: {
+  project_id: string
+  database_id: string
+}): Promise<QueryRunnerSchemaResponse> {
+  return apiRequest<QueryRunnerSchemaResponse>({
+    method: "POST",
+    path: "/schema",
+    json: data,
+    base: "queryRunner",
+  })
+}
+
 export interface DeactivateResourceResponse {
   resource_id: string
   name: string
@@ -246,6 +276,64 @@ export async function listTables(
   return apiRequest<DBTableListResponse>({
     path: `/projects/${projectId}/resources/${resourceId}/tables`,
     base: "resource",
+  })
+}
+
+export interface DBTableColumnResponse {
+  id: number
+  table_id: number
+  db_id: number
+  name: string
+  data_type: string
+  is_pk: boolean
+  is_nullable: boolean
+  is_unique: boolean
+  is_array: boolean
+  default_value?: string
+  fk?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DBTableColumnListResponse {
+  columns: DBTableColumnResponse[]
+}
+
+export async function listTableColumns(
+  projectId: string,
+  resourceId: string,
+  tableId: number,
+): Promise<DBTableColumnListResponse> {
+  return apiRequest<DBTableColumnListResponse>({
+    path: `/projects/${projectId}/resources/${resourceId}/tables/${tableId}/columns`,
+    base: "resource",
+  })
+}
+
+export interface GenerateNl2SqlRequest {
+  question: string
+  schema: string
+  dialect?: string
+}
+
+export interface GenerateNl2SqlResponse {
+  sql: string
+  raw_message?: string
+}
+
+export async function generateNl2Sql(
+  data: GenerateNl2SqlRequest,
+): Promise<GenerateNl2SqlResponse> {
+  return apiRequest<GenerateNl2SqlResponse>({
+    method: "POST",
+    path: "/generate",
+    json: {
+      question: data.question,
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+    },
+    base: "nl2sql",
+    auth: false,
   })
 }
 

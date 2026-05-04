@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
 import { Copy } from "lucide-react"
-import { useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
 import { getResolvedLanguage } from "@/lib/i18n"
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DatabaseQueryDialog } from "./components/database-query-dialog"
 import {
   useDatabase,
   useDatabaseUri,
@@ -261,11 +260,13 @@ export function DatabaseDetailPage() {
             <h1 className="text-3xl font-semibold tracking-tight">{databaseQuery.data.name}</h1>
             <Badge className="bg-lime-700 text-lime-100 hover:bg-lime-700">{t("databases.online")}</Badge>
           </div>
-          <DatabaseQueryDialog
-            projectId={id}
-            databaseId={normalizedResourceId}
-            databaseName={databaseQuery.data.name}
-          />
+          <Button variant="outline" asChild>
+            <Link
+              to={`/projects/${id}/databases/${encodeURIComponent(normalizedResourceId)}/query`}
+            >
+              {t("databaseQuery.open")}
+            </Link>
+          </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tagsQuery.data?.tags.map((tag) => (

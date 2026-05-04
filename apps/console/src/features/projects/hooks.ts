@@ -21,6 +21,8 @@ import {
   revealSecretValue,
   listResources,
   getResourceMetricTimeseries,
+  fetchQueryRunnerSchema,
+  generateNl2Sql,
 } from "./api"
 import type {
   ProjectResponse,
@@ -41,6 +43,8 @@ import type {
   ResourceMetricTimeseries,
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
+  GenerateNl2SqlRequest,
+  GenerateNl2SqlResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -128,6 +132,63 @@ export function useDatabaseUri(
 export function useRunDatabaseQuery() {
   return useMutation<RunDatabaseQueryResponse, Error, RunDatabaseQueryRequest>({
     mutationFn: runDatabaseQuery,
+  })
+}
+
+export interface DataExplorerColumnNode {
+  name: string
+  data_type: string
+  is_nullable: boolean
+  is_pk: boolean
+}
+
+export interface DataExplorerTableNode {
+  schema: string
+  name: string
+  columns: DataExplorerColumnNode[]
+}
+
+export interface DataExplorerDatabaseNode {
+  database: DatabaseResponse
+  tables: DataExplorerTableNode[]
+}
+
+export function useDataExplorerSchema(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<DataExplorerDatabaseNode[]>({
+    queryKey: ["projects", projectId, "dataExplorer", "schema"],
+    queryFn: async () => {
+      const { databases } = await listDatabases(projectId)
+      const out: DataExplorerDatabaseNode[] = []
+
+      for (const database of databases) {
+        const payload = await fetchQueryRunnerSchema({
+          project_id: projectId,
+          database_id: database.resource_id,
+        })
+        const tables: DataExplorerTableNode[] = payload.tables.map((t) => ({
+          schema: t.schema,
+          name: t.name,
+          columns: t.columns.map((c) => ({
+            name: c.name,
+            data_type: c.data_type,
+            is_nullable: c.is_nullable,
+            is_pk: c.is_pk,
+          })),
+        }))
+        out.push({ database, tables })
+      }
+
+      return out
+    },
+    enabled: isAuthenticated && !!projectId,
+  })
+}
+
+export function useGenerateNl2Sql() {
+  return useMutation<GenerateNl2SqlResponse, Error, GenerateNl2SqlRequest>({
+    mutationFn: generateNl2Sql,
   })
 }
 
