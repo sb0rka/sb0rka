@@ -152,6 +152,31 @@ export async function getDatabaseUri(
   })
 }
 
+export interface RunDatabaseQueryRequest {
+  project_id: string
+  database_id: string
+  sql: string
+}
+
+export interface RunDatabaseQueryResponse {
+  columns: string[]
+  rows: unknown[][]
+  duration_ms: number
+  row_count: number
+  truncated: boolean
+}
+
+export async function runDatabaseQuery(
+  data: RunDatabaseQueryRequest,
+): Promise<RunDatabaseQueryResponse> {
+  return apiRequest<RunDatabaseQueryResponse>({
+    method: "POST",
+    path: "/query",
+    json: data,
+    base: "queryRunner",
+  })
+}
+
 export interface DeactivateResourceResponse {
   resource_id: string
   name: string

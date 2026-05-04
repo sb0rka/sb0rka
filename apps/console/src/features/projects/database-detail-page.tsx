@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DatabaseQueryDialog } from "./components/database-query-dialog"
 import {
   useDatabase,
   useDatabaseUri,
@@ -255,9 +256,16 @@ export function DatabaseDetailPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight">{databaseQuery.data.name}</h1>
-          <Badge className="bg-lime-700 text-lime-100 hover:bg-lime-700">{t("databases.online")}</Badge>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight">{databaseQuery.data.name}</h1>
+            <Badge className="bg-lime-700 text-lime-100 hover:bg-lime-700">{t("databases.online")}</Badge>
+          </div>
+          <DatabaseQueryDialog
+            projectId={id}
+            databaseId={normalizedResourceId}
+            databaseName={databaseQuery.data.name}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tagsQuery.data?.tags.map((tag) => (

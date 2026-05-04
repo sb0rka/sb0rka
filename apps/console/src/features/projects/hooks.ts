@@ -15,6 +15,7 @@ import {
   getDatabase,
   updateDatabase,
   getDatabaseUri,
+  runDatabaseQuery,
   deactivateResource,
   createSecret,
   revealSecretValue,
@@ -38,6 +39,8 @@ import type {
   ProjectResourceListResponse,
   ObservabilityMetricPoint,
   ResourceMetricTimeseries,
+  RunDatabaseQueryRequest,
+  RunDatabaseQueryResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -119,6 +122,12 @@ export function useDatabaseUri(
     queryKey: ["projects", projectId, "resources", resourceId, "database", "uri"],
     queryFn: () => getDatabaseUri(projectId, resourceId as string),
     enabled: isAuthenticated && !!projectId && resourceId !== undefined && enabled,
+  })
+}
+
+export function useRunDatabaseQuery() {
+  return useMutation<RunDatabaseQueryResponse, Error, RunDatabaseQueryRequest>({
+    mutationFn: runDatabaseQuery,
   })
 }
 
