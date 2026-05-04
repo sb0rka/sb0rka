@@ -26,16 +26,24 @@ func (f *fakePlatform) DatabaseURI(_ context.Context, bearer string, projectID s
 }
 
 type fakeExecutor struct {
-	uri      string
-	sql      string
-	response QueryResponse
-	err      error
+	uri             string
+	sql             string
+	schemaURI       string
+	response        QueryResponse
+	schemaResponse  SchemaResponse
+	err             error
+	schemaErr       error
 }
 
 func (f *fakeExecutor) Query(_ context.Context, uri string, sql string) (QueryResponse, error) {
 	f.uri = uri
 	f.sql = sql
 	return f.response, f.err
+}
+
+func (f *fakeExecutor) IntrospectSchema(_ context.Context, uri string) (SchemaResponse, error) {
+	f.schemaURI = uri
+	return f.schemaResponse, f.schemaErr
 }
 
 func TestServeHTTPSuccess(t *testing.T) {
@@ -100,6 +108,56 @@ func TestServeHTTPPreflight(t *testing.T) {
 	}
 	if rec.Header().Get("Access-Control-Allow-Headers") != "Authorization, Content-Type" {
 		t.Fatalf("expected CORS allow-headers header, got %q", rec.Header().Get("Access-Control-Allow-Headers"))
+	}
+
+	reqSchema := httptest.NewRequest(http.MethodOptions, "/schema", nil)
+	recSchema := httptest.NewRecorder()
+	service.ServeHTTP(recSchema, reqSchema)
+	if recSchema.Code != http.StatusNoContent {
+		t.Fatalf("schema OPTIONS: expected status %d, got %d", http.StatusNoContent, recSchema.Code)
+	}
+}
+
+func TestServeHTTPSchemaSuccess(t *testing.T) {
+	platform := &fakePlatform{uri: "postgres://user:pass@example/db"}
+	executor := &fakeExecutor{
+		schemaResponse: SchemaResponse{
+			Tables: []SchemaTable{
+				{
+					Schema: "public",
+					Name:   "users",
+					Columns: []SchemaColumn{
+						{Name: "id", DataType: "integer", IsNullable: false, IsPK: true},
+					},
+				},
+			},
+			DurationMS: 5,
+		},
+	}
+	service := NewService(platform, executor, NewLimiter(100, 100))
+
+	req := httptest.NewRequest(http.MethodPost, "/schema", strings.NewReader(`{"database_id":"db_1","project_id":"project_1"}`))
+	req.Header.Set("Authorization", "Bearer test.jwt")
+	rec := httptest.NewRecorder()
+
+	service.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+	if executor.sql != "" {
+		t.Fatalf("schema request should not invoke Query, got sql %q", executor.sql)
+	}
+	if executor.schemaURI != platform.uri {
+		t.Fatalf("unexpected schema uri: %q", executor.schemaURI)
+	}
+
+	var response SchemaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Tables) != 1 || response.Tables[0].Name != "users" {
+		t.Fatalf("unexpected tables: %+v", response.Tables)
 	}
 }
 
