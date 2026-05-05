@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { Check, ChevronDown } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   useDataExplorerSchema,
+  useExplainNl2Sql,
   useGenerateNl2Sql,
   useRunDatabaseQuery,
   type DataExplorerDatabaseNode,
@@ -15,6 +23,11 @@ import {
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
 import type { RunDatabaseQueryResponse } from "./api"
+import {
+  EXPLAIN_STYLE_ORDER,
+  explainStylePrompt,
+  type ExplainStyleKey,
+} from "./explain-styles"
 
 const MAX_SCHEMA_CHARS = 190_000
 
@@ -22,6 +35,27 @@ function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
   if (error instanceof Error) return error.message || fallback
   return fallback
+}
+
+function styleLabelKey(key: ExplainStyleKey): string {
+  switch (key) {
+    case "breakdown":
+      return "dataExplorer.styleBreakdown"
+    case "haiku":
+      return "dataExplorer.styleHaiku"
+    case "shakespeare":
+      return "dataExplorer.styleShakespeare"
+    case "snoopDog":
+      return "dataExplorer.styleSnoopDog"
+    case "stephenKing":
+      return "dataExplorer.styleStephenKing"
+    case "caveman":
+      return "dataExplorer.styleCaveman"
+    default: {
+      const _x: never = key
+      return _x
+    }
+  }
 }
 
 function buildNl2SqlSchemaSnapshot(
@@ -55,12 +89,15 @@ export function DataExplorerPage() {
   const schemaQuery = useDataExplorerSchema(id)
   const runQuery = useRunDatabaseQuery()
   const generateSql = useGenerateNl2Sql()
+  const explainSql = useExplainNl2Sql()
 
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [workspaceTab, setWorkspaceTab] = useState<"sql" | "human">("sql")
   const [sql, setSql] = useState("select 1;")
   const [humanPrompt, setHumanPrompt] = useState("")
   const [result, setResult] = useState<RunDatabaseQueryResponse | null>(null)
+  const [explainStyle, setExplainStyle] = useState<ExplainStyleKey>("breakdown")
+  const [explanation, setExplanation] = useState<string | null>(null)
 
   const nodes = schemaQuery.data ?? []
   const selectedNode = selectedResourceId
@@ -76,6 +113,10 @@ export function DataExplorerPage() {
       return current
     })
   }, [nodes])
+
+  useEffect(() => {
+    setExplanation(null)
+  }, [selectedResourceId])
 
   const isSqlEmpty = sql.trim().length === 0
   const isHumanEmpty = humanPrompt.trim().length === 0
@@ -101,6 +142,20 @@ export function DataExplorerPage() {
     })
     setSql(res.sql)
     setWorkspaceTab("sql")
+  }
+
+  async function handleExplain() {
+    if (!selectedResourceId || isSqlEmpty || explainSql.isPending) return
+    setExplanation(null)
+    try {
+      const res = await explainSql.mutateAsync({
+        sql: sql.trim(),
+        style: explainStylePrompt(explainStyle),
+      })
+      setExplanation(res.explanation)
+    } catch {
+      return
+    }
   }
 
   if (schemaQuery.isLoading) {
@@ -176,10 +231,62 @@ export function DataExplorerPage() {
                   {getErrorMessage(runQuery.error, t("databaseQuery.error"))}
                 </p>
               ) : null}
+              {explainSql.isError ? (
+                <p className="text-sm text-destructive">
+                  {getErrorMessage(explainSql.error, t("dataExplorer.explainError"))}
+                </p>
+              ) : null}
+              {explanation !== null ? (
+                <div className="shrink-0 rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <p className="mb-2 text-sm font-medium">{t("dataExplorer.explanationTitle")}</p>
+                  <div className="max-h-48 overflow-auto text-sm whitespace-pre-wrap text-muted-foreground">
+                    {explanation}
+                  </div>
+                </div>
+              ) : null}
               <div className="min-h-0 flex-1 overflow-auto">
                 {result ? <DatabaseQueryResults result={result} /> : null}
               </div>
-              <div className="flex shrink-0 justify-end border-t border-border pt-4">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={explainSql.isPending}
+                        className="gap-2"
+                      >
+                        <span className="max-w-[14rem] truncate text-left">
+                          {t("dataExplorer.explainStyleLabel")}:{" "}
+                          {t(styleLabelKey(explainStyle))}
+                        </span>
+                        <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {EXPLAIN_STYLE_ORDER.map((key) => (
+                        <DropdownMenuItem
+                          key={key}
+                          className="gap-2"
+                          onSelect={() => setExplainStyle(key)}
+                        >
+                          <span className="flex-1">{t(styleLabelKey(key))}</span>
+                          {explainStyle === key ? (
+                            <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          ) : null}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void handleExplain()}
+                  >
+                    {explainSql.isPending ? t("dataExplorer.explaining") : t("dataExplorer.explain")}
+                  </Button>
+                </div>
                 <Button
                   type="button"
                   disabled={isSqlEmpty || runQuery.isPending || !selectedResourceId}

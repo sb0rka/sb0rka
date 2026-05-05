@@ -23,6 +23,7 @@ import {
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
   generateNl2Sql,
+  explainNl2Sql,
 } from "./api"
 import type {
   ProjectResponse,
@@ -45,6 +46,8 @@ import type {
   RunDatabaseQueryResponse,
   GenerateNl2SqlRequest,
   GenerateNl2SqlResponse,
+  ExplainNl2SqlRequest,
+  ExplainNl2SqlResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
@@ -189,6 +192,12 @@ export function useDataExplorerSchema(projectId: string) {
 export function useGenerateNl2Sql() {
   return useMutation<GenerateNl2SqlResponse, Error, GenerateNl2SqlRequest>({
     mutationFn: generateNl2Sql,
+  })
+}
+
+export function useExplainNl2Sql() {
+  return useMutation<ExplainNl2SqlResponse, Error, ExplainNl2SqlRequest>({
+    mutationFn: explainNl2Sql,
   })
 }
 

@@ -337,6 +337,31 @@ export async function generateNl2Sql(
   })
 }
 
+export interface ExplainNl2SqlRequest {
+  sql: string
+  style?: string
+}
+
+export interface ExplainNl2SqlResponse {
+  explanation: string
+  raw_message?: string
+}
+
+export async function explainNl2Sql(
+  data: ExplainNl2SqlRequest,
+): Promise<ExplainNl2SqlResponse> {
+  return apiRequest<ExplainNl2SqlResponse>({
+    method: "POST",
+    path: "/explain",
+    json: {
+      sql: data.sql,
+      style: data.style ?? "",
+    },
+    base: "nl2sql",
+    auth: false,
+  })
+}
+
 export interface SecretResponse {
   resource_id: string
   name: string
