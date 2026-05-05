@@ -15,6 +15,8 @@ import (
 	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/limiter"
 )
 
+const defaultExplainStyle = "Detailed breakdown of the query: explain clause by clause (SELECT list, FROM, JOINs, WHERE, GROUP BY, HAVING, ORDER BY, subqueries, window functions, aggregates), what each part means, and the logical result in plain language."
+
 type GenerateRequest struct {
 	Question string `json:"question"`
 	Schema   string `json:"schema"`
@@ -24,6 +26,16 @@ type GenerateRequest struct {
 type GenerateResponse struct {
 	SQL        string `json:"sql"`
 	RawMessage string `json:"raw_message,omitempty"`
+}
+
+type ExplainRequest struct {
+	SQL   string `json:"sql"`
+	Style string `json:"style"`
+}
+
+type ExplainResponse struct {
+	Explanation string `json:"explanation"`
+	RawMessage    string `json:"raw_message,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -38,7 +50,9 @@ type Handler struct {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeCORS(w)
-	if r.URL.Path != "/generate" {
+	switch r.URL.Path {
+	case "/generate", "/explain":
+	default:
 		writeJSONError(w, http.StatusNotFound, "Not found")
 		return
 	}
@@ -64,6 +78,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	switch r.URL.Path {
+	case "/generate":
+		h.handleGenerate(w, r)
+	case "/explain":
+		h.handleExplain(w, r)
+	}
+}
+
+func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	body := io.LimitReader(r.Body, h.Cfg.MaxRequestBytes)
 	var req GenerateRequest
 	dec := json.NewDecoder(body)
@@ -121,6 +144,63 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+func (h *Handler) handleExplain(w http.ResponseWriter, r *http.Request) {
+	body := io.LimitReader(r.Body, h.Cfg.MaxRequestBytes)
+	var req ExplainRequest
+	dec := json.NewDecoder(body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if dec.Decode(&struct{}{}) != io.EOF {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	req.SQL = strings.TrimSpace(req.SQL)
+	req.Style = strings.TrimSpace(req.Style)
+	if req.SQL == "" {
+		writeJSONError(w, http.StatusBadRequest, "sql is required")
+		return
+	}
+	if utf8.RuneCountInString(req.SQL) > h.Cfg.MaxQuestionRunes {
+		writeJSONError(w, http.StatusBadRequest, "sql exceeds maximum length")
+		return
+	}
+	styleForPrompt := req.Style
+	if styleForPrompt == "" {
+		styleForPrompt = defaultExplainStyle
+	} else if utf8.RuneCountInString(styleForPrompt) > h.Cfg.MaxQuestionRunes {
+		writeJSONError(w, http.StatusBadRequest, "style exceeds maximum length")
+		return
+	}
+
+	ctx := r.Context()
+	messages := []llm.Message{
+		{Role: "system", Content: explainSystemPrompt()},
+		{Role: "user", Content: explainUserPrompt(req.SQL, styleForPrompt)},
+	}
+
+	raw, err := h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	if err != nil {
+		writeJSONError(w, http.StatusBadGateway, "LLM request failed")
+		return
+	}
+
+	explanation := normalizeExplanation(raw)
+	if explanation == "" {
+		writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
+		return
+	}
+
+	out := ExplainResponse{Explanation: explanation}
+	if h.Cfg.IncludeRawMessage {
+		out.RawMessage = raw
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func clientLimitKey(r *http.Request) string {
 	if secret := strings.TrimSpace(r.Header.Get("X-NL2SQL-Secret")); secret != "" {
 		return "secret:" + secret
@@ -167,6 +247,25 @@ func userPrompt(schema, question string) string {
 	return b.String()
 }
 
+func explainSystemPrompt() string {
+	return strings.TrimSpace(
+		"You are an expert database engineer. The user will supply a SQL statement and a requested explanation style.\n\n" +
+			"Rules:\n" +
+			"- Explain the query in natural language only. Do not output a corrected or rewritten full SQL statement unless the requested style explicitly asks for example snippets.\n" +
+			"- Prefer plain text. Do not wrap the entire answer in Markdown code fences.\n" +
+			"- Be accurate about what the SQL does; if something is ambiguous, say so briefly.",
+	)
+}
+
+func explainUserPrompt(sql, style string) string {
+	var b strings.Builder
+	b.WriteString("SQL to explain:\n")
+	b.WriteString(sql)
+	b.WriteString("\n\nExplanation style:\n")
+	b.WriteString(style)
+	return b.String()
+}
+
 func extractSQL(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -183,6 +282,27 @@ func extractSQL(s string) string {
 		}
 		if i := strings.LastIndex(s, "```"); i >= 0 {
 			s = strings.TrimSpace(s[:i])
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+func normalizeExplanation(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if strings.HasPrefix(s, "```") {
+		s = strings.TrimPrefix(s, "```")
+		s = strings.TrimSpace(s)
+		if i := strings.IndexByte(s, '\n'); i >= 0 {
+			first := strings.TrimSpace(strings.ToLower(s[:i]))
+			if first != "" && !strings.ContainsAny(first, " \t") {
+				s = strings.TrimSpace(s[i+1:])
+			}
+		}
+		if j := strings.LastIndex(s, "```"); j >= 0 {
+			s = strings.TrimSpace(s[:j])
 		}
 	}
 	return strings.TrimSpace(s)
@@ -247,6 +367,41 @@ func (h *Handler) HandleGenerate(ctx context.Context, req GenerateRequest) (Gene
 		return GenerateResponse{}, errors.New("empty sql")
 	}
 	out := GenerateResponse{SQL: sql}
+	if h.Cfg.IncludeRawMessage {
+		out.RawMessage = raw
+	}
+	return out, nil
+}
+
+// HandleExplain exposes core logic for tests.
+func (h *Handler) HandleExplain(ctx context.Context, req ExplainRequest) (ExplainResponse, error) {
+	req.SQL = strings.TrimSpace(req.SQL)
+	req.Style = strings.TrimSpace(req.Style)
+	if req.SQL == "" {
+		return ExplainResponse{}, errors.New("sql is required")
+	}
+	if utf8.RuneCountInString(req.SQL) > h.Cfg.MaxQuestionRunes {
+		return ExplainResponse{}, errors.New("sql exceeds maximum length")
+	}
+	styleForPrompt := req.Style
+	if styleForPrompt == "" {
+		styleForPrompt = defaultExplainStyle
+	} else if utf8.RuneCountInString(styleForPrompt) > h.Cfg.MaxQuestionRunes {
+		return ExplainResponse{}, errors.New("style exceeds maximum length")
+	}
+	messages := []llm.Message{
+		{Role: "system", Content: explainSystemPrompt()},
+		{Role: "user", Content: explainUserPrompt(req.SQL, styleForPrompt)},
+	}
+	raw, err := h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	if err != nil {
+		return ExplainResponse{}, err
+	}
+	explanation := normalizeExplanation(raw)
+	if explanation == "" {
+		return ExplainResponse{}, errors.New("empty explanation")
+	}
+	out := ExplainResponse{Explanation: explanation}
 	if h.Cfg.IncludeRawMessage {
 		out.RawMessage = raw
 	}

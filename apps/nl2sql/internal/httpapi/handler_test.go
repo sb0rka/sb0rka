@@ -31,6 +31,24 @@ func TestExtractSQL(t *testing.T) {
 	}
 }
 
+func TestNormalizeExplanation(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		in, want string
+	}{
+		{"Plain prose.", "Plain prose."},
+		{"  trimmed  ", "trimmed"},
+		{"```text\nLine one.\n```", "Line one."},
+		{"```\nNo lang\n```", "No lang"},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		if got := normalizeExplanation(tc.in); got != tc.want {
+			t.Fatalf("normalizeExplanation(%q) = %q want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestHandler_HandleGenerate(t *testing.T) {
 	t.Parallel()
 
@@ -71,6 +89,53 @@ func TestHandler_HandleGenerate(t *testing.T) {
 	}
 }
 
+func TestHandler_HandleExplain(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"role": "assistant", "content": "It selects rows from t where id > 1."}},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := config.Config{
+		OpenAIModel:      "test-model",
+		LLMTemp:          0.1,
+		MaxQuestionRunes: 1000,
+		MaxSchemaRunes:   1000,
+	}
+	h := &Handler{
+		Cfg: cfg,
+		LLM: &llm.Client{
+			BaseURL:    srv.URL + "/v1",
+			APIKey:     "x",
+			HTTPClient: srv.Client(),
+		},
+	}
+
+	res, err := h.HandleExplain(context.Background(), ExplainRequest{
+		SQL:   "SELECT * FROM t WHERE id > 1",
+		Style: "one sentence",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Explanation != "It selects rows from t where id > 1." {
+		t.Fatalf("explanation %q", res.Explanation)
+	}
+
+	res2, err := h.HandleExplain(context.Background(), ExplainRequest{SQL: "SELECT 1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res2.Explanation == "" {
+		t.Fatal("expected default style path to return explanation")
+	}
+}
+
 func TestHandler_ServeHTTP_validation(t *testing.T) {
 	t.Parallel()
 
@@ -91,6 +156,65 @@ func TestHandler_ServeHTTP_validation(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_ServeHTTP_explain_validation(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		Cfg: config.Config{
+			OpenAIModel:      "m",
+			MaxRequestBytes:  256 * 1024,
+			MaxQuestionRunes: 10,
+		},
+		LLM:     &llm.Client{},
+		Limiter: limiter.New(100, 100),
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/explain", bytes.NewReader([]byte(`{"sql":"","style":""}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_ServeHTTP_explain_ok(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"content": "Counts users."}},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	h := &Handler{
+		Cfg: config.Config{
+			OpenAIModel:      "m",
+			MaxRequestBytes:  256 * 1024,
+			MaxQuestionRunes: 100,
+		},
+		LLM:     &llm.Client{BaseURL: srv.URL + "/v1", APIKey: "k", HTTPClient: srv.Client()},
+		Limiter: limiter.New(100, 100),
+	}
+	req := httptest.NewRequest(http.MethodPost, "/explain", bytes.NewReader([]byte(`{"sql":"SELECT COUNT(*) FROM users"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+	var out ExplainResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Explanation != "Counts users." {
+		t.Fatalf("explanation %q", out.Explanation)
 	}
 }
 
