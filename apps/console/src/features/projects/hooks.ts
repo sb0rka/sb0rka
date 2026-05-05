@@ -25,6 +25,7 @@ import {
   generateNl2Sql,
   explainNl2Sql,
 } from "./api"
+import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import type {
   ProjectResponse,
   ProjectListResponse,
@@ -133,8 +134,16 @@ export function useDatabaseUri(
 }
 
 export function useRunDatabaseQuery() {
+  const qc = useQueryClient()
+
   return useMutation<RunDatabaseQueryResponse, Error, RunDatabaseQueryRequest>({
     mutationFn: runDatabaseQuery,
+    onSuccess: (_data, variables) => {
+      if (!mayAffectExplorerSchema(variables.sql)) return
+      qc.invalidateQueries({
+        queryKey: ["projects", variables.project_id, "dataExplorer", "schema"],
+      })
+    },
   })
 }
 
