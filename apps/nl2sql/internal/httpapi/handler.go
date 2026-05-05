@@ -227,15 +227,16 @@ func systemPrompt(dialect string) string {
 			"Rules:\n" +
 			"- Generate valid " + dialect + " SQL that satisfies the request.\n" +
 			"- Any statement type is allowed when appropriate: SELECT, DML (INSERT/UPDATE/DELETE), DDL (CREATE/ALTER/DROP), transactions, etc.\n" +
-			"- The schema text describes what already exists. Use it to stay consistent with real table/column names and types when reading or modifying existing objects.\n" +
-			"- When the user asks to create new tables/columns or extend the schema, you may introduce new identifiers and DDL even if they are not in the schema snapshot.\n" +
+			"- Treat the schema snapshot as objects that already exist in the target database (for example from live introspection). Use exact table and column names and compatible types.\n" +
+			"- When changing existing tables or columns that appear in the snapshot, prefer incremental DDL (e.g. ALTER TABLE ... ADD COLUMN, DROP COLUMN, ALTER COLUMN, ADD CONSTRAINT). Do not emit CREATE TABLE that redefines a whole table already listed unless the user explicitly asks for a replacement definition.\n" +
+			"- CREATE TABLE and other DDL are appropriate for new tables or other objects not described in the snapshot.\n" +
 			"- Reply with a single SQL statement only, as plain text. Do not wrap it in JSON. Do not use Markdown code fences. Do not add explanations before or after the SQL.",
 	)
 }
 
 func userPrompt(schema, question string) string {
 	var b strings.Builder
-	b.WriteString("Current schema context (may be incomplete):\n")
+	b.WriteString("Schema snapshot — listed tables and columns already exist in the target database (may be incomplete):\n")
 	if schema == "" {
 		b.WriteString("(none provided)\n\n")
 	} else {
