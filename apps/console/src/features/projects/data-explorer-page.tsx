@@ -1,32 +1,21 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Check, ChevronDown } from "lucide-react"
+import { ChevronRight, MessagesSquare } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
+  lastExplanationStyle,
+  useAiQueryChat,
   useDataExplorerSchema,
-  useExplainNl2Sql,
-  useGenerateNl2Sql,
   useRunDatabaseQuery,
   type DataExplorerDatabaseNode,
 } from "./hooks"
+import { AiQueryChat } from "./components/ai-query-chat"
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
 import type { RunDatabaseQueryResponse } from "./api"
-import {
-  EXPLAIN_STYLE_ORDER,
-  explainStylePrompt,
-  type ExplainStyleKey,
-} from "./explain-styles"
 
 const MAX_SCHEMA_CHARS = 190_000
 
@@ -34,27 +23,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
   if (error instanceof Error) return error.message || fallback
   return fallback
-}
-
-function styleLabelKey(key: ExplainStyleKey): string {
-  switch (key) {
-    case "breakdown":
-      return "dataExplorer.styleBreakdown"
-    case "haiku":
-      return "dataExplorer.styleHaiku"
-    case "shakespeare":
-      return "dataExplorer.styleShakespeare"
-    case "snoopDog":
-      return "dataExplorer.styleSnoopDog"
-    case "stephenKing":
-      return "dataExplorer.styleStephenKing"
-    case "caveman":
-      return "dataExplorer.styleCaveman"
-    default: {
-      const _x: never = key
-      return _x
-    }
-  }
 }
 
 function buildNl2SqlSchemaSnapshot(
@@ -91,22 +59,19 @@ export function DataExplorerPage() {
   const { id = "" } = useParams<{ id: string }>()
   const schemaQuery = useDataExplorerSchema(id)
   const runQuery = useRunDatabaseQuery()
-  const generateSql = useGenerateNl2Sql()
-  const explainSql = useExplainNl2Sql()
+  const aiChat = useAiQueryChat()
 
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
-  const [workspaceTab, setWorkspaceTab] = useState<"sql" | "human">("sql")
   const [sql, setSql] = useState("select 1;")
-  const [humanPrompt, setHumanPrompt] = useState("")
   const [result, setResult] = useState<RunDatabaseQueryResponse | null>(null)
-  const [explainStyle, setExplainStyle] = useState<ExplainStyleKey>("breakdown")
-  const [explanation, setExplanation] = useState<string | null>(null)
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
 
   const nodes = schemaQuery.data ?? []
-  const selectedNode = selectedResourceId
-    ? nodes.find((n) => n.database.resource_id === selectedResourceId)
-    : undefined
-  const selectedName = selectedNode?.database.name ?? t("dataExplorer.selectDatabase")
+
+  const nl2sqlSchema = useMemo(() => {
+    if (!selectedResourceId) return ""
+    return buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)
+  }, [nodes, selectedResourceId])
 
   useEffect(() => {
     if (nodes.length === 0) return
@@ -117,12 +82,7 @@ export function DataExplorerPage() {
     })
   }, [nodes])
 
-  useEffect(() => {
-    setExplanation(null)
-  }, [selectedResourceId])
-
   const isSqlEmpty = sql.trim().length === 0
-  const isHumanEmpty = humanPrompt.trim().length === 0
 
   async function handleRunQuery() {
     if (!selectedResourceId || isSqlEmpty || runQuery.isPending) return
@@ -133,32 +93,6 @@ export function DataExplorerPage() {
       sql,
     })
     setResult(response)
-  }
-
-  async function handleGenerate() {
-    if (!selectedResourceId || isHumanEmpty || generateSql.isPending) return
-    const snapshot = buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)
-    const res = await generateSql.mutateAsync({
-      question: humanPrompt,
-      schema: snapshot,
-      dialect: "postgresql",
-    })
-    setSql(res.sql)
-    setWorkspaceTab("sql")
-  }
-
-  async function handleExplain() {
-    if (!selectedResourceId || isSqlEmpty || explainSql.isPending) return
-    setExplanation(null)
-    try {
-      const res = await explainSql.mutateAsync({
-        sql: sql.trim(),
-        style: explainStylePrompt(explainStyle),
-      })
-      setExplanation(res.explanation)
-    } catch {
-      return
-    }
   }
 
   if (schemaQuery.isLoading) {
@@ -190,193 +124,120 @@ export function DataExplorerPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-4">
-      <div className="shrink-0">
+    <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-4 overflow-hidden">
+      {/* <div className="shrink-0">
         <h1 className="text-2xl font-semibold tracking-tight">
           {t("dataExplorer.queryTitle", { databaseName: selectedName })}
         </h1>
-      </div>
+      </div> */}
 
-      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-xl border border-border/70 bg-card">
+      <div className="flex min-h-0 min-w-0 flex-1 gap-0 overflow-hidden rounded-xl border border-border/70 bg-card">
         <DataExplorerSchemaTree
           nodes={nodes}
           selectedResourceId={selectedResourceId}
           onSelectDatabase={setSelectedResourceId}
+          isSchemaRefetching={
+            Boolean(schemaQuery.data) &&
+            schemaQuery.fetchStatus === "fetching"
+          }
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div
-              className="flex shrink-0 items-end gap-0.5 rounded-t-lg border border-border border-b-0 bg-muted/45 px-4 pt-2"
-              role="tablist"
-              aria-label={t("dataExplorer.workspaceTabsAria")}
-            >
-              <button
-                type="button"
-                role="tab"
-                id="data-explorer-tab-sql"
-                aria-selected={workspaceTab === "sql"}
-                aria-controls="data-explorer-panel-sql"
-                tabIndex={workspaceTab === "sql" ? 0 : -1}
-                className={cn(
-                  "relative rounded-t-md border border-transparent px-3 py-2 text-sm font-medium transition-colors",
-                  workspaceTab === "sql"
-                    ? "z-10 border-border border-b-card bg-card text-foreground shadow-[0_1px_0_0_var(--card)]"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                )}
-                onClick={() => setWorkspaceTab("sql")}
-              >
-                {t("dataExplorer.tabSql")}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="data-explorer-tab-human"
-                aria-selected={workspaceTab === "human"}
-                aria-controls="data-explorer-panel-human"
-                tabIndex={workspaceTab === "human" ? 0 : -1}
-                className={cn(
-                  "relative rounded-t-md border border-transparent px-3 py-2 text-sm font-medium transition-colors",
-                  workspaceTab === "human"
-                    ? "z-10 border-border border-b-card bg-card text-foreground shadow-[0_1px_0_0_var(--card)]"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                )}
-                onClick={() => setWorkspaceTab("human")}
-              >
-                {t("dataExplorer.tabHuman")}
-              </button>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border border-border bg-card p-4">
+            <div className="grid shrink-0 gap-2">
+              <Textarea
+                id="data-explorer-sql"
+                value={sql}
+                onChange={(e) => setSql(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || e.shiftKey) return
+                  if (e.nativeEvent.isComposing) return
+                  e.preventDefault()
+                  void handleRunQuery()
+                }}
+                className="min-h-[160px] font-mono"
+                spellCheck={false}
+              />
             </div>
-
-            <div
-              className="flex min-h-0 flex-1 flex-col gap-4 rounded-b-lg border border-t-0 border-border bg-card p-4 pt-0"
-              role="tabpanel"
-              id={
-                workspaceTab === "sql"
-                  ? "data-explorer-panel-sql"
-                  : "data-explorer-panel-human"
-              }
-              aria-labelledby={
-                workspaceTab === "sql"
-                  ? "data-explorer-tab-sql"
-                  : "data-explorer-tab-human"
-              }
-            >
-              {workspaceTab === "sql" ? (
-                <>
-                  <div className="grid shrink-0 gap-2">
-                    {/* <Label htmlFor="data-explorer-sql">{t("databaseQuery.sqlLabel")}</Label> */}
-                    <Textarea
-                      id="data-explorer-sql"
-                      value={sql}
-                      onChange={(e) => setSql(e.target.value)}
-                      className="min-h-[160px] font-mono"
-                      spellCheck={false}
-                    />
-                    {/* <p className="text-xs text-muted-foreground">{t("databaseQuery.sqlHint")}</p> */}
-                  </div>
-                  {runQuery.isError ? (
-                    <p className="text-sm text-destructive">
-                      {getErrorMessage(runQuery.error, t("databaseQuery.error"))}
-                    </p>
-                  ) : null}
-                  {explainSql.isError ? (
-                    <p className="text-sm text-destructive">
-                      {getErrorMessage(explainSql.error, t("dataExplorer.explainError"))}
-                    </p>
-                  ) : null}
-                  {explanation !== null ? (
-                    <div className="shrink-0 rounded-lg border border-border/70 bg-muted/30 p-3">
-                      <p className="mb-2 text-sm font-medium">{t("dataExplorer.explanationTitle")}</p>
-                      <div className="max-h-48 overflow-auto text-sm whitespace-pre-wrap text-muted-foreground">
-                        {explanation}
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="min-h-0 flex-1 overflow-auto">
-                    {result ? <DatabaseQueryResults result={result} /> : null}
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={explainSql.isPending}
-                            className="gap-2"
-                          >
-                            <span className="max-w-[14rem] truncate text-left">
-                              {t("dataExplorer.explainStyleLabel")}:{" "}
-                              {t(styleLabelKey(explainStyle))}
-                            </span>
-                            <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                          {EXPLAIN_STYLE_ORDER.map((key) => (
-                            <DropdownMenuItem
-                              key={key}
-                              className="gap-2"
-                              onSelect={() => setExplainStyle(key)}
-                            >
-                              <span className="flex-1">{t(styleLabelKey(key))}</span>
-                              {explainStyle === key ? (
-                                <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              ) : null}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => void handleExplain()}
-                      >
-                        {explainSql.isPending ? t("dataExplorer.explaining") : t("dataExplorer.explain")}
-                      </Button>
-                    </div>
-                    <Button
-                      type="button"
-                      disabled={isSqlEmpty || runQuery.isPending || !selectedResourceId}
-                      onClick={() => void handleRunQuery()}
-                    >
-                      {runQuery.isPending ? t("databaseQuery.running") : t("dataExplorer.runQuery")}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid min-h-0 flex-1 gap-2">
-                    {/* <Label htmlFor="data-explorer-human">{t("dataExplorer.humanLabel")}</Label> */}
-                    <Textarea
-                      id="data-explorer-human"
-                      value={humanPrompt}
-                      onChange={(e) => setHumanPrompt(e.target.value)}
-                      className="min-h-[200px] flex-1"
-                      spellCheck
-                    />
-                  </div>
-                  {generateSql.isError ? (
-                    <p className="text-sm text-destructive">
-                      {getErrorMessage(generateSql.error, t("dataExplorer.generateError"))}
-                    </p>
-                  ) : null}
-                  <div className="flex shrink-0 justify-end border-t border-border pt-4">
-                    <Button
-                      type="button"
-                      disabled={isHumanEmpty || generateSql.isPending || !selectedResourceId}
-                      onClick={() => void handleGenerate()}
-                    >
-                      {generateSql.isPending
-                        ? t("dataExplorer.generating")
-                        : t("dataExplorer.generateQuery")}
-                    </Button>
-                  </div>
-                </>
-              )}
+            {runQuery.isError ? (
+              <p className="text-sm text-destructive">
+                {getErrorMessage(runQuery.error, t("databaseQuery.error"))}
+              </p>
+            ) : null}
+            <div className="min-h-0 flex-1 overflow-auto">
+              {result ? <DatabaseQueryResults result={result} /> : null}
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!selectedResourceId || isSqlEmpty || aiChat.isPending}
+                onClick={() => {
+                  if (!aiPanelOpen) setAiPanelOpen(true)
+                  void aiChat.sendMessage({
+                    type: "explain",
+                    message: sql.trim(),
+                    style: lastExplanationStyle(aiChat.messages),
+                  })
+                }}
+              >
+                {aiChat.isPending ? t("dataExplorer.explaining") : t("dataExplorer.explain")}
+              </Button>
+              <Button
+                type="button"
+                disabled={isSqlEmpty || runQuery.isPending || !selectedResourceId}
+                onClick={() => void handleRunQuery()}
+              >
+                {runQuery.isPending ? t("databaseQuery.running") : t("dataExplorer.runQuery")}
+              </Button>
             </div>
           </div>
         </div>
+
+        {aiPanelOpen ? (
+          <aside
+            className="flex min-h-0 w-[min(100%,22rem)] shrink-0 flex-col overflow-hidden border-l border-border bg-muted/15"
+            aria-label={t("dataExplorer.aiChatTitle")}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+              <span className="truncate text-sm font-medium">{t("dataExplorer.aiChatTitle")}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setAiPanelOpen(false)}
+                aria-label={t("dataExplorer.collapseAiPanel")}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
+              <AiQueryChat
+                chat={aiChat}
+                schema={nl2sqlSchema || undefined}
+                dialect="postgresql"
+                onApplySql={(next) => {
+                  setSql(next)
+                }}
+                className="min-h-0 flex-1 overflow-hidden"
+              />
+            </div>
+          </aside>
+        ) : (
+          <div className="flex w-10 shrink-0 flex-col border-l border-border bg-muted/20">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-full shrink-0 rounded-none rounded-tl-lg border-b border-border/70"
+              onClick={() => setAiPanelOpen(true)}
+              aria-label={t("dataExplorer.expandAiPanel")}
+            >
+              <MessagesSquare className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

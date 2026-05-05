@@ -36,3 +36,13 @@ export function explainStylePrompt(key: ExplainStyleKey): string {
     }
   }
 }
+
+/** Map stored nl2sql style prompt back to a preset key for the UI (unknown → breakdown). */
+export function explainStyleKeyFromPrompt(prompt: string): ExplainStyleKey {
+  const t = prompt.trim()
+  if (t === "") return "breakdown"
+  for (const key of EXPLAIN_STYLE_ORDER) {
+    if (explainStylePrompt(key) === t) return key
+  }
+  return "breakdown"
+}

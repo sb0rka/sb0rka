@@ -314,10 +314,12 @@ export interface GenerateNl2SqlRequest {
   question: string
   schema: string
   dialect?: string
+  explanationStyle?: string
 }
 
 export interface GenerateNl2SqlResponse {
   sql: string
+  explanation?: string
   raw_message?: string
 }
 
@@ -331,6 +333,7 @@ export async function generateNl2Sql(
       question: data.question,
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
+      explanationStyle: data.explanationStyle ?? "",
     },
     base: "nl2sql",
     auth: false,
