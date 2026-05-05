@@ -15,7 +15,12 @@ import (
 	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/llm"
 )
 
-const defaultExplainStyle = "Detailed breakdown of the query: explain clause by clause (SELECT list, FROM, JOINs, WHERE, GROUP BY, HAVING, ORDER BY, subqueries, window functions, aggregates), what each part means, and the logical result in plain language."
+const defaultExplainStyle = "Use exactly three sections:\n\n" +
+	"SQL syntax issues, invalid object references, dialect mismatches, or logical problems in the statement. If none, say so briefly (e.g. \"None apparent from the text alone.\").\n\n" +
+	"Detailed breakdown of the query: explain clause by clause (SELECT list, FROM, JOINs, WHERE, GROUP BY, HAVING, ORDER BY, subqueries, window functions, aggregates), what each part means, and the logical result in plain language.\n\n" +
+	"Data safety and impact: destructive or wide writes, UPDATE/DELETE without a restrictive WHERE, TRUNCATE/DROP, privilege-heavy operations, accidental broad locks or heavy scans, injection-prone dynamic patterns if visible. For read-only SELECTs, note residual risks briefly if any."
+
+// const explainThreeSectionSuffix = "\n\nAlways structure the answer in esxactly three sections. Apply the explanation style above within each section; do not omit a section."
 
 var errEmptyExplanation = errors.New("empty explanation")
 
@@ -263,6 +268,7 @@ func explainSystemPrompt() string {
 	return strings.TrimSpace(
 		"You are an expert database engineer. The user will supply a SQL statement and a requested explanation style.\n\n" +
 			"Rules:\n" +
+			"- Every answer must follow the structure in \"Explanation style\". Do not omit a section; if nothing applies, state that explicitly under that section.\n" +
 			"- Explain the query in natural language only. Do not output a corrected or rewritten full SQL statement unless the requested style explicitly asks for example snippets.\n" +
 			"- Prefer plain text. Do not wrap the entire answer in Markdown code fences.\n" +
 			"- Be accurate about what the SQL does; if something is ambiguous, say so briefly.",
