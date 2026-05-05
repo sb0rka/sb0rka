@@ -1,35 +1,41 @@
+/**
+ * Must match `explainStyleNoneSentinel` in apps/nl2sql/internal/httpapi/handler.go.
+ */
+export const EXPLAIN_STYLE_NONE_SENTINEL =
+  "Return no text at all for the explanation: your entire reply must be empty (zero characters, no whitespace)."
+
 export type ExplainStyleKey =
+  | "none"
+  | "short"
   | "breakdown"
   | "haiku"
-  | "shakespeare"
-  | "snoopDog"
-  | "stephenKing"
-  | "caveman"
+  | "homer"
+  | "russianBylina"
 
 export const EXPLAIN_STYLE_ORDER: ExplainStyleKey[] = [
+  "none",
+  "short",
   "breakdown",
   "haiku",
-  "shakespeare",
-  "snoopDog",
-  "stephenKing",
-  "caveman",
+  "homer",
+  "russianBylina",
 ]
 
 /** Prompt fragment sent as nl2sql `style` (empty uses server default breakdown). */
 export function explainStylePrompt(key: ExplainStyleKey): string {
   switch (key) {
+    case "none":
+      return EXPLAIN_STYLE_NONE_SENTINEL
+    case "short":
+      return "Keep it short: at most a short paragraph (roughly 5–8 sentences) covering intent, main joins and filters, and what the result set represents—no exhaustive clause-by-clause breakdown."
     case "breakdown":
       return ""
     case "haiku":
       return "Explain this SQL as a haiku (or a short series of haikus)."
-    case "shakespeare":
-      return "Explain in Elizabethan English verse in the voice and vocabulary of Shakespeare."
-    case "snoopDog":
-      return "Explain in relaxed, playful verse in the style of Snoop Dogg."
-    case "stephenKing":
-      return "Explain with vivid, suspenseful narrative prose in the style of Stephen King."
-    case "caveman":
-      return "Explain in exaggerated primitive caveman-style broken English: very short choppy sentences, simple words only, grunts optional—humorous but still technically accurate about what the SQL does."
+    case "homer":
+      return "Explain in English using the elevated, epithet-rich narrative voice of Homeric epic (like the Iliad or Odyssey): rolling sentences, vivid comparisons where natural, and heroic gravity—while staying technically accurate about the SQL."
+    case "russianBylina":
+      return "Объясни SQL в духе русской былины: торжественный народный эпос, устойчивые формулы и параллелизмы, архаичный колорит; текст ответа на русском."
     default: {
       const _exhaustive: never = key
       return _exhaustive

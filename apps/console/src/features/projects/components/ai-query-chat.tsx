@@ -23,18 +23,18 @@ import {
 
 function explainStyleLabelEnglish(key: ExplainStyleKey): string {
   switch (key) {
+    case "none":
+      return "none"
+    case "short":
+      return "short"
     case "breakdown":
-      return "Breakdown"
+      return "breakdown (default)"
     case "haiku":
-      return "Haiku"
-    case "shakespeare":
-      return "Shakespeare"
-    case "snoopDog":
-      return "Snoop Dogg"
-    case "stephenKing":
-      return "Stephen King"
-    case "caveman":
-      return "Caveman"
+      return "haiku"
+    case "homer":
+      return "Homer"
+    case "russianBylina":
+      return "Русская былина"
     default: {
       const _x: never = key
       return _x
@@ -171,7 +171,7 @@ export function AiQueryChat({
                       className="gap-2 border-none"
                     >
                       <span className="max-w-[12rem] truncate text-left">
-                        {/* {explainStyleLabelEnglish(styleKey)} */}
+                        {explainStyleLabelEnglish(styleKey)}
                       </span>
                       <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
                     </Button>
