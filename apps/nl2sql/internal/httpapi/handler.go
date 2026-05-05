@@ -15,12 +15,13 @@ import (
 	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/llm"
 )
 
-const defaultExplainStyle = "Use exactly three sections:\n\n" +
-	"SQL syntax issues, invalid object references, dialect mismatches, or logical problems in the statement. If none, say so briefly (e.g. \"None apparent from the text alone.\").\n\n" +
-	"Detailed breakdown of the query: explain clause by clause (SELECT list, FROM, JOINs, WHERE, GROUP BY, HAVING, ORDER BY, subqueries, window functions, aggregates), what each part means, and the logical result in plain language.\n\n" +
-	"Data safety and impact: destructive or wide writes, UPDATE/DELETE without a restrictive WHERE, TRUNCATE/DROP, privilege-heavy operations, accidental broad locks or heavy scans, injection-prone dynamic patterns if visible. For read-only SELECTs, note residual risks briefly if any."
+const defaultExplainStyle = "Explain the SQL in clear prose. Your explanation should cover these three things (weave them naturally—you do not need separate titled sections):\n\n" +
+	"1. Syntax errors and other statement-level problems (invalid references, dialect mismatches, logic issues). If nothing stands out from the text alone, say so briefly.\n\n" +
+	"2. Detailed breakdown of the query: explain clause by clause (SELECT list, FROM, JOINs, WHERE, GROUP BY, HAVING, ORDER BY, subqueries, window functions, aggregates), what each part means, and the logical result in plain language.\n\n" +
+	"3. Data safety concerns: destructive or wide-impact writes, risky UPDATE/DELETE, DDL that drops or truncates, heavy scans or locks, injection-prone patterns if visible; for read-only queries, note any residual risks briefly if relevant."
 
-// const explainThreeSectionSuffix = "\n\nAlways structure the answer in esxactly three sections. Apply the explanation style above within each section; do not omit a section."
+// explainStyleNoneSentinel must match apps/console/src/features/projects/explain-styles.ts EXPLAIN_STYLE_NONE_SENTINEL.
+const explainStyleNoneSentinel = "Return no text at all for the explanation: your entire reply must be empty (zero characters, no whitespace)."
 
 var errEmptyExplanation = errors.New("empty explanation")
 
@@ -268,10 +269,18 @@ func explainSystemPrompt() string {
 	return strings.TrimSpace(
 		"You are an expert database engineer. The user will supply a SQL statement and a requested explanation style.\n\n" +
 			"Rules:\n" +
-			"- Every answer must follow the structure in \"Explanation style\". Do not omit a section; if nothing applies, state that explicitly under that section.\n" +
+			"- Follow \"Explanation style\" for tone, length, and any format it explicitly requires (e.g. headings). Otherwise address each topic it mentions in natural prose; if a topic has nothing to say, note that briefly.\n" +
 			"- Explain the query in natural language only. Do not output a corrected or rewritten full SQL statement unless the requested style explicitly asks for example snippets.\n" +
 			"- Prefer plain text. Do not wrap the entire answer in Markdown code fences.\n" +
 			"- Be accurate about what the SQL does; if something is ambiguous, say so briefly.",
+	)
+}
+
+func explainSystemPromptNone() string {
+	return strings.TrimSpace(
+		"The user supplies SQL and an \"Explanation style\" that may require a completely empty assistant reply.\n\n" +
+			"If the explanation style asks for zero characters and no whitespace, comply exactly: your entire message content must be empty. " +
+			"Otherwise follow the style text literally.",
 	)
 }
 
@@ -286,6 +295,7 @@ func explainUserPrompt(sql, style string) string {
 
 // explainStyleForPrompt maps user style (already trimmed) to the string passed to explainUserPrompt.
 // Empty style uses defaultExplainStyle. If non-empty style exceeds maxRunes, tooLong is true.
+// The none sentinel is passed through unchanged (see explainSystemPromptNone / completeExplain).
 func explainStyleForPrompt(trimmedStyle string, maxRunes int) (styleForPrompt string, tooLong bool) {
 	if trimmedStyle == "" {
 		return defaultExplainStyle, false
@@ -296,17 +306,32 @@ func explainStyleForPrompt(trimmedStyle string, maxRunes int) (styleForPrompt st
 	return trimmedStyle, false
 }
 
+func isExplainStyleNone(styleForPrompt string) bool {
+	return styleForPrompt == explainStyleNoneSentinel
+}
+
 func (h *Handler) completeExplain(ctx context.Context, sql, styleForPrompt string) (explanation string, raw string, err error) {
+	sys := explainSystemPrompt()
+	if isExplainStyleNone(styleForPrompt) {
+		sys = explainSystemPromptNone()
+	}
 	messages := []llm.Message{
-		{Role: "system", Content: explainSystemPrompt()},
+		{Role: "system", Content: sys},
 		{Role: "user", Content: explainUserPrompt(sql, styleForPrompt)},
 	}
-	raw, err = h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	if isExplainStyleNone(styleForPrompt) {
+		raw, err = h.LLM.ChatCompletionAllowEmpty(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	} else {
+		raw, err = h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	}
 	if err != nil {
 		return "", "", err
 	}
 	explanation = normalizeExplanation(raw)
 	if explanation == "" {
+		if isExplainStyleNone(styleForPrompt) {
+			return "", raw, nil
+		}
 		return "", raw, errEmptyExplanation
 	}
 	return explanation, raw, nil
