@@ -210,6 +210,19 @@ export function useExplainNl2Sql() {
   })
 }
 
+export {
+  lastExplanationStyle,
+  useAiQueryChat,
+  type AiQueryChatAssistantMessage,
+  type AiQueryChatExplainPayload,
+  type AiQueryChatExplanationMessage,
+  type AiQueryChatGeneratePayload,
+  type AiQueryChatMessage,
+  type AiQueryChatSendPayload,
+  type AiQueryChatSqlMessage,
+  type AiQueryChatUserMessage,
+} from "./use-ai-query-chat"
+
 export function useDeactivateResource(projectId: string, resourceId?: string) {
   const qc = useQueryClient()
 
