@@ -45,6 +45,15 @@ type Client struct {
 }
 
 func (c *Client) ChatCompletion(ctx context.Context, model string, temperature float64, messages []Message) (string, error) {
+	return c.chatCompletion(ctx, model, temperature, messages, false)
+}
+
+// ChatCompletionAllowEmpty is like ChatCompletion but accepts an empty assistant message body (e.g. "no explanation" style).
+func (c *Client) ChatCompletionAllowEmpty(ctx context.Context, model string, temperature float64, messages []Message) (string, error) {
+	return c.chatCompletion(ctx, model, temperature, messages, true)
+}
+
+func (c *Client) chatCompletion(ctx context.Context, model string, temperature float64, messages []Message, allowEmpty bool) (string, error) {
 	if c == nil {
 		return "", fmt.Errorf("llm client is nil")
 	}
@@ -99,8 +108,12 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, temperature f
 	if parsed.Error != nil && parsed.Error.Message != "" {
 		return "", fmt.Errorf("llm error: %s", parsed.Error.Message)
 	}
-	if len(parsed.Choices) == 0 || strings.TrimSpace(parsed.Choices[0].Message.Content) == "" {
+	if len(parsed.Choices) == 0 {
 		return "", fmt.Errorf("empty completion")
 	}
-	return parsed.Choices[0].Message.Content, nil
+	content := parsed.Choices[0].Message.Content
+	if !allowEmpty && strings.TrimSpace(content) == "" {
+		return "", fmt.Errorf("empty completion")
+	}
+	return content, nil
 }
