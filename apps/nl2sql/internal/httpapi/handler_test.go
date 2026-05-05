@@ -52,10 +52,16 @@ func TestNormalizeExplanation(t *testing.T) {
 func TestHandler_HandleGenerate(t *testing.T) {
 	t.Parallel()
 
+	var llmCalls int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llmCalls++
+		content := "CREATE TABLE t (id int PRIMARY KEY);"
+		if llmCalls == 2 {
+			content = "Creates table t with an integer primary key column id."
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
-				{"message": map[string]any{"role": "assistant", "content": "CREATE TABLE t (id int PRIMARY KEY);"}},
+				{"message": map[string]any{"role": "assistant", "content": content}},
 			},
 		})
 	}))
@@ -77,15 +83,23 @@ func TestHandler_HandleGenerate(t *testing.T) {
 	}
 
 	res, err := h.HandleGenerate(context.Background(), GenerateRequest{
-		Question: "make a table t with id",
-		Schema:   "existing: none",
-		Dialect:  "postgresql",
+		Question:         "make a table t with id",
+		Schema:           "existing: none",
+		Dialect:          "postgresql",
+		ExplanationStyle: "brief",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if llmCalls != 2 {
+		t.Fatalf("expected 2 LLM calls, got %d", llmCalls)
+	}
 	if res.SQL != "CREATE TABLE t (id int PRIMARY KEY);" {
 		t.Fatalf("sql %q", res.SQL)
+	}
+	wantExplain := "Creates table t with an integer primary key column id."
+	if res.Explanation != wantExplain {
+		t.Fatalf("explanation %q want %q", res.Explanation, wantExplain)
 	}
 }
 
@@ -218,6 +232,85 @@ func TestHandler_ServeHTTP_explain_ok(t *testing.T) {
 	}
 }
 
+func TestHandler_ServeHTTP_generate_ok(t *testing.T) {
+	t.Parallel()
+
+	var llmCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llmCalls++
+		content := "SELECT 1"
+		if llmCalls == 2 {
+			content = "Returns a single row with constant 1."
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"content": content}},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	h := &Handler{
+		Cfg: config.Config{
+			OpenAIModel:      "m",
+			MaxRequestBytes:  256 * 1024,
+			MaxQuestionRunes: 100,
+			MaxSchemaRunes:   100,
+		},
+		LLM:     &llm.Client{BaseURL: srv.URL + "/v1", APIKey: "k", HTTPClient: srv.Client()},
+		Limiter: limiter.New(100, 100),
+	}
+	req := httptest.NewRequest(http.MethodPost, "/generate", bytes.NewReader([]byte(`{"question":"one","schema":"","explanationStyle":"one sentence"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+	if llmCalls != 2 {
+		t.Fatalf("expected 2 LLM calls, got %d", llmCalls)
+	}
+	var out GenerateResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.SQL != "SELECT 1" {
+		t.Fatalf("sql %q", out.SQL)
+	}
+	if out.Explanation != "Returns a single row with constant 1." {
+		t.Fatalf("explanation %q", out.Explanation)
+	}
+}
+
+func TestHandler_ServeHTTP_generate_explanationStyle_too_long(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		Cfg: config.Config{
+			OpenAIModel:      "m",
+			MaxRequestBytes:  256 * 1024,
+			MaxQuestionRunes: 3,
+			MaxSchemaRunes:   100,
+		},
+		LLM:     &llm.Client{},
+		Limiter: limiter.New(100, 100),
+	}
+	req := httptest.NewRequest(http.MethodPost, "/generate", bytes.NewReader([]byte(`{"question":"hi","schema":"","explanationStyle":"aaaa"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+	var er ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &er); err != nil {
+		t.Fatal(err)
+	}
+	if er.Error != "explanation_style exceeds maximum length" {
+		t.Fatalf("error %q", er.Error)
+	}
+}
+
 func TestHandler_ServeHTTP_unknownField(t *testing.T) {
 	t.Parallel()
 
@@ -258,10 +351,15 @@ func TestHandler_ServeHTTP_sharedSecret(t *testing.T) {
 	req2 := httptest.NewRequest(http.MethodPost, "/generate", bytes.NewReader([]byte(`{"question":"q","schema":""}`)))
 	req2.Header.Set("X-NL2SQL-Secret", "s3cret")
 	rec2 := httptest.NewRecorder()
-	// LLM will fail — use a mock server
+	var llmCalls int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llmCalls++
+		content := "SELECT 1"
+		if llmCalls == 2 {
+			content = "Returns one column of integer 1."
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"choices": []map[string]any{{"message": map[string]any{"content": "SELECT 1"}}},
+			"choices": []map[string]any{{"message": map[string]any{"content": content}}},
 		})
 	}))
 	t.Cleanup(srv.Close)

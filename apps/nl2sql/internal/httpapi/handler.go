@@ -11,21 +11,25 @@ import (
 	"unicode/utf8"
 
 	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/config"
-	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/llm"
 	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/limiter"
+	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/llm"
 )
 
 const defaultExplainStyle = "Detailed breakdown of the query: explain clause by clause (SELECT list, FROM, JOINs, WHERE, GROUP BY, HAVING, ORDER BY, subqueries, window functions, aggregates), what each part means, and the logical result in plain language."
 
+var errEmptyExplanation = errors.New("empty explanation")
+
 type GenerateRequest struct {
-	Question string `json:"question"`
-	Schema   string `json:"schema"`
-	Dialect  string `json:"dialect"`
+	Question         string `json:"question"`
+	Schema           string `json:"schema"`
+	Dialect          string `json:"dialect"`
+	ExplanationStyle string `json:"explanationStyle"`
 }
 
 type GenerateResponse struct {
-	SQL        string `json:"sql"`
-	RawMessage string `json:"raw_message,omitempty"`
+	SQL         string `json:"sql"`
+	Explanation string `json:"explanation"`
+	RawMessage  string `json:"raw_message,omitempty"`
 }
 
 type ExplainRequest struct {
@@ -35,7 +39,7 @@ type ExplainRequest struct {
 
 type ExplainResponse struct {
 	Explanation string `json:"explanation"`
-	RawMessage    string `json:"raw_message,omitempty"`
+	RawMessage  string `json:"raw_message,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -103,6 +107,7 @@ func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	req.Question = strings.TrimSpace(req.Question)
 	req.Schema = strings.TrimSpace(req.Schema)
 	req.Dialect = strings.TrimSpace(req.Dialect)
+	req.ExplanationStyle = strings.TrimSpace(req.ExplanationStyle)
 	if req.Question == "" {
 		writeJSONError(w, http.StatusBadRequest, "question is required")
 		return
@@ -113,6 +118,11 @@ func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	if utf8.RuneCountInString(req.Schema) > h.Cfg.MaxSchemaRunes {
 		writeJSONError(w, http.StatusBadRequest, "schema exceeds maximum length")
+		return
+	}
+	styleForPrompt, tooLong := explainStyleForPrompt(req.ExplanationStyle, h.Cfg.MaxQuestionRunes)
+	if tooLong {
+		writeJSONError(w, http.StatusBadRequest, "explanation_style exceeds maximum length")
 		return
 	}
 	if req.Dialect == "" {
@@ -137,7 +147,17 @@ func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := GenerateResponse{SQL: sql}
+	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt)
+	if err != nil {
+		if errors.Is(err, errEmptyExplanation) {
+			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
+			return
+		}
+		writeJSONError(w, http.StatusBadGateway, "LLM request failed")
+		return
+	}
+
+	out := GenerateResponse{SQL: sql, Explanation: explanation}
 	if h.Cfg.IncludeRawMessage {
 		out.RawMessage = raw
 	}
@@ -168,29 +188,20 @@ func (h *Handler) handleExplain(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "sql exceeds maximum length")
 		return
 	}
-	styleForPrompt := req.Style
-	if styleForPrompt == "" {
-		styleForPrompt = defaultExplainStyle
-	} else if utf8.RuneCountInString(styleForPrompt) > h.Cfg.MaxQuestionRunes {
+	styleForPrompt, tooLong := explainStyleForPrompt(req.Style, h.Cfg.MaxQuestionRunes)
+	if tooLong {
 		writeJSONError(w, http.StatusBadRequest, "style exceeds maximum length")
 		return
 	}
 
 	ctx := r.Context()
-	messages := []llm.Message{
-		{Role: "system", Content: explainSystemPrompt()},
-		{Role: "user", Content: explainUserPrompt(req.SQL, styleForPrompt)},
-	}
-
-	raw, err := h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt)
 	if err != nil {
+		if errors.Is(err, errEmptyExplanation) {
+			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
+			return
+		}
 		writeJSONError(w, http.StatusBadGateway, "LLM request failed")
-		return
-	}
-
-	explanation := normalizeExplanation(raw)
-	if explanation == "" {
-		writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
 		return
 	}
 
@@ -265,6 +276,34 @@ func explainUserPrompt(sql, style string) string {
 	b.WriteString("\n\nExplanation style:\n")
 	b.WriteString(style)
 	return b.String()
+}
+
+// explainStyleForPrompt maps user style (already trimmed) to the string passed to explainUserPrompt.
+// Empty style uses defaultExplainStyle. If non-empty style exceeds maxRunes, tooLong is true.
+func explainStyleForPrompt(trimmedStyle string, maxRunes int) (styleForPrompt string, tooLong bool) {
+	if trimmedStyle == "" {
+		return defaultExplainStyle, false
+	}
+	if utf8.RuneCountInString(trimmedStyle) > maxRunes {
+		return "", true
+	}
+	return trimmedStyle, false
+}
+
+func (h *Handler) completeExplain(ctx context.Context, sql, styleForPrompt string) (explanation string, raw string, err error) {
+	messages := []llm.Message{
+		{Role: "system", Content: explainSystemPrompt()},
+		{Role: "user", Content: explainUserPrompt(sql, styleForPrompt)},
+	}
+	raw, err = h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	if err != nil {
+		return "", "", err
+	}
+	explanation = normalizeExplanation(raw)
+	if explanation == "" {
+		return "", raw, errEmptyExplanation
+	}
+	return explanation, raw, nil
 }
 
 func extractSQL(s string) string {
@@ -343,6 +382,7 @@ func (h *Handler) HandleGenerate(ctx context.Context, req GenerateRequest) (Gene
 	req.Question = strings.TrimSpace(req.Question)
 	req.Schema = strings.TrimSpace(req.Schema)
 	req.Dialect = strings.TrimSpace(req.Dialect)
+	req.ExplanationStyle = strings.TrimSpace(req.ExplanationStyle)
 	if req.Question == "" {
 		return GenerateResponse{}, errors.New("question is required")
 	}
@@ -351,6 +391,10 @@ func (h *Handler) HandleGenerate(ctx context.Context, req GenerateRequest) (Gene
 	}
 	if utf8.RuneCountInString(req.Schema) > h.Cfg.MaxSchemaRunes {
 		return GenerateResponse{}, errors.New("schema exceeds maximum length")
+	}
+	styleForPrompt, tooLong := explainStyleForPrompt(req.ExplanationStyle, h.Cfg.MaxQuestionRunes)
+	if tooLong {
+		return GenerateResponse{}, errors.New("explanation_style exceeds maximum length")
 	}
 	if req.Dialect == "" {
 		req.Dialect = "postgresql"
@@ -367,7 +411,11 @@ func (h *Handler) HandleGenerate(ctx context.Context, req GenerateRequest) (Gene
 	if sql == "" {
 		return GenerateResponse{}, errors.New("empty sql")
 	}
-	out := GenerateResponse{SQL: sql}
+	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt)
+	if err != nil {
+		return GenerateResponse{}, err
+	}
+	out := GenerateResponse{SQL: sql, Explanation: explanation}
 	if h.Cfg.IncludeRawMessage {
 		out.RawMessage = raw
 	}
@@ -384,23 +432,13 @@ func (h *Handler) HandleExplain(ctx context.Context, req ExplainRequest) (Explai
 	if utf8.RuneCountInString(req.SQL) > h.Cfg.MaxQuestionRunes {
 		return ExplainResponse{}, errors.New("sql exceeds maximum length")
 	}
-	styleForPrompt := req.Style
-	if styleForPrompt == "" {
-		styleForPrompt = defaultExplainStyle
-	} else if utf8.RuneCountInString(styleForPrompt) > h.Cfg.MaxQuestionRunes {
+	styleForPrompt, tooLong := explainStyleForPrompt(req.Style, h.Cfg.MaxQuestionRunes)
+	if tooLong {
 		return ExplainResponse{}, errors.New("style exceeds maximum length")
 	}
-	messages := []llm.Message{
-		{Role: "system", Content: explainSystemPrompt()},
-		{Role: "user", Content: explainUserPrompt(req.SQL, styleForPrompt)},
-	}
-	raw, err := h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt)
 	if err != nil {
 		return ExplainResponse{}, err
-	}
-	explanation := normalizeExplanation(raw)
-	if explanation == "" {
-		return ExplainResponse{}, errors.New("empty explanation")
 	}
 	out := ExplainResponse{Explanation: explanation}
 	if h.Cfg.IncludeRawMessage {
