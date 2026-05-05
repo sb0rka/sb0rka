@@ -63,7 +63,7 @@ BEFORE UPDATE ON plans
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_plans_kind
+CREATE INDEX IF NOT EXISTS ix_plans_kind
     ON plans (kind);
 
 CREATE TABLE IF NOT EXISTS subject_plans (
@@ -83,7 +83,7 @@ BEFORE UPDATE ON subject_plans
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_subject_plans_plan_id
+CREATE INDEX IF NOT EXISTS ix_subject_plans_plan_id
     ON subject_plans (plan_id);
 
 CREATE TABLE IF NOT EXISTS quota_definitions (
@@ -110,7 +110,7 @@ BEFORE UPDATE ON quota_definitions
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_quota_definitions_scope
+CREATE INDEX IF NOT EXISTS ix_quota_definitions_scope
     ON quota_definitions (scope);
 
 CREATE TABLE IF NOT EXISTS plan_quotas (
@@ -134,7 +134,7 @@ BEFORE UPDATE ON plan_quotas
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_plan_quotas_quota_def_id
+CREATE INDEX IF NOT EXISTS ix_plan_quotas_quota_def_id
     ON plan_quotas (quota_definition_id);
 
 -- PROJECTS
@@ -165,10 +165,10 @@ BEFORE UPDATE ON projects
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_projects_billing_subject_id
+CREATE INDEX IF NOT EXISTS ix_projects_billing_subject_id
     ON projects (billing_subject_id);
 
-CREATE INDEX idx_projects_owner_subj_active
+CREATE INDEX IF NOT EXISTS ix_projects_owner_subj_active
     ON projects (owner_subject_id)
     WHERE is_active = true;
 
@@ -192,7 +192,7 @@ BEFORE UPDATE ON project_members
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_project_members_subject_id
+CREATE INDEX IF NOT EXISTS ix_project_members_subject_id
     ON project_members (subject_id);
 
 -- RESOURCES
@@ -220,10 +220,10 @@ BEFORE UPDATE ON resources
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_resources_project_kind
+CREATE INDEX IF NOT EXISTS ix_resources_project_kind
     ON resources (project_id, kind);
 
-CREATE INDEX idx_resources_project_created_at
+CREATE INDEX IF NOT EXISTS ix_resources_project_created_at
     ON resources (project_id, created_at);
 
 CREATE TABLE IF NOT EXISTS resource_states (
@@ -246,7 +246,7 @@ BEFORE UPDATE ON resource_states
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_res_states_prj_id_rt_st
+CREATE INDEX IF NOT EXISTS ix_res_states_prj_id_rt_st
     ON resource_states (project_id, runtime_state);
 
 CREATE TABLE IF NOT EXISTS dbs (
@@ -300,11 +300,11 @@ BEFORE UPDATE ON encryption_keys
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE UNIQUE INDEX uq_enc_keys_active_provider
+CREATE UNIQUE INDEX IF NOT EXISTS uq_enc_keys_active_provider
     ON encryption_keys (provider)
     WHERE status = 'active';
 
-CREATE INDEX idx_enc_keys_status_created_at
+CREATE INDEX IF NOT EXISTS ix_enc_keys_status_created_at
     ON encryption_keys (status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS secrets (
@@ -336,13 +336,13 @@ BEFORE UPDATE ON secrets
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_secrets_project_created_at
+CREATE INDEX IF NOT EXISTS ix_secrets_project_created_at
     ON secrets (project_id, created_at DESC);
 
-CREATE INDEX idx_secrets_proj_res_cur_version
+CREATE INDEX IF NOT EXISTS ix_secrets_proj_res_cur_version
     ON secrets (project_id, resource_id, current_version_no);
 
-CREATE INDEX idx_secrets_scheduled_destroy_at
+CREATE INDEX IF NOT EXISTS ix_secrets_scheduled_destroy_at
     ON secrets (scheduled_destroy_at)
     WHERE scheduled_destroy_at IS NOT NULL;
 
@@ -373,7 +373,7 @@ BEFORE UPDATE ON secret_versions
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_sec_ver_proj_sec_ver_desc
+CREATE INDEX IF NOT EXISTS ix_sec_ver_proj_sec_ver_desc
     ON secret_versions (project_id, secret_id, version_no DESC);
 
 CREATE TABLE IF NOT EXISTS secret_version_materials (
@@ -433,14 +433,14 @@ BEFORE UPDATE ON db_verifiers
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_db_vrf_pwd_secret_id_version
+CREATE INDEX IF NOT EXISTS ix_db_vrf_pwd_secret_id_version
     ON db_verifiers (
         project_id,
         password_secret_id,
         password_desired_version
     );
 
-CREATE INDEX idx_db_vrf_project_desired_state
+CREATE INDEX IF NOT EXISTS ix_db_vrf_project_desired_state
     ON db_verifiers (project_id, password_desired_state);
 
 -- TAGS
@@ -490,7 +490,7 @@ BEFORE UPDATE ON resource_tags
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX idx_resource_tags_proj_tag_res
+CREATE INDEX IF NOT EXISTS ix_resource_tags_proj_tag_res
     ON resource_tags (project_id, tag_id, resource_id);
 
 
