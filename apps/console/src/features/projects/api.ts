@@ -343,6 +343,8 @@ export async function generateNl2Sql(
 export interface ExplainNl2SqlRequest {
   sql: string
   style?: string
+  schema?: string
+  dialect?: string
 }
 
 export interface ExplainNl2SqlResponse {
@@ -359,6 +361,8 @@ export async function explainNl2Sql(
     json: {
       sql: data.sql,
       style: data.style ?? "",
+      schema: data.schema ?? "",
+      dialect: data.dialect ?? "postgresql",
     },
     base: "nl2sql",
     auth: false,

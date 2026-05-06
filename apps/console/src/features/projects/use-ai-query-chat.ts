@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react"
 import { ApiError } from "@/lib/api-client"
 import { explainNl2Sql, generateNl2Sql } from "./api"
+import { explainStylePrompt } from "./explain-styles"
+
+const DEFAULT_LAST_GENERATE_STYLE = explainStylePrompt("none")
 
 export type AiQueryChatUserMessage = {
   role: "user"
@@ -61,10 +64,20 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-export function useAiQueryChat() {
+export type UseAiQueryChatOptions = {
+  /** Default schema snapshot for `/explain` and explanation refresh (e.g. live introspection text). */
+  schema?: string
+  dialect?: string
+}
+
+export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
+  const schema = opts?.schema ?? ""
+  const dialect = opts?.dialect ?? "postgresql"
+
   const [messages, setMessages] = useState<AiQueryChatMessage[]>([])
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastGenerateStyle, setLastGenerateStyle] = useState(DEFAULT_LAST_GENERATE_STYLE)
 
   const clearError = useCallback(() => setError(null), [])
 
@@ -72,6 +85,7 @@ export function useAiQueryChat() {
     setMessages([])
     setError(null)
     setIsPending(false)
+    setLastGenerateStyle(DEFAULT_LAST_GENERATE_STYLE)
   }, [])
 
   const sendMessage = useCallback(async (payload: AiQueryChatSendPayload) => {
@@ -85,7 +99,7 @@ export function useAiQueryChat() {
     try {
       if (payload.type === "explain") {
         const style = payload.style ?? ""
-        const res = await explainNl2Sql({ sql: trimmed, style })
+        const res = await explainNl2Sql({ sql: trimmed, style, schema, dialect })
         setMessages((prev) => [
           ...prev,
           {
@@ -100,8 +114,8 @@ export function useAiQueryChat() {
         const explanationStyle = (payload.style ?? "").trim()
         const res = await generateNl2Sql({
           question: trimmed,
-          schema: payload.schema ?? "",
-          dialect: payload.dialect ?? "postgresql",
+          schema: payload.schema ?? schema,
+          dialect: payload.dialect ?? dialect,
           explanationStyle,
         })
         setMessages((prev) => [
@@ -115,13 +129,14 @@ export function useAiQueryChat() {
             sql: res.sql,
           },
         ])
+        setLastGenerateStyle(explanationStyle)
       }
     } catch (e) {
       setError(errorMessage(e, "Request failed"))
     } finally {
       setIsPending(false)
     }
-  }, [])
+  }, [schema, dialect])
 
   const refreshExplanationAt = useCallback(
     async (index: number, stylePrompt: string) => {
@@ -131,7 +146,8 @@ export function useAiQueryChat() {
       setError(null)
       setIsPending(true)
       try {
-        const res = await explainNl2Sql({ sql: msg.sql, style: stylePrompt })
+        const trimmedStyle = stylePrompt.trim()
+        const res = await explainNl2Sql({ sql: msg.sql, style: trimmedStyle, schema, dialect })
         setMessages((prev) => {
           const next = [...prev]
           const cur = next[index]
@@ -139,23 +155,25 @@ export function useAiQueryChat() {
           next[index] = {
             ...cur,
             output: res.explanation,
-            style: stylePrompt,
+            style: trimmedStyle,
           }
           return next
         })
+        setLastGenerateStyle(trimmedStyle)
       } catch (e) {
         setError(errorMessage(e, "Request failed"))
       } finally {
         setIsPending(false)
       }
     },
-    [messages],
+    [messages, schema, dialect],
   )
 
   return {
     messages,
     isPending,
     error,
+    lastGenerateStyle,
     sendMessage,
     refreshExplanationAt,
     reset,

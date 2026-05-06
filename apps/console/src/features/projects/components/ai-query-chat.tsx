@@ -15,11 +15,7 @@ import {
   explainStylePrompt,
   type ExplainStyleKey,
 } from "../explain-styles"
-import {
-  lastExplanationStyle,
-  type AiQueryChatMessage,
-  type AiQueryChatSendPayload,
-} from "../use-ai-query-chat"
+import { type AiQueryChatMessage, type AiQueryChatSendPayload } from "../use-ai-query-chat"
 
 function explainStyleLabelEnglish(key: ExplainStyleKey): string {
   switch (key) {
@@ -46,6 +42,7 @@ export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
   isPending: boolean
   error: string | null
+  lastGenerateStyle: string
   sendMessage: (payload: AiQueryChatSendPayload) => Promise<void>
   refreshExplanationAt: (index: number, stylePrompt: string) => Promise<void>
   clearError: () => void
@@ -66,7 +63,15 @@ export function AiQueryChat({
   onApplySql,
   className,
 }: AiQueryChatProps) {
-  const { messages, isPending, error, sendMessage, refreshExplanationAt, clearError } = chat
+  const {
+    messages,
+    isPending,
+    error,
+    lastGenerateStyle,
+    sendMessage,
+    refreshExplanationAt,
+    clearError,
+  } = chat
   const [input, setInput] = useState("")
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -91,7 +96,7 @@ export function AiQueryChat({
     void sendMessage({
       type: "generate",
       message: trimmed,
-      style: lastExplanationStyle(messages),
+      style: lastGenerateStyle,
       schema,
       dialect,
     })

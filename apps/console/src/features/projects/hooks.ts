@@ -221,6 +221,7 @@ export {
   type AiQueryChatSendPayload,
   type AiQueryChatSqlMessage,
   type AiQueryChatUserMessage,
+  type UseAiQueryChatOptions,
 } from "./use-ai-query-chat"
 
 export function useDeactivateResource(projectId: string, resourceId?: string) {

@@ -59,7 +59,6 @@ export function DataExplorerPage() {
   const { id = "" } = useParams<{ id: string }>()
   const schemaQuery = useDataExplorerSchema(id)
   const runQuery = useRunDatabaseQuery()
-  const aiChat = useAiQueryChat()
 
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [sql, setSql] = useState("select 1;")
@@ -72,6 +71,8 @@ export function DataExplorerPage() {
     if (!selectedResourceId) return ""
     return buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)
   }, [nodes, selectedResourceId])
+
+  const aiChat = useAiQueryChat({ schema: nl2sqlSchema, dialect: "postgresql" })
 
   useEffect(() => {
     if (nodes.length === 0) return
