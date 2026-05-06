@@ -66,6 +66,29 @@ EXECUTE FUNCTION set_updated_at();
 CREATE INDEX IF NOT EXISTS ix_plans_kind
     ON plans (kind);
 
+CREATE OR REPLACE FUNCTION enforce_subject_plan_kind()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_plan_kind VARCHAR(8);
+BEGIN
+    SELECT kind INTO v_plan_kind
+    FROM plans
+    WHERE id = NEW.plan_id;
+
+    IF v_plan_kind IS NULL THEN
+        RAISE EXCEPTION 'plan % not found', NEW.plan_id;
+    END IF;
+
+    IF v_plan_kind <> 'account' THEN
+        RAISE EXCEPTION 'subject_plans requires account plan, got %', v_plan_kind;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS subject_plans (
     subject_id UUID NOT NULL,
     plan_id UUID NOT NULL,
@@ -82,6 +105,12 @@ CREATE TRIGGER trg_subject_plans_set_updated_at
 BEFORE UPDATE ON subject_plans
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_subject_plans_plan_kind ON subject_plans;
+CREATE TRIGGER trg_subject_plans_plan_kind
+BEFORE INSERT OR UPDATE ON subject_plans
+FOR EACH ROW
+EXECUTE FUNCTION enforce_subject_plan_kind();
 
 CREATE INDEX IF NOT EXISTS ix_subject_plans_plan_id
     ON subject_plans (plan_id);
@@ -113,6 +142,41 @@ EXECUTE FUNCTION set_updated_at();
 CREATE INDEX IF NOT EXISTS ix_quota_definitions_scope
     ON quota_definitions (scope);
 
+CREATE OR REPLACE FUNCTION enforce_plan_quota_scope_match()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_plan_kind VARCHAR(8);
+    v_quota_scope VARCHAR(8);
+BEGIN
+    SELECT kind INTO v_plan_kind
+    FROM plans
+    WHERE id = NEW.plan_id;
+
+    IF v_plan_kind IS NULL THEN
+        RAISE EXCEPTION 'plan % not found', NEW.plan_id;
+    END IF;
+
+    SELECT scope INTO v_quota_scope
+    FROM quota_definitions
+    WHERE id = NEW.quota_definition_id;
+
+    IF v_quota_scope IS NULL THEN
+        RAISE EXCEPTION 'quota_definition % not found', NEW.quota_definition_id;
+    END IF;
+
+    IF v_plan_kind <> v_quota_scope THEN
+        RAISE EXCEPTION
+            'plan kind % does not match quota scope %',
+            v_plan_kind,
+            v_quota_scope;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS plan_quotas (
     plan_id UUID NOT NULL,
     quota_definition_id UUID NOT NULL,
@@ -134,10 +198,39 @@ BEFORE UPDATE ON plan_quotas
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_plan_quotas_scope_match ON plan_quotas;
+CREATE TRIGGER trg_plan_quotas_scope_match
+BEFORE INSERT OR UPDATE ON plan_quotas
+FOR EACH ROW
+EXECUTE FUNCTION enforce_plan_quota_scope_match();
+
 CREATE INDEX IF NOT EXISTS ix_plan_quotas_quota_def_id
     ON plan_quotas (quota_definition_id);
 
 -- PROJECTS
+
+CREATE OR REPLACE FUNCTION enforce_project_plan_kind()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_plan_kind VARCHAR(8);
+BEGIN
+    SELECT kind INTO v_plan_kind
+    FROM plans
+    WHERE id = NEW.plan_id;
+
+    IF v_plan_kind IS NULL THEN
+        RAISE EXCEPTION 'plan % not found', NEW.plan_id;
+    END IF;
+
+    IF v_plan_kind <> 'project' THEN
+        RAISE EXCEPTION 'projects requires project plan, got %', v_plan_kind;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS projects (
     id VARCHAR(12) DEFAULT gen_project_id() NOT NULL,
@@ -164,6 +257,12 @@ CREATE TRIGGER trg_projects_set_updated_at
 BEFORE UPDATE ON projects
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_projects_plan_kind ON projects;
+CREATE TRIGGER trg_projects_plan_kind
+BEFORE INSERT OR UPDATE ON projects
+FOR EACH ROW
+EXECUTE FUNCTION enforce_project_plan_kind();
 
 CREATE INDEX IF NOT EXISTS ix_projects_billing_subject_id
     ON projects (billing_subject_id);
