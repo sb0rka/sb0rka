@@ -263,6 +263,8 @@ const resources = {
         aiChatTitle: "AI-запрос",
         collapseAiPanel: "Свернуть панель AI",
         expandAiPanel: "Развернуть панель AI",
+        schemaTreeDatabases: "Базы данных ({{count}})",
+        toggleDatabaseSchema: "Показать или скрыть схему: {{name}}",
       },
       secrets: {
         title: "Секреты",
@@ -602,6 +604,8 @@ const resources = {
         aiChatTitle: "AI query",
         collapseAiPanel: "Collapse AI panel",
         expandAiPanel: "Expand AI panel",
+        schemaTreeDatabases: "Databases ({{count}})",
+        toggleDatabaseSchema: "Show or hide schema: {{name}}",
       },
       secrets: {
         title: "Secrets",
