@@ -2,29 +2,42 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
+	_ "embed"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/sb0rka/sb0rka/apps/api/internal/authz"
 	"github.com/sb0rka/sb0rka/apps/api/internal/config"
 	"github.com/sb0rka/sb0rka/apps/api/internal/logger"
+	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store"
 	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
-
-	"golang.org/x/crypto/chacha20poly1305"
 )
 
-const APIServerVersion = "0.0.1"
+//go:embed version.txt
+var versionFile string
 
-func runServer() error {
+var APIVersion = strings.TrimSpace(versionFile)
+
+func serverCMD(args []string) error {
+	fs := flag.NewFlagSet("server", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("server cmd got unexpected arguments: %v", fs.Args())
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %v", err)
@@ -67,8 +80,19 @@ func runServer() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	secretKeyResolver, err := service.NewTinkKeysetResolverFromJSON(
+		cfg.Server.AuthConfig.SecretKeyRef,
+		cfg.Server.AuthConfig.SecretTinkKeysetJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize secret key resolver: %v", err)
+	}
+	secretCrypto := service.NewTinkAEADSecretCrypto(secretKeyResolver)
+
 	newSrv := transport.NewServer(transport.Dependencies{
 		PlatformDatabase: platformDatabase,
+		Authorizer:       authz.NewRBACAuthorizer(platformDatabase),
+		SecretCrypto:     secretCrypto,
 		Telemetry:        telemetryService,
 		Cfg:              cfg.Server,
 		Log:              log,
@@ -104,51 +128,40 @@ func runServer() error {
 	return nil
 }
 
-func serverCMD(args []string) error {
-	fs := flag.NewFlagSet("server", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if fs.NArg() != 0 {
-		return fmt.Errorf("server cmd got unexpected arguments: %v", fs.Args())
-	}
-
-	return runServer()
-}
-
-func runSecretKey() error {
-	key := make([]byte, chacha20poly1305.KeySize)
-	if _, err := rand.Read(key); err != nil {
-		return fmt.Errorf("failed to generate secret key: %w", err)
-	}
-
-	// Return Base64 encoded secret key
-	fmt.Printf("SECRET_MASTER_KEY=%s\n", base64.RawStdEncoding.EncodeToString(key))
-
-	return nil
-}
-
 func secretKeyCMD(args []string) error {
 	fs := flag.NewFlagSet("secret-key", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
-	return runSecretKey()
+	keysetJSON, err := service.GenerateTinkAEADKeysetJSON()
+	if err != nil {
+		return fmt.Errorf("failed to generate tink keyset: %w", err)
+	}
+	fmt.Printf("SECRET_TINK_KEYSET_JSON=%s\n", keysetJSON)
+
+	return nil
 }
 
 func versionCMD(args []string) error {
 	fs := flag.NewFlagSet("version", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
-	return fmt.Errorf("server version: %s", APIServerVersion)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	_, err := fmt.Fprintln(os.Stdout, APIVersion)
+	return err
 }
 
 func usageCMD(w *os.File) {
-	fmt.Fprintln(w, "Use one of command: gen-secret-key, server, version")
+	fmt.Fprintln(w, "Usage: api <command> [flags]")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Commands:")
+	fmt.Fprintln(w, "  gen-secret-key     Generate secret key")
+	fmt.Fprintln(w, "  server    Run API server")
+	fmt.Fprintln(w, "  version   Print api version")
 }
 
-// run routes top-level CLI arguments to the appropriate subcommand handler.
 func run(args []string) error {
 	if len(args) == 0 {
 		usageCMD(os.Stderr)

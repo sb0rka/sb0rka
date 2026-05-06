@@ -1,7 +1,20 @@
 package model
 
-import (
-	"time"
+import "time"
+
+const (
+	ResourceKindDatabase = "database"
+	ResourceKindSecret   = "secret"
+
+	RuntimeStateSyncing   = "syncing"
+	RuntimeStateCreating  = "creating"
+	RuntimeStateAvailable = "available"
+	RuntimeStateStopping  = "stopping"
+	RuntimeStateStopped   = "stopped"
+	RuntimeStateStarting  = "starting"
+	RuntimeStateDeleting  = "deleting"
+	RuntimeStateDeleted   = "deleted"
+	RuntimeStateFailed    = "failed"
 )
 
 type Resource struct {
@@ -19,40 +32,6 @@ type ResourceState struct {
 	RuntimeState string    `json:"runtime_state"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
-}
-
-type Secret struct {
-	ResourceID     string     `json:"resource_id"`
-	Name           string     `json:"name"`
-	Description    *string    `json:"description,omitempty"`
-	EncryptedValue string     `json:"encrypted_value"`
-	Version        int        `json:"version"`
-	RevealedAt     *time.Time `json:"revealed_at,omitempty"`
-
-	ResourceState *ResourceState `json:"resource_state,omitempty"`
-
-	Tags []Tag `json:"tags,omitempty"`
-}
-
-type DB struct {
-	ResourceID          string  `json:"resource_id"`
-	Name                string  `json:"name"`
-	NormalizedName      string  `json:"normalized_name"`
-	DesiredRuntimeState string  `json:"desired_runtime_state"`
-	Description         *string `json:"description,omitempty"`
-
-	ResourceState *ResourceState `json:"resource_state,omitempty"`
-
-	Tags []Tag `json:"tags,omitempty"`
-}
-
-type DBVerifier struct {
-	ProjectID              string `json:"project_id"`
-	DBID                   string `json:"db_id"`
-	PasswordSecretID       string `json:"password_secret_id"`
-	PasswordVerifier       string `json:"password_verifier"`
-	PasswordDesiredVersion int    `json:"password_desired_version"`
-	PasswordDesiredState   string `json:"password_desired_state"`
 }
 
 type Tag struct {

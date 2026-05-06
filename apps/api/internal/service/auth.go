@@ -19,14 +19,16 @@ var (
 
 // AccessTokenIdentity is a normalized identity extracted from a verified access token.
 type AccessTokenIdentity struct {
-	UserID    string
-	SessionID string
-	JTI       string
+	SubjectID   string
+	SubjectKind string
+	SessionID   string
+	JTI         string
 }
 
 // AccessTokenClaims contains custom access token claims.
 type AccessTokenClaims struct {
-	SessionID string `json:"sid"`
+	SessionID   string `json:"sid"`
+	SubjectKind string `json:"sk"`
 	jwt.RegisteredClaims
 }
 
@@ -127,13 +129,17 @@ func VerifyAccessToken(rawToken string, authConfig config.AuthConfig) (AccessTok
 	if claims.SessionID == "" {
 		return AccessTokenIdentity{}, fmt.Errorf("%w: missing sid claim", ErrUnauthorized)
 	}
+	if claims.SubjectKind == "" {
+		return AccessTokenIdentity{}, fmt.Errorf("%w: missing sk claim", ErrUnauthorized)
+	}
 	if claims.ID == "" {
 		return AccessTokenIdentity{}, fmt.Errorf("%w: missing jti claim", ErrUnauthorized)
 	}
 
 	return AccessTokenIdentity{
-		UserID:    claims.Subject,
-		SessionID: claims.SessionID,
-		JTI:       claims.ID,
+		SubjectID:   claims.Subject,
+		SubjectKind: claims.SubjectKind,
+		SessionID:   claims.SessionID,
+		JTI:         claims.ID,
 	}, nil
 }

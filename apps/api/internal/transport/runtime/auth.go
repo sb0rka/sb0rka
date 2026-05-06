@@ -9,17 +9,48 @@ import (
 type authContextKey string
 
 const (
-	authUserIDKey authContextKey = "auth_user_id"
+	authSubjectIDKey   authContextKey = "auth_subject_id"
+	authSubjectKindKey authContextKey = "auth_subject_kind"
+	authSessionIDKey   authContextKey = "auth_session_id"
+	authJTIKey         authContextKey = "auth_jti"
 )
 
 func WithAuthIdentity(ctx context.Context, identity service.AccessTokenIdentity) context.Context {
-	return context.WithValue(ctx, authUserIDKey, identity.UserID)
+	ctx = context.WithValue(ctx, authSubjectIDKey, identity.SubjectID)
+	ctx = context.WithValue(ctx, authSubjectKindKey, identity.SubjectKind)
+	ctx = context.WithValue(ctx, authSessionIDKey, identity.SessionID)
+	ctx = context.WithValue(ctx, authJTIKey, identity.JTI)
+	return ctx
 }
 
-func AuthUserIDFromContext(ctx context.Context) (string, bool) {
-	userID, ok := ctx.Value(authUserIDKey).(string)
-	if !ok || userID == "" {
+func AuthSubjectIDFromContext(ctx context.Context) (string, bool) {
+	subjectID, ok := ctx.Value(authSubjectIDKey).(string)
+	if !ok || subjectID == "" {
 		return "", false
 	}
-	return userID, true
+	return subjectID, true
+}
+
+func AuthSubjectKindFromContext(ctx context.Context) (string, bool) {
+	subjectKind, ok := ctx.Value(authSubjectKindKey).(string)
+	if !ok || subjectKind == "" {
+		return "", false
+	}
+	return subjectKind, true
+}
+
+func AuthSessionIDFromContext(ctx context.Context) (string, bool) {
+	sessionID, ok := ctx.Value(authSessionIDKey).(string)
+	if !ok || sessionID == "" {
+		return "", false
+	}
+	return sessionID, true
+}
+
+func AuthJTIFromContext(ctx context.Context) (string, bool) {
+	jti, ok := ctx.Value(authJTIKey).(string)
+	if !ok || jti == "" {
+		return "", false
+	}
+	return jti, true
 }

@@ -22,27 +22,27 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 	return &Handler{deps: deps}
 }
 
-func (h *Handler) GetUserPlan(w http.ResponseWriter, r *http.Request) {
-	userIDStr, ok := runtime.AuthUserIDFromContext(r.Context())
+func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
+	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := uuid.Parse(strings.TrimSpace(userIDStr))
+	subjectID, err := uuid.Parse(strings.TrimSpace(subjectIDStr))
 	if err != nil {
-		http.Error(w, "invalid user_id", http.StatusInternalServerError)
+		http.Error(w, "invalid subject_id", http.StatusInternalServerError)
 		return
 	}
 
-	plan, err := h.deps.PlatformDatabase.GetUserPlan(r.Context(), userID)
+	plan, err := h.deps.PlatformDatabase.GetSubjectPlan(r.Context(), subjectID)
 	if err != nil {
-		if errors.Is(err, db.ErrUserPlanNotFound) {
-			http.Error(w, "User plan not found", http.StatusNotFound)
+		if errors.Is(err, db.ErrSubjectPlanNotFound) {
+			http.Error(w, "Account plan not found", http.StatusNotFound)
 			return
 		}
-		h.deps.Log.Error("get_user_plan_failed", "error", err)
-		http.Error(w, "Failed to get user plan", http.StatusInternalServerError)
+		h.deps.Log.Error("get_account_plan_failed", "error", err)
+		http.Error(w, "Failed to get account plan", http.StatusInternalServerError)
 		return
 	}
 
@@ -70,16 +70,81 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"plans": out})
 }
 
+func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
+	projectID := strings.TrimSpace(r.PathValue("project_id"))
+	if projectID == "" {
+		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+
+	plan, err := h.deps.PlatformDatabase.GetProjectPlan(r.Context(), projectID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_project_plan_failed", "project_id", projectID, "error", err)
+		http.Error(w, "Failed to get project plan", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(toPlanResponse(plan))
+}
+
+func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
+	projectID := strings.TrimSpace(r.PathValue("project_id"))
+	if projectID == "" {
+		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+	quotas, err := h.deps.PlatformDatabase.ListProjectQuotas(r.Context(), projectID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_project_quotas_failed", "project_id", projectID, "error", err)
+		http.Error(w, "Failed to get project quotas", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]any{"project_id": projectID, "quotas": quotas})
+}
+
+func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
+	projectID := strings.TrimSpace(r.PathValue("project_id"))
+	if projectID == "" {
+		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+	usage, err := h.deps.PlatformDatabase.ListProjectUsage(r.Context(), projectID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_project_usage_failed", "project_id", projectID, "error", err)
+		http.Error(w, "Failed to get project usage", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]any{"project_id": projectID, "usage": usage})
+}
+
 func toPlanResponse(p model.Plan) contract.PlanResponse {
 	return contract.PlanResponse{
-		ID:           p.ID.String(),
-		Name:         p.Name,
-		Description:  p.Description,
-		DBLimit:      p.DBLimit,
-		SecretLimit:  p.SecretLimit,
-		ProjectLimit: p.ProjectLimit,
-		GroupLimit:   p.GroupLimit,
-		CreatedAt:    p.CreatedAt,
-		UpdatedAt:    p.UpdatedAt,
+		ID:          p.ID.String(),
+		Name:        p.Name,
+		Description: p.Description,
+		Code:        p.Code,
+		Kind:        p.Kind,
+		IsPublic:    p.IsPublic,
+		IsAvailable: p.IsAvailable,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
 	}
 }

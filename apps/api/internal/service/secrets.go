@@ -1,18 +1,17 @@
 package service
 
 import (
-	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
-	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -56,48 +55,12 @@ func ValidateSecretValue(rawValue string) (string, error) {
 	return value, nil
 }
 
-// EncryptSecret encrypts plaintext secret using master key
-// and returns a single base64 string containing nonce || ciphertext
-// TODO(kompotkot): Store nonce separately
-func EncryptSecret(plaintext string, secretMasterKey cipher.AEAD) (string, error) {
-	nonce := make([]byte, chacha20poly1305.NonceSizeX)
-	if _, err := rand.Read(nonce); err != nil {
-		return "", fmt.Errorf("generate nonce: %w", err)
+func GenerateResourceID() (string, error) {
+	var raw [8]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
 	}
-
-	ciphertext := secretMasterKey.Seal(nil, nonce, []byte(plaintext), nil)
-
-	combined := make([]byte, 0, len(nonce)+len(ciphertext))
-	combined = append(combined, nonce...)
-	combined = append(combined, ciphertext...)
-
-	return base64.RawStdEncoding.EncodeToString(combined), nil
-}
-
-// DecryptSecret decrypts base64(nonce || ciphertext) using master key.
-func DecryptSecret(encoded string, secretMasterKey cipher.AEAD) (string, error) {
-	if strings.TrimSpace(encoded) == "" {
-		return "", errors.New("encoded secret is required")
-	}
-
-	raw, err := base64.RawStdEncoding.DecodeString(encoded)
-	if err != nil {
-		return "", fmt.Errorf("decode secret payload: %w", err)
-	}
-
-	if len(raw) < chacha20poly1305.NonceSizeX {
-		return "", errors.New("invalid secret payload: too short")
-	}
-
-	nonce := raw[:chacha20poly1305.NonceSizeX]
-	ciphertext := raw[chacha20poly1305.NonceSizeX:]
-
-	plaintext, err := secretMasterKey.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return "", fmt.Errorf("decrypt secret: %w", err)
-	}
-
-	return string(plaintext), nil
+	return hex.EncodeToString(raw[:]), nil
 }
 
 // GenerateAlphaNumPassword creates a cryptographically-random password consisting of
