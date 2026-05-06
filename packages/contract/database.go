@@ -1,20 +1,29 @@
 package contract
 
+const (
+	DBDesiredRuntimeStateRunning    = "running"
+	DBDesiredRuntimeStateSuspended  = "suspended"
+	DBDesiredRuntimeStateTerminated = "terminated"
+)
+
 type CreateDatabaseRequest struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
+	Name                string  `json:"name"`
+	Description         *string `json:"description,omitempty"`
+	DesiredRuntimeState string  `json:"desired_runtime_state"`
 }
 
 type UpdateDatabaseRequest struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
+	Name                *string `json:"name,omitempty"`
+	Description         *string `json:"description,omitempty"`
+	DesiredRuntimeState *string `json:"desired_runtime_state,omitempty"`
 }
 
 type DatabaseResponse struct {
-	ResourceID     string  `json:"resource_id"`
-	Name           string  `json:"name"`
-	NormalizedName string  `json:"normalized_name"`
-	Description    *string `json:"description,omitempty"`
+	ResourceID          string  `json:"resource_id"`
+	Name                string  `json:"name"`
+	NormalizedName      string  `json:"normalized_name"`
+	Description         *string `json:"description,omitempty"`
+	DesiredRuntimeState string  `json:"desired_runtime_state"`
 
 	ResourceState *ResourceStateResponse `json:"resource_state,omitempty"`
 
