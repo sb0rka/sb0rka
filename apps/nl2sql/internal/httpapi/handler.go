@@ -39,8 +39,11 @@ type GenerateResponse struct {
 }
 
 type ExplainRequest struct {
-	SQL   string `json:"sql"`
-	Style string `json:"style"`
+	SQL              string `json:"sql"`
+	Style            string `json:"style"`
+	ExplanationStyle string `json:"explanationStyle"`
+	Schema           string `json:"schema"`
+	Dialect          string `json:"dialect"`
 }
 
 type ExplainResponse struct {
@@ -153,7 +156,7 @@ func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt)
+	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt, req.Schema, req.Dialect)
 	if err != nil {
 		if errors.Is(err, errEmptyExplanation) {
 			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
@@ -186,6 +189,12 @@ func (h *Handler) handleExplain(w http.ResponseWriter, r *http.Request) {
 
 	req.SQL = strings.TrimSpace(req.SQL)
 	req.Style = strings.TrimSpace(req.Style)
+	req.ExplanationStyle = strings.TrimSpace(req.ExplanationStyle)
+	if req.Style == "" {
+		req.Style = req.ExplanationStyle
+	}
+	req.Schema = strings.TrimSpace(req.Schema)
+	req.Dialect = strings.TrimSpace(req.Dialect)
 	if req.SQL == "" {
 		writeJSONError(w, http.StatusBadRequest, "sql is required")
 		return
@@ -194,14 +203,21 @@ func (h *Handler) handleExplain(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "sql exceeds maximum length")
 		return
 	}
+	if utf8.RuneCountInString(req.Schema) > h.Cfg.MaxSchemaRunes {
+		writeJSONError(w, http.StatusBadRequest, "schema exceeds maximum length")
+		return
+	}
 	styleForPrompt, tooLong := explainStyleForPrompt(req.Style, h.Cfg.MaxQuestionRunes)
 	if tooLong {
 		writeJSONError(w, http.StatusBadRequest, "style exceeds maximum length")
 		return
 	}
+	if req.Dialect == "" {
+		req.Dialect = "postgresql"
+	}
 
 	ctx := r.Context()
-	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt)
+	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt, req.Schema, req.Dialect)
 	if err != nil {
 		if errors.Is(err, errEmptyExplanation) {
 			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
@@ -251,7 +267,7 @@ func systemPrompt(dialect string) string {
 	)
 }
 
-func userPrompt(schema, question string) string {
+func schemaSnapshotSection(schema string) string {
 	var b strings.Builder
 	b.WriteString("Schema snapshot — listed tables and columns already exist in the target database (may be incomplete):\n")
 	if schema == "" {
@@ -260,9 +276,11 @@ func userPrompt(schema, question string) string {
 		b.WriteString(schema)
 		b.WriteString("\n\n")
 	}
-	b.WriteString("Request:\n")
-	b.WriteString(question)
 	return b.String()
+}
+
+func userPrompt(schema, question string) string {
+	return schemaSnapshotSection(schema) + "Request:\n" + question
 }
 
 func explainSystemPrompt() string {
@@ -272,7 +290,8 @@ func explainSystemPrompt() string {
 			"- Follow \"Explanation style\" for tone, length, and any format it explicitly requires (e.g. headings). Otherwise address each topic it mentions in natural prose; if a topic has nothing to say, note that briefly.\n" +
 			"- Explain the query in natural language only. Do not output a corrected or rewritten full SQL statement unless the requested style explicitly asks for example snippets.\n" +
 			"- Prefer plain text. Do not wrap the entire answer in Markdown code fences.\n" +
-			"- Be accurate about what the SQL does; if something is ambiguous, say so briefly.",
+			"- Be accurate about what the SQL does; if something is ambiguous, say so briefly.\n" +
+			"- Use the schema snapshot when present to judge whether referenced tables and columns plausibly exist, to ground types and constraints, and to flag obvious mismatches with the target database; if no snapshot was provided, say so briefly only when it matters for the explanation.",
 	)
 }
 
@@ -284,16 +303,19 @@ func explainSystemPromptNone() string {
 	)
 }
 
-func explainUserPrompt(sql, style string) string {
+func explainUserPrompt(schema, dialect, sql, style string) string {
 	var b strings.Builder
-	b.WriteString("SQL to explain:\n")
+	b.WriteString(schemaSnapshotSection(schema))
+	b.WriteString("Target SQL dialect: ")
+	b.WriteString(dialect)
+	b.WriteString("\n\nSQL to explain:\n")
 	b.WriteString(sql)
 	b.WriteString("\n\nExplanation style:\n")
 	b.WriteString(style)
 	return b.String()
 }
 
-// explainStyleForPrompt maps user style (already trimmed) to the string passed to explainUserPrompt.
+// explainStyleForPrompt maps user style (already trimmed) to the string passed to explainUserPrompt(schema, dialect, sql, style).
 // Empty style uses defaultExplainStyle. If non-empty style exceeds maxRunes, tooLong is true.
 // The none sentinel is passed through unchanged (see explainSystemPromptNone / completeExplain).
 func explainStyleForPrompt(trimmedStyle string, maxRunes int) (styleForPrompt string, tooLong bool) {
@@ -310,14 +332,14 @@ func isExplainStyleNone(styleForPrompt string) bool {
 	return styleForPrompt == explainStyleNoneSentinel
 }
 
-func (h *Handler) completeExplain(ctx context.Context, sql, styleForPrompt string) (explanation string, raw string, err error) {
+func (h *Handler) completeExplain(ctx context.Context, sql, styleForPrompt, schema, dialect string) (explanation string, raw string, err error) {
 	sys := explainSystemPrompt()
 	if isExplainStyleNone(styleForPrompt) {
 		sys = explainSystemPromptNone()
 	}
 	messages := []llm.Message{
 		{Role: "system", Content: sys},
-		{Role: "user", Content: explainUserPrompt(sql, styleForPrompt)},
+		{Role: "user", Content: explainUserPrompt(schema, dialect, sql, styleForPrompt)},
 	}
 	if isExplainStyleNone(styleForPrompt) {
 		raw, err = h.LLM.ChatCompletionAllowEmpty(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
@@ -442,7 +464,7 @@ func (h *Handler) HandleGenerate(ctx context.Context, req GenerateRequest) (Gene
 	if sql == "" {
 		return GenerateResponse{}, errors.New("empty sql")
 	}
-	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt)
+	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt, req.Schema, req.Dialect)
 	if err != nil {
 		return GenerateResponse{}, err
 	}
@@ -457,17 +479,29 @@ func (h *Handler) HandleGenerate(ctx context.Context, req GenerateRequest) (Gene
 func (h *Handler) HandleExplain(ctx context.Context, req ExplainRequest) (ExplainResponse, error) {
 	req.SQL = strings.TrimSpace(req.SQL)
 	req.Style = strings.TrimSpace(req.Style)
+	req.ExplanationStyle = strings.TrimSpace(req.ExplanationStyle)
+	if req.Style == "" {
+		req.Style = req.ExplanationStyle
+	}
+	req.Schema = strings.TrimSpace(req.Schema)
+	req.Dialect = strings.TrimSpace(req.Dialect)
 	if req.SQL == "" {
 		return ExplainResponse{}, errors.New("sql is required")
 	}
 	if utf8.RuneCountInString(req.SQL) > h.Cfg.MaxQuestionRunes {
 		return ExplainResponse{}, errors.New("sql exceeds maximum length")
 	}
+	if utf8.RuneCountInString(req.Schema) > h.Cfg.MaxSchemaRunes {
+		return ExplainResponse{}, errors.New("schema exceeds maximum length")
+	}
 	styleForPrompt, tooLong := explainStyleForPrompt(req.Style, h.Cfg.MaxQuestionRunes)
 	if tooLong {
 		return ExplainResponse{}, errors.New("style exceeds maximum length")
 	}
-	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt)
+	if req.Dialect == "" {
+		req.Dialect = "postgresql"
+	}
+	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt, req.Schema, req.Dialect)
 	if err != nil {
 		return ExplainResponse{}, err
 	}
