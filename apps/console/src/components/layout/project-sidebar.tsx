@@ -1,5 +1,4 @@
 import type { ComponentType } from "react"
-import { Fragment } from "react"
 import { Link, useMatch, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -8,6 +7,7 @@ import {
   ChevronsUpDown,
   Database,
   KeyRound,
+  LayoutGrid,
   Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -24,14 +24,31 @@ import { useProject, useProjects } from "@/features/projects/hooks"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
 
-const projectNavItems: Array<{
-  labelKey: string
-  icon: ComponentType<{ className?: string }>
-  tab: ProjectTab
-}> = [
-  { labelKey: "tabs.overview", icon: BarChart3, tab: "overview" },
-  { labelKey: "tabs.databases", icon: Database, tab: "databases" },
-  { labelKey: "tabs.secrets", icon: KeyRound, tab: "secrets" },
+type ProjectNavItem =
+  | {
+      key: string
+      kind: "tab"
+      tab: ProjectTab
+      labelKey: string
+      icon: ComponentType<{ className?: string }>
+    }
+  | {
+      key: string
+      kind: "data-explorer"
+      labelKey: string
+      icon: ComponentType<{ className?: string }>
+    }
+
+const projectNavItems: ProjectNavItem[] = [
+  { key: "overview", kind: "tab", tab: "overview", labelKey: "tabs.overview", icon: BarChart3 },
+  { key: "databases", kind: "tab", tab: "databases", labelKey: "tabs.databases", icon: Database },
+  {
+    key: "data-explorer",
+    kind: "data-explorer",
+    labelKey: "dataExplorer.nav",
+    icon: LayoutGrid,
+  },
+  { key: "secrets", kind: "tab", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound },
 ]
 
 const settingsNavItem = {
@@ -66,7 +83,10 @@ export function ProjectSidebar() {
   const projects = projectsData?.projects ?? []
 
   const getTabHref = (tab: ProjectTab) => `/projects/${id}?tab=${tab}`
-  const getProjectHref = (projectId: string) => `/projects/${projectId}?tab=${activeTab}`
+  const getProjectHref = (projectId: string) =>
+    isDataExplorerRoute
+      ? `/projects/${projectId}/data-explorer`
+      : `/projects/${projectId}?tab=${activeTab}`
 
   return (
     <aside className="flex h-full w-[175px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
@@ -114,35 +134,29 @@ export function ProjectSidebar() {
 
       <nav className="flex flex-col gap-3 px-4 py-3">
         {projectNavItems.map((item) => {
-          const isActive = activeTab === item.tab && !isDataExplorerRoute
+          const href =
+            item.kind === "tab"
+              ? getTabHref(item.tab)
+              : `/projects/${id}/data-explorer`
+          const isActive =
+            item.kind === "tab"
+              ? activeTab === item.tab && !isDataExplorerRoute
+              : isDataExplorerRoute
+          const Icon = item.icon
           return (
-            <Fragment key={item.tab}>
-              <Link
-                to={getTabHref(item.tab)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {t(item.labelKey)}
-              </Link>
-              {item.tab === "databases" ? (
-                <Link
-                  to={`/projects/${id}/data-explorer`}
-                  className={cn(
-                    "ml-2 block rounded-md py-1.5 pl-7 pr-2 text-xs font-medium transition-colors",
-                    isDataExplorerRoute
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                  )}
-                >
-                  {t("dataExplorer.nav")}
-                </Link>
-              ) : null}
-            </Fragment>
+            <Link
+              key={item.key}
+              to={href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {t(item.labelKey)}
+            </Link>
           )
         })}
 
