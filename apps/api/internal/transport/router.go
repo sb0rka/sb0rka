@@ -83,10 +83,10 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/databases", authOnly(s.databases.ListDatabases))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database", authOnly(s.databases.GetDatabase))
 	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/database", authLive(s.databases.UpdateDatabase))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/start", authLive(s.databases.StartDatabase))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/stop", authLive(s.databases.StopDatabase))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/connection", authOnly(s.databases.GetDatabaseConnection))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/uri/reveal", authLive(s.databases.RevealDatabaseURI))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/state/start", authLive(s.databases.StartDatabase))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/state/stop", authLive(s.databases.StopDatabase))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/connection/direct", authOnly(s.databases.GetDatabaseConnection))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/uri/direct/reveal", authLive(s.databases.RevealDatabaseURI))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/database", authLive(s.databases.DeleteDatabase))
 
 	// Telemetry

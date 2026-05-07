@@ -19,7 +19,7 @@ type UpdateDatabaseRequest struct {
 }
 
 type DatabaseResponse struct {
-	ResourceID          string  `json:"resource_id"`
+	DatabaseID          string  `json:"database_id"`
 	Name                string  `json:"name"`
 	NormalizedName      string  `json:"normalized_name"`
 	Description         *string `json:"description,omitempty"`
@@ -31,6 +31,7 @@ type DatabaseResponse struct {
 }
 
 type DatabaseListResponse struct {
+	ProjectID string             `json:"project_id"`
 	Databases []DatabaseResponse `json:"databases"`
 }
 

@@ -217,7 +217,10 @@ func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.DatabaseListResponse{Databases: out})
+	_ = json.NewEncoder(w).Encode(contract.DatabaseListResponse{
+		ProjectID: projectID,
+		Databases: out,
+	})
 }
 
 func (h *Handler) GetDatabase(w http.ResponseWriter, r *http.Request) {
@@ -515,7 +518,7 @@ func (h *Handler) DeleteDatabase(w http.ResponseWriter, r *http.Request) {
 
 func toDatabaseResponse(d model.DB) contract.DatabaseResponse {
 	resp := contract.DatabaseResponse{
-		ResourceID:          d.ResourceID,
+		DatabaseID:          d.ResourceID,
 		Name:                d.Name,
 		NormalizedName:      d.NormalizedName,
 		Description:         d.Description,
