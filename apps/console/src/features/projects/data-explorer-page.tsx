@@ -85,13 +85,14 @@ export function DataExplorerPage() {
 
   const isSqlEmpty = sql.trim().length === 0
 
-  async function handleRunQuery() {
-    if (!selectedResourceId || isSqlEmpty || runQuery.isPending) return
+  async function handleRunQuery(sqlOverride?: string) {
+    const sqlToRun = (sqlOverride ?? sql).trim()
+    if (!selectedResourceId || sqlToRun.length === 0 || runQuery.isPending) return
     setResult(null)
     const response = await runQuery.mutateAsync({
       project_id: id,
       database_id: selectedResourceId,
-      sql,
+      sql: sqlToRun,
     })
     setResult(response)
   }
@@ -156,7 +157,7 @@ export function DataExplorerPage() {
                   e.preventDefault()
                   void handleRunQuery()
                 }}
-                className="min-h-[160px] font-mono"
+                className="min-h-[240px] font-mono"
                 spellCheck={false}
               />
             </div>
@@ -221,6 +222,11 @@ export function DataExplorerPage() {
                 onApplySql={(next) => {
                   setSql(next)
                 }}
+                onApplySqlAndRun={(next) => {
+                  setSql(next)
+                  void handleRunQuery(next)
+                }}
+                applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
                 className="min-h-0 flex-1 overflow-hidden"
               />
             </div>

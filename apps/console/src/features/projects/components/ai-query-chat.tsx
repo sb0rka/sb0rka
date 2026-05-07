@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react"
-import { Check, ChevronDown, Loader2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { Check, ClipboardPaste, Copy, Loader2, Play, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -24,7 +25,7 @@ function explainStyleLabelEnglish(key: ExplainStyleKey): string {
     case "short":
       return "short"
     case "breakdown":
-      return "breakdown (default)"
+      return "breakdown"
     case "haiku":
       return "haiku"
     case "homer":
@@ -53,6 +54,10 @@ export type AiQueryChatProps = {
   schema?: string
   dialect?: string
   onApplySql?: (sql: string) => void
+  /** Apply generated SQL to the editor and run it (e.g. main query runner). */
+  onApplySqlAndRun?: (sql: string) => void
+  /** When true, disables apply-and-run (e.g. no DB selected or run already in flight). */
+  applySqlAndRunDisabled?: boolean
   className?: string
 }
 
@@ -61,8 +66,11 @@ export function AiQueryChat({
   schema,
   dialect,
   onApplySql,
+  onApplySqlAndRun,
+  applySqlAndRunDisabled,
   className,
 }: AiQueryChatProps) {
+  const { t } = useTranslation()
   const {
     messages,
     isPending,
@@ -131,24 +139,44 @@ export function AiQueryChat({
               >
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium">SQL</p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                       disabled={isPending}
                       onClick={() => void handleCopySql(m.output)}
+                      aria-label={t("dataExplorer.aiChatCopySql")}
                     >
-                      Copy
+                      <Copy className="h-4 w-4" />
                     </Button>
                     <Button
                       type="button"
-                      variant="secondary"
-                      size="sm"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                       disabled={isPending || !onApplySql}
                       onClick={() => onApplySql?.(m.output)}
+                      aria-label={t("dataExplorer.aiChatApplySql")}
                     >
-                      Apply
+                      <ClipboardPaste className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                      disabled={
+                        isPending ||
+                        !onApplySqlAndRun ||
+                        Boolean(applySqlAndRunDisabled) ||
+                        m.output.trim().length === 0
+                      }
+                      onClick={() => onApplySqlAndRun?.(m.output)}
+                      aria-label={t("dataExplorer.aiChatApplySqlAndRun")}
+                    >
+                      <Play className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -159,44 +187,61 @@ export function AiQueryChat({
             )
           }
           const styleKey = explainStyleKeyFromPrompt(m.style)
+          const explanationChromeNone = styleKey === "none"
+          const explanationMenuKeys = explanationChromeNone
+            ? EXPLAIN_STYLE_ORDER.filter((k) => k !== "none")
+            : EXPLAIN_STYLE_ORDER
           return (
             <div
               key={`${index}-explanation`}
-              className="rounded-lg border border-border/70 bg-muted/30 p-3"
+              className={cn(
+                explanationChromeNone
+                  ? undefined
+                  : "rounded-lg border border-border/70 bg-muted/30 p-3",
+              )}
             >
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">explanation</p>
+              <div
+                className={cn(
+                  "flex flex-wrap items-center gap-2",
+                  explanationChromeNone
+                    ? "justify-end"
+                    : "mb-2 justify-between",
+                )}
+              >
+                {!explanationChromeNone ? (
+                  <p className="text-sm font-medium">Analysis</p>
+                ) : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                       disabled={isPending}
-                      className="gap-2 border-none"
+                      aria-label={t("dataExplorer.aiChatExplanationStyleMenu")}
                     >
-                      <span className="max-w-[12rem] truncate text-left">
-                        {explainStyleLabelEnglish(styleKey)}
-                      </span>
-                      <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+                      <Sparkles className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {EXPLAIN_STYLE_ORDER.map((key) => (
-                      <DropdownMenuItem
-                        key={key}
-                        className="gap-2"
-                        disabled={isPending}
-                        onSelect={() => {
-                          const prompt = explainStylePrompt(key)
-                          void refreshExplanationAt(index, prompt)
-                        }}
-                      >
-                        <span className="flex-1">{explainStyleLabelEnglish(key)}</span>
-                        {styleKey === key ? (
-                          <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        ) : null}
-                      </DropdownMenuItem>
+                    {explanationMenuKeys.map((key) => (
+                        <DropdownMenuItem
+                          key={key}
+                          className="gap-2"
+                          disabled={isPending}
+                          onSelect={() => {
+                            const prompt = explainStylePrompt(key)
+                            void refreshExplanationAt(index, prompt)
+                          }}
+                        >
+                          <span className="flex-1">
+                            {explainStyleLabelEnglish(key)}
+                          </span>
+                          {styleKey === key ? (
+                            <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          ) : null}
+                        </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
