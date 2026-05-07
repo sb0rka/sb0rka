@@ -45,7 +45,15 @@ type ProjectMemberResponse struct {
 }
 
 type ProjectMemberListResponse struct {
-	Members []ProjectMemberResponse `json:"members"`
+	ID      string                      `json:"id"`
+	Members []ProjectMemberItemResponse `json:"members"`
+}
+
+type ProjectMemberItemResponse struct {
+	SubjectID string    `json:"subject_id"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CreateProjectMemberRequest struct {

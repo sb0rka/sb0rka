@@ -7,7 +7,7 @@ on:
   #     - "packages/contract/**"
   #     - ".github/workflows/release-contract.yml"
   #     - ".github/actions/go-build/**"
-  workflow_dispatch:
+  # workflow_dispatch:
 
 permissions:
   contents: write

@@ -5,12 +5,12 @@ import "time"
 type CreateSecretRequest struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
-	Value       string  `json:"value"`
-	PayloadKind string  `json:"payload_kind,omitempty"`
+	SecretValue string  `json:"secret_value"`
+	PayloadKind string  `json:"payload_kind"`
 }
 
 type CreateSecretVersionRequest struct {
-	Value       string `json:"value"`
+	SecretValue string `json:"secret_value"`
 	PayloadKind string `json:"payload_kind,omitempty"`
 }
 
