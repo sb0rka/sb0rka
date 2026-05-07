@@ -388,7 +388,7 @@ func (h *Handler) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 	for _, m := range members {
 		items = append(items, toProjectMemberItem(m))
 	}
-	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{ID: projectID, Members: items})
+	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{ProjectID: projectID, Members: items})
 }
 
 func (h *Handler) GetProjectMember(w http.ResponseWriter, r *http.Request) {

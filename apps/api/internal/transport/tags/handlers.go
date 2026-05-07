@@ -102,7 +102,10 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{Tags: toTags(tags)})
+	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{
+		ProjectID: projectID,
+		Tags:      toTagListEntries(tags),
+	})
 }
 
 func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +141,11 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{Tags: toTags(tags)})
+	_ = json.NewEncoder(w).Encode(contract.ResourceTagListResponse{
+		ProjectID:  projectID,
+		ResourceID: resourceID,
+		Tags:       toTagListEntries(tags),
+	})
 }
 
 func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
@@ -257,10 +264,21 @@ func toTagResponse(tag model.Tag) contract.TagResponse {
 	}
 }
 
-func toTags(tags []model.Tag) []contract.TagResponse {
-	out := make([]contract.TagResponse, 0, len(tags))
+func toTagListEntries(tags []model.Tag) []contract.TagListEntry {
+	out := make([]contract.TagListEntry, 0, len(tags))
 	for _, tag := range tags {
-		out = append(out, toTagResponse(tag))
+		out = append(out, toTagListEntry(tag))
 	}
 	return out
+}
+
+func toTagListEntry(tag model.Tag) contract.TagListEntry {
+	return contract.TagListEntry{
+		ID:         tag.ID,
+		TagKey:     tag.TagKey,
+		TagValue:   tag.TagValue,
+		Color:      tag.Color,
+		IsSystem:   tag.IsSystem,
+		IsReadonly: tag.IsReadonly,
+	}
 }

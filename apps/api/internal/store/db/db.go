@@ -31,7 +31,7 @@ type Database interface {
 	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error
 	GetProjectPlan(ctx context.Context, projectID string) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)
-	ListProjectQuotas(ctx context.Context, projectID string) ([]model.PlanQuota, error)
+	ListProjectQuotas(ctx context.Context, projectID string) ([]model.ProjectQuota, error)
 	ListProjectUsage(ctx context.Context, projectID string) (map[string]int64, error)
 
 	// Assertions

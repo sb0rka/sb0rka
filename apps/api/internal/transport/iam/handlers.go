@@ -142,7 +142,27 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{"project_id": projectID, "quotas": quotas})
+	items := make([]contract.ProjectQuotaItemResponse, 0, len(quotas))
+	for _, q := range quotas {
+		items = append(items, contract.ProjectQuotaItemResponse{
+			PlanID: q.PlanID.String(),
+			QuotaDefinition: contract.QuotaDefinitionSnippet{
+				ID:          q.Definition.ID.String(),
+				Name:        q.Definition.Name,
+				Description: q.Definition.Description,
+				Code:        q.Definition.Code,
+				Unit:        q.Definition.Unit,
+				Scope:       q.Definition.Scope,
+			},
+			LimitValue: q.LimitValue,
+			CreatedAt:  q.CreatedAt,
+			UpdatedAt:  q.UpdatedAt,
+		})
+	}
+	_ = json.NewEncoder(w).Encode(contract.ProjectQuotaListResponse{
+		ProjectID: projectID,
+		Quotas:    items,
+	})
 }
 
 func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {

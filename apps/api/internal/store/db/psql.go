@@ -243,9 +243,21 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 	return out, nil
 }
 
-func (p *PsqlDB) ListProjectQuotas(ctx context.Context, projectID string) ([]model.PlanQuota, error) {
+func (p *PsqlDB) ListProjectQuotas(ctx context.Context, projectID string) ([]model.ProjectQuota, error) {
 	const query = `
-		SELECT pq.plan_id, pq.quota_definition_id, pq.limit_value, pq.created_at, pq.updated_at
+		SELECT
+			pq.plan_id,
+			pq.limit_value,
+			pq.created_at,
+			pq.updated_at,
+			qd.id,
+			qd.name,
+			qd.description,
+			qd.code,
+			qd.scope,
+			qd.unit,
+			qd.created_at,
+			qd.updated_at
 		FROM projects pr
 		INNER JOIN plan_quotas pq ON pq.plan_id = pr.plan_id
 		INNER JOIN quota_definitions qd ON qd.id = pq.quota_definition_id
@@ -259,13 +271,26 @@ func (p *PsqlDB) ListProjectQuotas(ctx context.Context, projectID string) ([]mod
 	}
 	defer rows.Close()
 
-	out := make([]model.PlanQuota, 0)
+	out := make([]model.ProjectQuota, 0)
 	for rows.Next() {
-		var pq model.PlanQuota
-		if err := rows.Scan(&pq.PlanID, &pq.QuotaDefinitionID, &pq.LimitValue, &pq.CreatedAt, &pq.UpdatedAt); err != nil {
+		var row model.ProjectQuota
+		if err := rows.Scan(
+			&row.PlanID,
+			&row.LimitValue,
+			&row.CreatedAt,
+			&row.UpdatedAt,
+			&row.Definition.ID,
+			&row.Definition.Name,
+			&row.Definition.Description,
+			&row.Definition.Code,
+			&row.Definition.Scope,
+			&row.Definition.Unit,
+			&row.Definition.CreatedAt,
+			&row.Definition.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
-		out = append(out, pq)
+		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1813,51 +1838,78 @@ func (p *PsqlDB) CreateSecretVersion(ctx context.Context, params CreateSecretVer
 }
 
 func (p *PsqlDB) DisableSecretVersion(ctx context.Context, projectID string, secretID string, versionNo int) (model.SecretVersion, error) {
-	const currentQuery = `
-		SELECT s.current_version_no, sv.state
-		FROM secrets s
-		INNER JOIN secret_versions sv
-			ON sv.project_id = s.project_id
-		   AND sv.secret_id = s.resource_id
-		   AND sv.version_no = $3
-		WHERE s.project_id = $1
-		  AND s.resource_id = $2
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return model.SecretVersion{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	const lockSecretQuery = `
+		SELECT current_version_no
+		FROM secrets
+		WHERE project_id = $1 AND resource_id = $2
+		FOR UPDATE
 	`
 	var currentVersionNo int
-	var currentState string
-	if err := p.pool.QueryRow(ctx, currentQuery, projectID, secretID, versionNo).Scan(&currentVersionNo, &currentState); err != nil {
+	if err := tx.QueryRow(ctx, lockSecretQuery, projectID, secretID).Scan(&currentVersionNo); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.SecretVersion{}, ErrResourceNotFound
 		}
 		return model.SecretVersion{}, err
 	}
-	if currentVersionNo == versionNo || currentState != model.SecretVersionStateActive {
+
+	const lockVersionQuery = `
+		SELECT state
+		FROM secret_versions
+		WHERE project_id = $1 AND secret_id = $2 AND version_no = $3
+		FOR UPDATE
+	`
+	var state string
+	if err := tx.QueryRow(ctx, lockVersionQuery, projectID, secretID, versionNo).Scan(&state); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.SecretVersion{}, ErrResourceNotFound
+		}
+		return model.SecretVersion{}, err
+	}
+
+	switch state {
+	case model.SecretVersionStateDisabled:
+		return model.SecretVersion{}, ErrSecretVersionAlreadyDisabled
+	case model.SecretVersionStateActive:
+	default:
 		return model.SecretVersion{}, ErrInvalidSecretVersion
 	}
 
-	const query = `
-		WITH target_secret AS (
-			SELECT current_version_no
-			FROM secrets
-			WHERE project_id = $1 AND resource_id = $2
-		),
-		updated_version AS (
-			UPDATE secret_versions sv
-			SET state = 'disabled',
-				disabled_at = COALESCE(disabled_at, NOW())
-			FROM target_secret ts
-			WHERE sv.project_id = $1
-			  AND sv.secret_id = $2
-			  AND sv.version_no = $3
-			  AND sv.version_no <> ts.current_version_no
-			  AND sv.state = 'active'
-			RETURNING sv.project_id, sv.secret_id, sv.version_no, sv.state, sv.payload_kind, sv.created_by_subject_id, sv.created_at, sv.updated_at, sv.disabled_at
+	if versionNo == currentVersionNo {
+		return model.SecretVersion{}, ErrCannotDisableCurrentSecretVersion
+	}
+
+	const verifierQuery = `
+		SELECT EXISTS (
+			SELECT 1 FROM db_verifiers
+			WHERE project_id = $1
+			  AND password_secret_id = $2
+			  AND password_desired_version = $3
 		)
-		SELECT project_id, secret_id, version_no, state, payload_kind, created_by_subject_id, created_at, updated_at, disabled_at
-		FROM updated_version
+	`
+	var usedByVerifier bool
+	if err := tx.QueryRow(ctx, verifierQuery, projectID, secretID, versionNo).Scan(&usedByVerifier); err != nil {
+		return model.SecretVersion{}, err
+	}
+	if usedByVerifier {
+		return model.SecretVersion{}, ErrSecretVersionReferencedByDBVerifier
+	}
+
+	const updateQuery = `
+		UPDATE secret_versions
+		SET state = 'disabled',
+		    disabled_at = COALESCE(disabled_at, NOW())
+		WHERE project_id = $1 AND secret_id = $2 AND version_no = $3
+		  AND state = 'active'
+		RETURNING project_id, secret_id, version_no, state, payload_kind, created_by_subject_id, created_at, updated_at, disabled_at
 	`
 	var row model.SecretVersion
-	if err := p.pool.QueryRow(ctx, query, projectID, secretID, versionNo).Scan(
+	if err := tx.QueryRow(ctx, updateQuery, projectID, secretID, versionNo).Scan(
 		&row.ProjectID,
 		&row.SecretID,
 		&row.VersionNo,
@@ -1869,8 +1921,12 @@ func (p *PsqlDB) DisableSecretVersion(ctx context.Context, projectID string, sec
 		&row.DisabledAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.SecretVersion{}, ErrResourceNotFound
+			return model.SecretVersion{}, ErrUnexpectedEmptyReturn
 		}
+		return model.SecretVersion{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return model.SecretVersion{}, err
 	}
 	return row, nil

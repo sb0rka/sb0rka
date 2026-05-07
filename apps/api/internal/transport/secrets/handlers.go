@@ -220,14 +220,17 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to list secrets", http.StatusInternalServerError)
 		return
 	}
-	out := make([]contract.SecretResponse, 0, len(rows))
+	out := make([]contract.SecretListItem, 0, len(rows))
 	for _, s := range rows {
-		out = append(out, toSecretResponse(s))
+		out = append(out, toSecretListItem(s))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.SecretListResponse{Secrets: out})
+	_ = json.NewEncoder(w).Encode(contract.SecretListResponse{
+		ProjectID: projectID,
+		Secrets:   out,
+	})
 }
 
 func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
@@ -306,13 +309,17 @@ func (h *Handler) ListSecretVersions(w http.ResponseWriter, r *http.Request) {
 		h.writeSecretStoreError(w, "list_secret_versions_failed", projectID, secretID, err)
 		return
 	}
-	out := make([]contract.SecretVersionResponse, 0, len(versions))
+	out := make([]contract.SecretVersionListItem, 0, len(versions))
 	for _, version := range versions {
-		out = append(out, toSecretVersionResponse(version))
+		out = append(out, toSecretVersionListItem(version))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.SecretVersionListResponse{Versions: out})
+	_ = json.NewEncoder(w).Encode(contract.SecretVersionListResponse{
+		ProjectID: projectID,
+		SecretID:  secretID,
+		Versions:  out,
+	})
 }
 
 func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
@@ -420,7 +427,7 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toSecretVersionResponse(version))
 }
 
-func (h *Handler) UpdateSecretVersion(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DisableSecretVersion(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -435,22 +442,15 @@ func (h *Handler) UpdateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionUpdate, projectID) {
-		return
-	}
-	var req contract.UpdateSecretVersionRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-	if req.State != model.SecretVersionStateDisabled {
-		http.Error(w, "only disabled state is supported", http.StatusUnprocessableEntity)
+	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionDisable, projectID) {
 		return
 	}
 	version, err := h.deps.PlatformDatabase.DisableSecretVersion(r.Context(), projectID, secretID, versionNo)
 	if err != nil {
+		if errors.Is(err, db.ErrSecretVersionAlreadyDisabled) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		h.writeSecretStoreError(w, "disable_secret_version_failed", projectID, secretID, err)
 		return
 	}
@@ -574,8 +574,16 @@ func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, pro
 	switch {
 	case errors.Is(err, db.ErrResourceNotFound):
 		http.Error(w, "Secret not found", http.StatusNotFound)
-	case errors.Is(err, db.ErrResourceInUse), errors.Is(err, db.ErrInvalidSecretVersion):
-		http.Error(w, "Secret conflict", http.StatusConflict)
+	case errors.Is(err, db.ErrResourceInUse), errors.Is(err, db.ErrInvalidSecretVersion),
+		errors.Is(err, db.ErrCannotDisableCurrentSecretVersion), errors.Is(err, db.ErrSecretVersionReferencedByDBVerifier):
+		switch {
+		case errors.Is(err, db.ErrCannotDisableCurrentSecretVersion):
+			http.Error(w, "Cannot disable current secret version", http.StatusConflict)
+		case errors.Is(err, db.ErrSecretVersionReferencedByDBVerifier):
+			http.Error(w, "Secret version is referenced by a database password verifier", http.StatusConflict)
+		default:
+			http.Error(w, "Secret conflict", http.StatusConflict)
+		}
 	case errors.Is(err, db.ErrEncryptionKeyNotFound):
 		http.Error(w, "Encryption key not found", http.StatusInternalServerError)
 	default:
@@ -584,10 +592,24 @@ func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, pro
 	}
 }
 
+func toSecretListItem(s model.Secret) contract.SecretListItem {
+	return contract.SecretListItem{
+		SecretID:           s.ResourceID,
+		Name:               s.Name,
+		Description:        s.Description,
+		PayloadKind:        s.PayloadKind,
+		ProtectionClass:    s.ProtectionClass,
+		CurrentVersionNo:   s.CurrentVersionNo,
+		CreatedBySubjectID: s.CreatedBySubjectID.String(),
+		CreatedAt:          s.CreatedAt,
+		UpdatedAt:          s.UpdatedAt,
+	}
+}
+
 func toSecretResponse(s model.Secret) contract.SecretResponse {
 	resp := contract.SecretResponse{
 		ProjectID:          s.ProjectID,
-		ResourceID:         s.ResourceID,
+		SecretID:           s.ResourceID,
 		Name:               s.Name,
 		Description:        s.Description,
 		PayloadKind:        s.PayloadKind,
@@ -620,6 +642,17 @@ func toSecretResponse(s model.Secret) contract.SecretResponse {
 		}
 	}
 	return resp
+}
+
+func toSecretVersionListItem(v model.SecretVersion) contract.SecretVersionListItem {
+	return contract.SecretVersionListItem{
+		VersionNo:          v.VersionNo,
+		State:              v.State,
+		PayloadKind:        v.PayloadKind,
+		CreatedBySubjectID: v.CreatedBySubjectID.String(),
+		CreatedAt:          v.CreatedAt,
+		UpdatedAt:          v.UpdatedAt,
+	}
 }
 
 func toSecretVersionResponse(v model.SecretVersion) contract.SecretVersionResponse {

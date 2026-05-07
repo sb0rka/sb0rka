@@ -88,31 +88,23 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]contract.ResourceResponse, 0, len(rows))
+	out := make([]contract.ResourceListItem, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toResourceResponse(row))
+		out = append(out, toResourceListItem(row))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ResourceListResponse{Resources: out})
+	_ = json.NewEncoder(w).Encode(contract.ResourceListResponse{
+		ProjectID: projectID,
+		Resources: out,
+	})
 }
 
-func toResourceResponse(row model.Resource) contract.ResourceResponse {
-	resp := contract.ResourceResponse{
+func toResourceListItem(row model.Resource) contract.ResourceListItem {
+	return contract.ResourceListItem{
 		ID:        row.ID,
-		ProjectID: row.ProjectID,
 		Kind:      row.Kind,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
-
-	if row.ResourceState != nil {
-		resp.ResourceState = &contract.ResourceStateResponse{
-			RuntimeState: row.ResourceState.RuntimeState,
-			CreatedAt:    row.ResourceState.CreatedAt,
-			UpdatedAt:    row.ResourceState.UpdatedAt,
-		}
-	}
-
-	return resp
 }

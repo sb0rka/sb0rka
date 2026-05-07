@@ -551,7 +551,7 @@ func toDatabaseResponse(d model.DB) contract.DatabaseResponse {
 func toSecretResponse(s model.Secret) contract.SecretResponse {
 	resp := contract.SecretResponse{
 		ProjectID:          s.ProjectID,
-		ResourceID:         s.ResourceID,
+		SecretID:           s.ResourceID,
 		Name:               s.Name,
 		Description:        s.Description,
 		PayloadKind:        s.PayloadKind,

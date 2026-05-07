@@ -51,10 +51,10 @@ type QuotaDefinition struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type PlanQuota struct {
-	PlanID            uuid.UUID `json:"plan_id"`
-	QuotaDefinitionID uuid.UUID `json:"quota_definition_id"`
-	LimitValue        int64     `json:"limit_value"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+type ProjectQuota struct {
+	PlanID     uuid.UUID
+	LimitValue int64
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Definition QuotaDefinition
 }

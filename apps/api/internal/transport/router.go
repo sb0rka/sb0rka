@@ -102,7 +102,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}", authOnly(s.secrets.GetSecretVersion))
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions", authLive(s.secrets.CreateSecretVersion))
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal", authLive(s.secrets.RevealSecretVersion))
-	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}", authLive(s.secrets.UpdateSecretVersion))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable", authLive(s.secrets.DisableSecretVersion))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/secret", authLive(s.secrets.DeleteSecret))
 
 	// Tags
