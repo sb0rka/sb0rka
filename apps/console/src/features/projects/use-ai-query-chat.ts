@@ -23,6 +23,12 @@ export type AiQueryChatExplanationMessage = {
   /** Prompt string sent as nl2sql `style` / `explanationStyle`. */
   style: string
   sql: string
+  /**
+   * True when this block is the explanation paired with NL→SQL output (including after restyling).
+   */
+  fromGenerate?: boolean
+  /** True after the user picked a new style via the explanation dropdown (explain refresh). */
+  explanationRestyled?: boolean
 }
 
 export type AiQueryChatAssistantMessage =
@@ -53,7 +59,9 @@ export type AiQueryChatSendPayload = AiQueryChatExplainPayload | AiQueryChatGene
 export function lastExplanationStyle(messages: AiQueryChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m.role === "assistant" && m.type === "explanation") return m.style
+    if (m.role !== "assistant" || m.type !== "explanation") continue
+    if (m.fromGenerate && !m.explanationRestyled) continue
+    return m.style
   }
   return ""
 }
@@ -108,6 +116,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             output: res.explanation,
             style,
             sql: trimmed,
+            fromGenerate: false,
           },
         ])
       } else {
@@ -127,6 +136,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             output: res.explanation ?? "",
             style: explanationStyle,
             sql: res.sql,
+            fromGenerate: true,
           },
         ])
         setLastGenerateStyle(explanationStyle)
@@ -156,6 +166,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             ...cur,
             output: res.explanation,
             style: trimmedStyle,
+            explanationRestyled: true,
           }
           return next
         })
