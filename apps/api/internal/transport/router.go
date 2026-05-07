@@ -53,7 +53,9 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.HandleFunc("GET /plans", s.iam.ListPublicPlans)
 
 	// Plans & quotas
+
 	mux.Handle("GET /plan", authOnly(s.iam.GetAccountPlan))
+	mux.Handle("POST /account/initialize", authLive(s.iam.InitializeAccount))
 	mux.Handle("GET /account/plan", authOnly(s.iam.GetAccountPlan))
 	mux.Handle("GET /projects/{project_id}/plan", authOnly(s.iam.GetProjectPlan))
 	mux.Handle("GET /projects/{project_id}/quotas", authOnly(s.iam.GetProjectQuotas))
@@ -65,6 +67,8 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}", authOnly(s.projects.GetProject))
 	mux.Handle("PATCH /projects/{project_id}", authLive(s.projects.UpdateProject))
 	mux.Handle("DELETE /projects/{project_id}", authLive(s.projects.DeleteProject))
+
+	// Project members
 	mux.Handle("GET /projects/{project_id}/members", authOnly(s.projects.ListProjectMembers))
 	mux.Handle("POST /projects/{project_id}/members", authLive(s.projects.AddProjectMember))
 	mux.Handle("GET /projects/{project_id}/members/{subject_id}", authOnly(s.projects.GetProjectMember))
@@ -82,7 +86,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/start", authLive(s.databases.StartDatabase))
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/stop", authLive(s.databases.StopDatabase))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/connection", authOnly(s.databases.GetDatabaseConnection))
-	mux.Handle("POST /projects/{project_id}/databases/{db_id}/database/uri/reveal", authLive(s.databases.RevealDatabaseURI))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/uri/reveal", authLive(s.databases.RevealDatabaseURI))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/database", authLive(s.databases.DeleteDatabase))
 
 	// Telemetry

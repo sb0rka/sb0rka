@@ -18,12 +18,17 @@ type Database interface {
 
 	Close() error
 
+	// IDs
+	GenerateResourceID(ctx context.Context) (string, error)
+
 	// Auth/session
 	GetSubjectKind(ctx context.Context, subjectID uuid.UUID) (string, error)
 	IsLiveSession(ctx context.Context, sessionID uuid.UUID, subjectID uuid.UUID) (bool, error)
 
 	// Plans
 	GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model.Plan, error)
+	GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error)
+	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error
 	GetProjectPlan(ctx context.Context, projectID string) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)
 	ListProjectQuotas(ctx context.Context, projectID string) ([]model.PlanQuota, error)
@@ -34,7 +39,7 @@ type Database interface {
 	AssertCanCreateResourceWithType(ctx context.Context, billingSubjectID uuid.UUID, projectID string, kind string) error
 
 	// Projects
-	CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, name string, description *string, planID *uuid.UUID, isActive bool) (model.Project, error)
+	CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, name string, description *string) (model.Project, error)
 	GetProject(ctx context.Context, id string) (model.Project, error)
 	ListProjectsBySubject(ctx context.Context, subjectID uuid.UUID) ([]model.Project, error)
 	UpdateProject(ctx context.Context, id string, name, description *string) (model.Project, error)

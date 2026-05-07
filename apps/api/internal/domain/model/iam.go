@@ -9,9 +9,9 @@ import (
 const (
 	PlanKindAccount = "account"
 	PlanKindProject = "project"
-	
-	// Default plan code for free plan for new projects.
-	PlanCodeFree    = "free"
+
+	PlanCodeFreeAccount = "free_account"
+	PlanCodeFreeProject = "free_project"
 
 	QuotaScopeAccount = "account"
 	QuotaScopeProject = "project"

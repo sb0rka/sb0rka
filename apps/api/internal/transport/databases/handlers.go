@@ -122,12 +122,12 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate password", http.StatusInternalServerError)
 		return
 	}
-	dbID, err := service.GenerateResourceID()
+	dbID, err := h.deps.PlatformDatabase.GenerateResourceID(r.Context())
 	if err != nil {
 		http.Error(w, "Failed to generate database id", http.StatusInternalServerError)
 		return
 	}
-	secretID, err := service.GenerateResourceID()
+	secretID, err := h.deps.PlatformDatabase.GenerateResourceID(r.Context())
 	if err != nil {
 		http.Error(w, "Failed to generate secret id", http.StatusInternalServerError)
 		return
@@ -422,7 +422,7 @@ func (h *Handler) RevealDatabaseURI(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	dbID, err := parsePathID(r.PathValue("db_id"), "db_id")
+	dbID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

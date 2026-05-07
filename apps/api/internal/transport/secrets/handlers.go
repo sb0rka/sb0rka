@@ -80,8 +80,6 @@ func normalizePayloadKind(raw string) (string, error) {
 	switch kind {
 	case model.SecretPayloadKindText, model.SecretPayloadKindJSON:
 		return kind, nil
-	case model.SecretPayloadKindBinary:
-		return "", errors.New("binary payload is not supported")
 	default:
 		return "", errors.New("invalid payload_kind")
 	}
@@ -148,9 +146,13 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	value, err := service.ValidateSecretValue(req.Value)
+	value, err := service.ValidateSecretValue(req.SecretValue)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.PayloadKind) == "" {
+		http.Error(w, "payload_kind is required", http.StatusUnprocessableEntity)
 		return
 	}
 	payloadKind, err := normalizePayloadKind(req.PayloadKind)
@@ -158,7 +160,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
-	secretID, err := service.GenerateResourceID()
+	secretID, err := h.deps.PlatformDatabase.GenerateResourceID(r.Context())
 	if err != nil {
 		http.Error(w, "Failed to generate secret id", http.StatusInternalServerError)
 		return
@@ -375,7 +377,7 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	value, err := service.ValidateSecretValue(req.Value)
+	value, err := service.ValidateSecretValue(req.SecretValue)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -155,20 +155,9 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var planID *uuid.UUID
-	planIDRaw := strings.TrimSpace(req.PlanID)
-	if planIDRaw != "" {
-		parsed, err := uuid.Parse(planIDRaw)
-		if err != nil {
-			http.Error(w, "invalid plan_id", http.StatusBadRequest)
-			return
-		}
-		planID = &parsed
-	}
-
 	// v0.1.0: billing subject is always current subject.
 	billingSubjectID := subjectID
-	if err := h.deps.PlatformDatabase.AssertCanCreateProject(r.Context(), billingSubjectID, planID); err != nil {
+	if err := h.deps.PlatformDatabase.AssertCanCreateProject(r.Context(), billingSubjectID, nil); err != nil {
 		switch {
 		case errors.Is(err, db.ErrSubjectPlanNotFound):
 			http.Error(w, "Subject plan not found", http.StatusNotFound)
@@ -187,7 +176,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), subjectID, billingSubjectID, name, description, planID, true)
+	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), subjectID, billingSubjectID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectAlreadyExists) {
 			http.Error(w, "Project already exists", http.StatusConflict)
@@ -393,13 +382,13 @@ func (h *Handler) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]contract.ProjectMemberResponse, 0, len(members))
-	for _, m := range members {
-		out = append(out, toProjectMember(m))
-	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{Members: out})
+	items := make([]contract.ProjectMemberItemResponse, 0, len(members))
+	for _, m := range members {
+		items = append(items, toProjectMemberItem(m))
+	}
+	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{ID: projectID, Members: items})
 }
 
 func (h *Handler) GetProjectMember(w http.ResponseWriter, r *http.Request) {
@@ -708,6 +697,15 @@ func toProject(p model.Project) contract.ProjectResponse {
 func toProjectMember(m model.ProjectMember) contract.ProjectMemberResponse {
 	return contract.ProjectMemberResponse{
 		ProjectID: m.ProjectID,
+		SubjectID: m.SubjectID.String(),
+		Role:      m.Role,
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
+	}
+}
+
+func toProjectMemberItem(m model.ProjectMember) contract.ProjectMemberItemResponse {
+	return contract.ProjectMemberItemResponse{
 		SubjectID: m.SubjectID.String(),
 		Role:      m.Role,
 		CreatedAt: m.CreatedAt,

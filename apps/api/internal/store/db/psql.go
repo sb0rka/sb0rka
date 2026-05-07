@@ -58,6 +58,15 @@ func (p *PsqlDB) Close() error {
 	return nil
 }
 
+func (p *PsqlDB) GenerateResourceID(ctx context.Context) (string, error) {
+	const query = `SELECT gen_resource_id()`
+	var id string
+	if err := p.pool.QueryRow(ctx, query).Scan(&id); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
 func (p *PsqlDB) GetSubjectKind(ctx context.Context, subjectID uuid.UUID) (string, error) {
 	const query = `SELECT kind FROM auth.subjects WHERE id = $1`
 	var kind string
@@ -106,6 +115,68 @@ func (p *PsqlDB) GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model
 		return model.Plan{}, err
 	}
 	return out, nil
+}
+
+func (p *PsqlDB) GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error) {
+	const query = `
+		SELECT p.id, p.name, p.description, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
+		FROM subject_plans sp
+		INNER JOIN plans p ON p.id = sp.plan_id
+		WHERE sp.subject_id = $1
+		  AND p.kind = $2
+		ORDER BY sp.updated_at DESC
+		LIMIT 1
+	`
+	var out model.Plan
+	if err := p.pool.QueryRow(ctx, query, subjectID, kind).Scan(
+		&out.ID,
+		&out.Name,
+		&out.Description,
+		&out.Code,
+		&out.Kind,
+		&out.IsPublic,
+		&out.IsAvailable,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Plan{}, ErrSubjectPlanNotFound
+		}
+		return model.Plan{}, err
+	}
+	return out, nil
+}
+
+func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error {
+	const existingQuery = `
+		SELECT 1
+		FROM subject_plans sp
+		INNER JOIN plans p ON p.id = sp.plan_id
+		WHERE sp.subject_id = $1
+		  AND p.kind = $2
+		LIMIT 1
+	`
+	var existing int
+	if err := p.pool.QueryRow(ctx, existingQuery, subjectID, kind).Scan(&existing); err == nil {
+		return nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	planID, err := p.getPlanIDByCodeAndKind(ctx, planCode, kind)
+	if err != nil {
+		return err
+	}
+
+	const insertQuery = `
+		INSERT INTO subject_plans (subject_id, plan_id)
+		VALUES ($1, $2)
+	`
+	if _, err := p.pool.Exec(ctx, insertQuery, subjectID, planID); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *PsqlDB) GetProjectPlan(ctx context.Context, projectID string) (model.Plan, error) {
@@ -240,7 +311,7 @@ func (p *PsqlDB) ListProjectUsage(ctx context.Context, projectID string) (map[st
 
 func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, billingSubjectID uuid.UUID, planID *uuid.UUID) error {
 	// Subject must have account plan.
-	if _, err := p.GetSubjectPlan(ctx, billingSubjectID); err != nil {
+	if _, err := p.GetSubjectPlanByKind(ctx, billingSubjectID, model.PlanKindAccount); err != nil {
 		if errors.Is(err, ErrSubjectPlanNotFound) {
 			return ErrSubjectPlanNotFound
 		}
@@ -249,11 +320,12 @@ func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, billingSubjectID uu
 
 	projectPlanID := planID
 	if projectPlanID == nil {
-		resolved, err := p.getProjectPlanIDByCode(ctx, model.PlanCodeFree)
+		// Default project plan for newly created projects.
+		id, err := p.getProjectPlanIDByCode(ctx, model.PlanCodeFreeProject)
 		if err != nil {
 			return err
 		}
-		projectPlanID = &resolved
+		projectPlanID = &id
 	}
 
 	const projectPlanCheck = `
@@ -295,22 +367,26 @@ func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, billingSubjectID uu
 	return nil
 }
 
-func (p *PsqlDB) getProjectPlanIDByCode(ctx context.Context, code string) (uuid.UUID, error) {
+func (p *PsqlDB) getPlanIDByCodeAndKind(ctx context.Context, code string, kind string) (uuid.UUID, error) {
 	const query = `
 		SELECT id
 		FROM plans
 		WHERE code = $1
-		  AND kind = 'project'
+		  AND kind = $2
 		  AND is_available = true
 	`
 	var id uuid.UUID
-	if err := p.pool.QueryRow(ctx, query, code).Scan(&id); err != nil {
+	if err := p.pool.QueryRow(ctx, query, code, kind).Scan(&id); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, ErrPlanNotFound
 		}
 		return uuid.Nil, err
 	}
 	return id, nil
+}
+
+func (p *PsqlDB) getProjectPlanIDByCode(ctx context.Context, code string) (uuid.UUID, error) {
+	return p.getPlanIDByCodeAndKind(ctx, code, model.PlanKindProject)
 }
 
 func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, billingSubjectID uuid.UUID, projectID string, kind string) error {
@@ -422,20 +498,17 @@ func (p *PsqlDB) getProjectQuotaLimit(ctx context.Context, projectID string, cod
 	return limit, nil
 }
 
-func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, name string, description *string, planID *uuid.UUID, isActive bool) (model.Project, error) {
+func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, name string, description *string) (model.Project, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return model.Project{}, err
 	}
 	defer tx.Rollback(ctx)
 
-	resolvedPlanID := planID
-	if resolvedPlanID == nil {
-		id, err := p.getProjectPlanIDByCode(ctx, model.PlanCodeFree)
-		if err != nil {
-			return model.Project{}, err
-		}
-		resolvedPlanID = &id
+	// Default project plan for newly created projects.
+	resolvedPlanID, err := p.getProjectPlanIDByCode(ctx, model.PlanCodeFreeProject)
+	if err != nil {
+		return model.Project{}, err
 	}
 
 	const insertProjectQuery = `
@@ -444,7 +517,7 @@ func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, bi
 		RETURNING id, owner_subject_id, billing_subject_id, plan_id, name, description, is_active, created_at, updated_at
 	`
 	var project model.Project
-	if err := tx.QueryRow(ctx, insertProjectQuery, *resolvedPlanID, ownerSubjectID, billingSubjectID, name, description, isActive).Scan(
+	if err := tx.QueryRow(ctx, insertProjectQuery, resolvedPlanID, ownerSubjectID, billingSubjectID, name, description, true).Scan(
 		&project.ID,
 		&project.OwnerSubjectID,
 		&project.BillingSubjectID,
