@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 
     CONSTRAINT pk_projects PRIMARY KEY (id),
-    CONSTRAINT ck_projects_project_id_hex CHECK (id ~ '^[0-9a-f]{12}$'),
+    CONSTRAINT ck_projects_project_id_hex CHECK (id ~ '^[0-9a-f]{10,}$'),
     CONSTRAINT uq_projects_owner_subj_id_name UNIQUE (owner_subject_id, name),
     CONSTRAINT fk_projects_plan_id_plans FOREIGN KEY (plan_id) REFERENCES plans (id) ON DELETE CASCADE
 );
@@ -307,7 +307,7 @@ CREATE TABLE IF NOT EXISTS resources (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 
     CONSTRAINT pk_resources PRIMARY KEY (id),
-    CONSTRAINT ck_resources_resource_id_hex CHECK (id ~ '^[0-9a-f]{16}$'),
+    CONSTRAINT ck_resources_resource_id_hex CHECK (id ~ '^[0-9a-f]{12,}$'),
     CONSTRAINT fk_resources_project_id_projects FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
     CONSTRAINT uq_resources_res_id_project_id UNIQUE (id, project_id),
     CONSTRAINT uq_resources_res_id_prj_kind UNIQUE (id, project_id, kind)
@@ -413,7 +413,7 @@ CREATE TABLE IF NOT EXISTS secrets (
     name VARCHAR NOT NULL,
     description VARCHAR,
     payload_kind VARCHAR(16) DEFAULT 'text' NOT NULL
-        CHECK (payload_kind IN ('text', 'json', 'binary')),
+        CHECK (payload_kind IN ('text', 'json')),
     protection_class VARCHAR(32) DEFAULT 'server_managed' NOT NULL
         CHECK (protection_class IN ('server_managed')),
     current_version_no INTEGER NOT NULL,
