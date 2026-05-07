@@ -265,6 +265,10 @@ const resources = {
         expandAiPanel: "Развернуть панель AI",
         schemaTreeDatabases: "Базы данных ({{count}})",
         toggleDatabaseSchema: "Показать или скрыть схему: {{name}}",
+        aiChatCopySql: "Копировать SQL",
+        aiChatApplySql: "Вставить в редактор",
+        aiChatApplySqlAndRun: "Вставить и выполнить",
+        aiChatExplanationStyleMenu: "Стиль объяснения",
       },
       secrets: {
         title: "Секреты",
@@ -606,6 +610,10 @@ const resources = {
         expandAiPanel: "Expand AI panel",
         schemaTreeDatabases: "Databases ({{count}})",
         toggleDatabaseSchema: "Show or hide schema: {{name}}",
+        aiChatCopySql: "Copy SQL",
+        aiChatApplySql: "Apply to editor",
+        aiChatApplySqlAndRun: "Apply and run query",
+        aiChatExplanationStyleMenu: "Explanation style",
       },
       secrets: {
         title: "Secrets",
