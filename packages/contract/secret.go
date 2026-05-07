@@ -14,17 +14,25 @@ type CreateSecretVersionRequest struct {
 	PayloadKind string `json:"payload_kind,omitempty"`
 }
 
-type UpdateSecretVersionRequest struct {
-	State string `json:"state"`
-}
-
 type UpdateSecretRequest struct {
 	Description string `json:"description"`
 }
 
+type SecretListItem struct {
+	SecretID           string    `json:"secret_id"`
+	Name               string    `json:"name"`
+	Description        *string   `json:"description,omitempty"`
+	PayloadKind        string    `json:"payload_kind"`
+	ProtectionClass    string    `json:"protection_class"`
+	CurrentVersionNo   int       `json:"current_version_no"`
+	CreatedBySubjectID string    `json:"created_by_subject_id"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
 type SecretResponse struct {
 	ProjectID          string     `json:"project_id"`
-	ResourceID         string     `json:"resource_id"`
+	SecretID           string     `json:"secret_id"`
 	Name               string     `json:"name"`
 	Description        *string    `json:"description,omitempty"`
 	PayloadKind        string     `json:"payload_kind"`
@@ -41,7 +49,17 @@ type SecretResponse struct {
 }
 
 type SecretListResponse struct {
-	Secrets []SecretResponse `json:"secrets"`
+	ProjectID string           `json:"project_id"`
+	Secrets   []SecretListItem `json:"secrets"`
+}
+
+type SecretVersionListItem struct {
+	VersionNo          int       `json:"version_no"`
+	State              string    `json:"state"`
+	PayloadKind        string    `json:"payload_kind"`
+	CreatedBySubjectID string    `json:"created_by_subject_id"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type SecretVersionResponse struct {
@@ -57,7 +75,9 @@ type SecretVersionResponse struct {
 }
 
 type SecretVersionListResponse struct {
-	Versions []SecretVersionResponse `json:"versions"`
+	ProjectID string                  `json:"project_id"`
+	SecretID  string                  `json:"secret_id"`
+	Versions  []SecretVersionListItem `json:"versions"`
 }
 
 type RevealSecretResponse struct {

@@ -2,6 +2,13 @@ package contract
 
 import "time"
 
+type ResourceListItem struct {
+	ID        string    `json:"id"`
+	Kind      string    `json:"kind"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type ResourceResponse struct {
 	ID        string    `json:"id"`
 	ProjectID string    `json:"project_id"`
@@ -19,7 +26,8 @@ type ResourceStateResponse struct {
 }
 
 type ResourceListResponse struct {
-	Resources []ResourceResponse `json:"resources"`
+	ProjectID string             `json:"project_id"`
+	Resources []ResourceListItem `json:"resources"`
 }
 
 type DatabaseWithSecretResponse struct {

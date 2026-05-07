@@ -44,10 +44,24 @@ type QuotaDefinitionResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type PlanQuotaResponse struct {
-	PlanID            string    `json:"plan_id"`
-	QuotaDefinitionID string    `json:"quota_definition_id"`
-	LimitValue        int64     `json:"limit_value"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+type QuotaDefinitionSnippet struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Code        string  `json:"code"`
+	Unit        string  `json:"unit"`
+	Scope       string  `json:"scope"`
+}
+
+type ProjectQuotaItemResponse struct {
+	PlanID          string                 `json:"plan_id"`
+	QuotaDefinition QuotaDefinitionSnippet `json:"quota_definition"`
+	LimitValue      int64                  `json:"limit_value"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
+}
+
+type ProjectQuotaListResponse struct {
+	ProjectID string                     `json:"project_id"`
+	Quotas    []ProjectQuotaItemResponse `json:"quotas"`
 }
