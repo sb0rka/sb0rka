@@ -1,0 +1,313 @@
+NL2SQL manual test cases (Advanced SQL Puzzles)
+================================================
+
+PostgreSQL DDL + seed data, a natural-language task, and expected output for
+five puzzles from Advanced SQL Puzzles Markdown.md: #14, #19, #47, #50, #75.
+
+Run setup in a scratch schema or transaction, then run the generated query and
+compare rows (order matters where noted).
+
+
+Puzzle #14 — Indeterminate process log
+--------------------------------------
+
+Setup SQL
+---------
+
+DROP TABLE IF EXISTS process_log;
+CREATE TABLE process_log (
+  workflow     TEXT        NOT NULL,
+  step_number  INTEGER     NOT NULL,
+  status       TEXT        NOT NULL,
+  PRIMARY KEY (workflow, step_number)
+);
+
+INSERT INTO process_log (workflow, step_number, status) VALUES
+  ('Alpha',   1, 'Error'),
+  ('Alpha',   2, 'Complete'),
+  ('Alpha',   3, 'Running'),
+  ('Bravo',   1, 'Complete'),
+  ('Bravo',   2, 'Complete'),
+  ('Charlie', 1, 'Running'),
+  ('Charlie', 2, 'Running'),
+  ('Delta',   1, 'Error'),
+  ('Delta',   2, 'Error'),
+  ('Echo',    1, 'Running'),
+  ('Echo',    2, 'Complete');
+
+Task
+----
+
+Each workflow has multiple steps with status in (Error, Complete, Running).
+For each workflow, compute one overall status row:
+
+- If every step has the same status, that status is the overall status.
+- If any step is Error and any other step is Complete or Running, overall
+  status is Indeterminate.
+- If there is no Error, but the workflow has both Complete and Running,
+  overall status is Running.
+
+Return workflow and overall status, ordered by workflow.
+
+Expected output
+-----------------
+
+workflow   status
+---------  -------------
+Alpha      Indeterminate
+Bravo      Complete
+Charlie    Running
+Delta      Error
+Echo       Running
+
+Reference solution (PostgreSQL)
+---------------------------------
+
+Homogeneous workflows first (fixes all-Running vs all-Complete), then
+Indeterminate, then mixed Complete+Running with no Error.
+
+SELECT
+  workflow,
+  CASE
+    WHEN MIN(status) = MAX(status) THEN MIN(status)
+    WHEN BOOL_OR(status = 'Error')
+      AND (BOOL_OR(status = 'Complete') OR BOOL_OR(status = 'Running'))
+      THEN 'Indeterminate'
+    WHEN BOOL_OR(status = 'Complete') AND BOOL_OR(status = 'Running')
+      THEN 'Running'
+  END AS overall_status
+FROM process_log
+GROUP BY workflow
+ORDER BY workflow;
+
+
+Puzzle #19 — Back to the future (merge overlapping periods)
+------------------------------------------------------------
+
+Setup SQL
+---------
+
+DROP TABLE IF EXISTS time_periods;
+CREATE TABLE time_periods (
+  period_id  SERIAL PRIMARY KEY,
+  start_date DATE NOT NULL,
+  end_date   DATE NOT NULL
+);
+
+INSERT INTO time_periods (start_date, end_date) VALUES
+  ('2018-01-01', '2018-01-05'),
+  ('2018-01-03', '2018-01-09'),
+  ('2018-01-10', '2018-01-11'),
+  ('2018-01-12', '2018-01-16'),
+  ('2018-01-15', '2018-01-19');
+
+Task
+----
+
+Merge intervals that overlap (share at least one calendar day). Treat
+start_date and end_date as inclusive ends. Return each merged interval as one
+row (minimal set of non-overlapping intervals covering the same days as the
+input). Order by start_date.
+
+Expected output
+-----------------
+
+start_date    end_date
+----------    ----------
+2018-01-01    2018-01-09
+2018-01-10    2018-01-11
+2018-01-12    2018-01-19
+
+
+Puzzle #47 — Work schedule (shift minus activities, gaps labeled Work)
+-----------------------------------------------------------------------
+
+Setup SQL
+---------
+
+DROP TABLE IF EXISTS shift_activity;
+DROP TABLE IF EXISTS shift_schedule;
+
+CREATE TABLE shift_schedule (
+  schedule_id TEXT NOT NULL PRIMARY KEY,
+  start_ts    TIMESTAMP NOT NULL,
+  end_ts      TIMESTAMP NOT NULL
+);
+
+CREATE TABLE shift_activity (
+  schedule_id TEXT NOT NULL,
+  activity    TEXT NOT NULL,
+  start_ts    TIMESTAMP NOT NULL,
+  end_ts      TIMESTAMP NOT NULL
+);
+
+INSERT INTO shift_schedule VALUES
+  ('A', '2021-10-01 10:00:00', '2021-10-01 15:00:00'),
+  ('B', '2021-10-01 10:15:00', '2021-10-01 12:15:00');
+
+INSERT INTO shift_activity VALUES
+  ('A', 'Meeting', '2021-10-01 10:00:00', '2021-10-01 10:30:00'),
+  ('A', 'Break',   '2021-10-01 12:00:00', '2021-10-01 12:30:00'),
+  ('A', 'Meeting', '2021-10-01 13:00:00', '2021-10-01 13:30:00'),
+  ('B', 'Break',   '2021-10-01 11:00:00', '2021-10-01 11:15:00');
+
+Task
+----
+
+For each row in shift_schedule, split the shift [start_ts, end_ts) into
+contiguous segments. Where the shift is not covered by any shift_activity
+interval for that schedule_id, emit a row with activity = 'Work' for that gap.
+Activity intervals are as given (assume they lie inside the shift and do not
+overlap each other). Return schedule_id, activity, start_ts, end_ts ordered by
+schedule_id, then start_ts.
+
+Expected output
+-----------------
+
+schedule_id  activity  start_ts             end_ts
+-----------  --------  -------------------  -------------------
+A            Meeting   2021-10-01 10:00:00    2021-10-01 10:30:00
+A            Work      2021-10-01 10:30:00    2021-10-01 12:00:00
+A            Break     2021-10-01 12:00:00    2021-10-01 12:30:00
+A            Work      2021-10-01 12:30:00    2021-10-01 13:00:00
+A            Meeting   2021-10-01 13:00:00    2021-10-01 13:30:00
+A            Work      2021-10-01 13:30:00    2021-10-01 15:00:00
+B            Work      2021-10-01 10:15:00    2021-10-01 11:00:00
+B            Break     2021-10-01 11:00:00    2021-10-01 11:15:00
+B            Work      2021-10-01 11:15:00    2021-10-01 12:15:00
+
+
+Puzzle #50 — Baseball balls and strikes
+---------------------------------------
+
+Setup SQL
+---------
+
+DROP TABLE IF EXISTS pitches;
+CREATE TABLE pitches (
+  batter_id    INTEGER NOT NULL,
+  pitch_number INTEGER NOT NULL,
+  result       TEXT    NOT NULL,
+  PRIMARY KEY (batter_id, pitch_number)
+);
+
+INSERT INTO pitches VALUES
+  (1001, 1, 'Foul'),
+  (1001, 2, 'Foul'),
+  (1001, 3, 'Ball'),
+  (1001, 4, 'Ball'),
+  (1001, 5, 'Strike'),
+  (2002, 1, 'Ball'),
+  (2002, 2, 'Strike'),
+  (2002, 3, 'Foul'),
+  (2002, 4, 'Foul'),
+  (2002, 5, 'Foul'),
+  (2002, 6, 'In Play'),
+  (3003, 1, 'Ball'),
+  (3003, 2, 'Ball'),
+  (3003, 3, 'Ball'),
+  (3003, 4, 'Ball'),
+  (4004, 1, 'Foul'),
+  (4004, 2, 'Foul'),
+  (4004, 3, 'Foul'),
+  (4004, 4, 'Foul'),
+  (4004, 5, 'Foul'),
+  (4004, 6, 'Strike');
+
+Task
+----
+
+For each pitch in order (batter_id, pitch_number), track the count before the
+pitch (balls 0–3, strikes 0–2) and the count after the pitch.
+
+Rules (standard count; ignore extra innings / automatic runner):
+
+- Ball: increase balls by 1.
+- Strike: increase strikes by 1; a third strike ends at strikes = 3 for display.
+- Foul with strikes < 2: strikes increase by 1. Foul with strikes = 2: count
+  unchanged.
+- In Play: leave count as balls–strikes before the pitch; after count display as
+  literal In-Play (not X – Y).
+
+Format start_of_pitch_count and end_of_pitch_count as text like 0 – 0 (ball
+count, space, en dash U+2013, space, strike count) except In-Play for the end
+count on an In Play result.
+
+Return: batter_id, pitch_number, result, start_of_pitch_count,
+end_of_pitch_count, ordered by batter_id, pitch_number.
+
+Expected output
+-----------------
+
+(En dash U+2013 between ball and strike counts in X – Y cells.)
+
+batter_id  pitch_number  result    start_of_pitch_count  end_of_pitch_count
+---------  ------------  --------  --------------------  --------------------
+1001       1             Foul      0 – 0                 0 – 1
+1001       2             Foul      0 – 1                 0 – 2
+1001       3             Ball      0 – 2                 1 – 2
+1001       4             Ball      1 – 2                 2 – 2
+1001       5             Strike    2 – 2                 2 – 3
+2002       1             Ball      0 – 0                 1 – 0
+2002       2             Strike    1 – 0                 1 – 1
+2002       3             Foul      1 – 1                 1 – 2
+2002       4             Foul      1 – 2                 1 – 2
+2002       5             Foul      1 – 2                 1 – 2
+2002       6             In Play   1 – 2                 In-Play
+3003       1             Ball      0 – 0                 1 – 0
+3003       2             Ball      1 – 0                 2 – 0
+3003       3             Ball      2 – 0                 3 – 0
+3003       4             Ball      3 – 0                 4 – 0
+4004       1             Foul      0 – 0                 0 – 1
+4004       2             Foul      0 – 1                 0 – 2
+4004       3             Foul      0 – 2                 0 – 2
+4004       4             Foul      0 – 2                 0 – 2
+4004       5             Foul      0 – 2                 0 – 2
+4004       6             Strike    0 – 2                 0 – 3
+
+
+Puzzle #75 — Symmetric matches (same box dimensions up to permutation)
+----------------------------------------------------------------------
+
+Setup SQL
+---------
+
+DROP TABLE IF EXISTS boxes;
+CREATE TABLE boxes (
+  box_id TEXT PRIMARY KEY,
+  len    INTEGER NOT NULL,
+  width  INTEGER NOT NULL,
+  height INTEGER NOT NULL
+);
+
+INSERT INTO boxes VALUES
+  ('A', 10, 25, 15),
+  ('B', 15, 10, 25),
+  ('C', 10, 16, 24);
+
+Task
+----
+
+Two boxes match if their side lengths are the same multiset (order of
+length/width/height does not matter). Assign grouping_id: positive integer,
+same id for all matching boxes, different id for different shape classes. The
+component with lexicographically smallest box_id must get grouping_id = 1; the
+next distinct shape class gets 2, and so on. Return box_id, grouping_id ordered
+by box_id.
+
+Expected output
+-----------------
+
+box_id  grouping_id
+------  -----------
+A       1
+B       1
+C       2
+
+
+Attribution
+-----------
+
+Puzzle statements and golden results are adapted from Advanced SQL Puzzles
+(advancedsqlpuzzles.com / GitHub AdvancedSQLPuzzles/Advanced SQL Puzzles),
+consolidated in-repo as apps/nl2sql/Advanced SQL Puzzles Markdown.md.
