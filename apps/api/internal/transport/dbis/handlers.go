@@ -1,4 +1,4 @@
-package databases
+package dbis
 
 import (
 	"encoding/json"
@@ -64,7 +64,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 	return true
 }
 
-func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -79,7 +79,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req contract.CreateDatabaseRequest
+	var req contract.CreateDBInstanceRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
@@ -179,8 +179,8 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := contract.DatabaseWithSecretResponse{
-		Database: toDatabaseResponse(dbRow),
-		Secret:   toSecretResponse(secretRow),
+		DBInstance: toDBInstanceResponse(dbRow),
+		Secret:     toSecretResponse(secretRow),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -188,7 +188,7 @@ func (h *Handler) CreateDatabase(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListDBInstances(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -210,20 +210,20 @@ func (h *Handler) ListDatabases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]contract.DatabaseResponse, 0, len(rows))
+	out := make([]contract.DBInstanceResponse, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toDatabaseResponse(r))
+		out = append(out, toDBInstanceResponse(r))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.DatabaseListResponse{
-		ProjectID: projectID,
-		Databases: out,
+	_ = json.NewEncoder(w).Encode(contract.DBInstanceListResponse{
+		ProjectID:   projectID,
+		DBInstances: out,
 	})
 }
 
-func (h *Handler) GetDatabase(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -256,10 +256,10 @@ func (h *Handler) GetDatabase(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toDatabaseResponse(row))
+	_ = json.NewEncoder(w).Encode(toDBInstanceResponse(row))
 }
 
-func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -279,7 +279,7 @@ func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req contract.UpdateDatabaseRequest
+	var req contract.UpdateDBInstanceRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
@@ -321,18 +321,18 @@ func (h *Handler) UpdateDatabase(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toDatabaseResponse(row))
+	_ = json.NewEncoder(w).Encode(toDBInstanceResponse(row))
 }
 
-func (h *Handler) StartDatabase(w http.ResponseWriter, r *http.Request) {
-	h.setDatabaseDesiredRuntimeState(w, r, authz.ActionDBStart, model.DBDesiredRuntimeStateRunning)
+func (h *Handler) StartDBInstance(w http.ResponseWriter, r *http.Request) {
+	h.setDBInstanceDesiredRuntimeState(w, r, authz.ActionDBStart, model.DBDesiredRuntimeStateRunning)
 }
 
-func (h *Handler) StopDatabase(w http.ResponseWriter, r *http.Request) {
-	h.setDatabaseDesiredRuntimeState(w, r, authz.ActionDBStop, model.DBDesiredRuntimeStateSuspended)
+func (h *Handler) StopDBInstance(w http.ResponseWriter, r *http.Request) {
+	h.setDBInstanceDesiredRuntimeState(w, r, authz.ActionDBStop, model.DBDesiredRuntimeStateSuspended)
 }
 
-func (h *Handler) setDatabaseDesiredRuntimeState(w http.ResponseWriter, r *http.Request, action authz.Action, desiredRuntimeState string) {
+func (h *Handler) setDBInstanceDesiredRuntimeState(w http.ResponseWriter, r *http.Request, action authz.Action, desiredRuntimeState string) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -365,10 +365,10 @@ func (h *Handler) setDatabaseDesiredRuntimeState(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toDatabaseResponse(row))
+	_ = json.NewEncoder(w).Encode(toDBInstanceResponse(row))
 }
 
-func (h *Handler) GetDatabaseConnection(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetDBInstanceConnection(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -405,7 +405,7 @@ func (h *Handler) GetDatabaseConnection(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.DatabaseConnParamsResponse{
+	_ = json.NewEncoder(w).Encode(contract.DBInstanceConnParamsResponse{
 		Host:             fmt.Sprintf("%s.%s", dbRow.ResourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost),
 		Port:             h.deps.Cfg.TenantsDatabasePublicPort,
 		User:             h.deps.Cfg.TenantsDatabaseUser,
@@ -414,7 +414,7 @@ func (h *Handler) GetDatabaseConnection(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-func (h *Handler) RevealDatabaseURI(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -481,7 +481,7 @@ func (h *Handler) RevealDatabaseURI(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(uri))
 }
 
-func (h *Handler) DeleteDatabase(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -516,9 +516,9 @@ func (h *Handler) DeleteDatabase(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func toDatabaseResponse(d model.DB) contract.DatabaseResponse {
-	resp := contract.DatabaseResponse{
-		DatabaseID:          d.ResourceID,
+func toDBInstanceResponse(d model.DBInstance) contract.DBInstanceResponse {
+	resp := contract.DBInstanceResponse{
+		DBInstanceID:        d.ResourceID,
 		Name:                d.Name,
 		NormalizedName:      d.NormalizedName,
 		Description:         d.Description,

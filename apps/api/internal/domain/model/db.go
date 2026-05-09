@@ -6,8 +6,10 @@ const (
 	DBDesiredRuntimeStateTerminated = "terminated"
 )
 
-type DB struct {
+type DBInstance struct {
+	ProjectID           string  `json:"project_id"`
 	ResourceID          string  `json:"resource_id"`
+	Engine              string  `json:"engine"`
 	Name                string  `json:"name"`
 	NormalizedName      string  `json:"normalized_name"`
 	DesiredRuntimeState string  `json:"desired_runtime_state"`
@@ -18,9 +20,9 @@ type DB struct {
 	Tags []Tag `json:"tags,omitempty"`
 }
 
-type DBVerifier struct {
+type DBInstanceVerifier struct {
 	ProjectID              string `json:"project_id"`
-	DBID                   string `json:"db_id"`
+	DBInstanceID           string `json:"dbi_id"`
 	PasswordSecretID       string `json:"password_secret_id"`
 	PasswordVerifier       string `json:"password_verifier"`
 	PasswordDesiredVersion int    `json:"password_desired_version"`

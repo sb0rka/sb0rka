@@ -15,7 +15,7 @@ const (
 )
 
 type PlatformReader interface {
-	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DB, error)
+	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DBInstance, error)
 }
 
 type telemetryTarget struct {

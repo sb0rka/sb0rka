@@ -55,13 +55,13 @@ type Database interface {
 	GetResource(ctx context.Context, projectID string, resourceID string) (model.Resource, error)
 
 	// Databases
-	CreateDatabase(ctx context.Context, params CreateDatabaseParams) (model.DB, model.Secret, model.SecretVersion, error)
-	ListDatabases(ctx context.Context, projectID string) ([]model.DB, error)
-	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DB, error)
-	UpdateDatabase(ctx context.Context, projectID string, resourceID string, name *string, description *string) (model.DB, error)
-	SetDatabaseDesiredRuntimeState(ctx context.Context, projectID string, resourceID string, desiredRuntimeState string) (model.DB, error)
-	GetDatabaseConnParams(ctx context.Context, projectID string, resourceID string) (model.DB, model.Secret, error)
-	ClaimDatabaseTermination(ctx context.Context, projectID string, resourceID string) (model.DB, model.DBVerifier, error)
+	CreateDatabase(ctx context.Context, params CreateDatabaseParams) (model.DBInstance, model.Secret, model.SecretVersion, error)
+	ListDatabases(ctx context.Context, projectID string) ([]model.DBInstance, error)
+	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DBInstance, error)
+	UpdateDatabase(ctx context.Context, projectID string, resourceID string, name *string, description *string) (model.DBInstance, error)
+	SetDatabaseDesiredRuntimeState(ctx context.Context, projectID string, resourceID string, desiredRuntimeState string) (model.DBInstance, error)
+	GetDatabaseConnParams(ctx context.Context, projectID string, resourceID string) (model.DBInstance, model.Secret, error)
+	ClaimDatabaseTermination(ctx context.Context, projectID string, resourceID string) (model.DBInstance, model.DBInstanceVerifier, error)
 
 	// Secrets
 	CreateSecretWithInitialVersion(ctx context.Context, params CreateSecretWithInitialVersionParams) (model.Secret, model.SecretVersion, error)
@@ -75,7 +75,7 @@ type Database interface {
 	DisableSecretVersion(ctx context.Context, projectID string, secretID string, versionNo int) (model.SecretVersion, error)
 	GetSecretMaterialForReveal(ctx context.Context, projectID string, secretID string, versionNo int) (model.Secret, model.SecretVersion, model.SecretMaterial, error)
 	GetActiveEncryptionKey(ctx context.Context) (model.EncryptionKey, error)
-	GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DB, model.Secret, model.SecretVersion, model.SecretMaterial, error)
+	GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error)
 	IsDatabasePasswordSecret(ctx context.Context, projectID string, secretID string) (bool, error)
 
 	// Tags

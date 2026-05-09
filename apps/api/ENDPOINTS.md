@@ -17,6 +17,7 @@ v0.1.0-ограничения:
 ## Планы и квоты
 
 - `GET /plans` - Список публичных планов (`is_public = true`, `is_available = true`) с `kind = account|project`. Аутентификация: нет.
+- `POST /account/initialize` - Инициализировать пользователя с free account планом. **Аутентификация: да + live session**.
 - `GET /account/plan` - Текущий account plan для `subject_id` (`api.subject_plans`). **Аутентификация: да**.
 - `GET /projects/{project_id}/plan` - Текущий project plan (`api.projects.plan_id`). **Аутентификация: да, `project.read`**.
 - `GET /projects/{project_id}/quotas` - Эффективные лимиты проекта. **Аутентификация: да, `project.read`**.
@@ -25,7 +26,7 @@ v0.1.0-ограничения:
 ## Проекты
 
 - `GET /projects` - Список проектов, где текущий subject является member. **Аутентификация: да**.
-- `POST /projects` - Создание проекта. **Аутентификация: да + live session**. Аргументы: `name`, `description`. В v0.1.0 `billing_subject_id = current subject_id`. Присваивается `free` план.
+- `POST /projects` - Создание проекта. **Аутентификация: да + live session**. Аргументы: `name`, `description`. В v0.1.0 `billing_subject_id = current subject_id`.
 - `GET /projects/{project_id}` - Получение проекта. **Аутентификация: да, `project.read`**.
 - `PATCH /projects/{project_id}` - Обновление метаданных проекта. **Аутентификация: да, `project.update_meta` + live session**.
 - `DELETE /projects/{project_id}` - Удаление проекта. **Аутентификация: да, `project.delete` + live session**.
@@ -42,17 +43,17 @@ v0.1.0-ограничения:
 
 - `GET /projects/{project_id}/resources` - Список ресурсов проекта. **Аутентификация: да, `project.read`**.
 
-## Инстансы баз данных
+## Базы данных
 
 - `POST /projects/{project_id}/dbi` - Создание БД инстанса (и системного password secret). **Аутентификация: да, `db.create` + live session**.
 - `GET /projects/{project_id}/dbis` - Список БД инстансов проекта. **Аутентификация: да, `db.list`**.
 - `GET /projects/{project_id}/resources/{resource_id}/dbi` - Получение БД инстанса. **Аутентификация: да, `db.read`**.
 - `PATCH /projects/{project_id}/resources/{resource_id}/dbi` - Обновление метаданных БД инстанса. **Аутентификация: да, `db.update_meta` + live session**.
-- `POST /projects/{project_id}/resources/{resource_id}/dbi/state/start` - Запуск БД инстанса. **Аутентификация: да, `db.start` + live session**.
-- `POST /projects/{project_id}/resources/{resource_id}/dbi/state/stop` - Остановка БД инстанса. **Аутентификация: да, `db.stop` + live session**.
-- `GET /projects/{project_id}/resources/{resource_id}/dbi/connection/direct` - Параметры подключения (без plaintext секрета). **Аутентификация: да, `db.connection_info.read`**.
-- `POST /projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal` - Reveal полного URI подключения. **Аутентификация: да, `db.connection_info.read` + `secret.reveal` для password secret + live session**. Ответ должен иметь `Cache-Control: no-store`, `Pragma: no-cache`.
-- `DELETE /projects/{project_id}/resources/{resource_id}/dbi` - Удаление БД инстанса. **Аутентификация: да, `db.delete` + live session**.
+- `POST /projects/{project_id}/resources/{resource_id}/dbi/start` - Запуск БД инстанса. **Аутентификация: да, `db.start` + live session**.
+- `POST /projects/{project_id}/resources/{resource_id}/dbi/stop` - Остановка БД инстанса. **Аутентификация: да, `db.stop` + live session**.
+- `GET /projects/{project_id}/resources/{resource_id}/dbi/connection` - Параметры подключения (без plaintext секрета). **Аутентификация: да, `db.connection_info.read`**.
+- `POST /projects/{project_id}/resources/{resource_id}/dbi/uri/reveal` - Reveal полного URI подключения. **Аутентификация: да, `db.connection_info.read` + `secret.reveal` для password secret + live session**. Ответ должен иметь `Cache-Control: no-store`, `Pragma: no-cache`.
+- `DELETE /projects/{project_id}/resources/{resource_id}/dbi` - Логическое удаление/терминация БД инстанса. **Аутентификация: да, `db.delete` + live session**.
 
 ## Телеметрия
 
@@ -70,7 +71,7 @@ v0.1.0-ограничения:
 - `GET /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}` - Metadata конкретной версии секрета. **Аутентификация: да, `secret.version.read`**.
 - `POST /projects/{project_id}/resources/{resource_id}/secret/versions` - Создание новой immutable value version. **Аутентификация: да, `secret.version.create` + live session**.
 - `POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal` - Reveal plaintext конкретной версии. **Аутентификация: да, `secret.reveal` + live session**. Ответ должен иметь `Cache-Control: no-store`, `Pragma: no-cache`.
-- `POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable` - Отключение версии секрета. **Аутентификация: да, `secret.version.disable` + live session**.
+- `PATCH /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}` - Lifecycle update версии, только `disabled`. **Аутентификация: да, `secret.version.update` + live session**.
 - `DELETE /projects/{project_id}/resources/{resource_id}/secret` - Удаление секрета. **Аутентификация: да, `secret.delete` + live session**.
 
 ## Тэги

@@ -3,7 +3,7 @@ package transport
 import (
 	"net/http"
 
-	tdatabases "github.com/sb0rka/sb0rka/apps/api/internal/transport/databases"
+	tdbis "github.com/sb0rka/sb0rka/apps/api/internal/transport/dbis"
 	tiam "github.com/sb0rka/sb0rka/apps/api/internal/transport/iam"
 	tprojects "github.com/sb0rka/sb0rka/apps/api/internal/transport/projects"
 	tresources "github.com/sb0rka/sb0rka/apps/api/internal/transport/resources"
@@ -19,7 +19,7 @@ type Server struct {
 	deps      runtime.Dependencies
 	iam       *tiam.Handler
 	projects  *tprojects.Handler
-	databases *tdatabases.Handler
+	dbis      *tdbis.Handler
 	resources *tresources.Handler
 	secrets   *tsecrets.Handler
 	tags      *ttags.Handler
@@ -31,7 +31,7 @@ func NewServer(deps runtime.Dependencies) *Server {
 		deps:      deps,
 		iam:       tiam.NewHandler(deps),
 		projects:  tprojects.NewHandler(deps),
-		databases: tdatabases.NewHandler(deps),
+		dbis:      tdbis.NewHandler(deps),
 		resources: tresources.NewHandler(deps),
 		secrets:   tsecrets.NewHandler(deps),
 		tags:      ttags.NewHandler(deps),
@@ -78,16 +78,16 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	// Resources
 	mux.Handle("GET /projects/{project_id}/resources", authOnly(s.resources.ListResources))
 
-	// Databases
-	mux.Handle("POST /projects/{project_id}/database", authLive(s.databases.CreateDatabase))
-	mux.Handle("GET /projects/{project_id}/databases", authOnly(s.databases.ListDatabases))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database", authOnly(s.databases.GetDatabase))
-	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/database", authLive(s.databases.UpdateDatabase))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/state/start", authLive(s.databases.StartDatabase))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/state/stop", authLive(s.databases.StopDatabase))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/database/connection/direct", authOnly(s.databases.GetDatabaseConnection))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/database/uri/direct/reveal", authLive(s.databases.RevealDatabaseURI))
-	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/database", authLive(s.databases.DeleteDatabase))
+	// Database instances
+	mux.Handle("POST /projects/{project_id}/dbi", authLive(s.dbis.CreateDBInstance))
+	mux.Handle("GET /projects/{project_id}/dbis", authOnly(s.dbis.ListDBInstances))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/dbi", authOnly(s.dbis.GetDBInstance))
+	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/dbi", authLive(s.dbis.UpdateDBInstance))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/dbi/state/start", authLive(s.dbis.StartDBInstance))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/dbi/state/stop", authLive(s.dbis.StopDBInstance))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/dbi/connection/direct", authOnly(s.dbis.GetDBInstanceConnection))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal", authLive(s.dbis.RevealDBInstanceURI))
+	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/dbi", authLive(s.dbis.DeleteDBInstance))
 
 	// Telemetry
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/observability/metrics/timeseries", authOnly(s.telemetry.GetResourceMetricTimeseries))

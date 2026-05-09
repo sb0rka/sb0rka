@@ -17,7 +17,7 @@ const (
 )
 
 type DatabaseGate interface {
-	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DB, error)
+	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DBInstance, error)
 }
 
 type Service interface {

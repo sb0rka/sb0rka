@@ -348,9 +348,12 @@ EXECUTE FUNCTION set_updated_at();
 CREATE INDEX IF NOT EXISTS ix_res_states_prj_id_rt_st
     ON resource_states (project_id, runtime_state);
 
-CREATE TABLE IF NOT EXISTS dbs (
+CREATE TABLE IF NOT EXISTS dbis (
     project_id VARCHAR(12) NOT NULL,
     resource_id VARCHAR(16) NOT NULL,
+
+    engine VARCHAR(16) NOT NULL
+        CHECK (engine IN ('postgresql')),
 
     name VARCHAR NOT NULL,
     normalized_name VARCHAR NOT NULL,
@@ -361,15 +364,15 @@ CREATE TABLE IF NOT EXISTS dbs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 
-    CONSTRAINT pk_dbs PRIMARY KEY (resource_id),
-    CONSTRAINT fk_dbs_resource_id_resources FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE,
-    CONSTRAINT fk_dbs_res_id_proj_id_resources FOREIGN KEY (resource_id, project_id) REFERENCES resources (id, project_id) ON DELETE CASCADE,
-    CONSTRAINT uq_dbs_project_id_norm_name UNIQUE (project_id, normalized_name)
+    CONSTRAINT pk_dbis PRIMARY KEY (resource_id),
+    CONSTRAINT fk_dbis_resource_id_resources FOREIGN KEY (resource_id) REFERENCES resources (id) ON DELETE CASCADE,
+    CONSTRAINT fk_dbis_res_id_proj_id_resources FOREIGN KEY (resource_id, project_id) REFERENCES resources (id, project_id) ON DELETE CASCADE,
+    CONSTRAINT uq_dbis_project_id_norm_name UNIQUE (project_id, normalized_name)
 );
 
-DROP TRIGGER IF EXISTS trg_dbs_set_updated_at ON dbs;
-CREATE TRIGGER trg_dbs_set_updated_at
-BEFORE UPDATE ON dbs
+DROP TRIGGER IF EXISTS trg_dbis_set_updated_at ON dbis;
+CREATE TRIGGER trg_dbis_set_updated_at
+BEFORE UPDATE ON dbis
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -505,9 +508,9 @@ BEFORE UPDATE ON secret_version_materials
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE TABLE IF NOT EXISTS db_verifiers (
+CREATE TABLE IF NOT EXISTS dbi_verifiers (
     project_id VARCHAR(12) NOT NULL,
-    db_id VARCHAR(16) NOT NULL,
+    dbi_id VARCHAR(16) NOT NULL,
     password_secret_id VARCHAR(16) NOT NULL,
 
     password_desired_version INTEGER NOT NULL
@@ -519,28 +522,28 @@ CREATE TABLE IF NOT EXISTS db_verifiers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 
-    CONSTRAINT pk_db_verifiers PRIMARY KEY (db_id),
-    CONSTRAINT fk_db_verifiers_db_id_dbs FOREIGN KEY (db_id) REFERENCES dbs (resource_id) ON DELETE CASCADE,
-    CONSTRAINT fk_db_vrf_db_id_proj_id_res FOREIGN KEY (db_id, project_id) REFERENCES resources (id, project_id) ON DELETE CASCADE,
-    CONSTRAINT fk_db_vrf_pwd_sec_id_secrets FOREIGN KEY (password_secret_id, project_id) REFERENCES secrets (resource_id, project_id) ON DELETE RESTRICT,
-    CONSTRAINT fk_db_vrf_proj_pwd_sec_ver FOREIGN KEY (project_id, password_secret_id, password_desired_version) REFERENCES secret_versions (project_id, secret_id, version_no) ON DELETE RESTRICT
-);
+    CONSTRAINT pk_dbi_verifiers PRIMARY KEY (dbi_id),
+    CONSTRAINT fk_dbi_verifiers_dbi_id_dbis FOREIGN KEY (dbi_id) REFERENCES dbis (resource_id) ON DELETE CASCADE,
+    CONSTRAINT fk_dbi_vrf_dbi_id_proj_id_res FOREIGN KEY (dbi_id, project_id) REFERENCES resources (id, project_id) ON DELETE CASCADE,
+    CONSTRAINT fk_dbi_vrf_pwd_sec_id_secrets FOREIGN KEY (password_secret_id, project_id) REFERENCES secrets (resource_id, project_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_dbi_vrf_proj_pwd_sec_ver FOREIGN KEY (project_id, password_secret_id, password_desired_version) REFERENCES secret_versions (project_id, secret_id, version_no) ON DELETE RESTRICT
+); 
 
-DROP TRIGGER IF EXISTS trg_db_verifiers_set_updated_at ON db_verifiers;
-CREATE TRIGGER trg_db_verifiers_set_updated_at
-BEFORE UPDATE ON db_verifiers
+DROP TRIGGER IF EXISTS trg_dbi_verifiers_set_updated_at ON dbi_verifiers;
+CREATE TRIGGER trg_dbi_verifiers_set_updated_at
+BEFORE UPDATE ON dbi_verifiers
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX IF NOT EXISTS ix_db_vrf_pwd_secret_id_version
-    ON db_verifiers (
+CREATE INDEX IF NOT EXISTS ix_dbi_vrf_pwd_secret_id_version
+    ON dbi_verifiers (
         project_id,
         password_secret_id,
         password_desired_version
     );
 
-CREATE INDEX IF NOT EXISTS ix_db_vrf_project_desired_state
-    ON db_verifiers (project_id, password_desired_state);
+CREATE INDEX IF NOT EXISTS ix_dbi_vrf_project_desired_state
+    ON dbi_verifiers (project_id, password_desired_state);
 
 -- TAGS
 

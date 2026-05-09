@@ -997,10 +997,10 @@ func (p *PsqlDB) GetResource(ctx context.Context, projectID string, resourceID s
 	return res, nil
 }
 
-func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams) (model.DB, model.Secret, model.SecretVersion, error) {
+func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams) (model.DBInstance, model.Secret, model.SecretVersion, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -1011,23 +1011,24 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 	`
 	var resourceID string
 	if err := tx.QueryRow(ctx, createResourceQuery, params.DBID, params.ProjectID).Scan(&resourceID); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	const createDBQuery = `
-		INSERT INTO dbs (project_id, resource_id, name, normalized_name, desired_runtime_state, description)
-		VALUES ($1, $2, $3, $4, 'running', $5)
-		RETURNING resource_id, name, normalized_name, desired_runtime_state, description
+		INSERT INTO dbis (project_id, resource_id, engine, name, normalized_name, desired_runtime_state, description)
+		VALUES ($1, $2, 'postgresql', $3, $4, 'running', $5)
+		RETURNING resource_id, engine, name, normalized_name, desired_runtime_state, description
 	`
-	var dbRow model.DB
+	var dbRow model.DBInstance
 	if err := tx.QueryRow(ctx, createDBQuery, params.ProjectID, resourceID, params.Name, params.NormalizedName, params.Description).Scan(
 		&dbRow.ResourceID,
+		&dbRow.Engine,
 		&dbRow.Name,
 		&dbRow.NormalizedName,
 		&dbRow.DesiredRuntimeState,
 		&dbRow.Description,
 	); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	const createSecretResourceQuery = `
@@ -1037,7 +1038,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 	`
 	var secretResourceID string
 	if err := tx.QueryRow(ctx, createSecretResourceQuery, params.SecretID, params.ProjectID).Scan(&secretResourceID); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	secretName := DatabasePasswordSecretName(dbRow.ResourceID)
@@ -1062,7 +1063,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 		&secret.UpdatedAt,
 		&secret.ScheduledDestroyAt,
 	); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	const createSecretVersionQuery = `
@@ -1082,7 +1083,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 		&version.UpdatedAt,
 		&version.DisabledAt,
 	); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	const createSecretMaterialQuery = `
@@ -1103,15 +1104,15 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 		string(params.AADContext),
 		params.EncryptedMessage,
 	); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	const createDBVerifierQuery = `
-		INSERT INTO db_verifiers (project_id, db_id, password_secret_id, password_verifier, password_desired_version, password_desired_state)
+		INSERT INTO dbi_verifiers (project_id, dbi_id, password_secret_id, password_verifier, password_desired_version, password_desired_state)
 		VALUES ($1, $2, $3, $4, $5, 'present')
 	`
 	if _, err := tx.Exec(ctx, createDBVerifierQuery, params.ProjectID, dbRow.ResourceID, secret.ResourceID, params.PasswordVerifier, version.VersionNo); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	tagKey, tagValue := DatabaseSecretTag(dbRow.ResourceID, secret.ResourceID)
@@ -1122,7 +1123,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 	`
 	var tagID int64
 	if err := tx.QueryRow(ctx, createTagQuery, params.ProjectID, tagKey, tagValue).Scan(&tagID); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	const attachTagQuery = `
@@ -1130,22 +1131,23 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 		VALUES ($1, $2, $3)
 	`
 	if _, err := tx.Exec(ctx, attachTagQuery, params.ProjectID, dbRow.ResourceID, tagID); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 	if _, err := tx.Exec(ctx, attachTagQuery, params.ProjectID, secret.ResourceID, tagID); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 	return dbRow, secret, version, nil
 }
 
-func (p *PsqlDB) ListDatabases(ctx context.Context, projectID string) ([]model.DB, error) {
+func (p *PsqlDB) ListDatabases(ctx context.Context, projectID string) ([]model.DBInstance, error) {
 	const query = `
 		SELECT
 			d.resource_id,
+			d.engine,
 			d.name,
 			d.normalized_name,
 			d.desired_runtime_state,
@@ -1153,7 +1155,7 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, projectID string) ([]model.D
 			rs.runtime_state,
 			rs.created_at,
 			rs.updated_at
-		FROM dbs d
+		FROM dbis d
 		INNER JOIN resources r ON r.id = d.resource_id
 		LEFT JOIN resource_states rs ON rs.resource_id = r.id
 		WHERE r.project_id = $1
@@ -1166,14 +1168,15 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, projectID string) ([]model.D
 	}
 	defer rows.Close()
 
-	out := make([]model.DB, 0)
+	out := make([]model.DBInstance, 0)
 	for rows.Next() {
-		var row model.DB
+		var row model.DBInstance
 		var runtimeState *string
 		var stateCreatedAt *time.Time
 		var stateUpdatedAt *time.Time
 		if err := rows.Scan(
 			&row.ResourceID,
+			&row.Engine,
 			&row.Name,
 			&row.NormalizedName,
 			&row.DesiredRuntimeState,
@@ -1200,10 +1203,11 @@ func (p *PsqlDB) ListDatabases(ctx context.Context, projectID string) ([]model.D
 	return out, nil
 }
 
-func (p *PsqlDB) GetDatabase(ctx context.Context, _ uuid.UUID, projectID string, resourceID string) (model.DB, error) {
+func (p *PsqlDB) GetDatabase(ctx context.Context, _ uuid.UUID, projectID string, resourceID string) (model.DBInstance, error) {
 	const query = `
 		SELECT
 			d.resource_id,
+			d.engine,
 			d.name,
 			d.normalized_name,
 			d.desired_runtime_state,
@@ -1211,19 +1215,20 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, _ uuid.UUID, projectID string,
 			rs.runtime_state,
 			rs.created_at,
 			rs.updated_at
-		FROM dbs d
+		FROM dbis d
 		JOIN resources r ON r.id = d.resource_id
 		LEFT JOIN resource_states rs ON rs.resource_id = r.id
 		WHERE r.project_id = $1
 		  AND r.id = $2
 		  AND r.kind = 'database'
 	`
-	var dbRow model.DB
+	var dbRow model.DBInstance
 	var runtimeState *string
 	var stateCreatedAt *time.Time
 	var stateUpdatedAt *time.Time
 	if err := p.pool.QueryRow(ctx, query, projectID, resourceID).Scan(
 		&dbRow.ResourceID,
+		&dbRow.Engine,
 		&dbRow.Name,
 		&dbRow.NormalizedName,
 		&dbRow.DesiredRuntimeState,
@@ -1233,9 +1238,9 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, _ uuid.UUID, projectID string,
 		&stateUpdatedAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, ErrResourceNotFound
+			return model.DBInstance{}, ErrResourceNotFound
 		}
-		return model.DB{}, err
+		return model.DBInstance{}, err
 	}
 	if runtimeState != nil && stateCreatedAt != nil && stateUpdatedAt != nil {
 		dbRow.ResourceState = &model.ResourceState{
@@ -1248,10 +1253,10 @@ func (p *PsqlDB) GetDatabase(ctx context.Context, _ uuid.UUID, projectID string,
 	return dbRow, nil
 }
 
-func (p *PsqlDB) UpdateDatabase(ctx context.Context, projectID string, resourceID string, name *string, description *string) (model.DB, error) {
+func (p *PsqlDB) UpdateDatabase(ctx context.Context, projectID string, resourceID string, name *string, description *string) (model.DBInstance, error) {
 	const query = `
 		WITH updated_db AS (
-			UPDATE dbs d
+			UPDATE dbis d
 			SET
 				name = COALESCE($3, d.name),
 				description = COALESCE($4, d.description)
@@ -1260,69 +1265,71 @@ func (p *PsqlDB) UpdateDatabase(ctx context.Context, projectID string, resourceI
 			  AND r.project_id = $1
 			  AND r.id = $2
 			  AND r.kind = 'database'
-			RETURNING d.resource_id, d.name, d.normalized_name, d.desired_runtime_state, d.description
+			RETURNING d.resource_id, d.engine, d.name, d.normalized_name, d.desired_runtime_state, d.description
 		)
-		SELECT resource_id, name, normalized_name, desired_runtime_state, description
+		SELECT resource_id, engine, name, normalized_name, desired_runtime_state, description
 		FROM updated_db
 	`
-	var row model.DB
+	var row model.DBInstance
 	if err := p.pool.QueryRow(ctx, query, projectID, resourceID, name, description).Scan(
 		&row.ResourceID,
+		&row.Engine,
 		&row.Name,
 		&row.NormalizedName,
 		&row.DesiredRuntimeState,
 		&row.Description,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, ErrResourceNotFound
+			return model.DBInstance{}, ErrResourceNotFound
 		}
-		return model.DB{}, err
+		return model.DBInstance{}, err
 	}
 	return row, nil
 }
 
-func (p *PsqlDB) SetDatabaseDesiredRuntimeState(ctx context.Context, projectID string, resourceID string, desiredRuntimeState string) (model.DB, error) {
+func (p *PsqlDB) SetDatabaseDesiredRuntimeState(ctx context.Context, projectID string, resourceID string, desiredRuntimeState string) (model.DBInstance, error) {
 	const query = `
 		WITH updated_db AS (
-			UPDATE dbs d
+			UPDATE dbis d
 			SET desired_runtime_state = $3
 			FROM resources r
 			WHERE d.resource_id = r.id
 			  AND r.project_id = $1
 			  AND r.id = $2
 			  AND r.kind = 'database'
-			RETURNING d.resource_id, d.name, d.normalized_name, d.desired_runtime_state, d.description
+			RETURNING d.resource_id, d.engine, d.name, d.normalized_name, d.desired_runtime_state, d.description
 		)
-		SELECT resource_id, name, normalized_name, desired_runtime_state, description
+		SELECT resource_id, engine, name, normalized_name, desired_runtime_state, description
 		FROM updated_db
 	`
-	var row model.DB
+	var row model.DBInstance
 	if err := p.pool.QueryRow(ctx, query, projectID, resourceID, desiredRuntimeState).Scan(
 		&row.ResourceID,
+		&row.Engine,
 		&row.Name,
 		&row.NormalizedName,
 		&row.DesiredRuntimeState,
 		&row.Description,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, ErrResourceNotFound
+			return model.DBInstance{}, ErrResourceNotFound
 		}
-		return model.DB{}, err
+		return model.DBInstance{}, err
 	}
 	return row, nil
 }
 
-func (p *PsqlDB) GetDatabaseConnParams(ctx context.Context, projectID string, resourceID string) (model.DB, model.Secret, error) {
+func (p *PsqlDB) GetDatabaseConnParams(ctx context.Context, projectID string, resourceID string) (model.DBInstance, model.Secret, error) {
 	dbRow, err := p.GetDatabase(ctx, uuid.Nil, projectID, resourceID)
 	if err != nil {
-		return model.DB{}, model.Secret{}, err
+		return model.DBInstance{}, model.Secret{}, err
 	}
 
 	var matchedSecret *model.Secret
 	tagKeyPrefix, _ := DatabaseSecretTag(dbRow.ResourceID, "")
 	tags, err := p.ListResourceTags(ctx, projectID, resourceID)
 	if err != nil {
-		return model.DB{}, model.Secret{}, err
+		return model.DBInstance{}, model.Secret{}, err
 	}
 
 	for _, tag := range tags {
@@ -1331,7 +1338,7 @@ func (p *PsqlDB) GetDatabaseConnParams(ctx context.Context, projectID string, re
 		}
 		secrets, err := p.listSecretsByTagID(ctx, projectID, tag.ID)
 		if err != nil {
-			return model.DB{}, model.Secret{}, err
+			return model.DBInstance{}, model.Secret{}, err
 		}
 		for _, secret := range secrets {
 			expectedTagKey, expectedTagValue := DatabaseSecretTag(dbRow.ResourceID, secret.ResourceID)
@@ -1339,7 +1346,7 @@ func (p *PsqlDB) GetDatabaseConnParams(ctx context.Context, projectID string, re
 				continue
 			}
 			if matchedSecret != nil {
-				return model.DB{}, model.Secret{}, ErrMultipleResourceRows
+				return model.DBInstance{}, model.Secret{}, ErrMultipleResourceRows
 			}
 			secretCopy := secret
 			matchedSecret = &secretCopy
@@ -1347,7 +1354,7 @@ func (p *PsqlDB) GetDatabaseConnParams(ctx context.Context, projectID string, re
 	}
 
 	if matchedSecret == nil {
-		return model.DB{}, model.Secret{}, ErrResourceNotFound
+		return model.DBInstance{}, model.Secret{}, ErrResourceNotFound
 	}
 	return dbRow, *matchedSecret, nil
 }
@@ -1408,61 +1415,62 @@ func (p *PsqlDB) listSecretsByTagID(ctx context.Context, projectID string, tagID
 	return out, nil
 }
 
-func (p *PsqlDB) ClaimDatabaseTermination(ctx context.Context, projectID string, resourceID string) (model.DB, model.DBVerifier, error) {
+func (p *PsqlDB) ClaimDatabaseTermination(ctx context.Context, projectID string, resourceID string) (model.DBInstance, model.DBInstanceVerifier, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return model.DB{}, model.DBVerifier{}, err
+		return model.DBInstance{}, model.DBInstanceVerifier{}, err
 	}
 	defer tx.Rollback(ctx)
 
 	const updateDBQuery = `
-		UPDATE dbs d
+		UPDATE dbis d
 		SET desired_runtime_state = 'terminated'
 		FROM resources r
 		WHERE d.resource_id = r.id
 		  AND r.project_id = $1
 		  AND d.resource_id = $2
 		  AND r.kind = 'database'
-		RETURNING d.resource_id, d.name, d.normalized_name, d.desired_runtime_state, d.description
+		RETURNING d.resource_id, d.engine, d.name, d.normalized_name, d.desired_runtime_state, d.description
 	`
-	var dbRow model.DB
+	var dbRow model.DBInstance
 	if err := tx.QueryRow(ctx, updateDBQuery, projectID, resourceID).Scan(
 		&dbRow.ResourceID,
+		&dbRow.Engine,
 		&dbRow.Name,
 		&dbRow.NormalizedName,
 		&dbRow.DesiredRuntimeState,
 		&dbRow.Description,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, model.DBVerifier{}, ErrResourceNotFound
+			return model.DBInstance{}, model.DBInstanceVerifier{}, ErrResourceNotFound
 		}
-		return model.DB{}, model.DBVerifier{}, err
+		return model.DBInstance{}, model.DBInstanceVerifier{}, err
 	}
 
 	const updateVerifierQuery = `
-		UPDATE db_verifiers
+		UPDATE dbi_verifiers
 		SET password_desired_state = 'absent'
 		WHERE project_id = $1
-		  AND db_id = $2
-		RETURNING project_id, db_id, password_secret_id, password_verifier, password_desired_version, password_desired_state
+		  AND dbi_id = $2
+		RETURNING project_id, dbi_id, password_secret_id, password_verifier, password_desired_version, password_desired_state
 	`
-	var verifier model.DBVerifier
+	var verifier model.DBInstanceVerifier
 	if err := tx.QueryRow(ctx, updateVerifierQuery, projectID, dbRow.ResourceID).Scan(
 		&verifier.ProjectID,
-		&verifier.DBID,
+		&verifier.DBInstanceID,
 		&verifier.PasswordSecretID,
 		&verifier.PasswordVerifier,
 		&verifier.PasswordDesiredVersion,
 		&verifier.PasswordDesiredState,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, model.DBVerifier{}, ErrResourceNotFound
+			return model.DBInstance{}, model.DBInstanceVerifier{}, ErrResourceNotFound
 		}
-		return model.DB{}, model.DBVerifier{}, err
+		return model.DBInstance{}, model.DBInstanceVerifier{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return model.DB{}, model.DBVerifier{}, err
+		return model.DBInstance{}, model.DBInstanceVerifier{}, err
 	}
 	return dbRow, verifier, nil
 }
@@ -1886,7 +1894,7 @@ func (p *PsqlDB) DisableSecretVersion(ctx context.Context, projectID string, sec
 
 	const verifierQuery = `
 		SELECT EXISTS (
-			SELECT 1 FROM db_verifiers
+			SELECT 1 FROM dbi_verifiers
 			WHERE project_id = $1
 			  AND password_secret_id = $2
 			  AND password_desired_version = $3
@@ -1995,7 +2003,7 @@ func (p *PsqlDB) IsDatabasePasswordSecret(ctx context.Context, projectID string,
 	const query = `
 		SELECT EXISTS (
 			SELECT 1
-			FROM db_verifiers
+			FROM dbi_verifiers
 			WHERE project_id = $1
 			  AND password_secret_id = $2
 			  AND password_desired_state = 'present'
@@ -2008,31 +2016,31 @@ func (p *PsqlDB) IsDatabasePasswordSecret(ctx context.Context, projectID string,
 	return exists, nil
 }
 
-func (p *PsqlDB) GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DB, model.Secret, model.SecretVersion, model.SecretMaterial, error) {
+func (p *PsqlDB) GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error) {
 	dbRow, secret, err := p.GetDatabaseConnParams(ctx, projectID, dbID)
 	if err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, err
 	}
 
 	const query = `
 		SELECT password_desired_version
-		FROM db_verifiers
+		FROM dbi_verifiers
 		WHERE project_id = $1
-		  AND db_id = $2
+		  AND dbi_id = $2
 		  AND password_secret_id = $3
 		  AND password_desired_state = 'present'
 	`
 	var desiredVersion int
 	if err := p.pool.QueryRow(ctx, query, projectID, dbRow.ResourceID, secret.ResourceID).Scan(&desiredVersion); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DB{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, ErrResourceNotFound
+			return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, ErrResourceNotFound
 		}
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, err
 	}
 
 	secretWithMeta, version, material, err := p.GetSecretMaterialForReveal(ctx, projectID, secret.ResourceID, desiredVersion)
 	if err != nil {
-		return model.DB{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, err
+		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, err
 	}
 	return dbRow, secretWithMeta, version, material, nil
 }
