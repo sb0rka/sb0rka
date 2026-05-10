@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -24,6 +25,10 @@ const defaultExplainStyle = "Explain the SQL in clear prose. Your explanation sh
 const explainStyleNoneSentinel = "Return no text at all for the explanation: your entire reply must be empty (zero characters, no whitespace)."
 
 var errEmptyExplanation = errors.New("empty explanation")
+
+var errEmptyFixedSQL = errors.New("empty fixed sql")
+
+var errInvalidFixResponse = errors.New("invalid fix response")
 
 type GenerateRequest struct {
 	Question         string `json:"question"`
@@ -51,6 +56,19 @@ type ExplainResponse struct {
 	RawMessage  string `json:"raw_message,omitempty"`
 }
 
+type FixRequest struct {
+	SQL          string `json:"sql"`
+	ErrorMessage string `json:"error_message"`
+	Schema       string `json:"schema"`
+	Dialect      string `json:"dialect"`
+}
+
+type FixResponse struct {
+	Explanation string `json:"explanation"`
+	FixedSQL    string `json:"fixed_sql"`
+	RawMessage  string `json:"raw_message,omitempty"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
@@ -64,8 +82,9 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeCORS(w)
 	switch r.URL.Path {
-	case "/generate", "/explain":
+	case "/generate", "/explain", "/fix":
 	default:
+		logRouteError(r, r.URL.Path, http.StatusNotFound, "Not found", nil)
 		writeJSONError(w, http.StatusNotFound, "Not found")
 		return
 	}
@@ -74,12 +93,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != http.MethodPost {
+		logRouteError(r, r.URL.Path, http.StatusMethodNotAllowed, "Method not allowed", nil)
 		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	if h.Cfg.SharedSecret != "" {
 		if !constantTimeEqual(strings.TrimSpace(r.Header.Get("X-NL2SQL-Secret")), h.Cfg.SharedSecret) {
+			logRouteError(r, r.URL.Path, http.StatusUnauthorized, "Unauthorized", nil)
 			writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
@@ -87,6 +108,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	limitKey := clientLimitKey(r)
 	if !h.Limiter.Allow(limitKey) {
+		logRouteError(r, r.URL.Path, http.StatusTooManyRequests, "Rate limit exceeded", nil)
 		writeJSONError(w, http.StatusTooManyRequests, "Rate limit exceeded")
 		return
 	}
@@ -96,6 +118,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleGenerate(w, r)
 	case "/explain":
 		h.handleExplain(w, r)
+	case "/fix":
+		h.handleFix(w, r)
 	}
 }
 
@@ -146,12 +170,14 @@ func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 
 	raw, err := h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
 	if err != nil {
+		logRouteError(r, "/generate", http.StatusBadGateway, "LLM request failed", err)
 		writeJSONError(w, http.StatusBadGateway, "LLM request failed")
 		return
 	}
 
 	sql := extractSQL(raw)
 	if sql == "" {
+		logRouteError(r, "/generate", http.StatusBadGateway, "Model returned no SQL", nil)
 		writeJSONError(w, http.StatusBadGateway, "Model returned no SQL")
 		return
 	}
@@ -159,9 +185,11 @@ func (h *Handler) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	explanation, _, err := h.completeExplain(ctx, sql, styleForPrompt, req.Schema, req.Dialect)
 	if err != nil {
 		if errors.Is(err, errEmptyExplanation) {
+			logRouteError(r, "/generate", http.StatusBadGateway, "Model returned no explanation", err)
 			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
 			return
 		}
+		logRouteError(r, "/generate", http.StatusBadGateway, "LLM request failed", err)
 		writeJSONError(w, http.StatusBadGateway, "LLM request failed")
 		return
 	}
@@ -220,14 +248,83 @@ func (h *Handler) handleExplain(w http.ResponseWriter, r *http.Request) {
 	explanation, raw, err := h.completeExplain(ctx, req.SQL, styleForPrompt, req.Schema, req.Dialect)
 	if err != nil {
 		if errors.Is(err, errEmptyExplanation) {
+			logRouteError(r, "/explain", http.StatusBadGateway, "Model returned no explanation", err)
 			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
 			return
 		}
+		logRouteError(r, "/explain", http.StatusBadGateway, "LLM request failed", err)
 		writeJSONError(w, http.StatusBadGateway, "LLM request failed")
 		return
 	}
 
 	out := ExplainResponse{Explanation: explanation}
+	if h.Cfg.IncludeRawMessage {
+		out.RawMessage = raw
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) handleFix(w http.ResponseWriter, r *http.Request) {
+	body := io.LimitReader(r.Body, h.Cfg.MaxRequestBytes)
+	var req FixRequest
+	dec := json.NewDecoder(body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if dec.Decode(&struct{}{}) != io.EOF {
+		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	req.SQL = strings.TrimSpace(req.SQL)
+	req.ErrorMessage = strings.TrimSpace(req.ErrorMessage)
+	req.Schema = strings.TrimSpace(req.Schema)
+	req.Dialect = strings.TrimSpace(req.Dialect)
+	if req.SQL == "" {
+		writeJSONError(w, http.StatusBadRequest, "sql is required")
+		return
+	}
+	if req.ErrorMessage == "" {
+		writeJSONError(w, http.StatusBadRequest, "error_message is required")
+		return
+	}
+	if utf8.RuneCountInString(req.SQL) > h.Cfg.MaxQuestionRunes {
+		writeJSONError(w, http.StatusBadRequest, "sql exceeds maximum length")
+		return
+	}
+	if utf8.RuneCountInString(req.ErrorMessage) > h.Cfg.MaxQuestionRunes {
+		writeJSONError(w, http.StatusBadRequest, "error_message exceeds maximum length")
+		return
+	}
+	if utf8.RuneCountInString(req.Schema) > h.Cfg.MaxSchemaRunes {
+		writeJSONError(w, http.StatusBadRequest, "schema exceeds maximum length")
+		return
+	}
+	if req.Dialect == "" {
+		req.Dialect = "postgresql"
+	}
+
+	ctx := r.Context()
+	out, raw, err := h.completeFix(ctx, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, errEmptyExplanation):
+			logRouteError(r, "/fix", http.StatusBadGateway, "Model returned no explanation", err)
+			writeJSONError(w, http.StatusBadGateway, "Model returned no explanation")
+		case errors.Is(err, errEmptyFixedSQL):
+			logRouteError(r, "/fix", http.StatusBadGateway, "Model returned no fixed SQL", err)
+			writeJSONError(w, http.StatusBadGateway, "Model returned no fixed SQL")
+		case errors.Is(err, errInvalidFixResponse):
+			logRouteError(r, "/fix", http.StatusBadGateway, "Model returned invalid fix response", err)
+			writeJSONError(w, http.StatusBadGateway, "Model returned invalid fix response")
+		default:
+			logRouteError(r, "/fix", http.StatusBadGateway, "LLM request failed", err)
+			writeJSONError(w, http.StatusBadGateway, "LLM request failed")
+		}
+		return
+	}
 	if h.Cfg.IncludeRawMessage {
 		out.RawMessage = raw
 	}
@@ -315,6 +412,30 @@ func explainUserPrompt(schema, dialect, sql, style string) string {
 	return b.String()
 }
 
+func fixSystemPrompt(dialect string) string {
+	return strings.TrimSpace(
+		"You are an expert database engineer. The user will supply a SQL statement that failed when executed, the error message returned by the database or client, and optional schema context.\n\n" +
+			"Rules:\n" +
+			"- Diagnose what went wrong using the failing SQL, the error text, and the schema snapshot when present.\n" +
+			"- Propose a corrected SQL statement valid for " + dialect + " that addresses the failure.\n" +
+			"- Reply with a single JSON object only. It must have exactly two keys: \"explanation\" (plain text; briefly state the root cause and what you changed) and \"fixed_sql\" (one SQL statement as a string).\n" +
+			"- Escape quotes and newlines inside JSON string values per JSON rules.\n" +
+			"- Do not wrap the JSON in Markdown code fences. Do not add any text before or after the JSON object.",
+	)
+}
+
+func fixUserPrompt(schema, dialect, sql, errMsg string) string {
+	var b strings.Builder
+	b.WriteString(schemaSnapshotSection(schema))
+	b.WriteString("Target SQL dialect: ")
+	b.WriteString(dialect)
+	b.WriteString("\n\nFailing SQL:\n")
+	b.WriteString(sql)
+	b.WriteString("\n\nError message:\n")
+	b.WriteString(errMsg)
+	return b.String()
+}
+
 // explainStyleForPrompt maps user style (already trimmed) to the string passed to explainUserPrompt(schema, dialect, sql, style).
 // Empty style uses defaultExplainStyle. If non-empty style exceeds maxRunes, tooLong is true.
 // The none sentinel is passed through unchanged (see explainSystemPromptNone / completeExplain).
@@ -359,6 +480,22 @@ func (h *Handler) completeExplain(ctx context.Context, sql, styleForPrompt, sche
 	return explanation, raw, nil
 }
 
+func (h *Handler) completeFix(ctx context.Context, req FixRequest) (out FixResponse, raw string, err error) {
+	messages := []llm.Message{
+		{Role: "system", Content: fixSystemPrompt(req.Dialect)},
+		{Role: "user", Content: fixUserPrompt(req.Schema, req.Dialect, req.SQL, req.ErrorMessage)},
+	}
+	raw, err = h.LLM.ChatCompletion(ctx, h.Cfg.OpenAIModel, h.Cfg.LLMTemp, messages)
+	if err != nil {
+		return FixResponse{}, "", err
+	}
+	explanation, fixedSQL, err := parseFixJSON(raw)
+	if err != nil {
+		return FixResponse{}, raw, err
+	}
+	return FixResponse{Explanation: explanation, FixedSQL: fixedSQL}, raw, nil
+}
+
 func extractSQL(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -401,10 +538,79 @@ func normalizeExplanation(s string) string {
 	return strings.TrimSpace(s)
 }
 
+func stripJSONMarkdownFence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" || !strings.HasPrefix(s, "```") {
+		return s
+	}
+	s = strings.TrimPrefix(s, "```")
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		first := strings.TrimSpace(strings.ToLower(s[:i]))
+		if first != "" && !strings.ContainsAny(first, " \t") {
+			s = strings.TrimSpace(s[i+1:])
+		}
+	}
+	if j := strings.LastIndex(s, "```"); j >= 0 {
+		s = strings.TrimSpace(s[:j])
+	}
+	return strings.TrimSpace(s)
+}
+
+func parseFixJSON(raw string) (explanation, fixedSQL string, err error) {
+	s := stripJSONMarkdownFence(strings.TrimSpace(raw))
+	if s == "" {
+		return "", "", errInvalidFixResponse
+	}
+	var parsed struct {
+		Explanation string `json:"explanation"`
+		FixedSQL    string `json:"fixed_sql"`
+	}
+	if err := json.Unmarshal([]byte(s), &parsed); err != nil {
+		return "", "", errInvalidFixResponse
+	}
+	explanation = normalizeExplanation(parsed.Explanation)
+	fixedSQL = extractSQL(parsed.FixedSQL)
+	if explanation == "" {
+		return "", "", errEmptyExplanation
+	}
+	if fixedSQL == "" {
+		return "", "", errEmptyFixedSQL
+	}
+	return explanation, fixedSQL, nil
+}
+
 func writeCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-NL2SQL-Secret")
+}
+
+// logRouteError records operational failures. Client validation errors (typical 400s) are omitted.
+func logRouteError(r *http.Request, route string, status int, publicMsg string, cause error) {
+	if status < 400 {
+		return
+	}
+	attrs := []any{
+		"method", r.Method,
+		"path", r.URL.Path,
+		"route", route,
+		"status", status,
+		"message", publicMsg,
+	}
+	if cause != nil {
+		attrs = append(attrs, "err", cause)
+	}
+	switch {
+	case status >= 500:
+		slog.Error("nl2sql error", attrs...)
+	case status == http.StatusUnauthorized || status == http.StatusTooManyRequests:
+		slog.Warn("nl2sql rejected", attrs...)
+	case status == http.StatusNotFound || status == http.StatusMethodNotAllowed:
+		slog.Info("nl2sql request not handled", attrs...)
+	default:
+		// Routine client validation (4xx) — not logged.
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -506,6 +712,40 @@ func (h *Handler) HandleExplain(ctx context.Context, req ExplainRequest) (Explai
 		return ExplainResponse{}, err
 	}
 	out := ExplainResponse{Explanation: explanation}
+	if h.Cfg.IncludeRawMessage {
+		out.RawMessage = raw
+	}
+	return out, nil
+}
+
+// HandleFix exposes core logic for tests.
+func (h *Handler) HandleFix(ctx context.Context, req FixRequest) (FixResponse, error) {
+	req.SQL = strings.TrimSpace(req.SQL)
+	req.ErrorMessage = strings.TrimSpace(req.ErrorMessage)
+	req.Schema = strings.TrimSpace(req.Schema)
+	req.Dialect = strings.TrimSpace(req.Dialect)
+	if req.SQL == "" {
+		return FixResponse{}, errors.New("sql is required")
+	}
+	if req.ErrorMessage == "" {
+		return FixResponse{}, errors.New("error_message is required")
+	}
+	if utf8.RuneCountInString(req.SQL) > h.Cfg.MaxQuestionRunes {
+		return FixResponse{}, errors.New("sql exceeds maximum length")
+	}
+	if utf8.RuneCountInString(req.ErrorMessage) > h.Cfg.MaxQuestionRunes {
+		return FixResponse{}, errors.New("error_message exceeds maximum length")
+	}
+	if utf8.RuneCountInString(req.Schema) > h.Cfg.MaxSchemaRunes {
+		return FixResponse{}, errors.New("schema exceeds maximum length")
+	}
+	if req.Dialect == "" {
+		req.Dialect = "postgresql"
+	}
+	out, raw, err := h.completeFix(ctx, req)
+	if err != nil {
+		return FixResponse{}, err
+	}
 	if h.Cfg.IncludeRawMessage {
 		out.RawMessage = raw
 	}

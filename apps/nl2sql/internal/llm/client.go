@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sb0rka/sb0rka/apps/nl2sql/internal/config"
 )
 
 type Message struct {
@@ -42,6 +44,8 @@ type Client struct {
 	BaseURL    string
 	APIKey     string
 	HTTPClient *http.Client
+	// Timeout for outbound requests when HTTPClient is nil. Zero means use config.DefaultLLMTimeout.
+	Timeout time.Duration
 }
 
 func (c *Client) ChatCompletion(ctx context.Context, model string, temperature float64, messages []Message) (string, error) {
@@ -79,7 +83,11 @@ func (c *Client) chatCompletion(ctx context.Context, model string, temperature f
 
 	client := c.HTTPClient
 	if client == nil {
-		client = &http.Client{Timeout: 60 * time.Second}
+		timeout := c.Timeout
+		if timeout <= 0 {
+			timeout = config.DefaultLLMTimeout
+		}
+		client = &http.Client{Timeout: timeout}
 	}
 
 	resp, err := client.Do(req)

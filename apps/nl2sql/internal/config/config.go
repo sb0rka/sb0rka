@@ -14,7 +14,8 @@ const (
 	// Override with OPENAI_BASE_URL, e.g. http://192.168.0.159:11434/v1 for a LAN host.
 	DefaultOpenAIBaseURL = "http://127.0.0.1:11434/v1"
 	DefaultOpenAIModel   = "llama3.2"
-	DefaultLLMTimeout         = 60 * time.Second
+	// Local/LAN Ollama often needs several minutes per completion (especially CPU-bound models).
+	DefaultLLMTimeout = 5 * time.Minute
 	DefaultMaxRequestBytes    = 256 * 1024
 	DefaultMaxQuestionRunes   = 8000
 	DefaultMaxSchemaRunes     = 200_000
