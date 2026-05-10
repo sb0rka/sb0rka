@@ -19,7 +19,7 @@ type UpdateDBInstanceRequest struct {
 }
 
 type DBInstanceResponse struct {
-	DBInstanceID               string  `json:"dbi_id"`
+	DBInstanceID        string  `json:"dbi_id"`
 	Name                string  `json:"name"`
 	NormalizedName      string  `json:"normalized_name"`
 	Description         *string `json:"description,omitempty"`
@@ -31,7 +31,7 @@ type DBInstanceResponse struct {
 }
 
 type DBInstanceListResponse struct {
-	ProjectID string             `json:"project_id"`
+	ProjectID   string               `json:"project_id"`
 	DBInstances []DBInstanceResponse `json:"dbis"`
 }
 

@@ -32,5 +32,5 @@ type ResourceListResponse struct {
 
 type DatabaseWithSecretResponse struct {
 	DBInstance DBInstanceResponse `json:"dbi"`
-	Secret   SecretResponse   `json:"secret"`
+	Secret     SecretResponse     `json:"secret"`
 }
