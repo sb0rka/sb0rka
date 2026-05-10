@@ -1,13 +1,13 @@
 name: Release contract
 
 on:
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "packages/contract/**"
-  #     - ".github/workflows/release-contract.yml"
-  #     - ".github/actions/go-build/**"
-  # workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "packages/contract/**"
+      - ".github/workflows/release-contract.yml"
+      - ".github/actions/go-build/**"
+  workflow_dispatch:
 
 permissions:
   contents: write

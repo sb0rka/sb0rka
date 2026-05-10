@@ -30,6 +30,13 @@ type SecretListItem struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
+type SecretPasswordVerifierResponse struct {
+	PasswordDesiredVersion int       `json:"password_desired_version"`
+	PasswordDesiredState   string    `json:"password_desired_state"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
 type SecretResponse struct {
 	ProjectID          string     `json:"project_id"`
 	SecretID           string     `json:"secret_id"`
@@ -46,6 +53,8 @@ type SecretResponse struct {
 	ResourceState *ResourceStateResponse `json:"resource_state,omitempty"`
 
 	Tags []TagResponse `json:"tags,omitempty"`
+
+	PasswordVerifier *SecretPasswordVerifierResponse `json:"password_verifier,omitempty"`
 }
 
 type SecretListResponse struct {
@@ -86,4 +95,11 @@ type RevealSecretResponse struct {
 	VersionNo   int    `json:"version_no"`
 	PayloadKind string `json:"payload_kind"`
 	Value       string `json:"value"`
+}
+
+type ApplySecretPasswordVerifierResponse struct {
+	ProjectID    string `json:"project_id"`
+	SecretID     string `json:"secret_id"`
+	VersionNo    int    `json:"version_no"`
+	DBInstanceID string `json:"dbi_id"`
 }

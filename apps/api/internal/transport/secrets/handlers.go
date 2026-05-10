@@ -363,15 +363,6 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionCreate, projectID) {
 		return
 	}
-	isDBPasswordSecret, err := h.deps.PlatformDatabase.IsDatabasePasswordSecret(r.Context(), projectID, secretID)
-	if err != nil {
-		h.writeSecretStoreError(w, "check_db_password_secret_failed", projectID, secretID, err)
-		return
-	}
-	if isDBPasswordSecret {
-		http.Error(w, "Cannot update database password secret through public secret version API", http.StatusConflict)
-		return
-	}
 	secret, err := h.deps.PlatformDatabase.GetSecret(r.Context(), projectID, secretID)
 	if err != nil {
 		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretID, err)
@@ -501,6 +492,78 @@ func (h *Handler) RevealSecretVersion(w http.ResponseWriter, r *http.Request) {
 	h.revealSecretVersion(w, r, projectID, secretID, versionNo)
 }
 
+func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *http.Request) {
+	subjectID, ok := parseSubjectID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	projectID, secretID, ok := h.parseSecretPath(w, r)
+	if !ok {
+		return
+	}
+	versionNo, err := parseVersionNo(r.PathValue("version_no"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectID) {
+		return
+	}
+	isDBPasswordSecret, err := h.deps.PlatformDatabase.IsDatabasePasswordSecret(r.Context(), projectID, secretID)
+	if err != nil {
+		h.writeSecretStoreError(w, "check_db_password_secret_failed", projectID, secretID, err)
+		return
+	}
+	if !isDBPasswordSecret {
+		http.Error(w, "Secret is not a database password secret", http.StatusConflict)
+		return
+	}
+	secret, version, material, err := h.deps.PlatformDatabase.GetSecretMaterialForReveal(r.Context(), projectID, secretID, versionNo)
+	if err != nil {
+		h.writeSecretStoreError(w, "get_secret_material_failed", projectID, secretID, err)
+		return
+	}
+	if version.State != model.SecretVersionStateActive {
+		http.Error(w, "Secret version is not active", http.StatusConflict)
+		return
+	}
+	if version.PayloadKind != model.SecretPayloadKindText {
+		http.Error(w, "Only text payload_kind can be used as a database password", http.StatusUnprocessableEntity)
+		return
+	}
+	aad, err := service.BuildSecretAAD(projectID, secretID, version.VersionNo, secret.ProtectionClass)
+	if err != nil {
+		http.Error(w, "Failed to build secret AAD", http.StatusInternalServerError)
+		return
+	}
+	plain, err := h.deps.SecretCrypto.Decrypt(r.Context(), material.EncryptedMessage, aad, material.EncryptionKeyRef)
+	if err != nil {
+		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", versionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
+		http.Error(w, "secret_decrypt_failed", http.StatusInternalServerError)
+		return
+	}
+	passwordVerifier, err := service.GeneratePostgresSCRAMSHA256Verifier(string(plain))
+	if err != nil {
+		h.deps.Log.Error("generate_db_password_verifier_failed", "project_id", projectID, "secret_id", secretID, "version_no", versionNo, "error", err)
+		http.Error(w, "Failed to prepare database password verifier", http.StatusInternalServerError)
+		return
+	}
+	verifierRow, err := h.deps.PlatformDatabase.SetDatabasePasswordSecretVerifier(r.Context(), projectID, secretID, versionNo, passwordVerifier)
+	if err != nil {
+		h.writeSecretStoreError(w, "set_db_password_verifier_failed", projectID, secretID, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(contract.ApplySecretPasswordVerifierResponse{
+		ProjectID:    projectID,
+		SecretID:     secretID,
+		VersionNo:    versionNo,
+		DBInstanceID: verifierRow.DBInstanceID,
+	})
+}
+
 func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, projectID string, secretID string, versionNo int) {
 	secret, version, material, err := h.deps.PlatformDatabase.GetSecretMaterialForReveal(r.Context(), projectID, secretID, versionNo)
 	if err != nil {
@@ -586,6 +649,8 @@ func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, pro
 		}
 	case errors.Is(err, db.ErrEncryptionKeyNotFound):
 		http.Error(w, "Encryption key not found", http.StatusInternalServerError)
+	case errors.Is(err, db.ErrDBPasswordVerifierNotUpdated):
+		http.Error(w, "Database password verifier could not be updated", http.StatusConflict)
 	default:
 		h.deps.Log.Error(event, "project_id", projectID, "secret_id", secretID, "error", err)
 		http.Error(w, "Failed to process secret", http.StatusInternalServerError)
@@ -639,6 +704,14 @@ func toSecretResponse(s model.Secret) contract.SecretResponse {
 				IsSystem:   tag.IsSystem,
 				IsReadonly: tag.IsReadonly,
 			})
+		}
+	}
+	if s.PasswordVerifier != nil {
+		resp.PasswordVerifier = &contract.SecretPasswordVerifierResponse{
+			PasswordDesiredVersion: s.PasswordVerifier.PasswordDesiredVersion,
+			PasswordDesiredState:   s.PasswordVerifier.PasswordDesiredState,
+			CreatedAt:              s.PasswordVerifier.CreatedAt,
+			UpdatedAt:              s.PasswordVerifier.UpdatedAt,
 		}
 	}
 	return resp

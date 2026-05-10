@@ -70,6 +70,7 @@ v0.1.0-ограничения:
 - `GET /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}` - Metadata конкретной версии секрета. **Аутентификация: да, `secret.version.read`**.
 - `POST /projects/{project_id}/resources/{resource_id}/secret/versions` - Создание новой immutable value version. **Аутентификация: да, `secret.version.create` + live session**.
 - `POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal` - Reveal plaintext конкретной версии. **Аутентификация: да, `secret.reveal` + live session**. Ответ должен иметь `Cache-Control: no-store`, `Pragma: no-cache`.
+- `POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/verifier/apply` - Назначить эту **активную** версию секрета паролем БД. **Аутентификация: да, `secret.reveal` + live session**.
 - `POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable` - Отключение версии секрета. **Аутентификация: да, `secret.version.disable` + live session**.
 - `DELETE /projects/{project_id}/resources/{resource_id}/secret` - Удаление секрета. **Аутентификация: да, `secret.delete` + live session**.
 

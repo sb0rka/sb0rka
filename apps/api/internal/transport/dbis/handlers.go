@@ -572,5 +572,13 @@ func toSecretResponse(s model.Secret) contract.SecretResponse {
 			UpdatedAt:    s.ResourceState.UpdatedAt,
 		}
 	}
+	if s.PasswordVerifier != nil {
+		resp.PasswordVerifier = &contract.SecretPasswordVerifierResponse{
+			PasswordDesiredVersion: s.PasswordVerifier.PasswordDesiredVersion,
+			PasswordDesiredState:   s.PasswordVerifier.PasswordDesiredState,
+			CreatedAt:              s.PasswordVerifier.CreatedAt,
+			UpdatedAt:              s.PasswordVerifier.UpdatedAt,
+		}
+	}
 	return resp
 }

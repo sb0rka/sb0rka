@@ -1629,10 +1629,21 @@ func (p *PsqlDB) GetSecret(ctx context.Context, projectID string, resourceID str
 			s.scheduled_destroy_at,
 			rs.runtime_state,
 			rs.created_at,
-			rs.updated_at
+			rs.updated_at,
+			dv.password_desired_version,
+			dv.password_desired_state,
+			dv.created_at,
+			dv.updated_at
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id
 		LEFT JOIN resource_states rs ON rs.resource_id = r.id
+		LEFT JOIN LATERAL (
+			SELECT v.password_desired_version, v.password_desired_state, v.created_at, v.updated_at
+			FROM dbi_verifiers v
+			WHERE v.project_id = r.project_id
+			  AND v.password_secret_id = s.resource_id
+			LIMIT 1
+		) dv ON true
 		WHERE r.project_id = $1
 		  AND s.resource_id = $2
 		  AND r.kind = 'secret'
@@ -1641,6 +1652,10 @@ func (p *PsqlDB) GetSecret(ctx context.Context, projectID string, resourceID str
 	var runtimeState *string
 	var stateCreatedAt *time.Time
 	var stateUpdatedAt *time.Time
+	var pwdDesVer *int
+	var pwdDesState *string
+	var vrfCreated *time.Time
+	var vrfUpdated *time.Time
 	if err := p.pool.QueryRow(ctx, query, projectID, resourceID).Scan(
 		&secret.ProjectID,
 		&secret.ResourceID,
@@ -1656,6 +1671,10 @@ func (p *PsqlDB) GetSecret(ctx context.Context, projectID string, resourceID str
 		&runtimeState,
 		&stateCreatedAt,
 		&stateUpdatedAt,
+		&pwdDesVer,
+		&pwdDesState,
+		&vrfCreated,
+		&vrfUpdated,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Secret{}, ErrResourceNotFound
@@ -1669,6 +1688,21 @@ func (p *PsqlDB) GetSecret(ctx context.Context, projectID string, resourceID str
 			CreatedAt:    *stateCreatedAt,
 			UpdatedAt:    *stateUpdatedAt,
 		}
+	}
+	if pwdDesVer != nil && pwdDesState != nil && vrfCreated != nil && vrfUpdated != nil {
+		secret.PasswordVerifier = &model.SecretPasswordVerifierMeta{
+			PasswordDesiredVersion: *pwdDesVer,
+			PasswordDesiredState:   *pwdDesState,
+			CreatedAt:              *vrfCreated,
+			UpdatedAt:              *vrfUpdated,
+		}
+	}
+	tags, err := p.ListResourceTags(ctx, projectID, secret.ResourceID)
+	if err != nil {
+		return model.Secret{}, err
+	}
+	if len(tags) > 0 {
+		secret.Tags = tags
 	}
 	return secret, nil
 }
@@ -2014,6 +2048,34 @@ func (p *PsqlDB) IsDatabasePasswordSecret(ctx context.Context, projectID string,
 		return false, err
 	}
 	return exists, nil
+}
+
+func (p *PsqlDB) SetDatabasePasswordSecretVerifier(ctx context.Context, projectID string, secretID string, versionNo int, passwordVerifier string) (model.DBInstanceVerifier, error) {
+	const q = `
+		UPDATE dbi_verifiers
+		SET password_verifier = $4,
+		    password_desired_version = $3
+		WHERE project_id = $1
+		  AND password_secret_id = $2
+		  AND password_desired_state = 'present'
+		RETURNING project_id, dbi_id, password_secret_id, password_verifier, password_desired_version, password_desired_state
+	`
+	var v model.DBInstanceVerifier
+	err := p.pool.QueryRow(ctx, q, projectID, secretID, versionNo, passwordVerifier).Scan(
+		&v.ProjectID,
+		&v.DBInstanceID,
+		&v.PasswordSecretID,
+		&v.PasswordVerifier,
+		&v.PasswordDesiredVersion,
+		&v.PasswordDesiredState,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.DBInstanceVerifier{}, ErrDBPasswordVerifierNotUpdated
+		}
+		return model.DBInstanceVerifier{}, err
+	}
+	return v, nil
 }
 
 func (p *PsqlDB) GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error) {

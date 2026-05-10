@@ -24,6 +24,13 @@ const (
 	EncryptionKeyStatusDestroyed = "destroyed"
 )
 
+type SecretPasswordVerifierMeta struct {
+	PasswordDesiredVersion int       `json:"password_desired_version"`
+	PasswordDesiredState   string    `json:"password_desired_state"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
 type Secret struct {
 	ProjectID          string     `json:"project_id"`
 	ResourceID         string     `json:"resource_id"`
@@ -40,6 +47,8 @@ type Secret struct {
 	ResourceState *ResourceState `json:"resource_state,omitempty"`
 
 	Tags []Tag `json:"tags,omitempty"`
+
+	PasswordVerifier *SecretPasswordVerifierMeta `json:"password_verifier,omitempty"`
 }
 
 type SecretVersion struct {

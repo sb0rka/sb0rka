@@ -77,6 +77,7 @@ type Database interface {
 	GetActiveEncryptionKey(ctx context.Context) (model.EncryptionKey, error)
 	GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error)
 	IsDatabasePasswordSecret(ctx context.Context, projectID string, secretID string) (bool, error)
+	SetDatabasePasswordSecretVerifier(ctx context.Context, projectID string, secretID string, versionNo int, passwordVerifier string) (model.DBInstanceVerifier, error)
 
 	// Tags
 	ListProjectTags(ctx context.Context, projectID string) ([]model.Tag, error)
