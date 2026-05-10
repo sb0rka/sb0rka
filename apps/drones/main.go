@@ -130,47 +130,14 @@ type cleanupTarget struct {
 	TagID      int64
 }
 
-func findOldestCleanupTarget(ctx context.Context, tx pgx.Tx) (cleanupTarget, bool, error) {
+func (p *PsqlDB) cleanupOneDeletedDBI(ctx context.Context) (cleanupTarget, bool, error) {
 	const query = `
-		SELECT
-			d.project_id,
-			d.resource_id,
-			dv.password_secret_id,
-			t.id AS tag_id
-		FROM api.dbis d
-		JOIN api.resources r_db
-			ON r_db.id = d.resource_id
-		   AND r_db.project_id = d.project_id
-		   AND r_db.kind = 'database'
-		JOIN api.resource_states rs_db
-			ON rs_db.resource_id = d.resource_id
-		JOIN api.dbi_verifiers dv
-			ON dv.dbi_id = d.resource_id
-		   AND dv.project_id = d.project_id
-		JOIN api.resources r_secret
-			ON r_secret.id = dv.password_secret_id
-		   AND r_secret.project_id = d.project_id
-		   AND r_secret.kind = 'secret'
-		JOIN api.resource_states rs_secret
-			ON rs_secret.resource_id = dv.password_secret_id
-		JOIN api.resource_tags rt
-			ON rt.resource_id = d.resource_id
-		   AND rt.project_id = d.project_id
-		JOIN api.tags t
-			ON t.id = rt.tag_id
-		   AND t.project_id = d.project_id
-		   AND t.is_system = true
-		   AND t.tag_key = 'db_secret'
-		   AND t.tag_value = d.resource_id || '_' || dv.password_secret_id
-		WHERE rs_db.runtime_state = 'deleted'
-		  AND rs_secret.runtime_state = 'deleted'
-		  AND dv.password_desired_state = 'absent'
-		ORDER BY r_db.created_at ASC
-		LIMIT 1;
+		SELECT project_id, database_id, secret_id, tag_id
+		FROM api.cleanup_one_deleted_dbi()
 	`
 
 	var target cleanupTarget
-	err := tx.QueryRow(ctx, query).Scan(&target.ProjectID, &target.DatabaseID, &target.SecretID, &target.TagID)
+	err := p.pool.QueryRow(ctx, query).Scan(&target.ProjectID, &target.DatabaseID, &target.SecretID, &target.TagID)
 	if err == pgx.ErrNoRows {
 		return cleanupTarget{}, false, nil
 	}
@@ -180,60 +147,19 @@ func findOldestCleanupTarget(ctx context.Context, tx pgx.Tx) (cleanupTarget, boo
 	return target, true, nil
 }
 
-func deleteOne(ctx context.Context, tx pgx.Tx, name string, query string, args ...any) error {
-	cmd, err := tx.Exec(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-	if rows := cmd.RowsAffected(); rows != 1 {
-		return fmt.Errorf("%s delete affected %d rows", name, rows)
-	}
-	return nil
-}
-
 func (p *PsqlDB) CleanTerminatedDatabases(ctx context.Context, log *slog.Logger) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback(ctx)
-		}
-	}()
-
-	target, found, err := findOldestCleanupTarget(ctx, tx)
+	target, found, err := p.cleanupOneDeletedDBI(ctx)
 	if err != nil {
 		return "", err
 	}
 	if !found {
-		_ = tx.Commit(ctx)
-		committed = true
 		return "", nil
 	}
 
-	log.Info("found_resources_to_clean", "project_id", target.ProjectID, "database_id", target.DatabaseID, "secret_id", target.SecretID, "tag_id", target.TagID)
-
-	if err := deleteOne(ctx, tx, "database resource", `DELETE FROM api.resources WHERE id = $1 AND project_id = $2 AND kind = 'database'`, target.DatabaseID, target.ProjectID); err != nil {
-		return "", err
-	}
-	if err := deleteOne(ctx, tx, "secret resource", `DELETE FROM api.resources WHERE id = $1 AND project_id = $2 AND kind = 'secret'`, target.SecretID, target.ProjectID); err != nil {
-		return "", err
-	}
-	if err := deleteOne(ctx, tx, "db secret tag", `DELETE FROM api.tags WHERE id = $1 AND project_id = $2`, target.TagID, target.ProjectID); err != nil {
-		return "", err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return "", err
-	}
-	committed = true
-
+	log.Info("cleaned_resources", "project_id", target.ProjectID, "database_id", target.DatabaseID, "secret_id", target.SecretID, "tag_id", target.TagID)
 	return target.ProjectID, nil
 }
 
@@ -255,7 +181,7 @@ func runGC(ctx context.Context, log *slog.Logger, db Database) error {
 		return nil
 	}
 
-	log.Info("cleaned_successfully", "project_id", projectID)
+	log.Info("cleaned_successfully")
 
 	return nil
 }
@@ -306,7 +232,7 @@ func gcCMD(args []string) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	log.Info("drones gc started", "interval", interval.String())
+	log.Info("drone_gc_started", "interval", interval.String())
 	for {
 		if err := runGC(ctx, log, db); err != nil {
 			log.Error("gc iteration failed", "error", err)
@@ -317,6 +243,7 @@ func gcCMD(args []string) error {
 			log.Info("shutdown signal received, stopping drones gc")
 			return nil
 		case <-ticker.C:
+			log.Info("tick")
 		}
 	}
 }
