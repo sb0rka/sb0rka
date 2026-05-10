@@ -21,7 +21,7 @@ const (
 	defaultPlatformDatabaseURI     = "postgres://postgres:postgres@localhost:5432/platform"
 	defaultDatabaseMaxConns        = 10
 	defaultDatabaseConnMaxLifetime = 30 * time.Second
-	defaultGCInterval         = 5 * time.Second
+	defaultGCInterval              = 5 * time.Second
 )
 
 //go:embed version.txt
@@ -67,7 +67,7 @@ type Config struct {
 	PlatformDatabaseURI     string
 	DatabaseMaxConns        int
 	DatabaseConnMaxLifetime time.Duration
-	GCInterval         time.Duration
+	GCInterval              time.Duration
 }
 
 func loadConfig() Config {
@@ -75,7 +75,7 @@ func loadConfig() Config {
 		PlatformDatabaseURI:     getStringEnv("PLATFORM_DATABASE_URI", defaultPlatformDatabaseURI),
 		DatabaseMaxConns:        getIntEnv("DATABASE_MAX_OPEN_CONNS", defaultDatabaseMaxConns),
 		DatabaseConnMaxLifetime: getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", defaultDatabaseConnMaxLifetime),
-		GCInterval:         getDurationEnv("GC_INTERVAL_SEC", defaultGCInterval),
+		GCInterval:              getDurationEnv("GC_INTERVAL_SEC", defaultGCInterval),
 	}
 }
 
@@ -137,26 +137,26 @@ func findOldestCleanupTarget(ctx context.Context, tx pgx.Tx) (cleanupTarget, boo
 			d.resource_id,
 			dv.password_secret_id,
 			t.id AS tag_id
-		FROM core.dbs d
-		JOIN core.resources r_db
+		FROM api.dbis d
+		JOIN api.resources r_db
 			ON r_db.id = d.resource_id
 		   AND r_db.project_id = d.project_id
 		   AND r_db.kind = 'database'
-		JOIN core.resource_states rs_db
+		JOIN api.resource_states rs_db
 			ON rs_db.resource_id = d.resource_id
-		JOIN core.db_verifiers dv
-			ON dv.db_id = d.resource_id
+		JOIN api.dbi_verifiers dv
+			ON dv.dbi_id = d.resource_id
 		   AND dv.project_id = d.project_id
-		JOIN core.resources r_secret
+		JOIN api.resources r_secret
 			ON r_secret.id = dv.password_secret_id
 		   AND r_secret.project_id = d.project_id
 		   AND r_secret.kind = 'secret'
-		JOIN core.resource_states rs_secret
+		JOIN api.resource_states rs_secret
 			ON rs_secret.resource_id = dv.password_secret_id
-		JOIN core.resource_tags rt
+		JOIN api.resource_tags rt
 			ON rt.resource_id = d.resource_id
 		   AND rt.project_id = d.project_id
-		JOIN core.tags t
+		JOIN api.tags t
 			ON t.id = rt.tag_id
 		   AND t.project_id = d.project_id
 		   AND t.is_system = true
@@ -164,6 +164,7 @@ func findOldestCleanupTarget(ctx context.Context, tx pgx.Tx) (cleanupTarget, boo
 		   AND t.tag_value = d.resource_id || '_' || dv.password_secret_id
 		WHERE rs_db.runtime_state = 'deleted'
 		  AND rs_secret.runtime_state = 'deleted'
+		  AND dv.password_desired_state = 'absent'
 		ORDER BY r_db.created_at ASC
 		LIMIT 1;
 	`
@@ -218,13 +219,13 @@ func (p *PsqlDB) CleanTerminatedDatabases(ctx context.Context, log *slog.Logger)
 
 	log.Info("found_resources_to_clean", "project_id", target.ProjectID, "database_id", target.DatabaseID, "secret_id", target.SecretID, "tag_id", target.TagID)
 
-	if err := deleteOne(ctx, tx, "secret resource", `DELETE FROM core.resources WHERE id = $1 AND project_id = $2 AND kind = 'secret'`, target.SecretID, target.ProjectID); err != nil {
+	if err := deleteOne(ctx, tx, "database resource", `DELETE FROM api.resources WHERE id = $1 AND project_id = $2 AND kind = 'database'`, target.DatabaseID, target.ProjectID); err != nil {
 		return "", err
 	}
-	if err := deleteOne(ctx, tx, "database resource", `DELETE FROM core.resources WHERE id = $1 AND project_id = $2 AND kind = 'database'`, target.DatabaseID, target.ProjectID); err != nil {
+	if err := deleteOne(ctx, tx, "secret resource", `DELETE FROM api.resources WHERE id = $1 AND project_id = $2 AND kind = 'secret'`, target.SecretID, target.ProjectID); err != nil {
 		return "", err
 	}
-	if err := deleteOne(ctx, tx, "db secret tag", `DELETE FROM core.tags WHERE id = $1 AND project_id = $2`, target.TagID, target.ProjectID); err != nil {
+	if err := deleteOne(ctx, tx, "db secret tag", `DELETE FROM api.tags WHERE id = $1 AND project_id = $2`, target.TagID, target.ProjectID); err != nil {
 		return "", err
 	}
 
@@ -336,8 +337,8 @@ func usageCMD(w *os.File) {
 	fmt.Fprintln(w, "Usage: drones <command> [flags]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
-	fmt.Fprintln(w, "  gc   Run the metadata gc")
-	fmt.Fprintln(w, "  version   Print drones version")
+	fmt.Fprintln(w, "  gc   GC terminated DB and password-secret metadata")
+	fmt.Fprintln(w, "  version      Print drones version")
 }
 
 func run(args []string) error {
