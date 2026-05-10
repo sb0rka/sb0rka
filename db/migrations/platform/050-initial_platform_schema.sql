@@ -595,6 +595,110 @@ EXECUTE FUNCTION set_updated_at();
 CREATE INDEX IF NOT EXISTS ix_resource_tags_proj_tag_res
     ON resource_tags (project_id, tag_id, resource_id);
 
+-- DRONES
+
+CREATE OR REPLACE FUNCTION cleanup_one_deleted_dbi()
+RETURNS TABLE (
+    project_id VARCHAR(12),
+    database_id VARCHAR(16),
+    secret_id VARCHAR(16),
+    tag_id BIGINT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = :"DB_API_SCHEMA_NAME", pg_temp
+AS $$
+DECLARE
+    v_project_id VARCHAR(12);
+    v_database_id VARCHAR(16);
+    v_secret_id VARCHAR(16);
+    v_tag_id BIGINT;
+    v_rows BIGINT;
+BEGIN
+    SELECT
+        d.project_id,
+        d.resource_id,
+        dv.password_secret_id,
+        t.id
+    INTO v_project_id, v_database_id, v_secret_id, v_tag_id
+    FROM dbis d
+    JOIN resources r_db
+        ON r_db.id = d.resource_id
+       AND r_db.project_id = d.project_id
+       AND r_db.kind = 'database'
+    JOIN resource_states rs_db
+        ON rs_db.project_id = d.project_id
+       AND rs_db.resource_id = d.resource_id
+    JOIN dbi_verifiers dv
+        ON dv.dbi_id = d.resource_id
+       AND dv.project_id = d.project_id
+    JOIN resources r_secret
+        ON r_secret.id = dv.password_secret_id
+       AND r_secret.project_id = d.project_id
+       AND r_secret.kind = 'secret'
+    JOIN resource_states rs_secret
+        ON rs_secret.project_id = d.project_id
+       AND rs_secret.resource_id = dv.password_secret_id
+    JOIN resource_tags rt
+        ON rt.resource_id = d.resource_id
+       AND rt.project_id = d.project_id
+    JOIN tags t
+        ON t.id = rt.tag_id
+       AND t.project_id = d.project_id
+       AND t.is_system = true
+       AND t.tag_key = 'db_secret'
+       AND t.tag_value = d.resource_id || '_' || dv.password_secret_id
+    WHERE d.desired_runtime_state = 'terminated'
+      AND rs_db.runtime_state = 'deleted'
+      AND rs_secret.runtime_state = 'deleted'
+      AND dv.password_desired_state = 'absent'
+    ORDER BY r_db.created_at ASC
+    LIMIT 1
+    FOR UPDATE OF d, r_db, rs_db, dv, r_secret, rs_secret, rt, t SKIP LOCKED;
+
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    DELETE FROM resources r
+    WHERE r.id = v_database_id
+      AND r.project_id = v_project_id
+      AND r.kind = 'database';
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    IF v_rows <> 1 THEN
+        RAISE EXCEPTION 'database resource delete affected % rows', v_rows;
+    END IF;
+
+    DELETE FROM resources r
+    WHERE r.id = v_secret_id
+      AND r.project_id = v_project_id
+      AND r.kind = 'secret';
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    IF v_rows <> 1 THEN
+        RAISE EXCEPTION 'secret resource delete affected % rows', v_rows;
+    END IF;
+
+    DELETE FROM tags t
+    WHERE t.id = v_tag_id
+      AND t.project_id = v_project_id
+      AND t.is_system = true
+      AND t.tag_key = 'db_secret'
+      AND t.tag_value = v_database_id || '_' || v_secret_id;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    IF v_rows <> 1 THEN
+        RAISE EXCEPTION 'db secret tag delete affected % rows', v_rows;
+    END IF;
+
+    project_id := v_project_id;
+    database_id := v_database_id;
+    secret_id := v_secret_id;
+    tag_id := v_tag_id;
+    RETURN NEXT;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION cleanup_one_deleted_dbi() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION cleanup_one_deleted_dbi() TO :"DB_DRONE_MAPPING_USER";
 
 WITH updated AS (
     UPDATE version_platform
