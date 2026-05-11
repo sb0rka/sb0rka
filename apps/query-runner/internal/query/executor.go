@@ -171,9 +171,13 @@ func (e *Executor) validateSQL(sql string) error {
 
 func queryError(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
-		return runner.NewStatusError(http.StatusGatewayTimeout, "Database query timed out", err)
+		return &runner.SQLQueryFailure{
+			StatusError: runner.NewStatusError(http.StatusGatewayTimeout, "Database query timed out", err),
+		}
 	}
-	return runner.NewStatusError(http.StatusBadGateway, "Database query failed", err)
+	return &runner.SQLQueryFailure{
+		StatusError: runner.NewStatusError(http.StatusBadGateway, "Database query failed", err),
+	}
 }
 
 func normalizeRow(values []any) ([]any, error) {

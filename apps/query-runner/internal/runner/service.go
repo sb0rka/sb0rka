@@ -54,7 +54,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method != http.MethodPost {
-		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		writeJSONErrorMessage(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -62,21 +62,21 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/query":
 		response, err := s.HandleQuery(r.Context(), r.Header.Get("Authorization"), r.Body)
 		if err != nil {
-			status, message := ErrorStatus(err)
-			writeJSONError(w, status, message)
+			LogHandlerError(path, err)
+			writeJSONHandlerError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, response)
 	case "/schema":
 		response, err := s.HandleSchema(r.Context(), r.Header.Get("Authorization"), r.Body)
 		if err != nil {
-			status, message := ErrorStatus(err)
-			writeJSONError(w, status, message)
+			LogHandlerError(path, err)
+			writeJSONHandlerError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, response)
 	default:
-		writeJSONError(w, http.StatusNotFound, "Not found")
+		writeJSONErrorMessage(w, http.StatusNotFound, "Not found")
 	}
 }
 
@@ -86,7 +86,7 @@ func (s *Service) HandleLambda(ctx context.Context, request events.APIGatewayV2H
 		path = "/"
 	}
 	if path != "/query" && path != "/schema" {
-		return lambdaJSONError(http.StatusNotFound, "Not found")
+		return lambdaJSONErrorMessage(http.StatusNotFound, "Not found")
 	}
 	if request.RequestContext.HTTP.Method == http.MethodOptions {
 		return events.APIGatewayV2HTTPResponse{
@@ -95,14 +95,14 @@ func (s *Service) HandleLambda(ctx context.Context, request events.APIGatewayV2H
 		}, nil
 	}
 	if request.RequestContext.HTTP.Method != "" && request.RequestContext.HTTP.Method != http.MethodPost {
-		return lambdaJSONError(http.StatusMethodNotAllowed, "Method not allowed")
+		return lambdaJSONErrorMessage(http.StatusMethodNotAllowed, "Method not allowed")
 	}
 
 	body := request.Body
 	if request.IsBase64Encoded {
 		decoded, err := base64.StdEncoding.DecodeString(body)
 		if err != nil {
-			return lambdaJSONError(http.StatusBadRequest, "Invalid request body")
+			return lambdaJSONErrorMessage(http.StatusBadRequest, "Invalid request body")
 		}
 		body = string(decoded)
 	}
@@ -114,19 +114,19 @@ func (s *Service) HandleLambda(ctx context.Context, request events.APIGatewayV2H
 	case "/query":
 		response, err := s.HandleQuery(ctx, auth, reader)
 		if err != nil {
-			status, message := ErrorStatus(err)
-			return lambdaJSONError(status, message)
+			LogHandlerError(path, err)
+			return lambdaJSONHandlerError(err)
 		}
 		return lambdaJSON(http.StatusOK, response)
 	case "/schema":
 		response, err := s.HandleSchema(ctx, auth, reader)
 		if err != nil {
-			status, message := ErrorStatus(err)
-			return lambdaJSONError(status, message)
+			LogHandlerError(path, err)
+			return lambdaJSONHandlerError(err)
 		}
 		return lambdaJSON(http.StatusOK, response)
 	default:
-		return lambdaJSONError(http.StatusNotFound, "Not found")
+		return lambdaJSONErrorMessage(http.StatusNotFound, "Not found")
 	}
 }
 
@@ -236,8 +236,18 @@ func writeJSON(w http.ResponseWriter, statusCode int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
+func writeJSONErrorMessage(w http.ResponseWriter, statusCode int, message string) {
 	writeJSON(w, statusCode, ErrorResponse{Error: message})
+}
+
+func writeJSONHandlerError(w http.ResponseWriter, err error) {
+	status, message := ErrorStatus(err)
+	resp := ErrorResponse{Error: message}
+	var sqf *SQLQueryFailure
+	if errors.As(err, &sqf) {
+		resp.ErrorChain = joinErrorChain(err)
+	}
+	writeJSON(w, status, resp)
 }
 
 func lambdaJSON(statusCode int, value any) (events.APIGatewayV2HTTPResponse, error) {
@@ -254,8 +264,18 @@ func lambdaJSON(statusCode int, value any) (events.APIGatewayV2HTTPResponse, err
 	}, nil
 }
 
-func lambdaJSONError(statusCode int, message string) (events.APIGatewayV2HTTPResponse, error) {
+func lambdaJSONErrorMessage(statusCode int, message string) (events.APIGatewayV2HTTPResponse, error) {
 	return lambdaJSON(statusCode, ErrorResponse{Error: message})
+}
+
+func lambdaJSONHandlerError(err error) (events.APIGatewayV2HTTPResponse, error) {
+	status, message := ErrorStatus(err)
+	resp := ErrorResponse{Error: message}
+	var sqf *SQLQueryFailure
+	if errors.As(err, &sqf) {
+		resp.ErrorChain = joinErrorChain(err)
+	}
+	return lambdaJSON(status, resp)
 }
 
 func writeCORSHeaders(w http.ResponseWriter) {

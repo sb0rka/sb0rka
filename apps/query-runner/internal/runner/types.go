@@ -2,7 +2,9 @@ package runner
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
+	"strings"
 )
 
 type QueryRequest struct {
@@ -43,7 +45,21 @@ type SchemaResponse struct {
 }
 
 type ErrorResponse struct {
-	Error string `json:"error"`
+	Error      string `json:"error"`
+	ErrorChain string `json:"error_chain,omitempty"`
+}
+
+// SQLQueryFailure wraps a StatusError from PostgreSQL query execution so JSON
+// responses can include error_chain for the wrapped driver/database errors.
+type SQLQueryFailure struct {
+	*StatusError
+}
+
+func (e *SQLQueryFailure) Unwrap() error {
+	if e == nil || e.StatusError == nil {
+		return nil
+	}
+	return e.StatusError.Err
 }
 
 type StatusError struct {
@@ -72,9 +88,49 @@ func NewStatusError(statusCode int, message string, err error) *StatusError {
 }
 
 func ErrorStatus(err error) (int, string) {
+	var sqf *SQLQueryFailure
+	if errors.As(err, &sqf) && sqf.StatusError != nil {
+		return sqf.StatusError.StatusCode, sqf.StatusError.Message
+	}
 	var statusErr *StatusError
 	if errors.As(err, &statusErr) {
 		return statusErr.StatusCode, statusErr.Message
 	}
 	return http.StatusInternalServerError, "Internal server error"
+}
+
+// joinErrorChain formats each level of errors.Unwrap for logs and, for SQLQueryFailure, JSON error_chain.
+func joinErrorChain(err error) string {
+	if err == nil {
+		return ""
+	}
+	var parts []string
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		parts = append(parts, e.Error())
+	}
+	return strings.Join(parts, " || ")
+}
+
+// LogHandlerError logs the public HTTP status/message plus the full wrapped error chain.
+// Call from HTTP/Lambda handlers only; do not log Authorization headers or request bodies here.
+func LogHandlerError(path string, err error) {
+	if err == nil {
+		return
+	}
+	status, message := ErrorStatus(err)
+	attrs := []any{
+		"path", path,
+		"http_status", status,
+		"client_message", message,
+		"error_chain", joinErrorChain(err),
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error("query_runner_request_failed", attrs...)
+		return
+	}
+	if status >= http.StatusBadRequest {
+		slog.Warn("query_runner_request_failed", attrs...)
+		return
+	}
+	slog.Info("query_runner_request_failed", attrs...)
 }
