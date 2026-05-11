@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -92,6 +93,16 @@ export function Header({ breadcrumbs }: HeaderProps) {
         >
           <HelpCircle className="h-4 w-4" />
         </Button> */}
+
+        <Badge
+          className="shrink-0 rounded-full border-0 bg-[var(--alpha-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--alpha-badge-fg)]"
+          title={t("app.alphaWarning")}
+          aria-label={t("app.alphaWarning")}
+        >
+          alpha
+        </Badge>
+
+        <Separator orientation="vertical" className="h-2 shrink-0" />
 
         <Button
           variant="outline"

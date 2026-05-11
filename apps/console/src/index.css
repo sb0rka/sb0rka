@@ -30,6 +30,9 @@
     --alpha-toast-bg: #fff0f0;
     --alpha-toast-border: #ffe0e1;
     --alpha-toast-foreground: #e60000;
+
+    --alpha-badge-bg: #feebec;
+    --alpha-badge-fg: #dc3e42;
   }
 
   .dark {
@@ -58,6 +61,9 @@
     --alpha-toast-bg: #2d0607;
     --alpha-toast-border: #4d0408;
     --alpha-toast-foreground: #ff9ea1;
+
+    --alpha-badge-bg: #2d0607;
+    --alpha-badge-fg: #ff9ea1;
   }
 }
 
