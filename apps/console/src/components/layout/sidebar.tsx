@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { SborkaLogo } from "@/components/logo"
+import { SborkaLogo, SborkaLogoMark } from "@/components/logo"
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
@@ -58,11 +58,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
             collapsed ? "justify-center px-2" : "px-6",
           )}
         >
-          {collapsed ? (
-            <div className="h-4 w-4 rounded-sm bg-foreground" />
-          ) : (
-            <SborkaLogo />
-          )}
+          {collapsed ? <SborkaLogoMark /> : <SborkaLogo />}
         </div>
 
         <nav className={cn("flex flex-col gap-3", collapsed ? "px-2" : "px-4")}>
