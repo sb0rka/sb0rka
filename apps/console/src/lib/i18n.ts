@@ -167,6 +167,9 @@ const resources = {
         allProjects: "Все проекты",
         noProjects: "Нет проектов",
         notFound: "Проект не найден",
+        detail: {
+          copyProjectId: "Скопировать ID проекта",
+        },
         createDialog: {
           title: "Новый проект",
           description: "Рабочее пространство для вашей инфраструктуры",
@@ -463,6 +466,9 @@ const resources = {
         allProjects: "All projects",
         noProjects: "No projects",
         notFound: "Project not found",
+        detail: {
+          copyProjectId: "Copy project ID",
+        },
         createDialog: {
           title: "New project",
           description: "A workspace for your infrastructure",

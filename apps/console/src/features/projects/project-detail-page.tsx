@@ -26,6 +26,7 @@ import {
   type CreateDatabaseFormState,
   type CreateDatabaseFormActions,
 } from "./components/project-detail-tabs"
+import { ProjectPageTitle } from "./components/project-page-title"
 import type { CreateSecretRequest, DatabaseResponse } from "./api"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
@@ -218,30 +219,13 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <ProjectPageTitle project={project} />
 
       <Tabs
         value={activeTab}
         onValueChange={(value) => setSearchParams({ tab: value })}
       >
-        {/* <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="overview" className="w-[115px]">
-              Обзор
-            </TabsTrigger>
-            <TabsTrigger value="databases">Базы данных</TabsTrigger>
-            <TabsTrigger value="secrets" className="w-[115px]">
-              Секреты
-            </TabsTrigger>
-          </TabsList>
-          <Button
-            variant={activeTab === "settings" ? "secondary" : "ghost"}
-            size="icon"
-            onClick={() => setSearchParams({ tab: "settings" })}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div> */}
 
         <OverviewTab
           dbCount={dbCount}
