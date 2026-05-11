@@ -19,7 +19,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ThemeProvider defaultTheme="light">
+        <ThemeProvider defaultTheme="system">
           <ConfirmDialogProvider>
             <BrowserRouter>
               <Routes>
