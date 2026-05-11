@@ -369,6 +369,34 @@ export async function explainNl2Sql(
   })
 }
 
+export interface FixNl2SqlRequest {
+  sql: string
+  errorMessage: string
+  schema?: string
+  dialect?: string
+}
+
+export interface FixNl2SqlResponse {
+  explanation: string
+  fixed_sql: string
+  raw_message?: string
+}
+
+export async function fixNl2Sql(data: FixNl2SqlRequest): Promise<FixNl2SqlResponse> {
+  return apiRequest<FixNl2SqlResponse>({
+    method: "POST",
+    path: "/fix",
+    json: {
+      sql: data.sql,
+      error_message: data.errorMessage,
+      schema: data.schema ?? "",
+      dialect: data.dialect ?? "postgresql",
+    },
+    base: "nl2sql",
+    auth: false,
+  })
+}
+
 export interface SecretResponse {
   resource_id: string
   name: string

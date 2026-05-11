@@ -13,6 +13,7 @@ import {
   type DataExplorerDatabaseNode,
 } from "./hooks"
 import { AiQueryChat } from "./components/ai-query-chat"
+import { DataExplorerQueryError } from "./components/data-explorer-query-error"
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
 import type { RunDatabaseQueryResponse } from "./api"
@@ -89,12 +90,16 @@ export function DataExplorerPage() {
     const sqlToRun = (sqlOverride ?? sql).trim()
     if (!selectedResourceId || sqlToRun.length === 0 || runQuery.isPending) return
     setResult(null)
-    const response = await runQuery.mutateAsync({
-      project_id: id,
-      database_id: selectedResourceId,
-      sql: sqlToRun,
-    })
-    setResult(response)
+    try {
+      const response = await runQuery.mutateAsync({
+        project_id: id,
+        database_id: selectedResourceId,
+        sql: sqlToRun,
+      })
+      setResult(response)
+    } catch {
+      // Rejection from mutateAsync; failure is already on runQuery for the UI below.
+    }
   }
 
   if (schemaQuery.isLoading) {
@@ -145,7 +150,7 @@ export function DataExplorerPage() {
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
-          <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border border-border bg-card p-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border-border bg-card p-4">
             <div className="grid shrink-0 gap-2">
               <Textarea
                 id="data-explorer-sql"
@@ -162,9 +167,27 @@ export function DataExplorerPage() {
               />
             </div>
             {runQuery.isError ? (
-              <p className="text-sm text-destructive">
-                {getErrorMessage(runQuery.error, t("databaseQuery.error"))}
-              </p>
+              <DataExplorerQueryError
+                title={t("dataExplorer.queryFailedTitle")}
+                message={getErrorMessage(runQuery.error, t("databaseQuery.error"))}
+                fixLabel={t("dataExplorer.fix")}
+                fixPendingLabel={t("dataExplorer.fixing")}
+                fixDisabled={!selectedResourceId || isSqlEmpty}
+                fixPending={aiChat.isPending}
+                onFix={() => {
+                  if (!aiPanelOpen) setAiPanelOpen(true)
+                  void aiChat.sendMessage({
+                    type: "fix",
+                    sql: sql.trim(),
+                    errorMessage: getErrorMessage(
+                      runQuery.error,
+                      t("databaseQuery.error"),
+                    ),
+                    schema: nl2sqlSchema,
+                    dialect: "postgresql",
+                  })
+                }}
+              />
             ) : null}
             <div className="min-h-0 flex-1 overflow-auto">
               {result ? <DatabaseQueryResults result={result} /> : null}

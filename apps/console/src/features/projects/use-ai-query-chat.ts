@@ -1,14 +1,24 @@
 import { useCallback, useState } from "react"
 import { ApiError } from "@/lib/api-client"
-import { explainNl2Sql, generateNl2Sql } from "./api"
+import { explainNl2Sql, fixNl2Sql, generateNl2Sql } from "./api"
 import { explainStylePrompt } from "./explain-styles"
 
 const DEFAULT_LAST_GENERATE_STYLE = explainStylePrompt("none")
 
-export type AiQueryChatUserMessage = {
+export type AiQueryChatUserTextMessage = {
   role: "user"
+  variant: "text"
   content: string
 }
+
+export type AiQueryChatUserFixMessage = {
+  role: "user"
+  variant: "fix"
+  sql: string
+  errorMessage: string
+}
+
+export type AiQueryChatUserMessage = AiQueryChatUserTextMessage | AiQueryChatUserFixMessage
 
 export type AiQueryChatSqlMessage = {
   role: "assistant"
@@ -31,9 +41,17 @@ export type AiQueryChatExplanationMessage = {
   explanationRestyled?: boolean
 }
 
+export type AiQueryChatFixMessage = {
+  role: "assistant"
+  type: "fix"
+  explanation: string
+  fixedSql: string
+}
+
 export type AiQueryChatAssistantMessage =
   | AiQueryChatSqlMessage
   | AiQueryChatExplanationMessage
+  | AiQueryChatFixMessage
 
 export type AiQueryChatMessage = AiQueryChatUserMessage | AiQueryChatAssistantMessage
 
@@ -54,7 +72,19 @@ export type AiQueryChatGeneratePayload = {
   dialect?: string
 }
 
-export type AiQueryChatSendPayload = AiQueryChatExplainPayload | AiQueryChatGeneratePayload
+/** SQL repair: requires failing SQL and the database error text for `/fix`. */
+export type AiQueryChatFixPayload = {
+  type: "fix"
+  sql: string
+  errorMessage: string
+  schema?: string
+  dialect?: string
+}
+
+export type AiQueryChatSendPayload =
+  | AiQueryChatExplainPayload
+  | AiQueryChatGeneratePayload
+  | AiQueryChatFixPayload
 
 export function lastExplanationStyle(messages: AiQueryChatMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -97,12 +127,48 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   }, [])
 
   const sendMessage = useCallback(async (payload: AiQueryChatSendPayload) => {
+    if (payload.type === "fix") {
+      const sqlTrim = payload.sql.trim()
+      const errTrim = payload.errorMessage.trim()
+      if (!sqlTrim || !errTrim) return
+
+      setError(null)
+      setIsPending(true)
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", variant: "fix", sql: sqlTrim, errorMessage: errTrim },
+      ])
+
+      try {
+        const res = await fixNl2Sql({
+          sql: sqlTrim,
+          errorMessage: errTrim,
+          schema: payload.schema ?? schema,
+          dialect: payload.dialect ?? dialect,
+        })
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            type: "fix",
+            explanation: res.explanation,
+            fixedSql: res.fixed_sql,
+          },
+        ])
+      } catch (e) {
+        setError(errorMessage(e, "Request failed"))
+      } finally {
+        setIsPending(false)
+      }
+      return
+    }
+
     const trimmed = payload.message.trim()
     if (!trimmed) return
 
     setError(null)
     setIsPending(true)
-    setMessages((prev) => [...prev, { role: "user", content: trimmed }])
+    setMessages((prev) => [...prev, { role: "user", variant: "text", content: trimmed }])
 
     try {
       if (payload.type === "explain") {

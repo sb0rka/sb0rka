@@ -119,6 +119,25 @@ export function AiQueryChat({
       >
         {messages.map((m: AiQueryChatMessage, index: number) => {
           if (m.role === "user") {
+            if (m.variant === "fix") {
+              return (
+                <div
+                  key={`${index}-user-fix`}
+                  className={cn("space-y-2 text-sm text-foreground", index > 0 && "mt-6")}
+                >
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("dataExplorer.fixChatSqlLabel")}
+                  </p>
+                  <pre className="max-h-40 overflow-auto rounded-md border border-border/60 bg-muted/20 p-2 text-xs font-mono whitespace-pre-wrap">
+                    {m.sql}
+                  </pre>
+                  <p className="pt-1 text-xs font-medium text-muted-foreground">
+                    {t("dataExplorer.fixChatErrorLabel")}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm">{m.errorMessage}</p>
+                </div>
+              )
+            }
             return (
               <p
                 key={`${index}-user`}
@@ -183,6 +202,73 @@ export function AiQueryChat({
                 <pre className="max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap text-muted-foreground">
                   {m.output}
                 </pre>
+              </div>
+            )
+          }
+          if (m.type === "fix") {
+            return (
+              <div
+                key={`${index}-fix`}
+                className={cn("space-y-3", index > 0 && "mt-6")}
+              >
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <p className="mb-2 text-sm font-medium">
+                    {t("dataExplorer.fixDiagnosisTitle")}
+                  </p>
+                  <div className="max-h-[280px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground">
+                    {m.explanation}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">
+                      {t("dataExplorer.aiChatFixedSql")}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                        disabled={isPending}
+                        onClick={() => void handleCopySql(m.fixedSql)}
+                        aria-label={t("dataExplorer.aiChatCopySql")}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                        disabled={isPending || !onApplySql}
+                        onClick={() => onApplySql?.(m.fixedSql)}
+                        aria-label={t("dataExplorer.aiChatApplySql")}
+                      >
+                        <ClipboardPaste className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                        disabled={
+                          isPending ||
+                          !onApplySqlAndRun ||
+                          Boolean(applySqlAndRunDisabled) ||
+                          m.fixedSql.trim().length === 0
+                        }
+                        onClick={() => onApplySqlAndRun?.(m.fixedSql)}
+                        aria-label={t("dataExplorer.aiChatApplySqlAndRun")}
+                      >
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <pre className="max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap text-muted-foreground">
+                    {m.fixedSql}
+                  </pre>
+                </div>
               </div>
             )
           }

@@ -216,11 +216,15 @@ export {
   type AiQueryChatAssistantMessage,
   type AiQueryChatExplainPayload,
   type AiQueryChatExplanationMessage,
+  type AiQueryChatFixMessage,
+  type AiQueryChatFixPayload,
   type AiQueryChatGeneratePayload,
   type AiQueryChatMessage,
   type AiQueryChatSendPayload,
   type AiQueryChatSqlMessage,
+  type AiQueryChatUserFixMessage,
   type AiQueryChatUserMessage,
+  type AiQueryChatUserTextMessage,
   type UseAiQueryChatOptions,
 } from "./use-ai-query-chat"
 
