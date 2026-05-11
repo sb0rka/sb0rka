@@ -179,9 +179,12 @@ func TestServeHTTPValidation(t *testing.T) {
 }
 
 func TestServeHTTPDoesNotExposeSensitiveDetails(t *testing.T) {
+	pgLike := errors.New(`ERROR: relation "foo" does not exist`)
 	service := NewService(
 		&fakePlatform{uri: "postgres://user:secret@example/db"},
-		&fakeExecutor{err: NewStatusError(http.StatusBadGateway, "Database query failed", errors.New("SELECT * FROM secrets"))},
+		&fakeExecutor{err: &SQLQueryFailure{
+			StatusError: NewStatusError(http.StatusBadGateway, "Database query failed", pgLike),
+		}},
 		NewLimiter(100, 100),
 	)
 
@@ -197,6 +200,43 @@ func TestServeHTTPDoesNotExposeSensitiveDetails(t *testing.T) {
 	}
 	if !strings.Contains(body, "Database query failed") {
 		t.Fatalf("expected generic query error, got %s", body)
+	}
+	if !strings.Contains(body, "error_chain") || !strings.Contains(body, `relation \"foo\"`) {
+		t.Fatalf("expected error_chain with Postgres detail, got %s", body)
+	}
+}
+
+func TestServeHTTPSQLFailureIncludesErrorChain(t *testing.T) {
+	inner := errors.New(`ERROR: syntax error at or near "from"`)
+	service := NewService(
+		&fakePlatform{uri: "postgres://user:pass@example/db"},
+		&fakeExecutor{err: &SQLQueryFailure{
+			StatusError: NewStatusError(http.StatusBadGateway, "Database query failed", inner),
+		}},
+		NewLimiter(100, 100),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/query", strings.NewReader(`{"database_id":"db_1","project_id":"project_1","sql":"SELECT 1"}`))
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+
+	service.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadGateway, rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Error      string `json:"error"`
+		ErrorChain string `json:"error_chain"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if payload.Error != "Database query failed" {
+		t.Fatalf("expected stable client message, got %q", payload.Error)
+	}
+	if payload.ErrorChain == "" || !strings.Contains(payload.ErrorChain, "syntax error") {
+		t.Fatalf("expected error_chain with DB detail, got %q", payload.ErrorChain)
 	}
 }
 

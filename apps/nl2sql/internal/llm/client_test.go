@@ -109,3 +109,29 @@ func TestClient_ChatCompletion_emptyChoices(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestClient_ChatCompletionAllowEmpty_accepts_empty_content(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"role": "assistant", "content": ""}},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &Client{
+		BaseURL:    srv.URL + "/v1",
+		APIKey:     "k",
+		HTTPClient: srv.Client(),
+	}
+	out, err := c.ChatCompletionAllowEmpty(context.Background(), "m", 0, []Message{{Role: "user", Content: "x"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "" {
+		t.Fatalf("got %q", out)
+	}
+}
