@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom"
-import { ChevronRight, Sun, Moon, User } from "lucide-react"
+import { ChevronRight, Sun, Moon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import {
   DropdownMenu,
@@ -23,12 +24,26 @@ interface HeaderProps {
   breadcrumbs: BreadcrumbItem[]
 }
 
+function accountInitial(email: string | undefined, username: string | undefined): string {
+  const fromEmail = email?.trim()
+  if (fromEmail) {
+    const first = fromEmail[0]
+    return first ? first.toUpperCase() : "?"
+  }
+  const fromUser = username?.trim()
+  if (fromUser) {
+    const first = fromUser[0]
+    return first ? first.toUpperCase() : "?"
+  }
+  return "?"
+}
+
 export function Header({ breadcrumbs }: HeaderProps) {
   const { t } = useTranslation()
-  const { theme, setTheme } = useTheme()
+  const { setTheme, resolvedAppearance } = useTheme()
   const { user } = useAuth()
   const logoutMutation = useLogout()
-  const isDark = theme === "dark"
+  const isDark = resolvedAppearance === "dark"
 
   return (
     <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
@@ -64,7 +79,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
         })}
       </nav>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* <Button variant="ghost" size="sm" className="text-sm font-medium">
           Оставить фидбек
         </Button>
@@ -81,7 +96,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
         <Button
           variant="outline"
           size="icon"
-          className="h-10 w-10 rounded-full"
+          className="h-9 w-9 shrink-0 rounded-full"
           onClick={() => setTheme(isDark ? "light" : "dark")}
           aria-label={t("header.toggleTheme")}
         >
@@ -90,18 +105,29 @@ export function Header({ breadcrumbs }: HeaderProps) {
 
         <LanguageSwitcher />
 
+        <Separator orientation="vertical" className="h-2 shrink-0" />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-auto gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-muted/60"
+              className="h-auto gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/60"
               aria-label={t("header.openProfileMenu")}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <User className="h-5 w-5 text-muted-foreground" />
-              </div>
               {user ? (
-                <span className="text-sm font-medium text-foreground">{user.username}</span>
+                <>
+                  <div className="flex min-w-0 flex-col items-start justify-center gap-0 text-left leading-normal">
+                    <span className="truncate text-xs font-medium text-foreground">
+                      {user.username}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                  </div>
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {accountInitial(user.email, user.username)}
+                    </span>
+                  </div>
+                </>
               ) : null}
             </Button>
           </DropdownMenuTrigger>

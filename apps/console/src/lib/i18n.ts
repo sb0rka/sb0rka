@@ -81,6 +81,8 @@ const resources = {
         ru: "Русский",
         en: "English",
         switcherLabel: "Сменить язык",
+        switchToEn: "Переключить на английский",
+        switchToRu: "Переключить на русский",
       },
       app: {
         alphaWarning: "Альфа-версия: не храните критичные данные",
@@ -378,6 +380,8 @@ const resources = {
         ru: "Русский",
         en: "English",
         switcherLabel: "Change language",
+        switchToEn: "Switch to English",
+        switchToRu: "Switch to Russian",
       },
       app: {
         alphaWarning: "Alpha version: do not store critical data",
