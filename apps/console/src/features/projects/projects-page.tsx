@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AlphaToast } from "@/components/ui/alpha-toast"
 import {
   Card,
   CardHeader,
@@ -14,6 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
+
+const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
 function copyProjectId(id: string) {
   navigator.clipboard.writeText(id)
@@ -60,8 +63,17 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
 export function ProjectsPage() {
   const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
+  const [alphaToastOpen, setAlphaToastOpen] = useState(false)
   const { data, isLoading } = useProjects()
   const projects = data?.projects ?? []
+
+  useEffect(() => {
+    try {
+      setAlphaToastOpen(!localStorage.getItem(ALPHA_UNDERSTOOD_KEY))
+    } catch {
+      setAlphaToastOpen(true)
+    }
+  }, [])
 
   return (
     <div className="flex flex-col gap-4">
@@ -101,6 +113,28 @@ export function ProjectsPage() {
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {alphaToastOpen ? (
+        <div
+          className="fixed bottom-[10px] right-[10px] z-50  max-w-sm"
+          aria-live="polite"
+        >
+          <AlphaToast
+            className="w-full"
+            title={t("app.alphaToastTitle")}
+            description={t("app.alphaToastDescription")}
+            actionLabel={t("app.alphaToastAction")}
+            onAction={() => {
+              try {
+                localStorage.setItem(ALPHA_UNDERSTOOD_KEY, "1")
+              } catch {
+                /* ignore quota / private mode */
+              }
+              setAlphaToastOpen(false)
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

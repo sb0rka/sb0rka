@@ -84,6 +84,10 @@ const resources = {
       },
       app: {
         alphaWarning: "Альфа-версия: не храните критичные данные",
+        alphaToastTitle: "Продукт находится на альфа-стадии",
+        alphaToastDescription:
+          "Будьте осторожны, не все функции работают идеально.",
+        alphaToastAction: "Ок, понятно",
       },
       nav: {
         projects: "Проекты",
@@ -377,6 +381,10 @@ const resources = {
       },
       app: {
         alphaWarning: "Alpha version: do not store critical data",
+        alphaToastTitle: "This product is in alpha",
+        alphaToastDescription:
+          "Proceed with care — not everything works perfectly yet.",
+        alphaToastAction: "OK, got it",
       },
       nav: {
         projects: "Projects",
