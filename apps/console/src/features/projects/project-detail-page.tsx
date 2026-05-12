@@ -252,6 +252,7 @@ export function ProjectDetailPage() {
         <SettingsTab
           projectId={id}
           projectName={project.name}
+          projectDescription={project.description ?? ""}
           createdAt={project.created_at}
         />
       </Tabs>

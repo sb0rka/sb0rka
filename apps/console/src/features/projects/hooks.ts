@@ -217,8 +217,9 @@ export function useUpdateProject() {
         qc.setQueryData(PROJECTS_KEY, context.previous)
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       qc.invalidateQueries({ queryKey: PROJECTS_KEY })
+      qc.invalidateQueries({ queryKey: ["projects", variables.id] })
     },
   })
 }
