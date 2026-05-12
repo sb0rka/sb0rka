@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
-import { ChevronRight, Sun, Moon } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useTheme } from "@/components/theme-provider"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { Badge } from "@/components/ui/badge"
@@ -41,10 +41,8 @@ function accountInitial(email: string | undefined, username: string | undefined)
 
 export function Header({ breadcrumbs }: HeaderProps) {
   const { t } = useTranslation()
-  const { setTheme, resolvedAppearance } = useTheme()
   const { user } = useAuth()
   const logoutMutation = useLogout()
-  const isDark = resolvedAppearance === "dark"
 
   return (
     <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
@@ -104,15 +102,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
 
         <Separator orientation="vertical" className="h-2 shrink-0" />
 
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 shrink-0 rounded-full"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={t("header.toggleTheme")}
-        >
-          {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-        </Button>
+        <ThemeToggle />
 
         <LanguageSwitcher />
 
