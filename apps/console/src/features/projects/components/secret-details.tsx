@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from "react"
 import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
+import { FloatingHint } from "@/components/ui/floating-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
@@ -275,7 +276,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.secret")}</CardTitle>
           <CardDescription>
@@ -284,47 +285,39 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         </CardHeader>
         <CardContent className="space-y-1.5 pb-6">
           <p className="text-sm font-medium text-foreground">{t("secrets.key")}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-0 flex-1 rounded-md border border-input px-3 py-2">
-              <p className="truncate text-base text-foreground">{displayedValue}</p>
-            </div>
-            {isValueVisible ? (
+          <div className="relative">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1 rounded-md border border-input px-3 py-2">
+                <p className="truncate text-base text-foreground">{displayedValue}</p>
+              </div>
+              {isValueVisible ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void handleCopySecretValue()}
+                  disabled={!revealedValue || revealSecret.isPending}
+                  title={t("secrets.copySecret")}
+                  aria-label={t("secrets.copySecret")}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                onClick={() => void handleCopySecretValue()}
-                disabled={!revealedValue || revealSecret.isPending}
-                title={t("secrets.copySecret")}
-                aria-label={t("secrets.copySecret")}
+                onClick={() => void handleToggleSecretValue()}
+                disabled={revealSecret.isPending}
               >
-                <Copy className="h-4 w-4" />
+                {revealSecret.isPending
+                  ? t("common.loading")
+                  : isValueVisible
+                    ? t("common.actions.hide")
+                    : t("common.actions.view")}
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handleToggleSecretValue()}
-              disabled={revealSecret.isPending}
-            >
-              {revealSecret.isPending
-                ? t("common.loading")
-                : isValueVisible
-                  ? t("common.actions.hide")
-                  : t("common.actions.view")}
-            </Button>
+            </div>
+            <FloatingHint message={isValueVisible ? copySecretMessage : null} placement="bottom" align="end" />
           </div>
-          {isValueVisible && copySecretMessage ? (
-            <p
-              className={
-                copySecretMessage === t("secrets.copied")
-                  ? "text-sm text-emerald-600"
-                  : "text-sm text-destructive"
-              }
-            >
-              {copySecretMessage}
-            </p>
-          ) : null}
           {revealError ? <p className="text-sm text-destructive">{revealError}</p> : null}
         </CardContent>
       </Card>

@@ -133,7 +133,7 @@ const resources = {
           title: "Регистрация",
           description: "Готовим вашу инфраструктуру к запуску",
           usernameLabel: "Имя пользователя",
-          usernamePlaceholder: "Введите ваш username",
+          usernamePlaceholder: "Введите ваш юзернейм",
           emailLabel: "Email",
           emailPlaceholder: "Введите ваш email",
           passwordLabel: "Пароль",
@@ -169,6 +169,7 @@ const resources = {
         notFound: "Проект не найден",
         detail: {
           copyProjectId: "Скопировать ID проекта",
+          idCopied: "ID скопирован",
         },
         createDialog: {
           title: "Новый проект",
@@ -468,6 +469,7 @@ const resources = {
         notFound: "Project not found",
         detail: {
           copyProjectId: "Copy project ID",
+          idCopied: "ID copied",
         },
         createDialog: {
           title: "New project",

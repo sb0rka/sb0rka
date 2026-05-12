@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlphaToast } from "@/components/ui/alpha-toast"
+import { FloatingHint } from "@/components/ui/floating-hint"
 import {
   Card,
   CardHeader,
@@ -19,16 +20,24 @@ import { CreateProjectDialog } from "./create-project-dialog"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
-function copyProjectId(id: string) {
-  navigator.clipboard.writeText(id)
-}
-
 function ProjectCard({ project }: { project: ProjectResponse }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [copyMessage, setCopyMessage] = useState<string | null>(null)
   const { data, isLoading, isError } = useDatabases(project.id)
   const databases = data?.databases ?? []
   const dbCount = databases.length
+
+  async function handleCopyProjectId() {
+    try {
+      await navigator.clipboard.writeText(project.id)
+      setCopyMessage(t("projects.detail.idCopied"))
+      window.setTimeout(() => setCopyMessage(null), 2000)
+    } catch {
+      setCopyMessage(t("common.messages.copyFailed"))
+      window.setTimeout(() => setCopyMessage(null), 3000)
+    }
+  }
 
   return (
     <Card>
@@ -69,16 +78,18 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
         )}
       </CardContent>
       <CardFooter className="flex-row items-center gap-6">
-        <button
-          type="button"
-          onClick={() => copyProjectId(project.id)}
-          className="flex flex-1 items-center gap-2 min-w-0"
-        >
-          <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm text-muted-foreground">
-            {project.id}
-          </span>
-        </button>
+        <div className="relative min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => void handleCopyProjectId()}
+            className="flex w-full items-center gap-2 min-w-0"
+            aria-label={t("projects.detail.copyProjectId")}
+          >
+            <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm text-muted-foreground">{project.id}</span>
+          </button>
+          <FloatingHint message={copyMessage} placement="bottom" align="start" />
+        </div>
         <Button onClick={() => navigate(`/projects/${project.id}`)}>
           {t("common.actions.open")}
         </Button>
