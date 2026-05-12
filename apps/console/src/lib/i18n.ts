@@ -172,10 +172,10 @@ const resources = {
           idCopied: "ID скопирован",
         },
         createDialog: {
-          title: "Новый проект",
-          description: "Рабочее пространство для вашей инфраструктуры",
-          namePlaceholder: "Например: Базы данных для разработки",
-          descriptionPlaceholder: "Коротко опишите назначение проекта",
+          title: "Создать проект",
+          description: "Разверните ваш новый проект одним кликом.",
+          namePlaceholder: "Введите название проекта",
+          descriptionPlaceholder: "Введите описание проекта",
           fallbackError: "Не удалось создать проект",
         },
         settings: {
@@ -472,10 +472,10 @@ const resources = {
           idCopied: "ID copied",
         },
         createDialog: {
-          title: "New project",
-          description: "A workspace for your infrastructure",
-          namePlaceholder: "Example: Development DBs",
-          descriptionPlaceholder: "Briefly describe what this project is for",
+          title: "Create project",
+          description: "Deploy your new project with one click.",
+          namePlaceholder: "Enter project name",
+          descriptionPlaceholder: "Enter project description",
           fallbackError: "Unable to create project",
         },
         settings: {
