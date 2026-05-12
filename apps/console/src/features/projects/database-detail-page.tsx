@@ -22,20 +22,51 @@ import {
   useDatabase,
   useDatabaseUri,
   useDeactivateResource,
-  useProject,
+  useResources,
   useResourceTags,
   useAttachResourceTag,
   useUpdateDatabase,
 } from "./hooks"
 
-function formatDate(value: string | undefined, locale: string): string {
+/** Same masking length as the secret value field on `SecretDetails`. */
+const SENSITIVE_MASK = "•••••••••••••••••••••••"
+
+function parsePostgresUri(uri: string): {
+  hostname: string
+  port: string
+  username: string
+  password: string
+  database: string
+} | null {
+  try {
+    const normalized = uri.trim().replace(/^postgres(ql)?:/i, "http:")
+    const u = new URL(normalized)
+    const username = decodeURIComponent(u.username || "")
+    const password = decodeURIComponent(u.password || "")
+    const hostname = u.hostname
+    const port = u.port || "5432"
+    const pathDb = u.pathname.replace(/^\//, "")
+    const database = decodeURIComponent(pathDb.split("/")[0] || "")
+    if (!hostname) return null
+    return { hostname, port, username, password, database }
+  } catch {
+    return null
+  }
+}
+
+function maskPostgresUri(parsed: {
+  hostname: string
+  port: string
+  database: string
+}): string {
+  return `postgresql://****:****@${parsed.hostname}:${parsed.port}/${parsed.database}`
+}
+
+function formatDateOnly(value: string | undefined, locale: string): string {
   if (!value) return "—"
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date)
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date)
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -64,6 +95,145 @@ function parseTagInput(input: string): { tag_key: string; tag_value: string } | 
   return { tag_key, tag_value }
 }
 
+type CopyHintAnchor =
+  | "hostname"
+  | "port"
+  | "connectionDb"
+  | "user"
+  | "password"
+  | "uri"
+
+type ConnectionCopyFieldProps = {
+  label: string
+  displayText: string
+  copyText: string | undefined
+  disabled?: boolean
+  copyAriaLabel: string
+  onCopy: () => void
+  hintMessage: string | null
+  hintAnchor: CopyHintAnchor
+  activeHintAnchor: CopyHintAnchor | null
+}
+
+function ConnectionCopyField({
+  label,
+  displayText,
+  copyText,
+  disabled,
+  copyAriaLabel,
+  onCopy,
+  hintMessage,
+  hintAnchor,
+  activeHintAnchor,
+}: ConnectionCopyFieldProps) {
+  const canCopy = Boolean(copyText && !disabled)
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <Label className="text-sm font-medium text-foreground">{label}</Label>
+      <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1 rounded-md bg-muted px-3 py-2">
+            <p className="truncate font-mono text-base text-muted-foreground">{displayText}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={!canCopy}
+              title={copyAriaLabel}
+              aria-label={copyAriaLabel}
+              onClick={onCopy}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <FloatingHint
+          message={activeHintAnchor === hintAnchor ? hintMessage : null}
+          placement="bottom"
+          align="end"
+        />
+      </div>
+    </div>
+  )
+}
+
+type SensitiveConnectionFieldProps = {
+  label: string
+  displayedValue: string
+  isVisible: boolean
+  onToggle: () => void
+  onCopy: () => void
+  copyDisabled: boolean
+  toggleDisabled: boolean
+  copyAriaLabel: string
+  toggleLabelShow: string
+  toggleLabelHide: string
+  hintMessage: string | null
+  hintAnchor: CopyHintAnchor
+  activeHintAnchor: CopyHintAnchor | null
+}
+
+function SensitiveConnectionField({
+  label,
+  displayedValue,
+  isVisible,
+  onToggle,
+  onCopy,
+  copyDisabled,
+  toggleDisabled,
+  copyAriaLabel,
+  toggleLabelShow,
+  toggleLabelHide,
+  hintMessage,
+  hintAnchor,
+  activeHintAnchor,
+}: SensitiveConnectionFieldProps) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <Label className="text-sm font-medium text-foreground">{label}</Label>
+      <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
+            <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
+              {displayedValue}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onCopy}
+              disabled={copyDisabled}
+              title={copyAriaLabel}
+              aria-label={copyAriaLabel}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-[70.25px]"
+              onClick={onToggle}
+              disabled={toggleDisabled}
+            >
+              {isVisible ? toggleLabelHide : toggleLabelShow}
+            </Button>
+          </div>
+        </div>
+        <FloatingHint
+          message={activeHintAnchor === hintAnchor ? hintMessage : null}
+          placement="bottom"
+          align="end"
+        />
+      </div>
+    </div>
+  )
+}
+
 export function DatabaseDetailPage() {
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
@@ -76,8 +246,8 @@ export function DatabaseDetailPage() {
   const normalizedResourceId = resourceId.trim()
   const isValidResourceId = normalizedResourceId.length > 0
 
-  const { data: project } = useProject(id)
   const databaseQuery = useDatabase(id, isValidResourceId ? normalizedResourceId : undefined)
+  const resourcesQuery = useResources(id)
   const tagsQuery = useResourceTags(id, isValidResourceId ? normalizedResourceId : undefined)
   const updateDatabase = useUpdateDatabase(
     id,
@@ -89,12 +259,27 @@ export function DatabaseDetailPage() {
     isValidResourceId ? normalizedResourceId : undefined,
   )
 
-  const [isUriVisible, setIsUriVisible] = useState(false)
   const databaseUri = useDatabaseUri(
     id,
     isValidResourceId ? normalizedResourceId : undefined,
     isValidResourceId,
   )
+
+  const resourceTimestamps = useMemo(() => {
+    const row = resourcesQuery.data?.resources.find((r) => r.id === normalizedResourceId)
+    return row ? { createdAt: row.created_at, updatedAt: row.updated_at } : null
+  }, [resourcesQuery.data?.resources, normalizedResourceId])
+
+  const parsedUri = useMemo(
+    () => (databaseUri.data ? parsePostgresUri(databaseUri.data) : null),
+    [databaseUri.data],
+  )
+
+  const maskedUriDisplay = useMemo(() => {
+    if (parsedUri) return maskPostgresUri(parsedUri)
+    if (databaseUri.data) return "postgresql://****:****@…"
+    return "—"
+  }, [parsedUri, databaseUri.data])
 
   const [description, setDescription] = useState("")
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
@@ -104,25 +289,76 @@ export function DatabaseDetailPage() {
   const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
   const [tagActionError, setTagActionError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [copyUriMessage, setCopyUriMessage] = useState<string | null>(null)
+  const [copyHint, setCopyHint] = useState<string | null>(null)
+  const [copyHintAnchor, setCopyHintAnchor] = useState<CopyHintAnchor | null>(null)
+  const [isUserVisible, setIsUserVisible] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isUriVisible, setIsUriVisible] = useState(false)
 
   useEffect(() => {
     setDescription(databaseQuery.data?.description ?? "")
   }, [databaseQuery.data?.description])
 
+  useEffect(() => {
+    setIsUserVisible(false)
+    setIsPasswordVisible(false)
+    setIsUriVisible(false)
+    setCopyHint(null)
+    setCopyHintAnchor(null)
+  }, [normalizedResourceId])
+
   const hasDescriptionChange =
     description.trim() !== (databaseQuery.data?.description ?? "").trim()
 
-  const maskedUri = useMemo(() => {
-    const dbId = databaseQuery.data?.resource_id ?? "{db.id}"
-    const dbName = databaseQuery.data?.name ?? "{db.name}"
-    const hiddenUri = `postgresql://********:********@${dbId}.psql.sb0rka.ru:5432/${dbName}?sslmode=require&sslnegotiation=direct`
-
-    if (!isUriVisible) {
-      return hiddenUri
+  async function copyWithHint(text: string, anchor: CopyHintAnchor) {
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopyHint(t("common.messages.copied"))
+      setCopyHintAnchor(anchor)
+      window.setTimeout(() => {
+        setCopyHint(null)
+        setCopyHintAnchor(null)
+      }, 2000)
+    } catch {
+      setCopyHint(t("common.messages.copyFailed"))
+      setCopyHintAnchor(anchor)
+      window.setTimeout(() => {
+        setCopyHint(null)
+        setCopyHintAnchor(null)
+      }, 3000)
     }
-    return databaseUri.data ?? hiddenUri
-  }, [databaseQuery.data?.name, databaseQuery.data?.resource_id, databaseUri.data, isUriVisible])
+  }
+
+  function handleToggleUserVisible() {
+    if (isUserVisible) {
+      setIsUserVisible(false)
+      setCopyHint(null)
+      setCopyHintAnchor(null)
+      return
+    }
+    setIsUserVisible(true)
+  }
+
+  function handleTogglePasswordVisible() {
+    if (isPasswordVisible) {
+      setIsPasswordVisible(false)
+      setCopyHint(null)
+      setCopyHintAnchor(null)
+      return
+    }
+    setIsPasswordVisible(true)
+  }
+
+  function handleToggleUriVisible() {
+    if (isUriVisible) {
+      setIsUriVisible(false)
+      setCopyHint(null)
+      setCopyHintAnchor(null)
+      return
+    }
+    setIsUriVisible(true)
+  }
 
   async function handleSave() {
     if (!hasDescriptionChange || updateDatabase.isPending) return
@@ -197,18 +433,6 @@ export function DatabaseDetailPage() {
     }
   }
 
-  async function handleCopyUri() {
-    if (!databaseUri.data || databaseUri.isFetching) return
-    try {
-      await navigator.clipboard.writeText(databaseUri.data)
-      setCopyUriMessage(t("databases.uriCopied"))
-      window.setTimeout(() => setCopyUriMessage(null), 2000)
-    } catch {
-      setCopyUriMessage(t("common.messages.copyFailed"))
-      window.setTimeout(() => setCopyUriMessage(null), 3000)
-    }
-  }
-
   function handleTagInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       event.preventDefault()
@@ -220,6 +444,35 @@ export function DatabaseDetailPage() {
       setTagActionError(null)
     }
   }
+
+  const uriBusy = databaseUri.isFetching
+  const hasUri = Boolean(databaseUri.data)
+  const parsedUriReady = Boolean(parsedUri)
+  const parsedFieldsBusy = uriBusy
+
+  const displayedUsername = !parsedUriReady
+    ? parsedFieldsBusy
+      ? "…"
+      : "—"
+    : isUserVisible
+      ? parsedUri!.username || "—"
+      : SENSITIVE_MASK
+
+  const displayedPassword = !parsedUriReady
+    ? parsedFieldsBusy
+      ? "…"
+      : "—"
+    : isPasswordVisible
+      ? parsedUri!.password || "—"
+      : SENSITIVE_MASK
+
+  const displayedFullUri =
+    !hasUri ? (uriBusy ? "…" : "—") : isUriVisible && databaseUri.data
+      ? databaseUri.data
+      : maskedUriDisplay
+
+  const toggleFieldsDisabled = parsedFieldsBusy || databaseUri.isError
+  const uriCopyDisabled = !hasUri || uriBusy
 
   if (!isValidResourceId) {
     return (
@@ -255,17 +508,19 @@ export function DatabaseDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight">{databaseQuery.data.name}</h1>
-          <Badge className="bg-lime-700 text-lime-100 hover:bg-lime-700">{t("databases.online")}</Badge>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {databaseQuery.data.name}
+          </h1>
+          <Badge variant="active">{t("databases.online")}</Badge>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {tagsQuery.data?.tags.map((tag) => (
-            <Badge key={tag.id}>{`${tag.tag_key}:${tag.tag_value}`}</Badge>
+            <Badge key={tag.id} variant="secondary">{`${tag.tag_key}:${tag.tag_value}`}</Badge>
           ))}
           {isAddingTag ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Input
                 placeholder="key:value"
                 value={newTagInput}
@@ -301,7 +556,7 @@ export function DatabaseDetailPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full px-2.5 py-0.5 text-xs font-semibold leading-4"
+              className="h-7 rounded-full px-2.5 text-xs font-semibold leading-4"
               onClick={() => {
                 setIsAddingTag(true)
                 setTagActionError(null)
@@ -320,108 +575,206 @@ export function DatabaseDetailPage() {
         ) : null}
       </div>
 
-      <Card className="overflow-hidden">
-        <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
-            <p className="text-base text-muted-foreground">{formatDate(project?.created_at, locale)}</p>
+      <div className="flex flex-col gap-6">
+        <Card className="overflow-hidden shadow-sm">
+          <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
+              <p className="text-base text-muted-foreground">
+                {formatDateOnly(resourceTimestamps?.createdAt, locale)}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
+              <p className="text-base text-muted-foreground">
+                {formatDateOnly(resourceTimestamps?.updatedAt, locale)}
+              </p>
+            </div>
+          </CardContent>
+          <div className="border-t border-border px-6 pb-6">
+            <div className="flex flex-col gap-1.5 pt-6">
+              <Label htmlFor="database-description">{t("common.labels.description")}</Label>
+              <Input
+                id="database-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={t("databases.descriptionPlaceholder")}
+              />
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
-            <p className="text-base text-muted-foreground">{formatDate(project?.updated_at, locale)}</p>
-          </div>
-        </CardContent>
-        <div className="border-t border-border px-6 pb-6">
-          <div className="flex flex-col gap-1.5 pt-6">
-            <Label htmlFor="database-description">{t("common.labels.description")}</Label>
-            <Input
-              id="database-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder={t("databases.descriptionPlaceholder")}
-            />
-          </div>
-        </div>
-        <CardFooter className="border-t border-border pt-6">
-          <div className="flex flex-col gap-2">
-            <Button
-              className="self-start"
-              onClick={handleSave}
-              disabled={!hasDescriptionChange || updateDatabase.isPending}
-            >
-              {updateDatabase.isPending ? t("common.saving") : t("common.actions.saveChanges")}
-            </Button>
-            {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
-            {saveSuccess ? <p className="text-sm text-emerald-600">{saveSuccess}</p> : null}
-          </div>
-        </CardFooter>
-      </Card>
+          <CardFooter className="border-t border-border px-6 py-6">
+            <div className="flex flex-col gap-2">
+              <Button
+                className="self-start"
+                onClick={handleSave}
+                disabled={!hasDescriptionChange || updateDatabase.isPending}
+              >
+                {updateDatabase.isPending ? t("common.saving") : t("common.actions.saveChanges")}
+              </Button>
+              {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
+              {saveSuccess ? <p className="text-sm text-emerald-600">{saveSuccess}</p> : null}
+            </div>
+          </CardFooter>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-3xl font-semibold tracking-tight">URI</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 pb-6">
-          <div className="relative">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
-                <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
-                  {maskedUri}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void handleCopyUri()}
-                  disabled={!databaseUri.data || databaseUri.isFetching}
-                  title={t("databases.copyUri")}
-                  aria-label={t("databases.copyUri")}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-w-[70.25px]"
-                  onClick={() =>
-                    setIsUriVisible((prev) => {
-                      const next = !prev
-                      if (!next) setCopyUriMessage(null)
-                      return next
-                    })
-                  }
-                  disabled={databaseUri.isFetching}
-                >
-                  {isUriVisible ? t("common.actions.hide") : t("common.actions.show")}
-                </Button>
+        <Card className="shadow-sm">
+          <CardHeader className="gap-1.5 border-b border-border pb-6">
+            <CardTitle className="text-xl font-semibold tracking-tight text-card-foreground">
+              {t("databases.accessTitle")}
+            </CardTitle>
+            <CardDescription>{t("databases.accessDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 border-b border-border px-6 py-6">
+            <div className="flex flex-col gap-4 md:flex-row">
+              <ConnectionCopyField
+                label={t("databases.hostname")}
+                displayText={
+                  parsedUriReady ? parsedUri!.hostname : parsedFieldsBusy ? "…" : "—"
+                }
+                copyText={parsedUri?.hostname}
+                disabled={toggleFieldsDisabled || !parsedUriReady}
+                copyAriaLabel={`${t("databases.copyField")}: ${t("databases.hostname")}`}
+                onCopy={() =>
+                  parsedUri && void copyWithHint(parsedUri.hostname, "hostname")
+                }
+                hintMessage={copyHint}
+                hintAnchor="hostname"
+                activeHintAnchor={copyHintAnchor}
+              />
+              <ConnectionCopyField
+                label={t("databases.port")}
+                displayText={
+                  parsedUriReady ? parsedUri!.port : parsedFieldsBusy ? "…" : "—"
+                }
+                copyText={parsedUri?.port}
+                disabled={toggleFieldsDisabled || !parsedUriReady}
+                copyAriaLabel={`${t("databases.copyField")}: ${t("databases.port")}`}
+                onCopy={() =>
+                  parsedUri && void copyWithHint(parsedUri.port, "port")
+                }
+                hintMessage={copyHint}
+                hintAnchor="port"
+                activeHintAnchor={copyHintAnchor}
+              />
+            </div>
+            <div className="flex flex-col gap-4 md:flex-row">
+              <SensitiveConnectionField
+                label={t("databases.username")}
+                displayedValue={displayedUsername}
+                isVisible={isUserVisible}
+                onToggle={handleToggleUserVisible}
+                onCopy={() =>
+                  parsedUri && void copyWithHint(parsedUri.username, "user")
+                }
+                copyDisabled={toggleFieldsDisabled || !parsedUriReady}
+                toggleDisabled={toggleFieldsDisabled || !parsedUriReady}
+                copyAriaLabel={`${t("databases.copyField")}: ${t("databases.username")}`}
+                toggleLabelShow={t("common.actions.show")}
+                toggleLabelHide={t("common.actions.hide")}
+                hintMessage={copyHint}
+                hintAnchor="user"
+                activeHintAnchor={copyHintAnchor}
+              />
+              <SensitiveConnectionField
+                label={t("databases.password")}
+                displayedValue={displayedPassword}
+                isVisible={isPasswordVisible}
+                onToggle={handleTogglePasswordVisible}
+                onCopy={() =>
+                  parsedUri &&
+                  void copyWithHint(parsedUri.password, "password")
+                }
+                copyDisabled={toggleFieldsDisabled || !parsedUriReady}
+                toggleDisabled={toggleFieldsDisabled || !parsedUriReady}
+                copyAriaLabel={`${t("databases.copyField")}: ${t("databases.password")}`}
+                toggleLabelShow={t("common.actions.show")}
+                toggleLabelHide={t("common.actions.hide")}
+                hintMessage={copyHint}
+                hintAnchor="password"
+                activeHintAnchor={copyHintAnchor}
+              />
+            </div>
+            <div className="flex flex-col gap-4 md:flex-row">
+              <ConnectionCopyField
+                label={t("databases.connectionDb")}
+                displayText={
+                  parsedUriReady ? parsedUri!.database : parsedFieldsBusy ? "…" : "—"
+                }
+                copyText={parsedUri?.database}
+                disabled={toggleFieldsDisabled || !parsedUriReady}
+                copyAriaLabel={`${t("databases.copyField")}: ${t("databases.connectionDb")}`}
+                onCopy={() =>
+                  parsedUri && void copyWithHint(parsedUri.database, "connectionDb")
+                }
+                hintMessage={copyHint}
+                hintAnchor="connectionDb"
+                activeHintAnchor={copyHintAnchor}
+              />
+              <div className="hidden min-w-0 flex-1 md:block" aria-hidden />
+            </div>
+            {databaseUri.isError ? (
+              <p className="text-sm text-destructive">
+                {getErrorMessage(databaseUri.error, t("databases.uriError"))}
+              </p>
+            ) : null}
+          </CardContent>
+          <CardContent className="px-6 py-6">
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("databases.fullUri")}</Label>
+              <div className="relative">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
+                    <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
+                      {displayedFullUri}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={uriCopyDisabled}
+                      title={t("databases.copyUri")}
+                      aria-label={t("databases.copyUri")}
+                      onClick={() =>
+                        databaseUri.data &&
+                        void copyWithHint(databaseUri.data, "uri")
+                      }
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-w-[70.25px]"
+                      onClick={handleToggleUriVisible}
+                      disabled={uriCopyDisabled}
+                    >
+                      {isUriVisible ? t("common.actions.hide") : t("common.actions.show")}
+                    </Button>
+                  </div>
+                </div>
+                <FloatingHint
+                  message={copyHintAnchor === "uri" ? copyHint : null}
+                  placement="bottom"
+                  align="end"
+                />
               </div>
             </div>
-            <FloatingHint message={copyUriMessage} placement="bottom" align="end" />
-          </div>
-        </CardContent>
-        {databaseUri.isError ? (
-          <CardFooter className="pt-0">
-            <p className="text-sm text-destructive">
-              {getErrorMessage(databaseUri.error, t("databases.uriError"))}
-            </p>
-          </CardFooter>
-        ) : null}
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border pb-6">
-          <CardTitle className="text-3xl font-semibold tracking-tight">{t("projects.settings.dangerTitle")}</CardTitle>
-          <CardDescription>
-            {t("databases.dangerDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="pt-6">
-          <div className="flex flex-col gap-2">
+        <Card className="overflow-hidden shadow-sm">
+          <CardHeader className="gap-1.5 border-b border-border pb-6">
+            <CardTitle className="text-xl font-semibold tracking-tight text-card-foreground">
+              {t("projects.settings.dangerTitle")}
+            </CardTitle>
+            <CardDescription>{t("databases.dangerDescription")}</CardDescription>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-2 px-6 py-6">
             <Button
-              className="self-start"
-              variant="destructive"
+              variant="ghost"
+              className="h-auto w-[180px] justify-center px-4 py-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={handleDeactivate}
               disabled={deactivateResource.isPending}
             >
@@ -430,9 +783,9 @@ export function DatabaseDetailPage() {
                 : t("databases.deleteButton")}
             </Button>
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
-          </div>
-        </CardFooter>
-      </Card>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }
