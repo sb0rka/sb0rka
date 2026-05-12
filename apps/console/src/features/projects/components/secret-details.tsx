@@ -20,7 +20,7 @@ import {
   useAttachResourceTag,
   useDeactivateResource,
   useResourceTags,
-  useRevealSecretValue,
+  useSecretValue,
 } from "../hooks"
 import type { SecretRow } from "./project-detail-tab-types"
 
@@ -68,12 +68,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const confirm = useConfirmDialog()
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
-  const revealSecret = useRevealSecretValue(projectId, secret.id)
+  const secretValueQuery = useSecretValue(projectId, secret.id)
   const deactivateResource = useDeactivateResource(projectId, secret.id)
 
   const [isValueVisible, setIsValueVisible] = useState(false)
-  const [revealedValue, setRevealedValue] = useState<string | null>(null)
-  const [revealError, setRevealError] = useState<string | null>(null)
   const [newTagInput, setNewTagInput] = useState("")
   const [isAddingTag, setIsAddingTag] = useState(false)
   const [tagActionError, setTagActionError] = useState<string | null>(null)
@@ -83,8 +81,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
   useEffect(() => {
     setIsValueVisible(false)
-    setRevealedValue(null)
-    setRevealError(null)
     setNewTagInput("")
     setIsAddingTag(false)
     setTagActionError(null)
@@ -93,32 +89,29 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     setCopySecretMessage(null)
   }, [secret.id])
 
-  async function handleToggleSecretValue() {
+  function handleToggleSecretValue() {
     if (isValueVisible) {
       setIsValueVisible(false)
       setCopySecretMessage(null)
       return
     }
 
-    setRevealError(null)
-
-    if (!revealedValue) {
-      try {
-        const response = await revealSecret.mutateAsync()
-        setRevealedValue(response.secret_value)
-      } catch (error) {
-        setRevealError(getErrorMessage(error, t("secrets.revealError")))
-        return
-      }
+    const value = secretValueQuery.data?.secret_value
+    if (value) {
+      setIsValueVisible(true)
+      return
     }
 
-    setIsValueVisible(true)
+    void secretValueQuery.refetch().then((result) => {
+      if (result.data?.secret_value) setIsValueVisible(true)
+    })
   }
 
   async function handleCopySecretValue() {
-    if (!revealedValue || revealSecret.isPending) return
+    const value = secretValueQuery.data?.secret_value
+    if (!value || secretValueQuery.isFetching) return
     try {
-      await navigator.clipboard.writeText(revealedValue)
+      await navigator.clipboard.writeText(value)
       setCopySecretMessage(t("secrets.copied"))
       window.setTimeout(() => setCopySecretMessage(null), 2000)
     } catch {
@@ -195,8 +188,11 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   }
 
   const maskedValue = "•••••••••••••••••••••••"
-  const displayedValue =
-    isValueVisible && revealedValue ? `${revealedValue}` : maskedValue
+  const plaintext = secretValueQuery.data?.secret_value
+  const displayedValue = isValueVisible && plaintext ? plaintext : maskedValue
+  const revealErrorMessage = secretValueQuery.isError
+    ? getErrorMessage(secretValueQuery.error, t("secrets.revealError"))
+    : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -286,39 +282,40 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         <CardContent className="space-y-1.5 pb-6">
           <p className="text-sm font-medium text-foreground">{t("secrets.key")}</p>
           <div className="relative">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="min-w-0 flex-1 rounded-md border border-input px-3 py-2">
-                <p className="truncate text-base text-foreground">{displayedValue}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
+                <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
+                  {displayedValue}
+                </p>
               </div>
-              {isValueVisible ? (
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
                   onClick={() => void handleCopySecretValue()}
-                  disabled={!revealedValue || revealSecret.isPending}
+                  disabled={!plaintext || secretValueQuery.isFetching}
                   title={t("secrets.copySecret")}
                   aria-label={t("secrets.copySecret")}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleToggleSecretValue()}
-                disabled={revealSecret.isPending}
-              >
-                {revealSecret.isPending
-                  ? t("common.loading")
-                  : isValueVisible
-                    ? t("common.actions.hide")
-                    : t("common.actions.view")}
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-w-[70.25px]"
+                  onClick={() => handleToggleSecretValue()}
+                  disabled={secretValueQuery.isFetching}
+                >
+                  {isValueVisible ? t("common.actions.hide") : t("common.actions.show")}
+                </Button>
+              </div>
             </div>
-            <FloatingHint message={isValueVisible ? copySecretMessage : null} placement="bottom" align="end" />
+            <FloatingHint message={copySecretMessage} placement="bottom" align="end" />
           </div>
-          {revealError ? <p className="text-sm text-destructive">{revealError}</p> : null}
+          {revealErrorMessage ? (
+            <p className="text-sm text-destructive">{revealErrorMessage}</p>
+          ) : null}
         </CardContent>
       </Card>
 

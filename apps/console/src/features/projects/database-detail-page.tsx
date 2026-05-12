@@ -93,7 +93,7 @@ export function DatabaseDetailPage() {
   const databaseUri = useDatabaseUri(
     id,
     isValidResourceId ? normalizedResourceId : undefined,
-    isUriVisible,
+    isValidResourceId,
   )
 
   const [description, setDescription] = useState("")
@@ -370,22 +370,21 @@ export function DatabaseDetailPage() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {isUriVisible ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => void handleCopyUri()}
-                    disabled={!databaseUri.data || databaseUri.isFetching}
-                    title={t("databases.copyUri")}
-                    aria-label={t("databases.copyUri")}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                ) : null}
                 <Button
                   type="button"
                   variant="outline"
+                  size="icon"
+                  onClick={() => void handleCopyUri()}
+                  disabled={!databaseUri.data || databaseUri.isFetching}
+                  title={t("databases.copyUri")}
+                  aria-label={t("databases.copyUri")}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-w-[70.25px]"
                   onClick={() =>
                     setIsUriVisible((prev) => {
                       const next = !prev
@@ -399,7 +398,7 @@ export function DatabaseDetailPage() {
                 </Button>
               </div>
             </div>
-            <FloatingHint message={isUriVisible ? copyUriMessage : null} placement="bottom" align="end" />
+            <FloatingHint message={copyUriMessage} placement="bottom" align="end" />
           </div>
         </CardContent>
         {databaseUri.isError ? (

@@ -304,6 +304,22 @@ export function useRevealSecretValue(projectId: string, resourceId?: string) {
   })
 }
 
+/** Fetches secret plaintext when the detail view is open (same API as reveal). */
+export function useSecretValue(projectId: string, resourceId?: string) {
+  const qc = useQueryClient()
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<RevealSecretValueResponse>({
+    queryKey: ["projects", projectId, "resources", resourceId, "secret", "value"],
+    queryFn: async () => {
+      const res = await revealSecretValue(projectId, resourceId as string)
+      await qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      return res
+    },
+    enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+  })
+}
+
 export function useProjectTableCount(projectId: string) {
   const { data: dbData } = useDatabases(projectId)
   const databases = dbData?.databases ?? []
