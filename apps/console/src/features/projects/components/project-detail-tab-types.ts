@@ -14,6 +14,7 @@ export interface DatabaseRow {
   createdAt: string
   updatedAt: string
   isHighlighted: boolean
+  diskUsageLabel: string
 }
 
 export interface SecretRow {

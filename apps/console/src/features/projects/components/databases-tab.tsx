@@ -16,8 +16,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuth } from "@/features/auth/auth-provider"
 import { formatDraftTagLabel } from "../parse-draft-tag"
-import { getDatabase, type DatabaseResponse } from "../api"
+import {
+  getDatabase,
+  getResourceMetricTimeseries,
+  type DatabaseResponse,
+  type ResourceMetricTimeseries,
+} from "../api"
 import { AddTagDialog } from "./add-tag-dialog"
 import { DatabasesTable } from "./databases-table"
 import type {
@@ -27,6 +33,7 @@ import type {
 } from "./project-detail-tab-types"
 
 const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
+const DISK_USAGE_RATE_STALE_MS = 1000 * 60 * 5
 
 function isFinalSyncState(syncState?: string): boolean {
   return syncState === "synced" || syncState === "failed"
@@ -50,6 +57,7 @@ export function DatabasesTab({
   onOpenDatabaseDetails,
 }: DatabasesTabProps) {
   const { t } = useTranslation()
+  const { isAuthenticated } = useAuth()
   const dbNameInputRef = useRef<HTMLInputElement>(null)
   const createDatabaseCardRef = useRef<HTMLDivElement>(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
@@ -67,6 +75,32 @@ export function DatabasesTab({
       },
     })),
   })
+  const diskUsageRateQueries = useQueries({
+    queries: databases.map((database) => ({
+      queryKey: [
+        "projects",
+        projectId,
+        "resources",
+        database.resource_id,
+        "observability",
+        "timeseries",
+        "db_size_rate",
+      ],
+      queryFn: async (): Promise<ResourceMetricTimeseries | null> => {
+        try {
+          return await getResourceMetricTimeseries(
+            projectId,
+            database.resource_id,
+            "db_size_rate",
+          )
+        } catch {
+          return null
+        }
+      },
+      enabled: isAuthenticated && !!projectId,
+      staleTime: DISK_USAGE_RATE_STALE_MS,
+    })),
+  })
   const databaseDetailsById = useMemo(() => {
     const details = new Map<string, Awaited<ReturnType<typeof getDatabase>>>()
     for (const query of databaseDetailsQueries) {
@@ -79,6 +113,12 @@ export function DatabasesTab({
     () =>
       databases.map((databaseFromList, index) => {
         const database = databaseDetailsById.get(databaseFromList.resource_id) ?? databaseFromList
+        const rateSeries = diskUsageRateQueries[index]?.data
+        let diskUsageLabel = "—"
+        const lastValue = rateSeries?.points.at(-1)?.value
+        if (lastValue !== undefined && !Number.isNaN(lastValue)) {
+          diskUsageLabel = `${lastValue.toFixed(2)}%`
+        }
 
         return {
           id: databaseFromList.resource_id,
@@ -91,9 +131,10 @@ export function DatabasesTab({
           createdAt: resourceTimestampsById[databaseFromList.resource_id]?.createdAt ?? "",
           updatedAt: resourceTimestampsById[databaseFromList.resource_id]?.updatedAt ?? "",
           isHighlighted: index === 0,
+          diskUsageLabel,
         }
       }),
-    [databaseDetailsById, databases, resourceTimestampsById],
+    [databaseDetailsById, databases, diskUsageRateQueries, resourceTimestampsById],
   )
 
   function handleCreateDatabaseSubmit(e: FormEvent<HTMLFormElement>) {
