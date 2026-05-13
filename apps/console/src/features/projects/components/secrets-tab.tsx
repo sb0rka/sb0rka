@@ -111,7 +111,7 @@ export function SecretsTab({
         </div>
       )}
 
-      <Card className={openedSecret ? "overflow-hidden border-0 shadow-none" : "overflow-hidden"}>
+      <Card className={openedSecret ? "overflow-visible border-0 shadow-none" : "overflow-hidden"}>
         <CardContent className="p-0">
           {openedSecret ? (
             <SecretDetails

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   CartesianGrid,
@@ -29,6 +29,7 @@ interface ChartPoint {
 
 const DEFAULT_WINDOW_MS = 2 * 60 * 60 * 1000
 const MIN_WINDOW_PERCENT = 0.01
+const MIN_VISIBLE_POINTS = 12
 const BASE_STEP_MS = 5 * 60_000
 
 const STEP_OPTIONS = [
@@ -205,34 +206,62 @@ export function DetailTimeseriesChart({
     return chartData[chartData.length - 1]!.timestampMs - chartData[0]!.timestampMs
   }, [chartData])
 
+  const minWindowPercentFor12Points = useMemo(() => {
+    if (chartData.length < 2) return 100
+    const minMs = chartData[0]!.timestampMs
+    const maxMs = chartData[chartData.length - 1]!.timestampMs
+    const rangeMs = maxMs - minMs
+    if (rangeMs <= 0) return 100
+    if (chartData.length < MIN_VISIBLE_POINTS) return 100
+    const startMs = chartData[chartData.length - MIN_VISIBLE_POINTS]!.timestampMs
+    const windowMs = maxMs - startMs
+    const pct = (windowMs / rangeMs) * 100
+    return Math.min(100, Math.max(MIN_WINDOW_PERCENT, pct))
+  }, [chartData])
+
+  const prevFullRangeMsRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (fullRangeMs <= 0) {
       setWindowPercent(100)
+      prevFullRangeMsRef.current = fullRangeMs
       return
     }
+    const prevRange = prevFullRangeMsRef.current
+    const rangeChanged = prevRange !== fullRangeMs
+    prevFullRangeMsRef.current = fullRangeMs
     const defaultWindowPercent = Math.min(
       100,
       Math.max(MIN_WINDOW_PERCENT, (DEFAULT_WINDOW_MS / fullRangeMs) * 100),
     )
-    setWindowPercent(defaultWindowPercent)
-  }, [fullRangeMs])
+    const floor = Math.max(defaultWindowPercent, minWindowPercentFor12Points)
+    setWindowPercent((prev) => {
+      if (prevRange === null || rangeChanged) return floor
+      return Math.max(prev, minWindowPercentFor12Points)
+    })
+  }, [fullRangeMs, minWindowPercentFor12Points])
+
+  const effectiveWindowPercent = useMemo(
+    () => Math.max(windowPercent, minWindowPercentFor12Points),
+    [windowPercent, minWindowPercentFor12Points],
+  )
 
   const xWindowDomain = useMemo<[number, number]>(() => {
     if (chartData.length === 0) return [0, 1]
     const min = chartData[0]!.timestampMs
     const max = chartData[chartData.length - 1]!.timestampMs
     if (min === max) return [min - 60_000, max + 60_000]
-    if (windowPercent >= 100) return [min, max]
-    const windowMs = (fullRangeMs * windowPercent) / 100
+    if (effectiveWindowPercent >= 100) return [min, max]
+    const windowMs = (fullRangeMs * effectiveWindowPercent) / 100
     return [Math.max(min, max - windowMs), max]
-  }, [chartData, fullRangeMs, windowPercent])
+  }, [chartData, fullRangeMs, effectiveWindowPercent])
 
   const visibleChartData = useMemo(() => {
     if (chartData.length === 0) return chartData
-    if (windowPercent >= 100) return chartData
+    if (effectiveWindowPercent >= 100) return chartData
     const [windowStart] = xWindowDomain
     return chartData.filter((point) => point.timestampMs >= windowStart)
-  }, [chartData, windowPercent, xWindowDomain])
+  }, [chartData, effectiveWindowPercent, xWindowDomain])
 
   const activeWindowMs = useMemo(() => {
     if (xWindowDomain[1] <= xWindowDomain[0]) return 0
@@ -240,7 +269,7 @@ export function DetailTimeseriesChart({
   }, [xWindowDomain])
   const sliderStyle = useMemo(
     () => {
-      const fillStartPercent = Math.max(0, 100 - windowPercent)
+      const fillStartPercent = Math.max(0, 100 - effectiveWindowPercent)
       return {
         background: `linear-gradient(to right, var(--border) 0%, var(--border) ${fillStartPercent}%, var(--primary) ${fillStartPercent}%, var(--primary) 100%)`,
         "--slider-thumb-size": "16px",
@@ -249,9 +278,9 @@ export function DetailTimeseriesChart({
         "--slider-thumb-shadow": "0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent)",
       } as CSSProperties
     },
-    [windowPercent],
+    [effectiveWindowPercent],
   )
-  const sliderPosition = useMemo(() => 100 - windowPercent, [windowPercent])
+  const sliderPosition = useMemo(() => 100 - effectiveWindowPercent, [effectiveWindowPercent])
 
   const yDomain = useMemo<[number, number]>(() => {
     if (visibleChartData.length === 0) return [0, 1]
@@ -453,7 +482,7 @@ export function DetailTimeseriesChart({
         <div className="pt-4 space-y-2">
           <div className="flex items-center justify-end text-xs text-muted-foreground">
             <span>
-              {windowPercent >= 100
+              {effectiveWindowPercent >= 100
                 ? t("metrics.allData")
                 : `~${formatWindowDuration(activeWindowMs, locale)}`}
             </span>
@@ -464,7 +493,11 @@ export function DetailTimeseriesChart({
             max={100}
             step={0.01}
             value={sliderPosition}
-            onChange={(event) => setWindowPercent(100 - Number(event.target.value))}
+            onChange={(event) =>
+              setWindowPercent(
+                Math.max(minWindowPercentFor12Points, 100 - Number(event.target.value)),
+              )
+            }
             className="timeseries-window-slider h-1.5 w-full cursor-pointer appearance-none rounded-full"
             style={sliderStyle}
             aria-label={t("metrics.timeWindowZoom")}

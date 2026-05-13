@@ -11,11 +11,14 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme
   setTheme: (theme: Theme) => void
+  /** Effective palette after applying `theme` and system preference. */
+  resolvedAppearance: "light" | "dark"
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState>({
   theme: "system",
   setTheme: () => null,
+  resolvedAppearance: "light",
 })
 
 export function ThemeProvider({
@@ -27,24 +30,31 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
+  const [resolvedAppearance, setResolvedAppearance] = useState<"light" | "dark">("light")
 
   useEffect(() => {
     const root = window.document.documentElement
     root.classList.remove("light", "dark")
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      root.classList.add(systemTheme)
-      return
+    const apply = (appearance: "light" | "dark") => {
+      root.classList.add(appearance)
+      setResolvedAppearance(appearance)
     }
 
-    root.classList.add(theme)
+    if (theme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)")
+      const applySystem = () => apply(mq.matches ? "dark" : "light")
+      applySystem()
+      mq.addEventListener("change", applySystem)
+      return () => mq.removeEventListener("change", applySystem)
+    }
+
+    apply(theme)
   }, [theme])
 
   const value = {
     theme,
+    resolvedAppearance,
     setTheme: (theme: Theme) => {
       localStorage.setItem(storageKey, theme)
       setTheme(theme)

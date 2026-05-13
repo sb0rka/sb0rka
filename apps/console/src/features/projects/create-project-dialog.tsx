@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useCreateProject } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 
@@ -63,20 +64,29 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{t("projects.createDialog.title")}</DialogTitle>
-            <DialogDescription>
+      <DialogContent className="max-w-[330px] gap-0 p-0 shadow-sm">
+        <form autoComplete="off" onSubmit={handleSubmit}>
+          <DialogHeader className="p-6 text-start">
+            <DialogTitle className="leading-6">
+              {t("projects.createDialog.title")}
+            </DialogTitle>
+            <DialogDescription className="leading-5">
               {t("projects.createDialog.description")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 px-6 pb-6">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-name">{t("common.labels.name")}</Label>
+              <Label
+                htmlFor="project-name"
+                className="text-sm font-medium leading-5 text-foreground"
+              >
+                {t("common.labels.name")}
+              </Label>
               <Input
                 id="project-name"
+                name="sb0rka-project-name"
+                autoComplete="off"
                 placeholder={t("projects.createDialog.namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -84,21 +94,29 @@ export function CreateProjectDialog({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-description">{t("common.labels.description")}</Label>
-              <Input
+              <Label
+                htmlFor="project-description"
+                className="text-sm font-medium leading-5 text-foreground"
+              >
+                {t("common.labels.description")}
+              </Label>
+              <Textarea
                 id="project-description"
+                name="sb0rka-project-description"
+                autoComplete="off"
                 placeholder={t("projects.createDialog.descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                rows={3}
               />
             </div>
 
             {errorMessage && (
-              <p className="text-sm text-destructive">{errorMessage}</p>
+              <p className="text-sm leading-5 text-destructive">{errorMessage}</p>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="min-h-16 items-center pb-6 pt-0 sm:justify-between">
             <Button
               type="button"
               variant="outline"

@@ -1,13 +1,16 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AlphaToast } from "@/components/ui/alpha-toast"
+import { FloatingHint } from "@/components/ui/floating-hint"
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
+  CardContent,
   CardFooter,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,19 +18,30 @@ import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
 
-function copyProjectId(id: string) {
-  navigator.clipboard.writeText(id)
-}
+const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
 function ProjectCard({ project }: { project: ProjectResponse }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { data } = useDatabases(project.id)
-  const dbCount = data?.databases.length ?? 0
+  const [copyMessage, setCopyMessage] = useState<string | null>(null)
+  const { data, isLoading, isError } = useDatabases(project.id)
+  const databases = data?.databases ?? []
+  const dbCount = databases.length
+
+  async function handleCopyProjectId() {
+    try {
+      await navigator.clipboard.writeText(project.id)
+      setCopyMessage(t("projects.detail.idCopied"))
+      window.setTimeout(() => setCopyMessage(null), 2000)
+    } catch {
+      setCopyMessage(t("common.messages.copyFailed"))
+      window.setTimeout(() => setCopyMessage(null), 3000)
+    }
+  }
 
   return (
     <Card>
-      <CardHeader className="gap-1.5 pb-4">
+      <CardHeader className="gap-1.5 pb-0">
         <div className="flex items-center gap-3">
           <CardTitle className="flex-1 truncate text-xl -tracking-wide">
             {project.name}
@@ -38,17 +52,44 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
         </div>
         <CardDescription>{t("projects.dbCount", { count: dbCount })}</CardDescription>
       </CardHeader>
+      <CardContent className="pt-0 pb-2">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+        ) : isError ? (
+          <p className="text-sm text-muted-foreground">{t("common.notAvailable")}</p>
+        ) : databases.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("databases.empty")}</p>
+        ) : (
+          <ul className="max-h-32 space-y-1 overflow-y-auto text-sm pt-0">
+            {databases.map((db) => (
+              <li key={db.resource_id}>
+                <button
+                  type="button"
+                  className="w-full truncate rounded-md py-0.5 pl-2 pr-1 text-left font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() =>
+                    navigate(`/projects/${project.id}/databases/${db.resource_id}`)
+                  }
+                >
+                  {db.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
       <CardFooter className="flex-row items-center gap-6">
-        <button
-          type="button"
-          onClick={() => copyProjectId(project.id)}
-          className="flex flex-1 items-center gap-2 min-w-0"
-        >
-          <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm text-muted-foreground">
-            {project.id}
-          </span>
-        </button>
+        <div className="relative min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => void handleCopyProjectId()}
+            className="flex w-full items-center gap-2 min-w-0"
+            aria-label={t("projects.detail.copyProjectId")}
+          >
+            <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm text-muted-foreground">{project.id}</span>
+          </button>
+          <FloatingHint message={copyMessage} placement="bottom" align="start" />
+        </div>
         <Button onClick={() => navigate(`/projects/${project.id}`)}>
           {t("common.actions.open")}
         </Button>
@@ -60,8 +101,17 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
 export function ProjectsPage() {
   const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
+  const [alphaToastOpen, setAlphaToastOpen] = useState(false)
   const { data, isLoading } = useProjects()
   const projects = data?.projects ?? []
+
+  useEffect(() => {
+    try {
+      setAlphaToastOpen(!localStorage.getItem(ALPHA_UNDERSTOOD_KEY))
+    } catch {
+      setAlphaToastOpen(true)
+    }
+  }, [])
 
   return (
     <div className="flex flex-col gap-4">
@@ -101,6 +151,28 @@ export function ProjectsPage() {
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {alphaToastOpen ? (
+        <div
+          className="fixed bottom-[10px] right-[10px] z-50  max-w-sm"
+          aria-live="polite"
+        >
+          <AlphaToast
+            className="w-full"
+            title={t("app.alphaToastTitle")}
+            description={t("app.alphaToastDescription")}
+            actionLabel={t("app.alphaToastAction")}
+            onAction={() => {
+              try {
+                localStorage.setItem(ALPHA_UNDERSTOOD_KEY, "1")
+              } catch {
+                /* ignore quota / private mode */
+              }
+              setAlphaToastOpen(false)
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

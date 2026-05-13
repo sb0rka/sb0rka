@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { listResourceTags, type TagResponse } from "../api"
+import { formatDraftTagLabel } from "../parse-draft-tag"
 import type { SecretRow } from "./project-detail-tab-types"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
@@ -18,7 +19,7 @@ interface SecretDetailsTableProps {
 }
 
 function buildTagLabel(tag: TagResponse): string {
-  return `${tag.tag_key}:${tag.tag_value}`
+  return formatDraftTagLabel(tag)
 }
 
 function escapeRegExp(value: string): string {
