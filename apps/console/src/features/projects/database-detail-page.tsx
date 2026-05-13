@@ -517,7 +517,7 @@ export function DatabaseDetailPage() {
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {tagsQuery.data?.tags.map((tag) => (
-            <Badge key={tag.id} variant="secondary">{`${tag.tag_key}:${tag.tag_value}`}</Badge>
+            <Badge key={tag.id} variant="default">{`${tag.tag_key}:${tag.tag_value}`}</Badge>
           ))}
           {isAddingTag ? (
             <div className="flex flex-wrap items-center gap-2">
