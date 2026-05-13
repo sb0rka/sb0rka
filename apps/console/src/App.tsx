@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { queryClient } from "@/lib/query-client"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { ConfirmDialogProvider } from "@/components/confirm-dialog-provider"
+import { ToastProvider } from "@/components/toast-provider"
 import { AuthProvider, RequireAuth } from "@/features/auth/auth-provider"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProjectsPage } from "@/features/projects/projects-page"
@@ -20,28 +22,32 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider defaultTheme="system">
-          <ConfirmDialogProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route element={<RequireAuth />}>
-                  <Route element={<AppLayout />}>
-                    <Route path="/projects" element={<ProjectsPage />} />
-                    <Route path="/subscription" element={<SubscriptionPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/projects/:id" element={<ProjectDetailPage />} />
-                    <Route
-                      path="/projects/:id/databases/:resourceId"
-                      element={<DatabaseDetailPage />}
-                    />
-                    <Route path="/projects/:id/metrics/:metric" element={<MetricDetailPage />} />
-                    <Route path="*" element={<Navigate to="/projects" replace />} />
-                  </Route>
-                </Route>
-              </Routes>
-            </BrowserRouter>
-          </ConfirmDialogProvider>
+          <TooltipProvider delayDuration={300}>
+            <ToastProvider>
+              <ConfirmDialogProvider>
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route element={<RequireAuth />}>
+                      <Route element={<AppLayout />}>
+                        <Route path="/projects" element={<ProjectsPage />} />
+                        <Route path="/subscription" element={<SubscriptionPage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                        <Route
+                          path="/projects/:id/databases/:resourceId"
+                          element={<DatabaseDetailPage />}
+                        />
+                        <Route path="/projects/:id/metrics/:metric" element={<MetricDetailPage />} />
+                        <Route path="*" element={<Navigate to="/projects" replace />} />
+                      </Route>
+                    </Route>
+                  </Routes>
+                </BrowserRouter>
+              </ConfirmDialogProvider>
+            </ToastProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
