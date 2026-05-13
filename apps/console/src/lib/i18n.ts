@@ -232,6 +232,8 @@ const resources = {
         dangerDescription: "Перманентно удалить базу данных.",
         accessTitle: "Доступ",
         accessDescription: "Данные для доступа к базе данных.",
+        credentialsUnavailableNotice:
+          "Параметры подключения доступны только когда база данных онлайн. Текущий статус: {{status}}.",
         hostname: "Имя хоста",
         port: "Порт",
         username: "Пользователь",
@@ -558,6 +560,8 @@ const resources = {
         dangerDescription: "Permanently delete the database.",
         accessTitle: "Access",
         accessDescription: "Credentials for connecting to the database.",
+        credentialsUnavailableNotice:
+          "Connection details are available only while the database is online. Current status: {{status}}.",
         hostname: "Hostname",
         port: "Port",
         username: "Username",

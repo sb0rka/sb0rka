@@ -22,6 +22,7 @@ import {
   listResources,
   getResourceMetricTimeseries,
 } from "./api"
+import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
 import type {
   ProjectResponse,
   ProjectListResponse,
@@ -54,6 +55,8 @@ const PROJECT_TIMESERIES_METRICS = [
 export type ProjectTimeseriesMetric = (typeof PROJECT_TIMESERIES_METRICS)[number]
 export type ProjectMetricsTimeseries = Record<ProjectTimeseriesMetric, ResourceMetricTimeseries>
 
+const DATABASE_SYNC_STATUS_POLL_MS = 5_000
+
 export function useProjects() {
   const { isAuthenticated } = useAuth()
 
@@ -71,6 +74,13 @@ export function useDatabases(projectId: string) {
     queryKey: ["projects", projectId, "databases"],
     queryFn: () => listDatabases(projectId),
     enabled: isAuthenticated && !!projectId,
+    refetchInterval: (query) => {
+      const rows = query.state.data?.databases
+      if (!rows?.length) return false
+      return rows.some(databaseSyncStatusNeedsPolling)
+        ? DATABASE_SYNC_STATUS_POLL_MS
+        : false
+    },
   })
 }
 
@@ -92,6 +102,13 @@ export function useDatabase(projectId: string, resourceId?: string) {
     queryKey: ["projects", projectId, "resources", resourceId, "database"],
     queryFn: () => getDatabase(projectId, resourceId as string),
     enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+    refetchInterval: (query) => {
+      const row = query.state.data
+      if (!row) return false
+      return databaseSyncStatusNeedsPolling(row)
+        ? DATABASE_SYNC_STATUS_POLL_MS
+        : false
+    },
   })
 }
 

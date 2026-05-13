@@ -30,6 +30,11 @@ import {
   useUpdateDatabase,
 } from "./hooks"
 import { formatDraftTagLabel } from "./parse-draft-tag"
+import type { DatabaseResponse } from "./api"
+import {
+  getDatabaseStatusLabel,
+  isDatabaseCredentialsAvailable,
+} from "./components/get-database-status-label"
 
 /** Same masking length as the secret value field on `SecretDetails`. */
 const SENSITIVE_MASK = "•••••••••••••••••••••••"
@@ -80,6 +85,19 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message || fallback
   }
   return fallback
+}
+
+function databaseDetailStatusBadgeVariant(
+  sync_state?: DatabaseResponse["sync_state"],
+  desired_state?: DatabaseResponse["desired_state"],
+): "active" | "inactive" | "destructive" {
+  if (isDatabaseCredentialsAvailable({ sync_state, desired_state })) {
+    return "active"
+  }
+  if (sync_state === "failed") {
+    return "destructive"
+  }
+  return "inactive"
 }
 
 type CopyHintAnchor =
@@ -235,6 +253,10 @@ export function DatabaseDetailPage() {
   const isValidResourceId = normalizedResourceId.length > 0
 
   const databaseQuery = useDatabase(id, isValidResourceId ? normalizedResourceId : undefined)
+  const credentialsEnabled = Boolean(
+    databaseQuery.data && isDatabaseCredentialsAvailable(databaseQuery.data),
+  )
+
   const resourcesQuery = useResources(id)
   const tagsQuery = useResourceTags(id, isValidResourceId ? normalizedResourceId : undefined)
   const updateDatabase = useUpdateDatabase(
@@ -250,7 +272,7 @@ export function DatabaseDetailPage() {
   const databaseUri = useDatabaseUri(
     id,
     isValidResourceId ? normalizedResourceId : undefined,
-    isValidResourceId,
+    isValidResourceId && credentialsEnabled,
   )
 
   const resourceTimestamps = useMemo(() => {
@@ -258,16 +280,18 @@ export function DatabaseDetailPage() {
     return row ? { createdAt: row.created_at, updatedAt: row.updated_at } : null
   }, [resourcesQuery.data?.resources, normalizedResourceId])
 
+  const uriSource = credentialsEnabled ? databaseUri.data : undefined
+
   const parsedUri = useMemo(
-    () => (databaseUri.data ? parsePostgresUri(databaseUri.data) : null),
-    [databaseUri.data],
+    () => (uriSource ? parsePostgresUri(uriSource) : null),
+    [uriSource],
   )
 
   const maskedUriDisplay = useMemo(() => {
     if (parsedUri) return maskPostgresUri(parsedUri)
-    if (databaseUri.data) return "postgresql://****:****@…"
+    if (uriSource) return "postgresql://****:****@…"
     return "—"
-  }, [parsedUri, databaseUri.data])
+  }, [parsedUri, uriSource])
 
   const [description, setDescription] = useState("")
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
@@ -294,6 +318,16 @@ export function DatabaseDetailPage() {
     setIsTagModalOpen(false)
     setTagActionSuccess(null)
   }, [normalizedResourceId])
+
+  useEffect(() => {
+    if (!credentialsEnabled) {
+      setIsUserVisible(false)
+      setIsPasswordVisible(false)
+      setIsUriVisible(false)
+      setCopyHint(null)
+      setCopyHintAnchor(null)
+    }
+  }, [credentialsEnabled])
 
   const hasDescriptionChange =
     description.trim() !== (databaseQuery.data?.description ?? "").trim()
@@ -387,8 +421,8 @@ export function DatabaseDetailPage() {
     }
   }
 
-  const uriBusy = databaseUri.isFetching
-  const hasUri = Boolean(databaseUri.data)
+  const uriBusy = credentialsEnabled && databaseUri.isFetching
+  const hasUri = Boolean(uriSource)
   const parsedUriReady = Boolean(parsedUri)
   const parsedFieldsBusy = uriBusy
 
@@ -409,12 +443,13 @@ export function DatabaseDetailPage() {
       : SENSITIVE_MASK
 
   const displayedFullUri =
-    !hasUri ? (uriBusy ? "…" : "—") : isUriVisible && databaseUri.data
-      ? databaseUri.data
+    !hasUri ? (uriBusy ? "…" : "—") : isUriVisible && uriSource
+      ? uriSource
       : maskedUriDisplay
 
-  const toggleFieldsDisabled = parsedFieldsBusy || databaseUri.isError
-  const uriCopyDisabled = !hasUri || uriBusy
+  const toggleFieldsDisabled =
+    !credentialsEnabled || parsedFieldsBusy || databaseUri.isError
+  const uriCopyDisabled = !credentialsEnabled || !hasUri || uriBusy
 
   if (!isValidResourceId) {
     return (
@@ -455,7 +490,18 @@ export function DatabaseDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {databaseQuery.data.name}
           </h1>
-          <Badge variant="active">{t("databases.online")}</Badge>
+          <Badge
+            variant={databaseDetailStatusBadgeVariant(
+              databaseQuery.data.sync_state,
+              databaseQuery.data.desired_state,
+            )}
+          >
+            {getDatabaseStatusLabel(
+              t,
+              databaseQuery.data.sync_state,
+              databaseQuery.data.desired_state,
+            )}
+          </Badge>
         </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -531,6 +577,17 @@ export function DatabaseDetailPage() {
             <CardDescription>{t("databases.accessDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 border-b border-border px-6 py-6">
+            {!credentialsEnabled ? (
+              <p className="text-sm text-muted-foreground">
+                {t("databases.credentialsUnavailableNotice", {
+                  status: getDatabaseStatusLabel(
+                    t,
+                    databaseQuery.data.sync_state,
+                    databaseQuery.data.desired_state,
+                  ),
+                })}
+              </p>
+            ) : null}
             <div className="flex flex-col gap-4 md:flex-row">
               <ConnectionCopyField
                 label={t("databases.hostname")}
@@ -618,7 +675,7 @@ export function DatabaseDetailPage() {
               />
               <div className="hidden min-w-0 flex-1 md:block" aria-hidden />
             </div>
-            {databaseUri.isError ? (
+            {credentialsEnabled && databaseUri.isError ? (
               <p className="text-sm text-destructive">
                 {getErrorMessage(databaseUri.error, t("databases.uriError"))}
               </p>
@@ -643,8 +700,7 @@ export function DatabaseDetailPage() {
                       title={t("databases.copyUri")}
                       aria-label={t("databases.copyUri")}
                       onClick={() =>
-                        databaseUri.data &&
-                        void copyWithHint(databaseUri.data, "uri")
+                        uriSource && void copyWithHint(uriSource, "uri")
                       }
                     >
                       <Copy className="h-4 w-4" />
