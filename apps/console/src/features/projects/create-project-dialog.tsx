@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { useCreateProject } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 
@@ -99,13 +100,14 @@ export function CreateProjectDialog({
               >
                 {t("common.labels.description")}
               </Label>
-              <Input
+              <Textarea
                 id="project-description"
                 name="sb0rka-project-description"
                 autoComplete="off"
                 placeholder={t("projects.createDialog.descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                rows={3}
               />
             </div>
 
