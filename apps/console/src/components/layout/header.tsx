@@ -45,7 +45,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
   const logoutMutation = useLogout()
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
+    <header className="flex h-[var(--app-header-height)] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
       <nav className="flex items-center gap-2.5">
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
