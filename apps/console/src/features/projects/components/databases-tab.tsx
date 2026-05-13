@@ -1,13 +1,24 @@
-import { useMemo, useRef, type FormEvent, type KeyboardEvent } from "react"
+import { useMemo, useRef, useState, type FormEvent } from "react"
 import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
+import { Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
+import { formatDraftTagLabel } from "../parse-draft-tag"
 import { getDatabase, type DatabaseResponse } from "../api"
+import { AddTagDialog } from "./add-tag-dialog"
 import { DatabasesTable } from "./databases-table"
 import type {
   CreateDatabaseFormActions,
@@ -40,6 +51,9 @@ export function DatabasesTab({
 }: DatabasesTabProps) {
   const { t } = useTranslation()
   const dbNameInputRef = useRef<HTMLInputElement>(null)
+  const createDatabaseCardRef = useRef<HTMLDivElement>(null)
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false)
+
   const databaseDetailsQueries = useQueries({
     queries: databases.map((database) => ({
       queryKey: ["projects", projectId, "resources", database.resource_id, "database"],
@@ -82,114 +96,128 @@ export function DatabasesTab({
     [databaseDetailsById, databases, resourceTimestampsById],
   )
 
-  function handleTagInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      createActions.onAddDraftTag()
-    }
-  }
-
   function handleCreateDatabaseSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     void createActions.onSubmitCreateDatabase()
   }
 
+  function focusCreateDatabaseSection() {
+    createDatabaseCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    window.setTimeout(() => {
+      dbNameInputRef.current?.focus({ preventScroll: true })
+    }, 350)
+  }
+
   return (
-    <TabsContent value="databases" className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold tracking-tight">{t("databases.singularTitle")}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t("databases.description")}
-          </p>
+    <TabsContent value="databases" className="mt-2 flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex max-w-[650px] flex-col gap-1">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              {t("databases.singularTitle")}
+            </h2>
+            <p className="text-sm leading-5 text-muted-foreground">{t("databases.description")}</p>
+          </div>
+          <Button type="button" size="default" className="shrink-0 gap-2" onClick={focusCreateDatabaseSection}>
+            <Plus className="size-4" aria-hidden />
+            {t("databases.createTitle")}
+          </Button>
         </div>
+
+        <Card className="overflow-hidden shadow-sm">
+          <CardContent className="px-6 pb-6 pt-0">
+            <DatabasesTable
+              rows={databaseRows}
+              emptyMessage={t("databases.empty")}
+              onRowClick={(row) => onOpenDatabaseDetails(row.id)}
+            />
+          </CardContent>
+        </Card>
+
+        <Card ref={createDatabaseCardRef} className="overflow-hidden shadow-sm">
+          <CardHeader className="gap-1.5 space-y-0 p-6">
+            <CardTitle className="text-xl font-semibold leading-5 tracking-[-0.015em]">
+              {t("databases.createCardTitle")}
+            </CardTitle>
+            <CardDescription className="leading-5">{t("databases.engineVersion")}</CardDescription>
+          </CardHeader>
+          <form onSubmit={handleCreateDatabaseSubmit}>
+            <CardContent className="space-y-4 border-b border-border px-6 pb-6 pt-0">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-db-name">{t("common.labels.name")}</Label>
+                  <Input
+                    id="new-db-name"
+                    placeholder={t("databases.namePlaceholder")}
+                    value={createForm.newDatabaseName}
+                    onChange={(e) => createActions.onNewDatabaseNameChange(e.target.value)}
+                    ref={dbNameInputRef}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="new-db-description">{t("common.labels.description")}</Label>
+                  <Textarea
+                    id="new-db-description"
+                    placeholder={t("databases.descriptionPlaceholder")}
+                    value={createForm.newDatabaseDescription}
+                    onChange={(e) => createActions.onNewDatabaseDescriptionChange(e.target.value)}
+                    rows={3}
+                    className="min-h-20 resize-y"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("common.labels.tags")}</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {createForm.draftTags.map((tag) => (
+                    <Badge key={`${tag.tag_key}:${tag.tag_value}`}>{formatDraftTagLabel(tag)}</Badge>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 rounded-full px-2.5 text-xs font-semibold"
+                    onClick={() => setIsTagModalOpen(true)}
+                  >
+                    {t("databases.addTag")}
+                  </Button>
+                </div>
+              </div>
+              {createForm.databaseError ? (
+                <p className="text-sm text-destructive">{createForm.databaseError}</p>
+              ) : null}
+              {createForm.databaseSuccess ? (
+                <p className="text-sm text-emerald-600">{createForm.databaseSuccess}</p>
+              ) : null}
+            </CardContent>
+            <CardFooter className="flex flex-row items-center gap-4 px-6 pb-6 pt-6">
+              <Button
+                type="submit"
+                disabled={!createForm.newDatabaseName.trim() || createForm.isCreatePending}
+              >
+                {createForm.isCreatePending ? t("common.creating") : t("common.actions.create")}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
 
-      <Card className="overflow-hidden">
-        <CardContent className="p-6">
-          <DatabasesTable
-            rows={databaseRows}
-            emptyMessage={t("databases.empty")}
-            onRowClick={(row) => onOpenDatabaseDetails(row.id)}
-          />
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <CardHeader className="gap-1.5">
-          <CardTitle className="text-xl font-semibold leading-5 tracking-[-0.015em]">
-            {t("databases.createTitle")}
-          </CardTitle>
-          <CardDescription className="leading-5">PostgreSQL v18.3</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleCreateDatabaseSubmit}>
-          <CardContent className="space-y-4 pb-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-db-name">{t("common.labels.name")}</Label>
-                <Input
-                  id="new-db-name"
-                  placeholder={t("databases.namePlaceholder")}
-                  value={createForm.newDatabaseName}
-                  onChange={(e) => createActions.onNewDatabaseNameChange(e.target.value)}
-                  ref={dbNameInputRef}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-db-description">{t("common.labels.description")}</Label>
-                <Input
-                  id="new-db-description"
-                  placeholder={t("databases.descriptionPlaceholder")}
-                  value={createForm.newDatabaseDescription}
-                  onChange={(e) =>
-                    createActions.onNewDatabaseDescriptionChange(e.target.value)
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("common.labels.tags")}</Label>
-              <div className="flex flex-wrap items-center gap-2 pb-1">
-                {createForm.draftTags.map((tag) => (
-                  <Badge key={`${tag.tag_key}:${tag.tag_value}`}>{`${tag.tag_key}:${tag.tag_value}`}</Badge>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={createActions.onAddDraftTag}
-                >
-                  {t("databases.addTag")}
-                </Button>
-              </div>
-              <Input
-                placeholder={t("databases.tagExample")}
-                value={createForm.newTagInput}
-                onChange={(e) => createActions.onNewTagInputChange(e.target.value)}
-                onKeyDown={handleTagInputKeyDown}
-              />
-            </div>
-            {createForm.databaseError ? (
-              <p className="text-sm text-destructive">{createForm.databaseError}</p>
-            ) : null}
-            {createForm.databaseSuccess ? (
-              <p className="text-sm text-emerald-600">{createForm.databaseSuccess}</p>
-            ) : null}
-          </CardContent>
-          <div className="border-t border-border px-6 py-6">
-            <Button
-              type="button"
-              onClick={() => void createActions.onSubmitCreateDatabase()}
-              disabled={
-                !createForm.newDatabaseName.trim() || createForm.isCreatePending
-              }
-            >
-              {createForm.isCreatePending ? t("common.creating") : t("common.actions.create")}
-            </Button>
-          </div>
-        </form>
-      </Card>
+      <AddTagDialog
+        open={isTagModalOpen}
+        onOpenChange={setIsTagModalOpen}
+        inputId="modal-draft-tag"
+        checkDuplicate={(parsed) =>
+          createForm.draftTags.some(
+            (tag) => tag.tag_key === parsed.tag_key && tag.tag_value === parsed.tag_value,
+          )
+            ? t("common.messages.tagDuplicate")
+            : null
+        }
+        onSubmit={(parsed) => {
+          createActions.onAddDraftTag(formatDraftTagLabel(parsed))
+        }}
+      />
     </TabsContent>
   )
 }

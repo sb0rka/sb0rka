@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Copy } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { AddTagDialog } from "./components/add-tag-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -28,6 +29,7 @@ import {
   useAttachResourceTag,
   useUpdateDatabase,
 } from "./hooks"
+import { formatDraftTagLabel } from "./parse-draft-tag"
 
 /** Same masking length as the secret value field on `SecretDetails`. */
 const SENSITIVE_MASK = "•••••••••••••••••••••••"
@@ -78,22 +80,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
     return error.message || fallback
   }
   return fallback
-}
-
-function parseTagInput(input: string): { tag_key: string; tag_value: string } | null {
-  const normalized = input.trim()
-  if (!normalized) return null
-
-  const separatorIndex = normalized.indexOf(":")
-  if (separatorIndex <= 0 || separatorIndex === normalized.length - 1) {
-    return null
-  }
-
-  const tag_key = normalized.slice(0, separatorIndex).trim()
-  const tag_value = normalized.slice(separatorIndex + 1).trim()
-  if (!tag_key || !tag_value) return null
-
-  return { tag_key, tag_value }
 }
 
 type CopyHintAnchor =
@@ -286,10 +272,8 @@ export function DatabaseDetailPage() {
   const [description, setDescription] = useState("")
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [newTagInput, setNewTagInput] = useState("")
-  const [isAddingTag, setIsAddingTag] = useState(false)
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
-  const [tagActionError, setTagActionError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [copyHint, setCopyHint] = useState<string | null>(null)
   const [copyHintAnchor, setCopyHintAnchor] = useState<CopyHintAnchor | null>(null)
@@ -307,6 +291,8 @@ export function DatabaseDetailPage() {
     setIsUriVisible(false)
     setCopyHint(null)
     setCopyHintAnchor(null)
+    setIsTagModalOpen(false)
+    setTagActionSuccess(null)
   }, [normalizedResourceId])
 
   const hasDescriptionChange =
@@ -401,52 +387,6 @@ export function DatabaseDetailPage() {
     }
   }
 
-  async function handleAddTag() {
-    if (!isValidResourceId || attachResourceTag.isPending) return
-
-    setTagActionError(null)
-    setTagActionSuccess(null)
-
-    const parsedTag = parseTagInput(newTagInput)
-    if (!parsedTag) {
-      setTagActionError(t("common.messages.tagFormat"))
-      return
-    }
-
-    const duplicate = tagsQuery.data?.tags.some(
-      (tag) =>
-        tag.tag_key === parsedTag.tag_key && tag.tag_value === parsedTag.tag_value,
-    )
-    if (duplicate) {
-      setTagActionError(t("common.messages.tagDuplicate"))
-      return
-    }
-
-    try {
-      await attachResourceTag.mutateAsync({
-        resourceId: normalizedResourceId,
-        data: parsedTag,
-      })
-      setTagActionSuccess(t("common.messages.tagAdded"))
-      setNewTagInput("")
-      setIsAddingTag(false)
-    } catch (error) {
-      setTagActionError(getErrorMessage(error, t("common.messages.tagAddError")))
-    }
-  }
-
-  function handleTagInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
-      event.preventDefault()
-      void handleAddTag()
-    }
-    if (event.key === "Escape") {
-      setIsAddingTag(false)
-      setNewTagInput("")
-      setTagActionError(null)
-    }
-  }
-
   const uriBusy = databaseUri.isFetching
   const hasUri = Boolean(databaseUri.data)
   const parsedUriReady = Boolean(parsedUri)
@@ -517,61 +457,25 @@ export function DatabaseDetailPage() {
           </h1>
           <Badge variant="active">{t("databases.online")}</Badge>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {tagsQuery.data?.tags.map((tag) => (
-            <Badge key={tag.id} variant="default">{`${tag.tag_key}:${tag.tag_value}`}</Badge>
-          ))}
-          {isAddingTag ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                placeholder="key:value"
-                value={newTagInput}
-                onChange={(event) => setNewTagInput(event.target.value)}
-                onKeyDown={handleTagInputKeyDown}
-                className="h-8 w-[180px]"
-                autoFocus
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleAddTag()}
-                disabled={attachResourceTag.isPending}
-              >
-                {t("common.actions.add")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setIsAddingTag(false)
-                  setNewTagInput("")
-                  setTagActionError(null)
-                }}
-              >
-                {t("common.actions.cancel")}
-              </Button>
-            </div>
-          ) : (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {tagsQuery.data?.tags.map((tag) => (
+              <Badge key={tag.id}>{formatDraftTagLabel(tag)}</Badge>
+            ))}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 rounded-full px-2.5 text-xs font-semibold leading-4"
+              className="h-7 rounded-full px-2.5 text-xs font-semibold"
               onClick={() => {
-                setIsAddingTag(true)
-                setTagActionError(null)
                 setTagActionSuccess(null)
+                setIsTagModalOpen(true)
               }}
             >
               {t("databases.addTag")}
             </Button>
-          )}
+          </div>
         </div>
-        {tagActionError ? (
-          <p className="text-sm text-destructive">{tagActionError}</p>
-        ) : null}
         {tagActionSuccess ? (
           <p className="text-sm text-emerald-600">{tagActionSuccess}</p>
         ) : null}
@@ -788,6 +692,30 @@ export function DatabaseDetailPage() {
           </CardFooter>
         </Card>
       </div>
+
+      <AddTagDialog
+        open={isTagModalOpen}
+        onOpenChange={setIsTagModalOpen}
+        inputId={`database-draft-tag-${normalizedResourceId}`}
+        isSubmitting={attachResourceTag.isPending}
+        checkDuplicate={(parsed) =>
+          tagsQuery.data?.tags.some(
+            (tag) => tag.tag_key === parsed.tag_key && tag.tag_value === parsed.tag_value,
+          )
+            ? t("common.messages.tagDuplicate")
+            : null
+        }
+        mapSubmitError={(err) => getErrorMessage(err, t("common.messages.tagAddError"))}
+        onSubmit={async (parsed) => {
+          if (!isValidResourceId) return false
+          setTagActionSuccess(null)
+          await attachResourceTag.mutateAsync({
+            resourceId: normalizedResourceId,
+            data: parsed,
+          })
+          setTagActionSuccess(t("common.messages.tagAdded"))
+        }}
+      />
     </div>
   )
 }

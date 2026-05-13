@@ -74,7 +74,11 @@ const resources = {
           tagAdded: "Тег добавлен",
           tagAddError: "Не удалось добавить тег",
           tagDuplicate: "Такой тег уже добавлен",
-          tagFormat: "Тег должен быть в формате key:value",
+          tagFormat:
+            "Тег в формате ключ:значение или одно значение без ключа",
+        },
+        a11y: {
+          dismissToast: "Закрыть уведомление",
         },
       },
       language: {
@@ -196,12 +200,18 @@ const resources = {
       },
       databases: {
         singularTitle: "База данных",
-        description: "Создайте PostgreSQL-базу и подключите ее к вашему приложению",
+        description:
+          "Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.",
         empty: "Баз данных пока нет",
         createTitle: "Создать базу данных",
-        namePlaceholder: "Например: product_db",
-        descriptionPlaceholder: "Коротко опишите назначение базы",
+        createCardTitle: "Создать новую базу данных",
+        engineVersion: "PostgreSQL v18",
+        namePlaceholder: "Введите название базы данных",
+        descriptionPlaceholder: "Добавьте описание базы данных",
         addTag: "+ добавить тег",
+        addTagModalTitle: "Добавить тег",
+        tagInputHint:
+          "Добавьте тег в формате ключ: значение или только значение (без ключа)",
         tagExample: "Например: env:dev",
         createdPartial: "База данных создана, но часть тегов не добавлена",
         created: "База данных создана",
@@ -395,7 +405,10 @@ const resources = {
           tagAdded: "Tag added",
           tagAddError: "Could not add tag",
           tagDuplicate: "This tag has already been added",
-          tagFormat: "Tag must use the key:value format",
+          tagFormat: "Use key:value or a single value without a key",
+        },
+        a11y: {
+          dismissToast: "Dismiss notification",
         },
       },
       language: {
@@ -514,12 +527,17 @@ const resources = {
       },
       databases: {
         singularTitle: "Database",
-        description: "Create a PostgreSQL database and connect it to your app",
+        description:
+          "Manage data with ease: create, store, and process it.",
         empty: "No databases yet",
         createTitle: "Create database",
-        namePlaceholder: "Example: product_db",
-        descriptionPlaceholder: "Briefly describe what this database is for",
+        createCardTitle: "Create new database",
+        engineVersion: "PostgreSQL v18",
+        namePlaceholder: "Enter database name",
+        descriptionPlaceholder: "Add a description for this database",
         addTag: "+ add tag",
+        addTagModalTitle: "Add tag",
+        tagInputHint: "Add a tag as key:value or value only (no key)",
         tagExample: "Example: env:dev",
         createdPartial: "Database created, but some tags were not added",
         created: "Database created",

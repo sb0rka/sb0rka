@@ -39,7 +39,7 @@ export interface CreateDatabaseFormState {
 
 export interface CreateDatabaseFormActions {
   onSubmitCreateDatabase: () => Promise<void>
-  onAddDraftTag: () => void
+  onAddDraftTag: (raw?: string) => void
   onNewDatabaseNameChange: (value: string) => void
   onNewDatabaseDescriptionChange: (value: string) => void
   onNewTagInputChange: (value: string) => void
