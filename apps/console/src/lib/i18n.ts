@@ -262,6 +262,11 @@ const resources = {
         deleteButton: "Удалить секрет",
         dangerDescription: "Безвозвратно удалить секрет",
         searchPlaceholder: "Поиск...",
+        updateValue: "Изменить значение",
+        updateValueTitle: "Новое значение секрета",
+        updateValueDescription:
+          "Новое значение будет сохранено в зашифрованном виде и станет текущим для этого секрета.",
+        updateValueError: "Не удалось обновить значение секрета",
       },
       tables: {
         columns: "Колонки",
@@ -575,6 +580,11 @@ const resources = {
         deleteButton: "Delete secret",
         dangerDescription: "Permanently delete the secret",
         searchPlaceholder: "Search...",
+        updateValue: "Update value",
+        updateValueTitle: "New secret value",
+        updateValueDescription:
+          "The new value is stored encrypted and becomes the current secret value.",
+        updateValueError: "Unable to update secret value",
       },
       tables: {
         columns: "Columns",

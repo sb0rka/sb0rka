@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react"
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react"
 import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
@@ -6,6 +6,14 @@ import { FloatingHint } from "@/components/ui/floating-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Card,
   CardContent,
@@ -15,12 +23,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
   useAttachResourceTag,
   useDeactivateResource,
   useResourceTags,
   useSecretValue,
+  useUpdateSecretValue,
 } from "../hooks"
 import type { SecretRow } from "./project-detail-tab-types"
 
@@ -70,8 +80,12 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const attachResourceTag = useAttachResourceTag(projectId)
   const secretValueQuery = useSecretValue(projectId, secret.id)
   const deactivateResource = useDeactivateResource(projectId, secret.id)
+  const updateSecretValue = useUpdateSecretValue(projectId)
 
   const [isValueVisible, setIsValueVisible] = useState(false)
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
+  const [updateValueDraft, setUpdateValueDraft] = useState("")
+  const [updateValueError, setUpdateValueError] = useState<string | null>(null)
   const [newTagInput, setNewTagInput] = useState("")
   const [isAddingTag, setIsAddingTag] = useState(false)
   const [tagActionError, setTagActionError] = useState<string | null>(null)
@@ -81,6 +95,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
   useEffect(() => {
     setIsValueVisible(false)
+    setIsUpdateDialogOpen(false)
+    setUpdateValueDraft("")
+    setUpdateValueError(null)
     setNewTagInput("")
     setIsAddingTag(false)
     setTagActionError(null)
@@ -162,6 +179,35 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       setIsAddingTag(false)
       setNewTagInput("")
       setTagActionError(null)
+    }
+  }
+
+  function handleUpdateDialogOpenChange(next: boolean) {
+    if (!next) {
+      setUpdateValueDraft("")
+      setUpdateValueError(null)
+    }
+    setIsUpdateDialogOpen(next)
+  }
+
+  async function handleUpdateValueSubmit(event: FormEvent) {
+    event.preventDefault()
+    const trimmed = updateValueDraft.trim()
+    if (!trimmed || updateSecretValue.isPending) {
+      return
+    }
+
+    setUpdateValueError(null)
+    try {
+      await updateSecretValue.mutateAsync({
+        resourceId: secret.id,
+        secret_value: trimmed,
+      })
+      handleUpdateDialogOpenChange(false)
+      setIsValueVisible(false)
+      setCopySecretMessage(null)
+    } catch (error) {
+      setUpdateValueError(getErrorMessage(error, t("secrets.updateValueError")))
     }
   }
 
@@ -304,6 +350,15 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   type="button"
                   variant="outline"
                   className="min-w-[70.25px]"
+                  onClick={() => handleUpdateDialogOpenChange(true)}
+                  disabled={secretValueQuery.isFetching || updateSecretValue.isPending}
+                >
+                  {t("secrets.updateValue")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-w-[70.25px]"
                   onClick={() => handleToggleSecretValue()}
                   disabled={secretValueQuery.isFetching}
                 >
@@ -340,6 +395,62 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           </div>
         </CardFooter>
       </Card>
+
+      <Dialog open={isUpdateDialogOpen} onOpenChange={handleUpdateDialogOpenChange}>
+        <DialogContent>
+          <form onSubmit={handleUpdateValueSubmit} autoComplete="off">
+            <DialogHeader>
+              <DialogTitle>{t("secrets.updateValueTitle")}</DialogTitle>
+              <DialogDescription>{t("secrets.updateValueDescription")}</DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-4 px-6 pb-6">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="update-secret-value">{t("secrets.valueLabel")}</Label>
+                <Input
+                  id="update-secret-value"
+                  name="secret-value"
+                  type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-form-type="other"
+                  className="[-webkit-text-security:disc]"
+                  placeholder={t("secrets.valuePlaceholder")}
+                  value={updateValueDraft}
+                  onChange={(e) => setUpdateValueDraft(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {updateValueError ? (
+                <p className="text-sm text-destructive">{updateValueError}</p>
+              ) : null}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleUpdateDialogOpenChange(false)}
+                disabled={updateSecretValue.isPending}
+              >
+                {t("common.actions.cancel")}
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !updateValueDraft.trim() || updateSecretValue.isPending
+                }
+              >
+                {updateSecretValue.isPending ? t("common.creating") : t("common.actions.saveChanges")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

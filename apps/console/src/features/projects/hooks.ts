@@ -17,6 +17,7 @@ import {
   getDatabaseUri,
   deactivateResource,
   createSecret,
+  updateSecretValue,
   revealSecretValue,
   listResources,
   getResourceMetricTimeseries,
@@ -30,6 +31,7 @@ import type {
   UpdateProjectRequest,
   SecretListResponse,
   CreateSecretRequest,
+  UpdateSecretValueRequest,
   AttachResourceTagRequest,
   ProjectTagListResponse,
   DatabaseResponse,
@@ -280,6 +282,31 @@ export function useCreateSecret(projectId: string) {
     mutationFn: (data: CreateSecretRequest) => createSecret(projectId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+    },
+  })
+}
+
+export function useUpdateSecretValue(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      resourceId,
+      ...data
+    }: UpdateSecretValueRequest & { resourceId: string }) =>
+      updateSecretValue(projectId, resourceId, data),
+    onSuccess: (_result, variables) => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({
+        queryKey: [
+          "projects",
+          projectId,
+          "resources",
+          variables.resourceId,
+          "secret",
+          "value",
+        ],
+      })
     },
   })
 }
