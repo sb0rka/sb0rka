@@ -8,6 +8,7 @@ import { getResolvedLanguage } from "@/lib/i18n"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@/components/toast-provider"
 import {
   Card,
   CardContent,
@@ -238,6 +239,7 @@ export function DatabaseDetailPage() {
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
+  const { showSuccess } = useToast()
   const { id = "", resourceId = "" } = useParams<{
     id: string
     resourceId: string
@@ -390,7 +392,7 @@ export function DatabaseDetailPage() {
     setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
-      window.alert(t("databases.deleted"))
+      showSuccess(t("databases.deleted"))
       navigate(`/projects/${id}?tab=databases`)
     } catch (error) {
       setDeleteError(

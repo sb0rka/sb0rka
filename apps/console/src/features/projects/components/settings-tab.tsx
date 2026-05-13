@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@/components/toast-provider"
 import { useTranslation } from "react-i18next"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
@@ -61,6 +62,7 @@ export function ProjectSettings({
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
+  const { showSuccess } = useToast()
   const navigate = useNavigate()
   const deactivateProject = useDeactivateProject()
   const updateProject = useUpdateProject()
@@ -123,7 +125,7 @@ export function ProjectSettings({
     setDeleteError(null)
     try {
       await deactivateProject.mutateAsync(projectId)
-      window.alert(t("projects.settings.deleted"))
+      showSuccess(t("projects.settings.deleted"))
       navigate("/projects")
     } catch (error) {
       setDeleteError(getErrorMessage(error, t("projects.settings.deleteError")))

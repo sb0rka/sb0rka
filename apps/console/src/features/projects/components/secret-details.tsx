@@ -6,6 +6,7 @@ import { FloatingHint } from "@/components/ui/floating-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@/components/toast-provider"
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
+  const { showSuccess } = useToast()
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
   const secretValueQuery = useSecretValue(projectId, secret.id)
@@ -226,7 +228,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
-      window.alert(t("secrets.deleted"))
+      showSuccess(t("secrets.deleted"))
       onClose()
     } catch (error) {
       setDeleteError(getErrorMessage(error, t("secrets.deleteError")))
