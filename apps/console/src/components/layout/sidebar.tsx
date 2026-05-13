@@ -20,6 +20,9 @@ const navItems = [
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
 
+const UPGRADE_LIMITS_FORM_URL =
+  "https://forms.yandex.ru/cloud/6984ca2c84227c2270c569db"
+
 const externalItems = [
   {
     labelKey: "nav.documentation",
@@ -124,8 +127,14 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
         )}
       >
         {!collapsed && (
-          <Button variant="outline" className="w-full">
-            {t("nav.upgradeLimits")}
+          <Button variant="outline" className="w-full" asChild>
+            <a
+              href={UPGRADE_LIMITS_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t("nav.upgradeLimits")}
+            </a>
           </Button>
         )}
         <Separator />
