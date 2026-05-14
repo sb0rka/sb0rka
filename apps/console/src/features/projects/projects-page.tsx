@@ -5,14 +5,7 @@ import { Plus, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlphaToast } from "@/components/ui/alpha-toast"
 import { FloatingHint } from "@/components/ui/floating-hint"
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
@@ -26,7 +19,6 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
   const { data, isLoading, isError } = useDatabases(project.id)
   const databases = data?.databases ?? []
-  const dbCount = databases.length
 
   async function handleCopyProjectId() {
     try {
@@ -40,58 +32,62 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
   }
 
   return (
-    <Card>
-      <CardHeader className="gap-1.5 pb-0">
-        <div className="flex items-center gap-3">
-          <CardTitle className="flex-1 truncate text-xl -tracking-wide">
+    <Card className="flex h-full flex-col shadow-sm">
+      <CardHeader className="flex flex-1 flex-col gap-3 px-6 pb-4 pt-6">
+        <div className="flex w-full items-center gap-3">
+          <CardTitle className="min-w-0 flex-1 truncate text-xl font-semibold leading-normal tracking-[-0.3px]">
             {project.name}
           </CardTitle>
-          <Badge variant={project.is_active ? "active" : "inactive"}>
-            {project.is_active ? t("projects.active") : t("projects.inactive")}
+          <Badge
+            variant={project.is_active ? "active" : "inactive"}
+            className="shrink-0 px-2.5 py-0.5 text-xs font-semibold leading-4"
+          >
+            {project.is_active ? t("projects.cardOnline") : t("projects.cardOffline")}
           </Badge>
         </div>
-        <CardDescription>{t("projects.dbCount", { count: dbCount })}</CardDescription>
+        <div className="text-sm leading-5 text-muted-foreground">
+          {isLoading ? (
+            <p className="leading-5">{t("common.loading")}</p>
+          ) : isError ? (
+            <p className="leading-5">{t("common.notAvailable")}</p>
+          ) : databases.length === 0 ? (
+            <p className="leading-5">{t("databases.empty")}</p>
+          ) : (
+            <ul className="max-h-32 space-y-0 overflow-y-auto">
+              {databases.map((db) => (
+                <li key={db.resource_id}>
+                  <button
+                    type="button"
+                    className="w-full truncate rounded-md py-0 text-left font-normal leading-5 text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() =>
+                      navigate(`/projects/${project.id}/databases/${db.resource_id}`)
+                    }
+                  >
+                    {db.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="pt-0 pb-2">
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-        ) : isError ? (
-          <p className="text-sm text-muted-foreground">{t("common.notAvailable")}</p>
-        ) : databases.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("databases.empty")}</p>
-        ) : (
-          <ul className="max-h-32 space-y-1 overflow-y-auto text-sm pt-0">
-            {databases.map((db) => (
-              <li key={db.resource_id}>
-                <button
-                  type="button"
-                  className="w-full truncate rounded-md py-0.5 pl-2 pr-1 text-left font-medium text-foreground hover:bg-muted focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() =>
-                    navigate(`/projects/${project.id}/databases/${db.resource_id}`)
-                  }
-                >
-                  {db.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-      <CardFooter className="flex-row items-center gap-6">
-        <div className="relative min-w-0 flex-1">
+      <CardFooter className="mt-auto flex flex-row flex-wrap items-center gap-6 px-6 pb-6 pt-0">
+        <div className="relative min-w-0 flex-1 basis-[min-content]">
           <button
             type="button"
             onClick={() => void handleCopyProjectId()}
-            className="flex w-full items-center gap-2 min-w-0"
+            className="flex w-full min-w-0 items-center gap-2"
             aria-label={t("projects.detail.copyProjectId")}
           >
-            <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="truncate text-sm text-muted-foreground">{project.id}</span>
+            <Copy className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-left text-sm leading-5 text-muted-foreground">
+              {project.id}
+            </span>
           </button>
           <FloatingHint message={copyMessage} placement="bottom" align="start" />
         </div>
-        <Button onClick={() => navigate(`/projects/${project.id}`)}>
-          {t("common.actions.open")}
+        <Button className="shrink-0" onClick={() => navigate(`/projects/${project.id}`)}>
+          {t("projects.cardConnect")}
         </Button>
       </CardFooter>
     </Card>
@@ -143,7 +139,7 @@ export function ProjectsPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:h-full">
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
