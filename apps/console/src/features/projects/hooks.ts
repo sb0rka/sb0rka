@@ -55,6 +55,12 @@ const PROJECT_TIMESERIES_METRICS = [
 export type ProjectTimeseriesMetric = (typeof PROJECT_TIMESERIES_METRICS)[number]
 export type ProjectMetricsTimeseries = Record<ProjectTimeseriesMetric, ResourceMetricTimeseries>
 
+export interface ProjectMetricTimeseriesResult {
+  unit: string
+  points: ObservabilityMetricPoint[]
+  byResource: { resourceId: string; points: ObservabilityMetricPoint[] }[]
+}
+
 const DATABASE_SYNC_STATUS_POLL_MS = 5_000
 
 export function useProjects() {
@@ -388,7 +394,7 @@ export function useProjectMetricTimeseries(
 ) {
   const { isAuthenticated } = useAuth()
 
-  return useQuery<ResourceMetricTimeseries>({
+  return useQuery<ProjectMetricTimeseriesResult>({
     queryKey: ["projects", projectId, "observability", "timeseries", metric, resourceIds],
     queryFn: async () => {
       const perResourceSeries = await Promise.all(
@@ -403,10 +409,21 @@ export function useProjectMetricTimeseries(
 
       const aggregatedByTimestamp = new Map<string, number>()
       let unit = "bytes_per_second"
+      const byResource: { resourceId: string; points: ObservabilityMetricPoint[] }[] = []
 
-      for (const series of perResourceSeries) {
+      for (let i = 0; i < perResourceSeries.length; i++) {
+        const series = perResourceSeries[i]
+        const resourceId = resourceIds[i]
+        if (!resourceId) continue
         if (!series) continue
         unit = series.unit || unit
+
+        if (series.points.length > 0) {
+          byResource.push({
+            resourceId,
+            points: series.points,
+          })
+        }
 
         for (const point of series.points) {
           const current = aggregatedByTimestamp.get(point.timestamp) ?? 0
@@ -418,7 +435,7 @@ export function useProjectMetricTimeseries(
           .sort(([left], [right]) => left.localeCompare(right))
           .map(([timestamp, value]) => ({ timestamp, value }))
 
-      return { unit, points }
+      return { unit, points, byResource }
     },
     enabled: isAuthenticated && !!projectId && !!metric && resourceIds.length > 0,
   })
