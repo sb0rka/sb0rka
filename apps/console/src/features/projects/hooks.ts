@@ -17,10 +17,12 @@ import {
   getDatabaseUri,
   deactivateResource,
   createSecret,
+  updateSecretValue,
   revealSecretValue,
   listResources,
   getResourceMetricTimeseries,
 } from "./api"
+import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
 import type {
   ProjectResponse,
   ProjectListResponse,
@@ -30,6 +32,7 @@ import type {
   UpdateProjectRequest,
   SecretListResponse,
   CreateSecretRequest,
+  UpdateSecretValueRequest,
   AttachResourceTagRequest,
   ProjectTagListResponse,
   DatabaseResponse,
@@ -52,6 +55,14 @@ const PROJECT_TIMESERIES_METRICS = [
 export type ProjectTimeseriesMetric = (typeof PROJECT_TIMESERIES_METRICS)[number]
 export type ProjectMetricsTimeseries = Record<ProjectTimeseriesMetric, ResourceMetricTimeseries>
 
+export interface ProjectMetricTimeseriesResult {
+  unit: string
+  points: ObservabilityMetricPoint[]
+  byResource: { resourceId: string; points: ObservabilityMetricPoint[] }[]
+}
+
+const DATABASE_SYNC_STATUS_POLL_MS = 5_000
+
 export function useProjects() {
   const { isAuthenticated } = useAuth()
 
@@ -69,6 +80,13 @@ export function useDatabases(projectId: string) {
     queryKey: ["projects", projectId, "databases"],
     queryFn: () => listDatabases(projectId),
     enabled: isAuthenticated && !!projectId,
+    refetchInterval: (query) => {
+      const rows = query.state.data?.databases
+      if (!rows?.length) return false
+      return rows.some(databaseSyncStatusNeedsPolling)
+        ? DATABASE_SYNC_STATUS_POLL_MS
+        : false
+    },
   })
 }
 
@@ -90,6 +108,13 @@ export function useDatabase(projectId: string, resourceId?: string) {
     queryKey: ["projects", projectId, "resources", resourceId, "database"],
     queryFn: () => getDatabase(projectId, resourceId as string),
     enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+    refetchInterval: (query) => {
+      const row = query.state.data
+      if (!row) return false
+      return databaseSyncStatusNeedsPolling(row)
+        ? DATABASE_SYNC_STATUS_POLL_MS
+        : false
+    },
   })
 }
 
@@ -217,8 +242,9 @@ export function useUpdateProject() {
         qc.setQueryData(PROJECTS_KEY, context.previous)
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       qc.invalidateQueries({ queryKey: PROJECTS_KEY })
+      qc.invalidateQueries({ queryKey: ["projects", variables.id] })
     },
   })
 }
@@ -283,6 +309,31 @@ export function useCreateSecret(projectId: string) {
   })
 }
 
+export function useUpdateSecretValue(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      resourceId,
+      ...data
+    }: UpdateSecretValueRequest & { resourceId: string }) =>
+      updateSecretValue(projectId, resourceId, data),
+    onSuccess: (_result, variables) => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({
+        queryKey: [
+          "projects",
+          projectId,
+          "resources",
+          variables.resourceId,
+          "secret",
+          "value",
+        ],
+      })
+    },
+  })
+}
+
 export function useResources(projectId: string) {
   const { isAuthenticated } = useAuth()
 
@@ -301,6 +352,22 @@ export function useRevealSecretValue(projectId: string, resourceId?: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
     },
+  })
+}
+
+/** Fetches secret plaintext when the detail view is open (same API as reveal). */
+export function useSecretValue(projectId: string, resourceId?: string) {
+  const qc = useQueryClient()
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<RevealSecretValueResponse>({
+    queryKey: ["projects", projectId, "resources", resourceId, "secret", "value"],
+    queryFn: async () => {
+      const res = await revealSecretValue(projectId, resourceId as string)
+      await qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      return res
+    },
+    enabled: isAuthenticated && !!projectId && resourceId !== undefined,
   })
 }
 
@@ -327,7 +394,7 @@ export function useProjectMetricTimeseries(
 ) {
   const { isAuthenticated } = useAuth()
 
-  return useQuery<ResourceMetricTimeseries>({
+  return useQuery<ProjectMetricTimeseriesResult>({
     queryKey: ["projects", projectId, "observability", "timeseries", metric, resourceIds],
     queryFn: async () => {
       const perResourceSeries = await Promise.all(
@@ -342,10 +409,21 @@ export function useProjectMetricTimeseries(
 
       const aggregatedByTimestamp = new Map<string, number>()
       let unit = "bytes_per_second"
+      const byResource: { resourceId: string; points: ObservabilityMetricPoint[] }[] = []
 
-      for (const series of perResourceSeries) {
+      for (let i = 0; i < perResourceSeries.length; i++) {
+        const series = perResourceSeries[i]
+        const resourceId = resourceIds[i]
+        if (!resourceId) continue
         if (!series) continue
         unit = series.unit || unit
+
+        if (series.points.length > 0) {
+          byResource.push({
+            resourceId,
+            points: series.points,
+          })
+        }
 
         for (const point of series.points) {
           const current = aggregatedByTimestamp.get(point.timestamp) ?? 0
@@ -357,7 +435,7 @@ export function useProjectMetricTimeseries(
           .sort(([left], [right]) => left.localeCompare(right))
           .map(([timestamp, value]) => ({ timestamp, value }))
 
-      return { unit, points }
+      return { unit, points, byResource }
     },
     enabled: isAuthenticated && !!projectId && !!metric && resourceIds.length > 0,
   })

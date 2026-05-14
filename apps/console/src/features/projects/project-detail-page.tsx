@@ -26,7 +26,9 @@ import {
   type CreateDatabaseFormState,
   type CreateDatabaseFormActions,
 } from "./components/project-detail-tabs"
+import { ProjectPageTitle } from "./components/project-page-title"
 import type { CreateSecretRequest, DatabaseResponse } from "./api"
+import { parseDraftTag } from "./parse-draft-tag"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
 const validTabs = new Set<ProjectTab>([
@@ -35,22 +37,6 @@ const validTabs = new Set<ProjectTab>([
   "secrets",
   "settings",
 ])
-
-function parseDraftTag(input: string): DraftTag | null {
-  const normalized = input.trim()
-  if (!normalized) return null
-
-  const separatorIndex = normalized.indexOf(":")
-  if (separatorIndex <= 0 || separatorIndex === normalized.length - 1) {
-    return null
-  }
-
-  const tag_key = normalized.slice(0, separatorIndex).trim()
-  const tag_value = normalized.slice(separatorIndex + 1).trim()
-  if (!tag_key || !tag_value) return null
-
-  return { tag_key, tag_value }
-}
 
 export function ProjectDetailPage() {
   const { t } = useTranslation()
@@ -124,8 +110,9 @@ export function ProjectDetailPage() {
     setNewTagInput("")
   }
 
-  function addDraftTag() {
-    const parsed = parseDraftTag(newTagInput)
+  function addDraftTag(raw?: string) {
+    const source = (raw ?? newTagInput).trim()
+    const parsed = parseDraftTag(source)
     if (!parsed) {
       setDatabaseError(t("common.messages.tagFormat"))
       return
@@ -218,30 +205,13 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <ProjectPageTitle project={project} />
 
       <Tabs
         value={activeTab}
         onValueChange={(value) => setSearchParams({ tab: value })}
       >
-        {/* <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="overview" className="w-[115px]">
-              Обзор
-            </TabsTrigger>
-            <TabsTrigger value="databases">Базы данных</TabsTrigger>
-            <TabsTrigger value="secrets" className="w-[115px]">
-              Секреты
-            </TabsTrigger>
-          </TabsList>
-          <Button
-            variant={activeTab === "settings" ? "secondary" : "ghost"}
-            size="icon"
-            onClick={() => setSearchParams({ tab: "settings" })}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div> */}
 
         <OverviewTab
           dbCount={dbCount}
@@ -268,6 +238,7 @@ export function ProjectDetailPage() {
         <SettingsTab
           projectId={id}
           projectName={project.name}
+          projectDescription={project.description ?? ""}
           createdAt={project.created_at}
         />
       </Tabs>

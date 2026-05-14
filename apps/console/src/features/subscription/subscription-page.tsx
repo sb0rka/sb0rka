@@ -11,29 +11,22 @@ import { ApiError } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 import { useCurrentPlan, usePlans, useSubscriptionUsage } from "./hooks"
 import type { SubscriptionUsage } from "./hooks"
-import type { PlanResponse } from "./api"
+
+/** Limits that exist in the product UI today (deployed / available). */
+const DEPLOYED_LIMIT_KEYS = ["project_limit", "db_limit", "secret_limit"] as const
+
+type DeployedLimitKey = (typeof DEPLOYED_LIMIT_KEYS)[number]
 
 interface LimitItem {
-  key: keyof Pick<
-    PlanResponse,
-    | "project_limit"
-    | "db_limit"
-    | "secret_limit"
-    | "function_limit"
-    | "code_limit"
-    | "group_limit"
-  >
+  key: DeployedLimitKey
   labelKey: string
-  usageKey?: keyof SubscriptionUsage
+  usageKey: keyof SubscriptionUsage
 }
 
 const LIMIT_ITEMS: LimitItem[] = [
   { key: "project_limit", labelKey: "subscription.limits.projects", usageKey: "projects" },
   { key: "db_limit", labelKey: "subscription.limits.databases", usageKey: "databases" },
   { key: "secret_limit", labelKey: "subscription.limits.secrets", usageKey: "secrets" },
-  { key: "function_limit", labelKey: "subscription.limits.functions" },
-  { key: "code_limit", labelKey: "subscription.limits.codeUnits" },
-  { key: "group_limit", labelKey: "subscription.limits.groups" },
 ]
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -99,10 +92,8 @@ export function SubscriptionPage() {
         <CardContent className="flex flex-wrap items-start gap-4">
           {LIMIT_ITEMS.map((item) => {
             const limit = currentPlan[item.key]
-            const used = item.usageKey ? usage?.[item.usageKey] : undefined
-            const progress = item.usageKey
-              ? getUsageProgress(typeof used === "number" ? used : 0, limit)
-              : 0
+            const used = usage?.[item.usageKey]
+            const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
 
             return (
               <div
@@ -115,14 +106,12 @@ export function SubscriptionPage() {
                   {t("subscription.used")}{" "}
                   {typeof used === "number" ? `${used} / ${limit}` : "—"}
                 </p>
-                {/* {item.usageKey ? ( */}
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-[#5c7c2f] transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                {/* ) : null} */}
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-[#5c7c2f] transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
             )
           })}

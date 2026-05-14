@@ -94,7 +94,7 @@ export function DatabasesTable({
                   {getDatabaseStatusLabel(t, row.syncState, row.desiredState)}
                 </div>
                 <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                  0%
+                  {row.diskUsageLabel}
                 </div>
                 <div className="flex min-h-20 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
                   {formatLocalDateTime(row.createdAt)}

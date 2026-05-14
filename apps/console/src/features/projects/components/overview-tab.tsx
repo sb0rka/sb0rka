@@ -184,13 +184,26 @@ function ChartCard({
       <CardContent className="px-6 pb-6">
         <p className="text-xs text-muted-foreground">{description}</p>
         <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <svg viewBox="0 0 100 36" className="h-28 w-full" preserveAspectRatio="none" role="img" aria-label={sparklineLabel}>
-            <line x1="0" y1={CHART_Y_MAX} x2="100" y2={CHART_Y_MAX} className="stroke-border/80" strokeWidth="1" />
+          <svg
+            viewBox="0 0 100 36"
+            className="mx-auto block h-28 w-full max-w-full"
+            preserveAspectRatio="xMidYMid meet"
+            role="img"
+            aria-label={sparklineLabel}
+          >
+            <line
+              x1="0"
+              y1={CHART_Y_MAX}
+              x2="100"
+              y2={CHART_Y_MAX}
+              className="stroke-border/80"
+              strokeWidth={0.6}
+            />
             <path
               d={linePath}
               className={hasData ? "stroke-primary" : "stroke-muted-foreground/40"}
               fill="none"
-              strokeWidth="1.25"
+              strokeWidth={0.6}
               strokeLinecap="round"
               strokeLinejoin="round"
             />

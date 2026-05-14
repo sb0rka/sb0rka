@@ -125,6 +125,17 @@ export function MetricDetailPage() {
   const meta = DETAIL_METRIC_META[metric]
   const metricSeries = metricQuery.data?.points ?? []
   const metricUnit = metricQuery.data?.unit
+  const resourceSeriesForChart = useMemo(() => {
+    const byResource = metricQuery.data?.byResource
+    if (!byResource?.length) return undefined
+    const databases = dbData?.databases ?? []
+    const nameById = new Map(databases.map((d) => [String(d.resource_id), d.name]))
+    return byResource.map((entry) => ({
+      resourceId: entry.resourceId,
+      label: nameById.get(entry.resourceId) ?? entry.resourceId.slice(0, 8),
+      points: entry.points,
+    }))
+  }, [metricQuery.data?.byResource, dbData?.databases])
   const latestValue = metricSeries[metricSeries.length - 1]?.value ?? 0
 
   return (
@@ -173,6 +184,7 @@ export function MetricDetailPage() {
           <DetailTimeseriesChart
             title={t(meta.titleKey)}
             points={metricSeries}
+            resourceSeries={resourceSeriesForChart}
             formatValue={(value) => formatMetricValue(value, metricUnit, metricFormatter)}
           />
         </div>

@@ -14,6 +14,7 @@ export interface DatabaseRow {
   createdAt: string
   updatedAt: string
   isHighlighted: boolean
+  diskUsageLabel: string
 }
 
 export interface SecretRow {
@@ -39,7 +40,7 @@ export interface CreateDatabaseFormState {
 
 export interface CreateDatabaseFormActions {
   onSubmitCreateDatabase: () => Promise<void>
-  onAddDraftTag: () => void
+  onAddDraftTag: (raw?: string) => void
   onNewDatabaseNameChange: (value: string) => void
   onNewDatabaseDescriptionChange: (value: string) => void
   onNewTagInputChange: (value: string) => void
