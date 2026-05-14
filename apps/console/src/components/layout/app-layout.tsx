@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Outlet, useLocation, useMatch, useSearchParams } from "react-router-dom"
+import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
@@ -25,19 +25,9 @@ const isProjectTab = (value: string | null): value is ProjectTab =>
   value === "secrets" ||
   value === "settings"
 
-function breadcrumbsForPath(pathname: string, t: (key: string) => string) {
-  if (pathname.startsWith("/subscription")) {
-    return [{ label: "sb0rka", href: "/projects" }, { label: t("nav.subscription") }]
-  }
-  if (pathname.startsWith("/profile")) {
-    return [{ label: "sb0rka", href: "/projects" }, { label: t("nav.profile") }]
-  }
-  return [{ label: "sb0rka", href: "/projects" }, { label: t("nav.projects") }]
-}
 
 export function AppLayout() {
   const { t } = useTranslation()
-  const location = useLocation()
   const [searchParams] = useSearchParams()
   const isProjectRoot = useMatch("/projects/:id") !== null
   const isProjectNested = useMatch("/projects/:id/*") !== null
@@ -75,7 +65,6 @@ export function AppLayout() {
   }
   const breadcrumbs: BreadcrumbItem[] = isProjectOpen
     ? [
-        { label: "sb0rka", href: "/projects" },
         { label: t("nav.projects"), href: "/projects" },
         { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
         ...(databaseDetailsMatch
@@ -96,7 +85,7 @@ export function AppLayout() {
               ]
             : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
       ]
-    : breadcrumbsForPath(location.pathname, t)
+    : [] // No breadcrumbs for non-project routes
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
