@@ -75,7 +75,6 @@ export function AppLayout() {
   }
   const breadcrumbs: BreadcrumbItem[] = isProjectOpen
     ? [
-        { label: "sb0rka", href: "/projects" },
         { label: t("nav.projects"), href: "/projects" },
         { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
         ...(databaseDetailsMatch
@@ -96,7 +95,7 @@ export function AppLayout() {
               ]
             : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
       ]
-    : breadcrumbsForPath(location.pathname, t)
+    : [] // No breadcrumbs for non-project routes
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
