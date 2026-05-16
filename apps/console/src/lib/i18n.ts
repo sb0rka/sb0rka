@@ -93,7 +93,7 @@ const resources = {
         alphaWarning: "Альфа-версия: не храните критичные данные",
         alphaToastTitle: "Продукт находится на альфа-стадии",
         alphaToastDescription:
-          "Будьте осторожны, не все функции работают идеально.",
+          "Некоторые функции могут работать нестабильно. Пожалуйста, делайте резервные копии важных данных.",
         alphaToastAction: "Ок, понятно",
       },
       nav: {
@@ -138,7 +138,7 @@ const resources = {
           title: "Регистрация",
           description: "Готовим вашу инфраструктуру к запуску",
           usernameLabel: "Имя пользователя",
-          usernamePlaceholder: "Введите ваш юзернейм",
+          usernamePlaceholder: "Введите ваш username",
           emailLabel: "Email",
           emailPlaceholder: "Введите ваш email",
           passwordLabel: "Пароль",
@@ -180,10 +180,10 @@ const resources = {
           idCopied: "ID скопирован",
         },
         createDialog: {
-          title: "Создать проект",
-          description: "Разверните ваш новый проект одним кликом.",
-          namePlaceholder: "Введите название проекта",
-          descriptionPlaceholder: "Введите описание проекта",
+          title: "Новый проект",
+          description: "Рабочее пространство для вашей инфраструктуры",
+          namePlaceholder: "Например: Базы данных для разработки",
+          descriptionPlaceholder: "Коротко опишите назначение проекта",
           fallbackError: "Не удалось создать проект",
         },
         settings: {
@@ -198,19 +198,19 @@ const resources = {
           deleteError: "Не удалось удалить проект, попробуйте снова",
           deleteButton: "Удалить проект",
           dangerTitle: "Опасная зона",
-          dangerDescription: "Перманентно удалить проект и все связанные с ним данные.",
+          dangerDescription: "Удаление проекта необратимо, все связанные ресурсы будут удалены",
         },
       },
       databases: {
         singularTitle: "База данных",
         description:
-          "Управляйте данными с легкостью: создавайте, храните и обрабатывайте их.",
+          "Создайте PostgreSQL-базу и подключите ее к вашему приложению",
         empty: "Баз данных пока нет",
         createTitle: "Создать базу данных",
         createCardTitle: "Создать новую базу данных",
         engineVersion: "PostgreSQL v18",
-        namePlaceholder: "Введите название базы данных",
-        descriptionPlaceholder: "Добавьте описание базы данных",
+        namePlaceholder: "Например: product_db",
+        descriptionPlaceholder: "Коротко опишите назначение базы",
         addTag: "+ добавить тег",
         addTagModalTitle: "Добавить тег",
         tagInputHint:
@@ -232,9 +232,9 @@ const resources = {
         deleted: "База данных удалена",
         deleteError: "Не удалось удалить базу данных, попробуйте снова",
         deleteButton: "Удалить базу данных",
-        dangerDescription: "Перманентно удалить базу данных.",
+        dangerDescription: "Безвозвратно удалить базу данных",
         accessTitle: "Доступ",
-        accessDescription: "Данные для доступа к базе данных.",
+        accessDescription: "Данные для доступа к базе данных",
         credentialsUnavailableNotice:
           "Параметры подключения доступны только когда база данных онлайн. Текущий статус: {{status}}.",
         hostname: "Имя хоста",
@@ -280,7 +280,7 @@ const resources = {
         updateValue: "Изменить значение",
         updateValueTitle: "Новое значение секрета",
         updateValueDescription:
-          "Новое значение будет сохранено в зашифрованном виде и станет текущим для этого секрета.",
+          "Новое значение будет сохранено в зашифрованном виде и станет текущим для этого секрета",
         updateValueError: "Не удалось обновить значение секрета",
       },
       tables: {
@@ -429,9 +429,9 @@ const resources = {
       },
       app: {
         alphaWarning: "Alpha version: do not store critical data",
-        alphaToastTitle: "This product is in alpha",
+        alphaToastTitle: "This product is in alpha stage",
         alphaToastDescription:
-          "Proceed with care — not everything works perfectly yet.",
+          "Some features may be unstable. Please back up any important data.",
         alphaToastAction: "OK, got it",
       },
       nav: {
@@ -515,10 +515,10 @@ const resources = {
           idCopied: "ID copied",
         },
         createDialog: {
-          title: "Create project",
-          description: "Deploy your new project with one click.",
-          namePlaceholder: "Enter project name",
-          descriptionPlaceholder: "Enter project description",
+          title: "New project",
+          description: "A workspace for your infrastructure",
+          namePlaceholder: "Example: Development DBs",
+          descriptionPlaceholder: "Briefly describe what this project is for",
           fallbackError: "Unable to create project",
         },
         settings: {
@@ -533,19 +533,19 @@ const resources = {
           deleteError: "Unable to delete project, please try again",
           deleteButton: "Delete project",
           dangerTitle: "Danger zone",
-          dangerDescription: "Permanently delete this project and all associated data.",
+          dangerDescription: "Deleting this project is permanent, all related resources will be removed",
         },
       },
       databases: {
         singularTitle: "Database",
         description:
-          "Manage data with ease: create, store, and process it.",
+          "Create a PostgreSQL database and connect it to your app",
         empty: "No databases yet",
         createTitle: "Create database",
         createCardTitle: "Create new database",
         engineVersion: "PostgreSQL v18",
-        namePlaceholder: "Enter database name",
-        descriptionPlaceholder: "Add a description for this database",
+        namePlaceholder: "Example: product_db",
+        descriptionPlaceholder: "Briefly describe what this database is for",
         addTag: "+ add tag",
         addTagModalTitle: "Add tag",
         tagInputHint: "Add a tag as key:value or value only (no key)",
@@ -566,9 +566,9 @@ const resources = {
         deleted: "Database deleted",
         deleteError: "Unable to delete database, please try again",
         deleteButton: "Delete database",
-        dangerDescription: "Permanently delete the database.",
+        dangerDescription: "Permanently delete the database",
         accessTitle: "Access",
-        accessDescription: "Credentials for connecting to the database.",
+        accessDescription: "Credentials for connecting to the database",
         credentialsUnavailableNotice:
           "Connection details are available only while the database is online. Current status: {{status}}.",
         hostname: "Hostname",
