@@ -64,7 +64,7 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[330px] gap-0 p-0 shadow-sm">
+      <DialogContent className="gap-0 p-0 shadow-sm">
         <form autoComplete="off" onSubmit={handleSubmit}>
           <DialogHeader className="p-6 text-start">
             <DialogTitle className="leading-6">
