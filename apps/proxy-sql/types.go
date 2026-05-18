@@ -10,7 +10,7 @@ import (
 type QueryRequest struct {
 	DatabaseID string `json:"database_id"`
 	ProjectID  string `json:"project_id"`
-	SQL        string `json:"sql"`
+	Query      string `json:"query"`
 }
 
 type QueryResponse struct {

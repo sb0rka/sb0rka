@@ -49,10 +49,10 @@ func serveHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := Handler(r.Context(), Request{
-		Method:  r.Method,
-		Path:    r.URL.Path,
-		Headers: headers,
-		Body:    string(body),
+		HTTPMethod: r.Method,
+		Path:       r.URL.Path,
+		Headers:    headers,
+		Body:       string(body),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

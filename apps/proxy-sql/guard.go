@@ -9,7 +9,7 @@ import (
 func ValidateSQL(sql string) error {
 	trimmed := strings.TrimSpace(sql)
 	if trimmed == "" {
-		return NewStatusError(http.StatusBadRequest, "sql is required", nil)
+		return NewStatusError(http.StatusBadRequest, "query is required", nil)
 	}
 	if hasStackedStatements(trimmed) {
 		return NewStatusError(http.StatusBadRequest, "Only a single SQL statement is allowed", nil)

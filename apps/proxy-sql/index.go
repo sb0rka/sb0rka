@@ -17,6 +17,7 @@ const maxRequestBytes = 256 * 1024
 
 // Request is the HTTP event passed into the cloud function.
 type Request struct {
+	HTTPMethod      string            `json:"httpMethod"`
 	Method          string            `json:"method"`
 	Path            string            `json:"path"`
 	Headers         map[string]string `json:"headers"`
@@ -29,6 +30,17 @@ type Response struct {
 	StatusCode int               `json:"statusCode"`
 	Headers    map[string]string `json:"headers,omitempty"`
 	Body       string            `json:"body"`
+}
+
+func (r Request) eventMethod() string {
+	if m := strings.TrimSpace(r.HTTPMethod); m != "" {
+		return strings.ToUpper(m)
+	}
+	return strings.ToUpper(strings.TrimSpace(r.Method))
+}
+
+func (r Request) eventPath() string {
+	return normalizePath(r.Path)
 }
 
 type databaseURIResolver interface {
@@ -89,8 +101,13 @@ func Handler(ctx context.Context, request Request) (*Response, error) {
 }
 
 func routeRequest(ctx context.Context, request Request, rt *appRuntime) *Response {
-	path := normalizePath(request.Path)
-	method := strings.ToUpper(strings.TrimSpace(request.Method))
+	path := request.eventPath()
+	method := request.eventMethod()
+
+	if method == "" {
+		slog.Warn("proxy_sql_empty_http_method", "path", path)
+		return jsonError(http.StatusBadRequest, "Missing HTTP method")
+	}
 
 	if method == http.MethodOptions {
 		return &Response{
@@ -141,7 +158,7 @@ func handleQuery(ctx context.Context, request Request, platform databaseURIResol
 
 	req.DatabaseID = strings.TrimSpace(req.DatabaseID)
 	req.ProjectID = strings.TrimSpace(req.ProjectID)
-	req.SQL = strings.TrimSpace(req.SQL)
+	req.Query = strings.TrimSpace(req.Query)
 	if req.DatabaseID == "" {
 		err = NewStatusError(http.StatusBadRequest, "database_id is required", nil)
 		logHandlerError("/query", err)
@@ -152,8 +169,8 @@ func handleQuery(ctx context.Context, request Request, platform databaseURIResol
 		logHandlerError("/query", err)
 		return handlerErrorResponse(err)
 	}
-	if req.SQL == "" {
-		err = NewStatusError(http.StatusBadRequest, "sql is required", nil)
+	if req.Query == "" {
+		err = NewStatusError(http.StatusBadRequest, "query is required", nil)
 		logHandlerError("/query", err)
 		return handlerErrorResponse(err)
 	}
@@ -164,7 +181,7 @@ func handleQuery(ctx context.Context, request Request, platform databaseURIResol
 		return handlerErrorResponse(err)
 	}
 
-	response, err := executor.Query(ctx, uri, req.SQL)
+	response, err := executor.Query(ctx, uri, req.Query)
 	if err != nil {
 		logHandlerError("/query", err)
 		return handlerErrorResponse(err)
