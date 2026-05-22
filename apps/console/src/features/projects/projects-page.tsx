@@ -150,7 +150,7 @@ export function ProjectsPage() {
 
       {alphaToastOpen ? (
         <div
-          className="fixed bottom-[10px] right-[10px] z-50  max-w-sm"
+          className="fixed bottom-[10px] right-[10px] z-50 max-w-[400px]"
           aria-live="polite"
         >
           <AlphaToast
