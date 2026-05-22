@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { useToast } from "@/components/toast-provider"
 import { useTranslation } from "react-i18next"
-import { getResolvedLanguage } from "@/lib/i18n"
 import {
   Card,
   CardFooter,
@@ -25,23 +24,6 @@ interface ProjectSettingsProps {
   createdAt?: string
 }
 
-function formatCreatedAt(value: string | undefined, locale: string): string {
-  if (!value) return "—"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-
-  return new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    timeZone: "UTC",
-    timeZoneName: "short",
-  }).format(date)
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
@@ -57,10 +39,8 @@ export function ProjectSettings({
   projectId,
   projectName,
   projectDescription,
-  createdAt,
 }: ProjectSettingsProps) {
   const { t } = useTranslation()
-  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const { showSuccess } = useToast()
   const navigate = useNavigate()
@@ -142,16 +122,6 @@ export function ProjectSettings({
       </h2>
 
       <div className="flex flex-col gap-6">
-        <Card className="overflow-hidden shadow-sm">
-          <CardHeader className="gap-1.5">
-            <CardTitle className={cardTitleClass}>{projectName}</CardTitle>
-            <CardDescription className="text-sm leading-5">
-              {t("projects.settings.createdAt", {
-                date: formatCreatedAt(createdAt, locale),
-              })}
-            </CardDescription>
-          </CardHeader>
-        </Card>
 
         <Card className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5">
@@ -214,7 +184,7 @@ export function ProjectSettings({
           </CardHeader>
           <CardFooter className="flex flex-col items-start gap-2 pt-6">
             <Button
-              variant="destructive"
+              variant="delete"
               type="button"
               onClick={() => void handleDeleteProject()}
               disabled={deactivateProject.isPending}
@@ -246,7 +216,6 @@ export function SettingsTab({
   projectId,
   projectName,
   projectDescription,
-  createdAt,
 }: SettingsTabProps) {
   return (
     <TabsContent value="settings">
@@ -254,7 +223,6 @@ export function SettingsTab({
         projectId={projectId}
         projectName={projectName}
         projectDescription={projectDescription}
-        createdAt={createdAt}
       />
     </TabsContent>
   )

@@ -110,7 +110,7 @@ export function ProjectsPage() {
   }, [])
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
         <Button onClick={() => setCreateOpen(true)}>
@@ -124,7 +124,7 @@ export function ProjectsPage() {
           <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
       ) : projects.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm min-h-[500px]">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm">
           <div className="flex flex-col items-center gap-1">
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
               {t("projects.emptyTitle")}
@@ -150,7 +150,7 @@ export function ProjectsPage() {
 
       {alphaToastOpen ? (
         <div
-          className="fixed bottom-[10px] right-[10px] z-50  max-w-sm"
+          className="fixed bottom-[10px] right-[10px] z-50 max-w-[400px]"
           aria-live="polite"
         >
           <AlphaToast

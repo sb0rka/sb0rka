@@ -117,7 +117,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
             >
               {user ? (
                 <>
-                  <div className="flex min-w-0 flex-col items-start justify-center gap-0 text-left leading-normal">
+                  <div className="flex min-w-0 flex-col items-end justify-center gap-0 text-left leading-normal">
                     <span className="truncate text-xs font-medium text-foreground">
                       {user.username}
                     </span>

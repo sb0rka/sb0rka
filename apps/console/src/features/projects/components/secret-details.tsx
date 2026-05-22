@@ -285,7 +285,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           <div className="flex flex-col gap-2">
             <Button
               className="self-start"
-              variant="destructive"
+              variant="delete"
               onClick={() => void handleDeleteSecret()}
               disabled={deactivateResource.isPending}
             >

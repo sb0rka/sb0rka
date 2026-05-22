@@ -7,6 +7,7 @@ import {
   ExternalLink,
   PanelLeft,
   User,
+  ChevronsUp,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
@@ -126,17 +127,27 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
           collapsed ? "px-2" : "px-4",
         )}
       >
-        {!collapsed && (
-          <Button variant="outline" className="w-full" asChild>
-            <a
-              href={UPGRADE_LIMITS_FORM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t("nav.upgradeLimits")}
-            </a>
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full",
+            collapsed && "aspect-square h-auto px-2 py-2",
+          )}
+          asChild
+        >
+          <a
+            href={UPGRADE_LIMITS_FORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={collapsed ? t("nav.upgradeLimits") : undefined}
+          >
+            {collapsed ? (
+              <ChevronsUp className="h-4 w-4" />
+            ) : (
+              t("nav.upgradeLimits")
+            )}
+          </a>
+        </Button>
         <Separator />
         <button
           type="button"

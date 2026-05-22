@@ -20,6 +20,7 @@
     --accent-foreground: #0f172a;
     --destructive: #ef4444;
     --destructive-foreground: #f8fafc;
+    --destructive-solid-foreground: #f8fafc;
     --border: #e2e8f0;
     --input: #e2e8f0;
     --ring: #94a3b8;
@@ -35,6 +36,9 @@
 
     --alpha-badge-bg: #feebec;
     --alpha-badge-fg: #dc3e42;
+
+    --plan-badge-bg: #e6f4fe;
+    --plan-badge-fg: #0588f0;
   }
 
   .dark {
@@ -52,8 +56,9 @@
     --muted-foreground: #a1a1aa;
     --accent: #27272a;
     --accent-foreground: #fafafa;
-    --destructive: #7f1d1d;
+    --destructive: #ef4444;
     --destructive-foreground: #fafafa;
+    --destructive-solid-foreground: #fafafa;
     --border: #3f3f46;
     --input: #3f3f46;
     --ring: #d4d4d8;
@@ -66,6 +71,9 @@
 
     --alpha-badge-bg: #2d0607;
     --alpha-badge-fg: #ff9ea1;
+
+    --plan-badge-bg: #0c2340;
+    --plan-badge-fg: #58b4f0;
   }
 }
 

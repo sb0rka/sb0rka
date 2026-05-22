@@ -735,8 +735,8 @@ export function DatabaseDetailPage() {
           </CardHeader>
           <CardFooter className="flex-col items-start gap-2 px-6 py-6">
             <Button
-              variant="ghost"
-              className="h-auto w-[180px] justify-center px-4 py-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              variant="delete"
+              className="h-auto w-[180px] justify-center px-4 py-2"
               onClick={handleDeactivate}
               disabled={deactivateResource.isPending}
             >

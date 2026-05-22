@@ -239,7 +239,6 @@ export function ProjectDetailPage() {
           projectId={id}
           projectName={project.name}
           projectDescription={project.description ?? ""}
-          createdAt={project.created_at}
         />
       </Tabs>
     </div>
