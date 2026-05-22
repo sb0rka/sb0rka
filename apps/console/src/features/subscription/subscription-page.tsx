@@ -72,25 +72,21 @@ export function SubscriptionPage() {
 
   return (
     <div className="flex flex-col gap-6 text-foreground dark:!bg-transparent">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold">{t("subscription.title")}</h1>
-          <p className="text-sm text-[#667085] dark:text-muted-foreground">
-            {t("subscription.description")}
-          </p>
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold leading-normal text-foreground">
+            {t("subscription.title")}
+          </h1>
+          <Badge className="shrink-0 rounded-full border-0 bg-[var(--plan-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--plan-badge-fg)] hover:bg-[var(--plan-badge-bg)]">
+            {currentPlan.name}
+          </Badge>
         </div>
-        <Badge className="bg-[#E0F2FE] text-[#0369A1] hover:bg-[#E0F2FE] dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-950">
-          {t("subscription.currentPlan")}
-        </Badge>
+        <p className="text-sm text-[#667085] dark:text-muted-foreground">
+          {t("subscription.description")}
+        </p>
       </div>
 
       <Card className="border-none bg-white shadow-none dark:border-border dark:!bg-card">
-        <CardHeader className="gap-2 px-0">
-          <CardTitle>{currentPlan.name}</CardTitle>
-          <CardDescription className="text-[#667085] dark:text-muted-foreground">
-            {currentPlan.description || t("subscription.noPlanDescription")}
-          </CardDescription>
-        </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-4 px-0">
           {LIMIT_ITEMS.map((item) => {
             const limit = currentPlan[item.key]

@@ -35,6 +35,9 @@
 
     --alpha-badge-bg: #feebec;
     --alpha-badge-fg: #dc3e42;
+
+    --plan-badge-bg: #e6f4fe;
+    --plan-badge-fg: #0588f0;
   }
 
   .dark {
@@ -66,6 +69,9 @@
 
     --alpha-badge-bg: #2d0607;
     --alpha-badge-fg: #ff9ea1;
+
+    --plan-badge-bg: #0c2340;
+    --plan-badge-fg: #58b4f0;
   }
 }
 
