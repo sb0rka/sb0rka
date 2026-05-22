@@ -247,7 +247,7 @@ export function ProfilePage() {
           <CardFooter className="flex flex-row pt-6">
             <Button
               type="button"
-              variant="destructive"
+              variant="delete"
               onClick={() => setDeleteDialogOpen(true)}
             >
               {t("profile.deleteAccount")}

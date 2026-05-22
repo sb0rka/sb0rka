@@ -21,6 +21,7 @@ export default {
         destructive: {
           DEFAULT: "var(--destructive)",
           foreground: "var(--destructive-foreground)",
+          solid: "var(--destructive-solid-foreground)",
         },
         muted: {
           DEFAULT: "var(--muted)",

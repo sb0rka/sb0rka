@@ -184,7 +184,7 @@ export function ProjectSettings({
           </CardHeader>
           <CardFooter className="flex flex-col items-start gap-2 pt-6">
             <Button
-              variant="destructive"
+              variant="delete"
               type="button"
               onClick={() => void handleDeleteProject()}
               disabled={deactivateProject.isPending}
