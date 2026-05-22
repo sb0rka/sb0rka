@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultPlatformDatabaseURI     = "postgres://postgres:postgres@localhost:5432/platform"
+	defaultDatabaseURI     = "postgres://postgres:postgres@localhost:5432/platform"
 	defaultDatabaseMaxConns        = 10
 	defaultDatabaseConnMaxLifetime = 30 * time.Second
 	defaultGCInterval              = 5 * time.Second
@@ -64,7 +64,7 @@ func getDurationEnv(key string, fallback time.Duration) time.Duration {
 }
 
 type Config struct {
-	PlatformDatabaseURI     string
+	DatabaseURI     string
 	DatabaseMaxConns        int
 	DatabaseConnMaxLifetime time.Duration
 	GCInterval              time.Duration
@@ -72,7 +72,7 @@ type Config struct {
 
 func loadConfig() Config {
 	return Config{
-		PlatformDatabaseURI:     getStringEnv("PLATFORM_DATABASE_URI", defaultPlatformDatabaseURI),
+		DatabaseURI:     getStringEnv("DATABASE_URI", defaultDatabaseURI),
 		DatabaseMaxConns:        getIntEnv("DATABASE_MAX_OPEN_CONNS", defaultDatabaseMaxConns),
 		DatabaseConnMaxLifetime: getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", defaultDatabaseConnMaxLifetime),
 		GCInterval:              getDurationEnv("GC_INTERVAL_SEC", defaultGCInterval),
@@ -211,7 +211,7 @@ func gcCMD(args []string) error {
 	}
 
 	db, err := CreateDatabase(
-		cfg.PlatformDatabaseURI,
+		cfg.DatabaseURI,
 		cfg.DatabaseMaxConns,
 		cfg.DatabaseConnMaxLifetime,
 	)

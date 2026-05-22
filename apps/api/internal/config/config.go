@@ -17,7 +17,7 @@ const (
 	DefaultLoggerLevel  = "info"
 	DefaultLoggerFormat = "text"
 
-	DefaultPlatformDatabasePsqlURI = "postgres://postgres:postgres@localhost:5432/platform"
+	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/platform"
 	DefaultDatabaseMaxConns        = 10
 	DefaultDatabaseConnMaxLifetime = 30 * time.Second
 
@@ -101,7 +101,7 @@ func Load() (*Config, error) {
 	logLevelEnv := getStringEnv("LOG_LEVEL", DefaultLoggerLevel)
 	logFormatEnv := getStringEnv("LOG_FORMAT", DefaultLoggerFormat)
 
-	platformDatabaseURIEnv := getStringEnv("PLATFORM_DATABASE_URI", DefaultPlatformDatabasePsqlURI)
+	databaseURIEnv := getStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
 	databaseMaxConns := getIntEnv("DATABASE_MAX_OPEN_CONNS", DefaultDatabaseMaxConns)
 	databaseConnMaxLifetime := getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", DefaultDatabaseConnMaxLifetime)
@@ -202,7 +202,7 @@ func Load() (*Config, error) {
 			Format: logFormatEnv,
 		},
 		PlatformDatabase: DatabaseConfig{
-			URI:             platformDatabaseURIEnv,
+			URI:             databaseURIEnv,
 			MaxConns:        databaseMaxConns,
 			ConnMaxLifetime: databaseConnMaxLifetime,
 		},

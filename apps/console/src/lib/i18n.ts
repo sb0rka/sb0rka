@@ -164,7 +164,7 @@ const resources = {
         inactive: "Неактивен",
         cardOnline: "Онлайн",
         cardOffline: "Не в сети",
-        cardConnect: "Подключиться",
+        cardConnect: "Открыть",
         dbCount_zero: "{{count}} баз данных",
         dbCount_one: "{{count}} база данных",
         dbCount_few: "{{count}} базы данных",

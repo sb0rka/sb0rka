@@ -28,7 +28,7 @@ function AlphaToast({
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       className={cn(
-        "flex items-center justify-between gap-0 overflow-hidden rounded-lg border border-[var(--alpha-toast-border)] bg-[var(--alpha-toast-bg)] p-4 shadow-lg",
+        "flex gap-[6px] items-center justify-between overflow-hidden rounded-lg border border-[var(--alpha-toast-border)] bg-[var(--alpha-toast-bg)] p-4 shadow-lg",
         className
       )}
       {...props}

@@ -142,16 +142,6 @@ export function ProjectSettings({
       </h2>
 
       <div className="flex flex-col gap-6">
-        <Card className="overflow-hidden shadow-sm">
-          <CardHeader className="gap-1.5">
-            <CardTitle className={cardTitleClass}>{projectName}</CardTitle>
-            <CardDescription className="text-sm leading-5">
-              {t("projects.settings.createdAt", {
-                date: formatCreatedAt(createdAt, locale),
-              })}
-            </CardDescription>
-          </CardHeader>
-        </Card>
 
         <Card className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5">

@@ -102,7 +102,7 @@ export function AppLayout() {
       {isProjectOpen && <ProjectSidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Header breadcrumbs={breadcrumbs} />
-        <main className="flex-1 overflow-auto bg-background p-6">
+        <main className="flex flex-1 flex-col overflow-auto bg-background p-6">
           <Outlet />
         </main>
       </div>

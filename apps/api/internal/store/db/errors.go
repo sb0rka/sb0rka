@@ -28,7 +28,7 @@ var (
 	ErrSecretVersionAlreadyDisabled        = errors.New("secret version already disabled")
 	ErrCannotDisableCurrentSecretVersion   = errors.New("cannot disable current secret version")
 	ErrSecretVersionReferencedByDBVerifier = errors.New("secret version referenced by db verifier")
-	ErrDBPasswordVerifierNotUpdated          = errors.New("database password verifier not updated")
+	ErrDBPasswordVerifierNotUpdated        = errors.New("database password verifier not updated")
 
 	ErrSubjectNotFound       = errors.New("subject not found")
 	ErrSubjectKindMismatch   = errors.New("subject kind mismatch")
