@@ -96,8 +96,10 @@ func (e *Executor) Query(ctx context.Context, uri string, sql string) (QueryResp
 
 	for rows.Next() {
 		if len(response.Rows) >= e.MaxRows {
-			response.Truncated = true
-			break
+			if err := discardRemainingRows(rows); err != nil {
+				return QueryResponse{}, NewStatusError(http.StatusBadGateway, "Failed to read query row", err)
+			}
+			return QueryResponse{}, rowLimitError(e.MaxRows)
 		}
 
 		values, err := rows.Values()
@@ -128,6 +130,11 @@ func (e *Executor) Query(ctx context.Context, uri string, sql string) (QueryResp
 	if err := rows.Err(); err != nil {
 		return QueryResponse{}, queryError(err)
 	}
+	if response.Truncated {
+		if err := discardRemainingRows(rows); err != nil {
+			return QueryResponse{}, NewStatusError(http.StatusBadGateway, "Failed to read query row", err)
+		}
+	}
 	if e.DangerAllowAllQueries {
 		if err := tx.Commit(queryCtx); err != nil {
 			return QueryResponse{}, NewStatusError(http.StatusBadGateway, "Failed to commit query transaction", err)
@@ -147,6 +154,23 @@ func (e *Executor) validateSQL(sql string) error {
 		return nil
 	}
 	return ValidateSQL(sql)
+}
+
+func rowLimitError(maxRows int) error {
+	return NewStatusError(
+		http.StatusRequestEntityTooLarge,
+		fmt.Sprintf("Query result exceeds row limit (max %d rows)", maxRows),
+		nil,
+	)
+}
+
+func discardRemainingRows(rows pgx.Rows) error {
+	for rows.Next() {
+		if _, err := rows.Values(); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
 func queryError(err error) error {

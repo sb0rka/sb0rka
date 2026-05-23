@@ -1,6 +1,6 @@
-# proxy-sql
+# proxy-ql-executor
 
-Proxy SQL requests to the Platform API.
+Proxy QL Executor requests to database.
 
 ## Safety Invariant
 

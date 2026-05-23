@@ -1,4 +1,4 @@
-module github.com/sb0rka/sb0rka/apps/proxy-sql
+module github.com/sb0rka/sb0rka/apps/proxy-ql-executor
 
 require github.com/jackc/pgx/v5 v5.7.6
 
