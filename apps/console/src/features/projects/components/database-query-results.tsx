@@ -20,9 +20,9 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
   const { t } = useTranslation()
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
 
-  function renderResultTable(maxHeightClassName: string) {
+  function renderResultTable(heightClassName: string) {
     return (
-      <div className={`${maxHeightClassName} overflow-auto rounded-md border border-border`}>
+      <div className={`${heightClassName} overflow-auto rounded-md border border-border`}>
         <table className="w-full min-w-max text-left text-sm">
           <thead className="sticky top-0 bg-card text-muted-foreground">
             <tr>
@@ -59,8 +59,8 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>{t("databaseQuery.rowCount", { count: result.row_count })}</span>
           <span>{t("databaseQuery.duration", { duration: result.duration_ms })}</span>
@@ -76,11 +76,13 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
       </div>
 
       {result.rows.length === 0 ? (
-        <p className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
+        <p className="shrink-0 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
           {t("databaseQuery.empty")}
         </p>
       ) : (
-        renderResultTable("max-h-[min(560px,60vh)]")
+        <div className="min-h-0 flex-1">
+          {renderResultTable("h-full")}
+        </div>
       )}
 
       <Dialog open={isFullscreenOpen} onOpenChange={setIsFullscreenOpen}>
