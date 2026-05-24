@@ -22,12 +22,15 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
 
   function renderResultTable(heightClassName: string) {
     return (
-      <div className={`${heightClassName} overflow-auto rounded-md border border-border`}>
+      <div className={`${heightClassName} overflow-auto rounded-md border border-border/80 bg-background`}>
         <table className="w-full min-w-max text-left text-sm">
-          <thead className="sticky top-0 bg-card text-muted-foreground">
+          <thead className="sticky top-0 z-10 border-b border-border/90 bg-card/95 text-muted-foreground backdrop-blur">
             <tr>
               {result.columns.map((column) => (
-                <th key={column} className="border-b border-border px-3 py-2 font-medium">
+                <th
+                  key={column}
+                  className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
                   {column}
                 </th>
               ))}
@@ -37,14 +40,14 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
             {result.rows.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
-                className={`border-b border-border last:border-b-0 ${
-                  rowIndex % 2 === 0 ? "bg-background" : "bg-secondary"
+                className={`border-b border-border/70 transition-colors last:border-b-0 hover:bg-accent/40 ${
+                  rowIndex % 2 === 0 ? "bg-background" : "bg-secondary/50"
                 }`}
               >
                 {result.columns.map((column, columnIndex) => (
                   <td
                     key={`${rowIndex}-${column}`}
-                    className="max-w-[280px] truncate px-3 py-2 font-mono text-xs"
+                    className="max-w-[320px] truncate px-3 py-2.5 font-mono text-sm leading-6 text-foreground/95 tabular-nums"
                     title={formatQueryCellValue(row[columnIndex])}
                   >
                     {formatQueryCellValue(row[columnIndex])}
