@@ -1,14 +1,17 @@
 import { useCallback, useLayoutEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ChevronRight, Loader2 } from "lucide-react"
+import { ChevronRight, Loader2, Wifi, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DataExplorerDatabaseNode } from "../hooks"
+import { useDataExplorerDatabaseHealth } from "../hooks"
+
 
 export interface DataExplorerSchemaTreeProps {
   nodes: DataExplorerDatabaseNode[]
   selectedResourceId: string | null
   onSelectDatabase: (resourceId: string) => void
   isSchemaRefetching?: boolean
+  projectId: string
 }
 
 /** resource_id → tree expanded (independent of selection) */
@@ -16,6 +19,7 @@ type DatabaseExpandedMap = Record<string, boolean>
 
 /** resource_id → tableKey → expanded (missing key → default from table count) */
 type ExpandedTablesMap = Record<string, Record<string, boolean>>
+type DatabaseConnectionState = "initialLoading" | "connected" | "notConnected"
 
 function isTableExpanded(
   map: ExpandedTablesMap,
@@ -33,10 +37,84 @@ export function DataExplorerSchemaTree({
   selectedResourceId,
   onSelectDatabase,
   isSchemaRefetching = false,
+  projectId,
 }: DataExplorerSchemaTreeProps) {
   const { t } = useTranslation()
   const [databaseExpanded, setDatabaseExpanded] = useState<DatabaseExpandedMap>({})
   const [expandedTables, setExpandedTables] = useState<ExpandedTablesMap>({})
+
+  const healthQuery = useDataExplorerDatabaseHealth(projectId)
+
+
+  const healthByResourceId = new Map(
+    (healthQuery.data ?? []).map((item) => [item.database.resource_id, item]),
+  )
+
+  const getDatabaseConnectionState = (
+    resourceId: string,
+  ): {
+    state: DatabaseConnectionState
+    isRefetching: boolean
+  } => {
+    const health = healthByResourceId.get(resourceId)
+    if (!health && healthQuery.isLoading) {
+      return {
+        state: "initialLoading",
+        isRefetching: false,
+      }
+    }
+
+    return {
+      state: health?.status === "healthy" ? "connected" : "notConnected",
+      isRefetching: healthQuery.isRefetching || health?.status === "checking",
+    }
+  }
+
+  const renderDatabaseConnectionIcon = (
+    state: DatabaseConnectionState,
+    isRefetching: boolean,
+    title?: string,
+  ) => {
+    if (state === "initialLoading") {
+      return (
+        <span
+          className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
+          aria-label="Checking connection"
+          title="Checking connection"
+        >
+          <Loader2 className="size-3.5 animate-spin" />
+        </span>
+      )
+    }
+
+    if (state === "connected") {
+      return (
+        <span
+          className={cn(
+            "flex size-4 shrink-0 items-center justify-center text-emerald-500",
+            isRefetching && "animate-pulse",
+          )}
+          aria-label={isRefetching ? "Refreshing connection status" : "Connected"}
+          title={isRefetching ? "Refreshing connection status" : "Connected"}
+        >
+          <Wifi className="size-3.5" />
+        </span>
+      )
+    }
+
+    return (
+      <span
+        className={cn(
+          "flex size-4 shrink-0 items-center justify-center text-destructive",
+          isRefetching && "animate-pulse",
+        )}
+        aria-label={isRefetching ? "Refreshing connection status" : "Not connected"}
+        title={isRefetching ? "Refreshing connection status" : (title ?? "Not connected")}
+      >
+        <WifiOff className="size-3.5" />
+      </span>
+    )
+  }
 
   useLayoutEffect(() => {
     if (!selectedResourceId) return
@@ -90,6 +168,9 @@ export function DataExplorerSchemaTree({
             const isSelected = selectedResourceId === database.resource_id
             const tableCount = tables.length
             const dbOpen = databaseExpanded[database.resource_id] ?? false
+            const health = healthByResourceId.get(database.resource_id)
+            const { state: connectionState, isRefetching: isConnectionRefetching } =
+              getDatabaseConnectionState(database.resource_id)
 
             return (
               <li key={database.resource_id}>
@@ -130,6 +211,11 @@ export function DataExplorerSchemaTree({
                   >
                     {database.name}
                   </button>
+                  {renderDatabaseConnectionIcon(
+                    connectionState,
+                    isConnectionRefetching,
+                    health?.errorMessage,
+                  )}
                 </div>
 
                 {dbOpen ? (
