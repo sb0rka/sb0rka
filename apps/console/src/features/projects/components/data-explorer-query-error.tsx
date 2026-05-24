@@ -31,7 +31,7 @@ export function DataExplorerQueryError({
       role="alert"
       aria-labelledby={titleId}
       className={cn(
-        "flex flex-col gap-4 rounded-lg border border-destructive/25 bg-destructive/5 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4",
+        "flex flex-col items-start gap-4 rounded-lg border border-destructive/25 bg-destructive/5 p-4",
         className,
       )}
     >
@@ -52,7 +52,7 @@ export function DataExplorerQueryError({
       <Button
         type="button"
         variant="secondary"
-        className="shrink-0 self-stretch sm:self-center"
+        className="shrink-0 min-w-[150px] self-end"
         disabled={fixDisabled || fixPending}
         onClick={onFix}
       >
