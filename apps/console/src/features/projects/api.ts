@@ -421,6 +421,17 @@ export const OPENAI_FALLBACK_MODELS = Object.freeze([
   "google/gemini-2.0-flash-001",
 ])
 
+export type OpenAiModelPricing = {
+  prompt: string
+  completion: string
+  input_cache_read?: string
+}
+
+export type OpenAiModelInfo = {
+  id: string
+  pricing?: OpenAiModelPricing
+}
+
 type OpenAiResponseJson = Record<string, unknown>
 
 export interface OpenAiGenerateSqlRequest {
@@ -535,11 +546,25 @@ function parseModelList(raw: string): string[] {
     .filter(Boolean)
 }
 
-function dedupeModels(models: string[]): string[] {
+function dedupeModelIds(models: string[]): string[] {
   return [...new Set(models.map((model) => model.trim()).filter(Boolean))]
 }
 
-function parseModelsFromOpenAiUrl(openaiUrl: string): string[] {
+function dedupeModelInfos(models: OpenAiModelInfo[]): OpenAiModelInfo[] {
+  const seen = new Map<string, OpenAiModelInfo>()
+  for (const model of models) {
+    const id = model.id.trim()
+    if (!id || seen.has(id)) continue
+    seen.set(id, model)
+  }
+  return [...seen.values()]
+}
+
+function toModelInfoList(modelIds: readonly string[]): OpenAiModelInfo[] {
+  return dedupeModelIds([...modelIds]).map((id) => ({ id }))
+}
+
+function parseModelsFromOpenAiUrl(openaiUrl: string): OpenAiModelInfo[] {
   try {
     const url = new URL(openaiUrl.trim())
     const explicitModels = [
@@ -549,27 +574,41 @@ function parseModelsFromOpenAiUrl(openaiUrl: string): string[] {
         ? [decodeURIComponent(url.hash.replace(/^#models=/, ""))]
         : []),
     ]
-    return dedupeModels(explicitModels.flatMap(parseModelList))
+    return toModelInfoList(dedupeModelIds(explicitModels.flatMap(parseModelList)))
   } catch {
     return []
   }
 }
 
-function extractModelIdsFromResponse(payload: unknown): string[] {
-  if (!isObject(payload) || !Array.isArray(payload.data)) return []
-  const models: string[] = []
-  for (const item of payload.data) {
-    if (isObject(item) && typeof item.id === "string" && item.id.trim()) {
-      models.push(item.id.trim())
-    }
+function parseModelPricing(value: unknown): OpenAiModelPricing | undefined {
+  if (!isObject(value)) return undefined
+  const prompt = value.prompt
+  const completion = value.completion
+  if (typeof prompt !== "string" || typeof completion !== "string") return undefined
+  const pricing: OpenAiModelPricing = { prompt, completion }
+  if (typeof value.input_cache_read === "string") {
+    pricing.input_cache_read = value.input_cache_read
   }
-  return dedupeModels(models)
+  return pricing
+}
+
+function extractModelsFromResponse(payload: unknown): OpenAiModelInfo[] {
+  if (!isObject(payload) || !Array.isArray(payload.data)) return []
+  const models: OpenAiModelInfo[] = []
+  for (const item of payload.data) {
+    if (!isObject(item) || typeof item.id !== "string" || !item.id.trim()) continue
+    const info: OpenAiModelInfo = { id: item.id.trim() }
+    const pricing = parseModelPricing(item.pricing)
+    if (pricing) info.pricing = pricing
+    models.push(info)
+  }
+  return dedupeModelInfos(models)
 }
 
 export async function listAvailableOpenAiModels(opts: {
   openaiUrl: string
   openaiKey: string
-}): Promise<string[]> {
+}): Promise<OpenAiModelInfo[]> {
   const fromUrl = parseModelsFromOpenAiUrl(opts.openaiUrl)
   if (fromUrl.length > 0) {
     return fromUrl
@@ -577,7 +616,7 @@ export async function listAvailableOpenAiModels(opts: {
 
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
-    return [...OPENAI_FALLBACK_MODELS]
+    return toModelInfoList(OPENAI_FALLBACK_MODELS)
   }
 
   const modelsUrl = `${normalizeOpenAiBaseUrl(opts.openaiUrl)}/models`
@@ -589,13 +628,13 @@ export async function listAvailableOpenAiModels(opts: {
       },
     })
     if (!res.ok) {
-      return [...OPENAI_FALLBACK_MODELS]
+      return toModelInfoList(OPENAI_FALLBACK_MODELS)
     }
     const payload = (await res.json()) as unknown
-    const models = extractModelIdsFromResponse(payload)
-    return models.length > 0 ? models : [...OPENAI_FALLBACK_MODELS]
+    const models = extractModelsFromResponse(payload)
+    return models.length > 0 ? models : toModelInfoList(OPENAI_FALLBACK_MODELS)
   } catch {
-    return [...OPENAI_FALLBACK_MODELS]
+    return toModelInfoList(OPENAI_FALLBACK_MODELS)
   }
 }
 
