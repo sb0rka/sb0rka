@@ -84,6 +84,10 @@ export function DataExplorerPage() {
     if (!selectedResourceId) return ""
     return buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)
   }, [nodes, selectedResourceId])
+  const selectedName = useMemo(() => {
+    if (!selectedResourceId) return ""
+    return nodes.find((node) => node.database.resource_id === selectedResourceId)?.database.name ?? ""
+  }, [nodes, selectedResourceId])
   const hasRequiredAiSecretNames = useMemo(() => {
     const required = new Set(["openaiurl", "openaikey"])
     const names = new Set(
@@ -175,11 +179,6 @@ export function DataExplorerPage() {
 
   return (
     <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-4 overflow-hidden">
-      {/* <div className="shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("dataExplorer.queryTitle", { databaseName: selectedName })}
-        </h1>
-      </div> */}
 
       <div className="flex min-h-0 min-w-0 flex-1 gap-0 overflow-hidden rounded-xl border border-border/70 bg-card">
         <DataExplorerSchemaTree
@@ -223,7 +222,13 @@ export function DataExplorerPage() {
                   {getErrorMessage(schemaQuery.error, t("dataExplorer.schemaError"))}
                 </p>
               ) : null}
-              <div className="grid shrink-0 gap-2">
+              <div className="grid shrink-0 gap-4">
+                <div className="flex items-center gap-1">
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <p className="text-lg font-medium text-foreground">
+                    {selectedName || "—"}
+                  </p>
+                </div>
                 <Textarea
                   id="data-explorer-sql"
                   value={sql}
