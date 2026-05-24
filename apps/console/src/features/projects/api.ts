@@ -412,7 +412,14 @@ export async function listTableColumns(
   })
 }
 
-const OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
+export const OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
+export const OPENAI_FALLBACK_MODELS = Object.freeze([
+  OPENAI_DEFAULT_MODEL,
+  "openai/gpt-4o-mini",
+  "openai/gpt-4.1-mini",
+  "anthropic/claude-3.5-sonnet",
+  "google/gemini-2.0-flash-001",
+])
 
 type OpenAiResponseJson = Record<string, unknown>
 
@@ -421,6 +428,7 @@ export interface OpenAiGenerateSqlRequest {
   openaiKey: string
   schema: string
   humanQuery: string
+  model?: string
 }
 
 export interface OpenAiGenerateSqlResponse {
@@ -434,6 +442,7 @@ export interface OpenAiExplainSqlRequest {
   dialect?: string
   sql: string
   style?: string
+  model?: string
 }
 
 export interface OpenAiExplainSqlResponse {
@@ -447,6 +456,7 @@ export interface OpenAiFixSqlRequest {
   dialect?: string
   sql: string
   errorMessage: string
+  model?: string
 }
 
 export interface OpenAiFixSqlResponse {
@@ -461,6 +471,7 @@ export interface OpenAiReviewSqlCorrectnessRequest {
   humanQuery: string
   sql: string
   dialect?: string
+  model?: string
 }
 
 export interface OpenAiReviewSqlCorrectnessResponse {
@@ -476,6 +487,7 @@ export interface OpenAiReviewSqlOptimalityRequest {
   humanQuery: string
   sql: string
   dialect?: string
+  model?: string
 }
 
 export interface OpenAiReviewSqlOptimalityResponse {
@@ -492,6 +504,7 @@ export interface OpenAiResolveOptimalSqlRequest {
   correctSql: string
   alternativeSql: string
   dialect?: string
+  model?: string
 }
 
 export interface OpenAiResolveOptimalSqlResponse {
@@ -508,6 +521,82 @@ function normalizeOpenAiCompletionsUrl(openaiUrl: string): string {
     return trimmed
   }
   return `${trimmed}/chat/completions`
+}
+
+function normalizeOpenAiBaseUrl(openaiUrl: string): string {
+  const completionsUrl = normalizeOpenAiCompletionsUrl(openaiUrl)
+  return completionsUrl.replace(/\/chat\/completions$/i, "")
+}
+
+function parseModelList(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function dedupeModels(models: string[]): string[] {
+  return [...new Set(models.map((model) => model.trim()).filter(Boolean))]
+}
+
+function parseModelsFromOpenAiUrl(openaiUrl: string): string[] {
+  try {
+    const url = new URL(openaiUrl.trim())
+    const explicitModels = [
+      ...url.searchParams.getAll("model"),
+      ...url.searchParams.getAll("models"),
+      ...(url.hash.startsWith("#models=")
+        ? [decodeURIComponent(url.hash.replace(/^#models=/, ""))]
+        : []),
+    ]
+    return dedupeModels(explicitModels.flatMap(parseModelList))
+  } catch {
+    return []
+  }
+}
+
+function extractModelIdsFromResponse(payload: unknown): string[] {
+  if (!isObject(payload) || !Array.isArray(payload.data)) return []
+  const models: string[] = []
+  for (const item of payload.data) {
+    if (isObject(item) && typeof item.id === "string" && item.id.trim()) {
+      models.push(item.id.trim())
+    }
+  }
+  return dedupeModels(models)
+}
+
+export async function listAvailableOpenAiModels(opts: {
+  openaiUrl: string
+  openaiKey: string
+}): Promise<string[]> {
+  const fromUrl = parseModelsFromOpenAiUrl(opts.openaiUrl)
+  if (fromUrl.length > 0) {
+    return fromUrl
+  }
+
+  const openaiKey = opts.openaiKey.trim()
+  if (!openaiKey) {
+    return [...OPENAI_FALLBACK_MODELS]
+  }
+
+  const modelsUrl = `${normalizeOpenAiBaseUrl(opts.openaiUrl)}/models`
+  try {
+    const res = await fetch(modelsUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+      },
+    })
+    if (!res.ok) {
+      return [...OPENAI_FALLBACK_MODELS]
+    }
+    const payload = (await res.json()) as unknown
+    const models = extractModelIdsFromResponse(payload)
+    return models.length > 0 ? models : [...OPENAI_FALLBACK_MODELS]
+  } catch {
+    return [...OPENAI_FALLBACK_MODELS]
+  }
 }
 
 function extractAssistantMessage(payload: unknown): string {
@@ -605,6 +694,7 @@ async function requestOpenAiAssistantText(opts: {
   openaiUrl: string
   openaiKey: string
   prompt: string
+  model?: string
 }): Promise<string> {
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
@@ -619,7 +709,7 @@ async function requestOpenAiAssistantText(opts: {
       Authorization: `Bearer ${openaiKey}`,
     },
     body: JSON.stringify({
-      model: OPENAI_DEFAULT_MODEL,
+      model: opts.model?.trim() || OPENAI_DEFAULT_MODEL,
       temperature: 0,
       messages: [
         {
@@ -772,6 +862,7 @@ export async function generateSqlWithOpenAi(
   const assistantText = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
+    model: data.model,
     prompt: buildGeneratePrompt(data.schema, data.humanQuery),
   })
 
@@ -795,6 +886,7 @@ export async function explainSqlWithOpenAi(
   const assistantText = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
+    model: data.model,
     prompt: buildExplainPrompt({
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
@@ -818,6 +910,7 @@ export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenA
   const assistantText = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
+    model: data.model,
     prompt: buildFixPrompt({
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
@@ -849,6 +942,7 @@ export async function reviewSqlCorrectness(
   const assistantText = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
+    model: data.model,
     prompt: buildCorrectnessReviewPrompt({
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
@@ -873,6 +967,7 @@ export async function reviewSqlOptimality(
   const assistantText = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
+    model: data.model,
     prompt: buildOptimalityReviewPrompt({
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
@@ -897,6 +992,7 @@ export async function resolveOptimalSql(
   const assistantText = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
+    model: data.model,
     prompt: buildResolveOptimalSqlPrompt({
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
