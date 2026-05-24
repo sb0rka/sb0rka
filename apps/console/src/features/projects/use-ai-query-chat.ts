@@ -11,7 +11,28 @@ import {
 import { EXPLAIN_STYLE_NONE_SENTINEL, explainStylePrompt } from "./explain-styles"
 
 const DEFAULT_LAST_GENERATE_STYLE = explainStylePrompt("none")
-const MAX_CORRECTION_PASSES = 3
+
+export type AiReasoningLevel = "low" | "medium" | "high"
+
+type AiReasoningPolicy = {
+  maxCorrectnessPasses: number
+  runFurtherSteps: boolean
+}
+
+function resolveReasoningPolicy(level: AiReasoningLevel): AiReasoningPolicy {
+  switch (level) {
+    case "low":
+      return { maxCorrectnessPasses: 0, runFurtherSteps: false }
+    case "medium":
+      return { maxCorrectnessPasses: 2, runFurtherSteps: false }
+    case "high":
+      return { maxCorrectnessPasses: 3, runFurtherSteps: true }
+    default: {
+      const _x: never = level
+      return _x
+    }
+  }
+}
 
 export type AiQueryChatUserTextMessage = {
   role: "user"
@@ -116,6 +137,8 @@ export type UseAiQueryChatOptions = {
   dialect?: string
   openaiUrl?: string
   openaiKey?: string
+  selectedModel?: string
+  reasoningLevel?: AiReasoningLevel
 }
 
 export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
@@ -123,13 +146,19 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   const dialect = opts?.dialect ?? "postgresql"
   const openaiUrl = opts?.openaiUrl?.trim() ?? ""
   const openaiKey = opts?.openaiKey?.trim() ?? ""
+  const selectedModel = opts?.selectedModel?.trim() ?? ""
+  const reasoningLevel = opts?.reasoningLevel ?? "low"
+  const reasoningPolicy = resolveReasoningPolicy(reasoningLevel)
 
   const [messages, setMessages] = useState<AiQueryChatMessage[]>([])
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lastGenerateStyle, setLastGenerateStyle] = useState(DEFAULT_LAST_GENERATE_STYLE)
+  const [lastGenerateStyle, setLastGenerateStyleState] = useState(DEFAULT_LAST_GENERATE_STYLE)
 
   const clearError = useCallback(() => setError(null), [])
+  const setLastGenerateStyle = useCallback((style: string) => {
+    setLastGenerateStyleState(style)
+  }, [])
 
   const assertOpenAiConfig = useCallback(() => {
     if (!openaiUrl || !openaiKey) {
@@ -147,19 +176,20 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     const res = await explainSqlWithOpenAi({
       openaiUrl: url,
       openaiKey: key,
+      model: selectedModel || undefined,
       sql: args.sql,
       style: args.style,
       schema,
       dialect,
     })
     return res.explanation
-  }, [assertOpenAiConfig, schema, dialect])
+  }, [assertOpenAiConfig, selectedModel, schema, dialect])
 
   const reset = useCallback(() => {
     setMessages([])
     setError(null)
     setIsPending(false)
-    setLastGenerateStyle(DEFAULT_LAST_GENERATE_STYLE)
+    setLastGenerateStyleState(DEFAULT_LAST_GENERATE_STYLE)
   }, [])
 
   const sendMessage = useCallback(async (payload: AiQueryChatSendPayload) => {
@@ -180,6 +210,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         const res = await fixSqlWithOpenAi({
           openaiUrl: url,
           openaiKey: key,
+          model: selectedModel || undefined,
           sql: sqlTrim,
           errorMessage: errTrim,
           schema: payload.schema ?? schema,
@@ -219,6 +250,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             : await explainSqlWithOpenAi({
                 openaiUrl: url,
                 openaiKey: key,
+                model: selectedModel || undefined,
                 sql: trimmed,
                 style,
                 schema,
@@ -243,6 +275,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         const sqlRes = await generateSqlWithOpenAi({
           openaiUrl: url,
           openaiKey: key,
+          model: selectedModel || undefined,
           humanQuery: trimmed,
           schema: generationSchema,
         })
@@ -250,71 +283,78 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         let isSqlMarkedCorrect = false
         const reviewNotices: string[] = []
 
-        for (let attempt = 0; attempt < MAX_CORRECTION_PASSES; attempt++) {
-          let review
+        if (reasoningPolicy.maxCorrectnessPasses > 0) {
+          for (let attempt = 0; attempt < reasoningPolicy.maxCorrectnessPasses; attempt++) {
+            let review
+            try {
+              review = await reviewSqlCorrectness({
+                openaiUrl: url,
+                openaiKey: key,
+                model: selectedModel || undefined,
+                schema: generationSchema,
+                dialect: generationDialect,
+                humanQuery: trimmed,
+                sql: currentSql,
+              })
+            } catch {
+              reviewNotices.push("AI correctness review failed. Using latest SQL candidate.")
+              break
+            }
+
+            if (review.status === "correct") {
+              isSqlMarkedCorrect = true
+              reviewNotices.push("AI correctness review passed. Using latest SQL candidate.")
+              break
+            }
+
+            if (!review.sql) {
+              reviewNotices.push("AI review returned `rewrite` without SQL. Using latest SQL candidate.")
+              break
+            }
+            currentSql = review.sql
+          }
+
+          if (!isSqlMarkedCorrect) {
+            reviewNotices.push(
+              `AI could not confirm correctness within ${reasoningPolicy.maxCorrectnessPasses} passes. Review before running.`,
+            )
+          }
+        }
+        console.log("notices", reviewNotices)
+        let finalSql = currentSql
+        if (reasoningPolicy.runFurtherSteps) {
           try {
-            review = await reviewSqlCorrectness({
+            const optimalityReview = await reviewSqlOptimality({
               openaiUrl: url,
               openaiKey: key,
+              model: selectedModel || undefined,
               schema: generationSchema,
               dialect: generationDialect,
               humanQuery: trimmed,
               sql: currentSql,
             })
-          } catch {
-            reviewNotices.push("AI correctness review failed. Using latest SQL candidate.")
-            break
-          }
 
-          if (review.status === "correct") {
-            isSqlMarkedCorrect = true
-            reviewNotices.push("AI correctness review passed. Using latest SQL candidate.")
-            break
-          }
-
-          if (!review.sql) {
-            reviewNotices.push("AI review returned `rewrite` without SQL. Using latest SQL candidate.")
-            break
-          }
-          currentSql = review.sql
-        }
-
-        if (!isSqlMarkedCorrect) {
-          reviewNotices.push(
-            `AI could not confirm correctness within ${MAX_CORRECTION_PASSES} passes. Review before running.`,
-          )
-        }
-        console.log("notices", reviewNotices)
-        let finalSql = currentSql
-        try {
-          const optimalityReview = await reviewSqlOptimality({
-            openaiUrl: url,
-            openaiKey: key,
-            schema: generationSchema,
-            dialect: generationDialect,
-            humanQuery: trimmed,
-            sql: currentSql,
-          })
-
-          if (optimalityReview.status === "alternative" && optimalityReview.sql) {
-            try {
-              const resolved = await resolveOptimalSql({
-                openaiUrl: url,
-                openaiKey: key,
-                schema: generationSchema,
-                dialect: generationDialect,
-                humanQuery: trimmed,
-                correctSql: currentSql,
-                alternativeSql: optimalityReview.sql,
-              })
-              finalSql = resolved.sql
-            } catch {
-              finalSql = optimalityReview.sql
-              reviewNotices.push("AI optimality resolution failed. Using alternative SQL candidate.")
+            if (optimalityReview.status === "alternative" && optimalityReview.sql) {
+              try {
+                const resolved = await resolveOptimalSql({
+                  openaiUrl: url,
+                  openaiKey: key,
+                  model: selectedModel || undefined,
+                  schema: generationSchema,
+                  dialect: generationDialect,
+                  humanQuery: trimmed,
+                  correctSql: currentSql,
+                  alternativeSql: optimalityReview.sql,
+                })
+                finalSql = resolved.sql
+              } catch {
+                finalSql = optimalityReview.sql
+                reviewNotices.push("AI optimality resolution failed. Using alternative SQL candidate.")
+              }
             }
+          } catch {
+            reviewNotices.push("AI optimality review failed. Using current SQL candidate.")
           }
-        } catch {
-          reviewNotices.push("AI optimality review failed. Using current SQL candidate.")
         }
 
         const explanation = await generateExplanationForSql({
@@ -334,14 +374,14 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             fromGenerate: true,
           },
         ])
-        setLastGenerateStyle(explanationStyle)
+        setLastGenerateStyleState(explanationStyle)
       }
     } catch (e) {
       setError(errorMessage(e, "Request failed"))
     } finally {
       setIsPending(false)
     }
-  }, [schema, dialect, assertOpenAiConfig, generateExplanationForSql])
+  }, [schema, dialect, assertOpenAiConfig, generateExplanationForSql, selectedModel, reasoningPolicy.maxCorrectnessPasses, reasoningPolicy.runFurtherSteps])
 
   const refreshExplanationAt = useCallback(
     async (index: number, stylePrompt: string) => {
@@ -359,6 +399,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             : await explainSqlWithOpenAi({
                 openaiUrl: url,
                 openaiKey: key,
+                model: selectedModel || undefined,
                 sql: msg.sql,
                 style: trimmedStyle,
                 schema,
@@ -376,14 +417,14 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
           }
           return next
         })
-        setLastGenerateStyle(trimmedStyle)
+        setLastGenerateStyleState(trimmedStyle)
       } catch (e) {
         setError(errorMessage(e, "Request failed"))
       } finally {
         setIsPending(false)
       }
     },
-    [messages, schema, dialect, assertOpenAiConfig],
+    [messages, schema, dialect, assertOpenAiConfig, selectedModel],
   )
 
   return {
@@ -391,6 +432,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     isPending,
     error,
     lastGenerateStyle,
+    setLastGenerateStyle,
     sendMessage,
     refreshExplanationAt,
     reset,
