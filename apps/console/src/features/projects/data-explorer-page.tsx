@@ -7,7 +7,6 @@ import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  lastExplanationStyle,
   useAiQueryChat,
   useDatabases,
   useDataExplorerSchema,
@@ -267,24 +266,6 @@ export function DataExplorerPage() {
                 {result ? <DatabaseQueryResults result={result} /> : null}
               </div>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={
-                    !isAiAssistantAvailable || !selectedResourceId || isSqlEmpty || aiChat.isPending
-                  }
-                  onClick={() => {
-                    if (!isAiAssistantAvailable) return
-                    if (!aiPanelOpen) setAiPanelOpen(true)
-                    void aiChat.sendMessage({
-                      type: "explain",
-                      message: sql.trim(),
-                      style: lastExplanationStyle(aiChat.messages),
-                    })
-                  }}
-                >
-                  {aiChat.isPending ? t("dataExplorer.explaining") : t("dataExplorer.explain")}
-                </Button>
                 <Button
                   type="button"
                   disabled={isSqlEmpty || runQuery.isPending || !selectedResourceId}
