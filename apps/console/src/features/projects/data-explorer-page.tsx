@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  type AiReasoningLevel,
   useAiQueryChat,
   useDatabases,
   useDataExplorerSchema,
@@ -18,9 +19,38 @@ import { AiQueryChat } from "./components/ai-query-chat"
 import { DataExplorerQueryError } from "./components/data-explorer-query-error"
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
-import { revealSecretValue, type RunDatabaseQueryResponse, type SecretResponse } from "./api"
+import {
+  OPENAI_DEFAULT_MODEL,
+  listAvailableOpenAiModels,
+  revealSecretValue,
+  type RunDatabaseQueryResponse,
+  type SecretResponse,
+} from "./api"
 
 const MAX_SCHEMA_CHARS = 190_000
+const AI_REASONING_LEVEL_STORAGE_KEY = "sb0rka.console.aiReasoningLevel"
+const AI_SELECTED_MODEL_STORAGE_KEY = "sb0rka.console.aiSelectedModel"
+
+function parseAiReasoningLevel(value: string | null | undefined): AiReasoningLevel | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  if (normalized === "low" || normalized === "medium" || normalized === "high") {
+    return normalized
+  }
+  return null
+}
+
+function getStoredAiReasoningLevel(): AiReasoningLevel {
+  if (typeof window === "undefined") return "low"
+  return parseAiReasoningLevel(window.localStorage.getItem(AI_REASONING_LEVEL_STORAGE_KEY)) ?? "low"
+}
+
+function getStoredAiSelectedModel(): string {
+  if (typeof window === "undefined") return OPENAI_DEFAULT_MODEL
+  const raw = window.localStorage.getItem(AI_SELECTED_MODEL_STORAGE_KEY)
+  const normalized = raw?.trim() ?? ""
+  return normalized.length > 0 ? normalized : OPENAI_DEFAULT_MODEL
+}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
@@ -69,6 +99,10 @@ export function DataExplorerPage() {
   const [sql, setSql] = useState("select 1;")
   const [result, setResult] = useState<RunDatabaseQueryResponse | null>(null)
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [selectedAiModel, setSelectedAiModel] = useState(() => getStoredAiSelectedModel())
+  const [aiReasoningLevel, setAiReasoningLevel] = useState<AiReasoningLevel>(() =>
+    getStoredAiReasoningLevel(),
+  )
 
   const nodes = useMemo(() => {
     const databases = databasesQuery.data?.databases ?? []
@@ -129,11 +163,47 @@ export function DataExplorerPage() {
 
   const isAiAssistantAvailable = hasRequiredAiSecretNames && Boolean(aiConfigQuery.data)
 
+  const aiModelsQuery = useQuery({
+    queryKey: ["projects", id, "dataExplorer", "openaiModels", aiConfigQuery.data?.openaiUrl],
+    enabled: Boolean(aiConfigQuery.data?.openaiUrl && aiConfigQuery.data?.openaiKey),
+    staleTime: 1000 * 60 * 15,
+    queryFn: async () => {
+      const openaiUrl = aiConfigQuery.data?.openaiUrl ?? ""
+      const openaiKey = aiConfigQuery.data?.openaiKey ?? ""
+      return listAvailableOpenAiModels({ openaiUrl, openaiKey })
+    },
+  })
+
+  useEffect(() => {
+    const available = aiModelsQuery.data
+    if (!available || available.length === 0) return
+
+    setSelectedAiModel((current) => {
+      if (available.some((model) => model.id === current)) return current
+      return available[0]?.id ?? OPENAI_DEFAULT_MODEL
+    })
+  }, [aiModelsQuery.data])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.localStorage.setItem(AI_REASONING_LEVEL_STORAGE_KEY, aiReasoningLevel)
+  }, [aiReasoningLevel])
+
+  function handleAiModelSelect(model: string) {
+    setSelectedAiModel(model)
+    if (typeof window === "undefined") return
+    const normalized = model.trim()
+    if (!normalized) return
+    window.localStorage.setItem(AI_SELECTED_MODEL_STORAGE_KEY, normalized)
+  }
+
   const aiChat = useAiQueryChat({
     schema: nl2sqlSchema,
     dialect: "postgresql",
     openaiUrl: aiConfigQuery.data?.openaiUrl,
     openaiKey: aiConfigQuery.data?.openaiKey,
+    selectedModel: selectedAiModel,
+    reasoningLevel: aiReasoningLevel,
   })
   const wasAiAssistantAvailableRef = useRef(false)
 
@@ -248,7 +318,6 @@ export function DataExplorerPage() {
                   title={t("dataExplorer.queryFailedTitle")}
                   message={getErrorMessage(runQuery.error, t("databaseQuery.error"))}
                   fixLabel={t("dataExplorer.fix")}
-                  fixPendingLabel={t("dataExplorer.fixing")}
                   fixDisabled={!isAiAssistantAvailable || !selectedResourceId || isSqlEmpty}
                   fixPending={aiChat.isPending}
                   onFix={() => {
@@ -319,6 +388,13 @@ export function DataExplorerPage() {
                     ) : null}
                     <AiQueryChat
                       chat={aiChat}
+                      selectedModel={selectedAiModel}
+                      availableModels={aiModelsQuery.data ?? [{ id: OPENAI_DEFAULT_MODEL }]}
+                      modelsLoading={aiModelsQuery.isLoading}
+                      modelsError={aiModelsQuery.isError}
+                      onModelSelect={handleAiModelSelect}
+                      reasoningLevel={aiReasoningLevel}
+                      onReasoningLevelChange={setAiReasoningLevel}
                       schema={nl2sqlSchema || undefined}
                       dialect="postgresql"
                       onApplySql={(next) => {

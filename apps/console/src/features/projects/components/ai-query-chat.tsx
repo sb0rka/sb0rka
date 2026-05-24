@@ -1,12 +1,22 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Check, ClipboardPaste, Copy, Loader2, Play, Sparkles } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  ClipboardPaste,
+  Copy,
+  Loader2,
+  Play,
+  Sparkles,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -16,22 +26,51 @@ import {
   explainStylePrompt,
   type ExplainStyleKey,
 } from "../explain-styles"
-import { type AiQueryChatMessage, type AiQueryChatSendPayload } from "../use-ai-query-chat"
+import { type OpenAiModelInfo, type OpenAiModelPricing } from "../api"
+import {
+  type AiQueryChatMessage,
+  type AiQueryChatSendPayload,
+  type AiReasoningLevel,
+} from "../use-ai-query-chat"
+
+function toMicroDollarString(value: string): string {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return "-"
+  return `${(n * 1_000_000).toFixed(3)}u`
+}
+
+function pricingIndicator(pricing: OpenAiModelPricing | undefined): string {
+  if (!pricing) return "-"
+  const prompt = Number(pricing.prompt)
+  const completion = Number(pricing.completion)
+  if (!Number.isFinite(prompt) || !Number.isFinite(completion)) return "-"
+  return toMicroDollarString(String(prompt + completion))
+}
+
+function pricingHoverText(modelId: string, pricing: OpenAiModelPricing | undefined): string {
+  if (!pricing) return modelId
+  const lines = [
+    modelId,
+    "pricing:",
+    `  prompt: ${pricing.prompt}`,
+    `  completion: ${pricing.completion}`,
+  ]
+  if (pricing.input_cache_read) {
+    lines.push(`  input_cache_read: ${pricing.input_cache_read}`)
+  }
+  return lines.join("\n")
+}
 
 function explainStyleLabelEnglish(key: ExplainStyleKey): string {
   switch (key) {
     case "none":
-      return "none"
+      return "None"
+    case "detailed":
+      return "Detailed"
     case "short":
-      return "short"
-    case "breakdown":
-      return "breakdown"
+      return "Short"
     case "haiku":
-      return "haiku"
-    case "homer":
-      return "Homer"
-    case "russianBylina":
-      return "Русская былина"
+      return "Haiku"
     default: {
       const _x: never = key
       return _x
@@ -39,11 +78,14 @@ function explainStyleLabelEnglish(key: ExplainStyleKey): string {
   }
 }
 
+const EXPLANATION_STYLE_STORAGE_KEY = "ai-query-chat:explanation-style"
+
 export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
   isPending: boolean
   error: string | null
   lastGenerateStyle: string
+  setLastGenerateStyle: (style: string) => void
   sendMessage: (payload: AiQueryChatSendPayload) => Promise<void>
   refreshExplanationAt: (index: number, stylePrompt: string) => Promise<void>
   clearError: () => void
@@ -51,6 +93,13 @@ export type AiQueryChatController = {
 
 export type AiQueryChatProps = {
   chat: AiQueryChatController
+  availableModels: OpenAiModelInfo[]
+  selectedModel: string
+  reasoningLevel: AiReasoningLevel
+  modelsLoading?: boolean
+  modelsError?: boolean
+  onModelSelect?: (model: string) => void
+  onReasoningLevelChange?: (level: AiReasoningLevel) => void
   schema?: string
   dialect?: string
   onApplySql?: (sql: string) => void
@@ -63,6 +112,13 @@ export type AiQueryChatProps = {
 
 export function AiQueryChat({
   chat,
+  availableModels,
+  selectedModel,
+  reasoningLevel,
+  modelsLoading,
+  modelsError,
+  onModelSelect,
+  onReasoningLevelChange,
   schema,
   dialect,
   onApplySql,
@@ -76,18 +132,41 @@ export function AiQueryChat({
     isPending,
     error,
     lastGenerateStyle,
+    setLastGenerateStyle,
     sendMessage,
     refreshExplanationAt,
     clearError,
   } = chat
   const [input, setInput] = useState("")
+  const [modelFilter, setModelFilter] = useState("")
   const listRef = useRef<HTMLDivElement>(null)
+  const selectedExplanationStyleKey = explainStyleKeyFromPrompt(lastGenerateStyle)
+  const filteredModels = availableModels.filter((model) =>
+    model.id.toLowerCase().includes(modelFilter.trim().toLowerCase()),
+  )
 
   useLayoutEffect(() => {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [messages, isPending])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const stored = window.localStorage.getItem(EXPLANATION_STYLE_STORAGE_KEY)?.trim() ?? ""
+    if (!stored) return
+    const valid = EXPLAIN_STYLE_ORDER.find((key) => key === stored)
+    if (!valid) return
+    setLastGenerateStyle(explainStylePrompt(valid))
+  }, [setLastGenerateStyle])
+
+  function handleSelectExplanationStyle(key: ExplainStyleKey) {
+    const stylePrompt = explainStylePrompt(key)
+    setLastGenerateStyle(stylePrompt)
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(EXPLANATION_STYLE_STORAGE_KEY, key)
+    }
+  }
 
   async function handleCopySql(sql: string) {
     try {
@@ -110,6 +189,11 @@ export function AiQueryChat({
     })
     setInput("")
   }
+
+  const selectedReasoningLabel = t(
+    `dataExplorer.aiChatMenuReasoningLevel${reasoningLevel[0].toUpperCase()}${reasoningLevel.slice(1)}`,
+  )
+  const selectedExplanationLabel = explainStyleLabelEnglish(selectedExplanationStyleKey)
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
@@ -372,6 +456,130 @@ export function AiQueryChat({
           disabled={isPending}
           spellCheck
         />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-7 max-w-[min(100%,24rem)] gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+                aria-label={t("dataExplorer.aiChatMenuGroupModel")}
+              >
+                <span className="min-w-0 max-w-[18ch] truncate text-foreground">{selectedModel}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-[min(70vh,32rem)] w-72 overflow-y-auto">
+              <div className="space-y-1 p-1">
+                <Input
+                  value={modelFilter}
+                  onChange={(event) => setModelFilter(event.target.value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  placeholder={t("dataExplorer.aiChatMenuFilterModels")}
+                  className="h-8"
+                />
+              </div>
+              <DropdownMenuSeparator />
+              {modelsLoading ? (
+                <DropdownMenuItem disabled>{t("dataExplorer.aiChatMenuModelsLoading")}</DropdownMenuItem>
+              ) : null}
+              {!modelsLoading && modelsError ? (
+                <DropdownMenuItem disabled>{t("dataExplorer.aiChatMenuModelsFallback")}</DropdownMenuItem>
+              ) : null}
+              {!modelsLoading && availableModels.length === 0 ? (
+                <DropdownMenuItem disabled>{t("dataExplorer.aiChatMenuModelsEmpty")}</DropdownMenuItem>
+              ) : null}
+              {!modelsLoading && availableModels.length > 0 && filteredModels.length === 0 ? (
+                <DropdownMenuItem disabled>{t("dataExplorer.aiChatMenuModelsNotFound")}</DropdownMenuItem>
+              ) : null}
+              {!modelsLoading
+                ? filteredModels.map((model) => {
+                    const { id: modelId, pricing } = model
+                    return (
+                      <DropdownMenuItem
+                        key={modelId}
+                        className="gap-2"
+                        onSelect={() => onModelSelect?.(modelId)}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{modelId}</span>
+                        <span className="group/price relative shrink-0">
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                            {pricingIndicator(pricing)}
+                          </span>
+                          <span className="pointer-events-none absolute right-0 top-full z-50 mt-1 hidden w-56 whitespace-pre-wrap rounded border border-border bg-popover p-2 text-[10px] leading-relaxed text-popover-foreground shadow-md group-hover/price:block">
+                            {pricingHoverText(modelId, pricing)}
+                          </span>
+                        </span>
+                        {selectedModel === modelId ? (
+                          <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    )
+                  })
+                : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-7 max-w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+                aria-label={t("dataExplorer.aiChatMenuGroupReasoning")}
+              >
+                <span className="shrink-0">{t("dataExplorer.aiChatMenuGroupReasoning")}</span>
+                <span className="min-w-0 max-w-[14ch] truncate text-foreground">{selectedReasoningLabel}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {(["low", "medium", "high"] as const).map((level) => (
+                <DropdownMenuItem
+                  key={level}
+                  className="gap-2"
+                  onSelect={() => onReasoningLevelChange?.(level)}
+                >
+                  <span className="flex-1">
+                    {t(`dataExplorer.aiChatMenuReasoningLevel${level[0].toUpperCase()}${level.slice(1)}`)}
+                  </span>
+                  {reasoningLevel === level ? (
+                    <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-7 max-w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+                aria-label={t("dataExplorer.aiChatMenuGroupThird")}
+              >
+                <span className="shrink-0">{t("dataExplorer.aiChatMenuGroupThird")}</span>
+                <span className="min-w-0 max-w-[14ch] truncate text-foreground">{selectedExplanationLabel}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {EXPLAIN_STYLE_ORDER.map((key) => (
+                <DropdownMenuItem
+                  key={key}
+                  className="gap-2"
+                  onSelect={() => handleSelectExplanationStyle(key)}
+                >
+                  <span className="flex-1">{explainStyleLabelEnglish(key)}</span>
+                  {selectedExplanationStyleKey === key ? (
+                    <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         {/* <div className="flex justify-end">
           <Button
             type="button"
