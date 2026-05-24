@@ -22,8 +22,6 @@ import {
   listResources,
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
-  generateNl2Sql,
-  explainNl2Sql,
 } from "./api"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import type {
@@ -45,13 +43,10 @@ import type {
   ResourceMetricTimeseries,
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
-  GenerateNl2SqlRequest,
-  GenerateNl2SqlResponse,
-  ExplainNl2SqlRequest,
-  ExplainNl2SqlResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
+const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000
 const PROJECT_TIMESERIES_METRICS = [
   "active_connections",
   "db_size_rate",
@@ -138,8 +133,13 @@ export function useRunDatabaseQuery() {
 
   return useMutation<RunDatabaseQueryResponse, Error, RunDatabaseQueryRequest>({
     mutationFn: runDatabaseQuery,
+    onError: (_error, variables) => {
+      qc.invalidateQueries({
+        queryKey: ["projects", variables.project_id, "dataExplorer", "databaseHealth"],
+      })
+    },
     onSuccess: (_data, variables) => {
-      if (!mayAffectExplorerSchema(variables.sql)) return
+      if (!mayAffectExplorerSchema(variables.query)) return
       qc.invalidateQueries({
         queryKey: ["projects", variables.project_id, "dataExplorer", "schema"],
       })
@@ -163,6 +163,12 @@ export interface DataExplorerTableNode {
 export interface DataExplorerDatabaseNode {
   database: DatabaseResponse
   tables: DataExplorerTableNode[]
+}
+
+export interface DataExplorerDatabaseHealth {
+  database: DatabaseResponse
+  status: "healthy" | "unhealthy" | "checking"
+  errorMessage?: string
 }
 
 export function useDataExplorerSchema(projectId: string) {
@@ -198,15 +204,46 @@ export function useDataExplorerSchema(projectId: string) {
   })
 }
 
-export function useGenerateNl2Sql() {
-  return useMutation<GenerateNl2SqlResponse, Error, GenerateNl2SqlRequest>({
-    mutationFn: generateNl2Sql,
-  })
-}
+export function useDataExplorerDatabaseHealth(projectId: string) {
+  const { isAuthenticated } = useAuth()
 
-export function useExplainNl2Sql() {
-  return useMutation<ExplainNl2SqlResponse, Error, ExplainNl2SqlRequest>({
-    mutationFn: explainNl2Sql,
+  return useQuery<DataExplorerDatabaseHealth[]>({
+    queryKey: ["projects", projectId, "dataExplorer", "databaseHealth"],
+    queryFn: async () => {
+      const { databases } = await listDatabases(projectId)
+
+      const checks = await Promise.all(
+        databases.map(async (database): Promise<DataExplorerDatabaseHealth> => {
+          try {
+            await runDatabaseQuery({
+              project_id: projectId,
+              database_id: database.resource_id,
+              query: "SELECT 1;",
+            })
+
+            return {
+              database,
+              status: "healthy",
+            }
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error && error.message.length > 0
+                ? error.message
+                : "Health check failed"
+
+            return {
+              database,
+              status: "unhealthy",
+              errorMessage,
+            }
+          }
+        }),
+      )
+
+      return checks
+    },
+    enabled: isAuthenticated && !!projectId,
+    refetchInterval: DATABASE_HEALTH_CHECK_INTERVAL_MS,
   })
 }
 

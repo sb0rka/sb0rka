@@ -155,6 +155,12 @@ export async function getDatabaseUri(
 export interface RunDatabaseQueryRequest {
   project_id: string
   database_id: string
+  query: string
+}
+
+interface QueryRunnerExecuteRequest {
+  project_id: string
+  database_id: string
   sql: string
 }
 
@@ -169,10 +175,16 @@ export interface RunDatabaseQueryResponse {
 export async function runDatabaseQuery(
   data: RunDatabaseQueryRequest,
 ): Promise<RunDatabaseQueryResponse> {
+  const payload: QueryRunnerExecuteRequest = {
+    project_id: data.project_id,
+    database_id: data.database_id,
+    sql: data.query,
+  }
+
   return apiRequest<RunDatabaseQueryResponse>({
     method: "POST",
     path: "/query",
-    json: data,
+    json: payload,
     base: "queryRunner",
   })
 }
@@ -195,16 +207,106 @@ export interface QueryRunnerSchemaResponse {
   duration_ms: number
 }
 
+const SCHEMA_INTROSPECTION_SQL = `
+SELECT
+  c.table_schema,
+  c.table_name,
+  c.column_name,
+  c.data_type,
+  c.is_nullable,
+  EXISTS (
+    SELECT 1
+    FROM information_schema.table_constraints tc
+    INNER JOIN information_schema.key_column_usage kcu
+      ON tc.constraint_catalog = kcu.constraint_catalog
+      AND tc.constraint_schema = kcu.constraint_schema
+      AND tc.constraint_name = kcu.constraint_name
+    WHERE tc.table_schema = c.table_schema
+      AND tc.table_name = c.table_name
+      AND tc.constraint_type = 'PRIMARY KEY'
+      AND kcu.column_name = c.column_name
+  ) AS is_pk
+FROM information_schema.columns c
+WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema')
+ORDER BY c.table_schema, c.table_name, c.ordinal_position
+`
+
+function parseSchemaRow(
+  row: unknown[],
+  index: number,
+): {
+  schema: string
+  table: string
+  column: QueryRunnerSchemaColumn
+} {
+  if (row.length < 6) {
+    throw new Error(`Invalid schema row at index ${index}: expected 6 fields`)
+  }
+
+  const [schema, table, columnName, dataType, isNullableRaw, isPKRaw] = row
+  if (
+    typeof schema !== "string" ||
+    typeof table !== "string" ||
+    typeof columnName !== "string" ||
+    typeof dataType !== "string"
+  ) {
+    throw new Error(`Invalid schema row at index ${index}: expected string fields`)
+  }
+
+  const isNullable =
+    typeof isNullableRaw === "boolean"
+      ? isNullableRaw
+      : typeof isNullableRaw === "string"
+        ? isNullableRaw.toUpperCase() === "YES"
+        : false
+
+  const isPK = typeof isPKRaw === "boolean" ? isPKRaw : String(isPKRaw).toLowerCase() === "true"
+
+  return {
+    schema,
+    table,
+    column: {
+      name: columnName,
+      data_type: dataType,
+      is_nullable: isNullable,
+      is_pk: isPK,
+    },
+  }
+}
+
 export async function fetchQueryRunnerSchema(data: {
   project_id: string
   database_id: string
 }): Promise<QueryRunnerSchemaResponse> {
-  return apiRequest<QueryRunnerSchemaResponse>({
-    method: "POST",
-    path: "/schema",
-    json: data,
-    base: "queryRunner",
+  const response = await runDatabaseQuery({
+    ...data,
+    query: SCHEMA_INTROSPECTION_SQL,
   })
+
+  const tablesByName = new Map<string, QueryRunnerSchemaTable>()
+  for (let i = 0; i < response.rows.length; i++) {
+    const rawRow = response.rows[i]
+    if (!Array.isArray(rawRow)) {
+      throw new Error(`Invalid schema row at index ${i}: expected array`)
+    }
+    const parsed = parseSchemaRow(rawRow, i)
+    const tableKey = `${parsed.schema}.${parsed.table}`
+    const current = tablesByName.get(tableKey)
+    if (!current) {
+      tablesByName.set(tableKey, {
+        schema: parsed.schema,
+        name: parsed.table,
+        columns: [parsed.column],
+      })
+      continue
+    }
+    current.columns.push(parsed.column)
+  }
+
+  return {
+    tables: [...tablesByName.values()],
+    duration_ms: response.duration_ms,
+  }
 }
 
 export interface DeactivateResourceResponse {
@@ -310,91 +412,311 @@ export async function listTableColumns(
   })
 }
 
-export interface GenerateNl2SqlRequest {
-  question: string
+const OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
+
+type OpenAiResponseJson = Record<string, unknown>
+
+export interface OpenAiGenerateSqlRequest {
+  openaiUrl: string
+  openaiKey: string
+  schema: string
+  humanQuery: string
+}
+
+export interface OpenAiGenerateSqlResponse {
+  sql: string
+}
+
+export interface OpenAiExplainSqlRequest {
+  openaiUrl: string
+  openaiKey: string
   schema: string
   dialect?: string
-  explanationStyle?: string
-}
-
-export interface GenerateNl2SqlResponse {
-  sql: string
-  explanation?: string
-  raw_message?: string
-}
-
-export async function generateNl2Sql(
-  data: GenerateNl2SqlRequest,
-): Promise<GenerateNl2SqlResponse> {
-  return apiRequest<GenerateNl2SqlResponse>({
-    method: "POST",
-    path: "/generate",
-    json: {
-      question: data.question,
-      schema: data.schema,
-      dialect: data.dialect ?? "postgresql",
-      explanationStyle: data.explanationStyle ?? "",
-    },
-    base: "nl2sql",
-    auth: false,
-  })
-}
-
-export interface ExplainNl2SqlRequest {
   sql: string
   style?: string
-  schema?: string
-  dialect?: string
 }
 
-export interface ExplainNl2SqlResponse {
+export interface OpenAiExplainSqlResponse {
   explanation: string
-  raw_message?: string
 }
 
-export async function explainNl2Sql(
-  data: ExplainNl2SqlRequest,
-): Promise<ExplainNl2SqlResponse> {
-  return apiRequest<ExplainNl2SqlResponse>({
-    method: "POST",
-    path: "/explain",
-    json: {
-      sql: data.sql,
-      style: data.style ?? "",
-      schema: data.schema ?? "",
-      dialect: data.dialect ?? "postgresql",
-    },
-    base: "nl2sql",
-    auth: false,
-  })
-}
-
-export interface FixNl2SqlRequest {
+export interface OpenAiFixSqlRequest {
+  openaiUrl: string
+  openaiKey: string
+  schema: string
+  dialect?: string
   sql: string
   errorMessage: string
-  schema?: string
-  dialect?: string
 }
 
-export interface FixNl2SqlResponse {
+export interface OpenAiFixSqlResponse {
   explanation: string
-  fixed_sql: string
-  raw_message?: string
+  fixedSql: string
 }
 
-export async function fixNl2Sql(data: FixNl2SqlRequest): Promise<FixNl2SqlResponse> {
-  return apiRequest<FixNl2SqlResponse>({
+function normalizeOpenAiCompletionsUrl(openaiUrl: string): string {
+  const trimmed = openaiUrl.trim().replace(/\/+$/, "")
+  if (!trimmed) {
+    throw new Error("Secret `openaiurl` is empty")
+  }
+  if (/\/chat\/completions$/i.test(trimmed)) {
+    return trimmed
+  }
+  return `${trimmed}/chat/completions`
+}
+
+function extractAssistantMessage(payload: unknown): string {
+  if (!isObject(payload) || !Array.isArray(payload.choices) || payload.choices.length === 0) {
+    throw new Error("OpenAI response is missing choices")
+  }
+
+  const firstChoice = payload.choices[0]
+  if (!isObject(firstChoice) || !isObject(firstChoice.message)) {
+    throw new Error("OpenAI response is missing assistant message")
+  }
+
+  const content = firstChoice.message.content
+  if (typeof content === "string") {
+    return content
+  }
+  if (Array.isArray(content)) {
+    const joined = content
+      .map((part) => {
+        if (typeof part === "string") return part
+        if (isObject(part) && typeof part.text === "string") return part.text
+        return ""
+      })
+      .join("")
+      .trim()
+    if (joined.length > 0) return joined
+  }
+
+  throw new Error("OpenAI assistant message is empty")
+}
+
+function parseJsonObjectFromAssistantText(text: string): OpenAiResponseJson {
+  const trimmed = text.trim()
+  const withoutFence = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim()
+  const candidates = [withoutFence]
+  const firstBrace = withoutFence.indexOf("{")
+  const lastBrace = withoutFence.lastIndexOf("}")
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(withoutFence.slice(firstBrace, lastBrace + 1))
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown
+      if (isObject(parsed)) return parsed
+    } catch {
+      // try the next candidate
+    }
+  }
+
+  throw new Error("OpenAI response is not valid JSON")
+}
+
+function normalizeSqlCandidate(value: string): string {
+  return value
+    .trim()
+    .replace(/^["'`]+/, "")
+    .replace(/["'`]+$/, "")
+    .trim()
+}
+
+function extractSqlFromAssistantText(text: string): string {
+  const fencedMatches = [...text.matchAll(/```(?:sql)?\s*([\s\S]*?)```/gi)]
+  for (const match of fencedMatches) {
+    const block = normalizeSqlCandidate(match[1] ?? "")
+    if (block) return block
+  }
+
+  const labeledMatch = text.match(/(?:^|\n)\s*(?:fixedSql|fixed_sql|sql)\s*[:=]\s*(.+)(?:\n|$)/i)
+  if (labeledMatch?.[1]) {
+    const candidate = normalizeSqlCandidate(labeledMatch[1])
+    if (candidate) return candidate
+  }
+
+  const trimmed = text.trim()
+  const looksLikeSql = /^(with|select|insert|update|delete|create|alter|drop)\b/i.test(trimmed)
+  if (looksLikeSql) {
+    return normalizeSqlCandidate(trimmed)
+  }
+
+  return ""
+}
+
+function extractExplanationFromAssistantText(text: string): string {
+  return text
+    .replace(/```(?:\w+)?\s*([\s\S]*?)```/gi, "$1")
+    .replace(/(?:fixedSql|fixed_sql)\s*[:=]\s*.+/gi, "")
+    .trim()
+}
+
+async function requestOpenAiAssistantText(opts: {
+  openaiUrl: string
+  openaiKey: string
+  prompt: string
+}): Promise<string> {
+  const openaiKey = opts.openaiKey.trim()
+  if (!openaiKey) {
+    throw new Error("Secret `openaikey` is empty")
+  }
+
+  const url = normalizeOpenAiCompletionsUrl(opts.openaiUrl)
+  const res = await fetch(url, {
     method: "POST",
-    path: "/fix",
-    json: {
-      sql: data.sql,
-      error_message: data.errorMessage,
-      schema: data.schema ?? "",
-      dialect: data.dialect ?? "postgresql",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiKey}`,
     },
-    base: "nl2sql",
-    auth: false,
+    body: JSON.stringify({
+      model: OPENAI_DEFAULT_MODEL,
+      temperature: 0,
+      messages: [
+        {
+          role: "user",
+          content: opts.prompt,
+        },
+      ],
+    }),
   })
+
+  if (!res.ok) {
+    const bodyText = await res.text()
+    throw new Error(bodyText || `OpenAI request failed with status ${res.status}`)
+  }
+
+  const payload = (await res.json()) as unknown
+  return extractAssistantMessage(payload)
+}
+
+function buildGeneratePrompt(schema: string, humanQuery: string): string {
+  return [
+    `schema: ${schema}`,
+    `query: ${humanQuery}`,
+    "Dialect: postgresql",
+    "Create one SQL statement that answers the query.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"sql": string}',
+  ].join("\n")
+}
+
+function buildExplainPrompt(data: {
+  schema: string
+  dialect: string
+  sql: string
+  style: string
+}): string {
+  const styleInstruction = data.style.trim()
+    ? `Style instruction: ${data.style}`
+    : "Style instruction: Provide a clear SQL breakdown."
+  return [
+    `schema: ${data.schema}`,
+    `dialect: ${data.dialect}`,
+    `sql: ${data.sql}`,
+    styleInstruction,
+    "Explain this SQL query.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"explanation": string}',
+  ].join("\n")
+}
+
+function buildFixPrompt(data: {
+  schema: string
+  dialect: string
+  sql: string
+  errorMessage: string
+}): string {
+  return [
+    `schema: ${data.schema}`,
+    `dialect: ${data.dialect}`,
+    `sql: ${data.sql}`,
+    `error: ${data.errorMessage}`,
+    "Fix this SQL query according to the schema and the database error.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"explanation": string, "fixedSql": string}',
+  ].join("\n")
+}
+
+export async function generateSqlWithOpenAi(
+  data: OpenAiGenerateSqlRequest,
+): Promise<OpenAiGenerateSqlResponse> {
+  const assistantText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    prompt: buildGeneratePrompt(data.schema, data.humanQuery),
+  })
+
+  let sql = ""
+  try {
+    const json = parseJsonObjectFromAssistantText(assistantText)
+    sql = typeof json.sql === "string" ? json.sql.trim() : ""
+  } catch {
+    sql = extractSqlFromAssistantText(assistantText)
+  }
+
+  if (!sql) {
+    throw new Error("OpenAI response missing `sql` string")
+  }
+  return { sql }
+}
+
+export async function explainSqlWithOpenAi(
+  data: OpenAiExplainSqlRequest,
+): Promise<OpenAiExplainSqlResponse> {
+  const assistantText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    prompt: buildExplainPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      sql: data.sql,
+      style: data.style ?? "",
+    }),
+  })
+
+  let explanation = ""
+  try {
+    const json = parseJsonObjectFromAssistantText(assistantText)
+    explanation = typeof json.explanation === "string" ? json.explanation : ""
+  } catch {
+    explanation = extractExplanationFromAssistantText(assistantText)
+  }
+
+  return { explanation }
+}
+
+export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenAiFixSqlResponse> {
+  const assistantText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    prompt: buildFixPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      sql: data.sql,
+      errorMessage: data.errorMessage,
+    }),
+  })
+
+  let explanation = ""
+  let fixedSql = ""
+  try {
+    const json = parseJsonObjectFromAssistantText(assistantText)
+    explanation = typeof json.explanation === "string" ? json.explanation : ""
+    fixedSql = typeof json.fixedSql === "string" ? json.fixedSql.trim() : ""
+  } catch {
+    fixedSql = extractSqlFromAssistantText(assistantText)
+    explanation = extractExplanationFromAssistantText(assistantText)
+  }
+
+  if (!fixedSql) {
+    throw new Error("OpenAI response missing `fixedSql` string")
+  }
+  return { explanation, fixedSql }
 }
 
 export interface SecretResponse {

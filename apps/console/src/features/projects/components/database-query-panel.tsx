@@ -38,7 +38,7 @@ export function DatabaseQueryPanel({
     const response = await runQuery.mutateAsync({
       project_id: projectId,
       database_id: databaseId,
-      sql,
+      query: sql,
     })
     setResult(response)
   }

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react"
 import { ApiError } from "@/lib/api-client"
-import { explainNl2Sql, fixNl2Sql, generateNl2Sql } from "./api"
-import { explainStylePrompt } from "./explain-styles"
+import { explainSqlWithOpenAi, fixSqlWithOpenAi, generateSqlWithOpenAi } from "./api"
+import { EXPLAIN_STYLE_NONE_SENTINEL, explainStylePrompt } from "./explain-styles"
 
 const DEFAULT_LAST_GENERATE_STYLE = explainStylePrompt("none")
 
@@ -106,11 +106,15 @@ export type UseAiQueryChatOptions = {
   /** Default schema snapshot for `/explain` and explanation refresh (e.g. live introspection text). */
   schema?: string
   dialect?: string
+  openaiUrl?: string
+  openaiKey?: string
 }
 
 export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   const schema = opts?.schema ?? ""
   const dialect = opts?.dialect ?? "postgresql"
+  const openaiUrl = opts?.openaiUrl?.trim() ?? ""
+  const openaiKey = opts?.openaiKey?.trim() ?? ""
 
   const [messages, setMessages] = useState<AiQueryChatMessage[]>([])
   const [isPending, setIsPending] = useState(false)
@@ -118,6 +122,30 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   const [lastGenerateStyle, setLastGenerateStyle] = useState(DEFAULT_LAST_GENERATE_STYLE)
 
   const clearError = useCallback(() => setError(null), [])
+
+  const assertOpenAiConfig = useCallback(() => {
+    if (!openaiUrl || !openaiKey) {
+      throw new Error("AI assistant is not configured: missing openaiurl/openaikey")
+    }
+    return { openaiUrl, openaiKey }
+  }, [openaiUrl, openaiKey])
+
+  const generateExplanationForSql = useCallback(async (args: { sql: string; style: string }) => {
+    if (args.style.trim() === EXPLAIN_STYLE_NONE_SENTINEL) {
+      return ""
+    }
+
+    const { openaiUrl: url, openaiKey: key } = assertOpenAiConfig()
+    const res = await explainSqlWithOpenAi({
+      openaiUrl: url,
+      openaiKey: key,
+      sql: args.sql,
+      style: args.style,
+      schema,
+      dialect,
+    })
+    return res.explanation
+  }, [assertOpenAiConfig, schema, dialect])
 
   const reset = useCallback(() => {
     setMessages([])
@@ -140,7 +168,10 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       ])
 
       try {
-        const res = await fixNl2Sql({
+        const { openaiUrl: url, openaiKey: key } = assertOpenAiConfig()
+        const res = await fixSqlWithOpenAi({
+          openaiUrl: url,
+          openaiKey: key,
           sql: sqlTrim,
           errorMessage: errTrim,
           schema: payload.schema ?? schema,
@@ -152,7 +183,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             role: "assistant",
             type: "fix",
             explanation: res.explanation,
-            fixedSql: res.fixed_sql,
+            fixedSql: res.fixedSql,
           },
         ])
       } catch (e) {
@@ -173,7 +204,18 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     try {
       if (payload.type === "explain") {
         const style = payload.style ?? ""
-        const res = await explainNl2Sql({ sql: trimmed, style, schema, dialect })
+        const { openaiUrl: url, openaiKey: key } = assertOpenAiConfig()
+        const res =
+          style.trim() === EXPLAIN_STYLE_NONE_SENTINEL
+            ? { explanation: "" }
+            : await explainSqlWithOpenAi({
+                openaiUrl: url,
+                openaiKey: key,
+                sql: trimmed,
+                style,
+                schema,
+                dialect,
+              })
         setMessages((prev) => [
           ...prev,
           {
@@ -187,21 +229,26 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         ])
       } else {
         const explanationStyle = (payload.style ?? "").trim()
-        const res = await generateNl2Sql({
-          question: trimmed,
+        const { openaiUrl: url, openaiKey: key } = assertOpenAiConfig()
+        const sqlRes = await generateSqlWithOpenAi({
+          openaiUrl: url,
+          openaiKey: key,
+          humanQuery: trimmed,
           schema: payload.schema ?? schema,
-          dialect: payload.dialect ?? dialect,
-          explanationStyle,
+        })
+        const explanation = await generateExplanationForSql({
+          sql: sqlRes.sql,
+          style: explanationStyle,
         })
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", type: "sql", output: res.sql },
+          { role: "assistant", type: "sql", output: sqlRes.sql },
           {
             role: "assistant",
             type: "explanation",
-            output: res.explanation ?? "",
+            output: explanation,
             style: explanationStyle,
-            sql: res.sql,
+            sql: sqlRes.sql,
             fromGenerate: true,
           },
         ])
@@ -212,7 +259,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     } finally {
       setIsPending(false)
     }
-  }, [schema, dialect])
+  }, [schema, dialect, assertOpenAiConfig, generateExplanationForSql])
 
   const refreshExplanationAt = useCallback(
     async (index: number, stylePrompt: string) => {
@@ -223,7 +270,18 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       setIsPending(true)
       try {
         const trimmedStyle = stylePrompt.trim()
-        const res = await explainNl2Sql({ sql: msg.sql, style: trimmedStyle, schema, dialect })
+        const { openaiUrl: url, openaiKey: key } = assertOpenAiConfig()
+        const res =
+          trimmedStyle === EXPLAIN_STYLE_NONE_SENTINEL
+            ? { explanation: "" }
+            : await explainSqlWithOpenAi({
+                openaiUrl: url,
+                openaiKey: key,
+                sql: msg.sql,
+                style: trimmedStyle,
+                schema,
+                dialect,
+              })
         setMessages((prev) => {
           const next = [...prev]
           const cur = next[index]
@@ -243,7 +301,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         setIsPending(false)
       }
     },
-    [messages, schema, dialect],
+    [messages, schema, dialect, assertOpenAiConfig],
   )
 
   return {
