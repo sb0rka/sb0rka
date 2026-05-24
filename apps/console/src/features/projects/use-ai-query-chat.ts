@@ -1,9 +1,17 @@
 import { useCallback, useState } from "react"
 import { ApiError } from "@/lib/api-client"
-import { explainSqlWithOpenAi, fixSqlWithOpenAi, generateSqlWithOpenAi } from "./api"
+import {
+  explainSqlWithOpenAi,
+  fixSqlWithOpenAi,
+  generateSqlWithOpenAi,
+  resolveOptimalSql,
+  reviewSqlCorrectness,
+  reviewSqlOptimality,
+} from "./api"
 import { EXPLAIN_STYLE_NONE_SENTINEL, explainStylePrompt } from "./explain-styles"
 
 const DEFAULT_LAST_GENERATE_STYLE = explainStylePrompt("none")
+const MAX_CORRECTION_PASSES = 3
 
 export type AiQueryChatUserTextMessage = {
   role: "user"
@@ -230,25 +238,99 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       } else {
         const explanationStyle = (payload.style ?? "").trim()
         const { openaiUrl: url, openaiKey: key } = assertOpenAiConfig()
+        const generationSchema = payload.schema ?? schema
+        const generationDialect = payload.dialect ?? dialect
         const sqlRes = await generateSqlWithOpenAi({
           openaiUrl: url,
           openaiKey: key,
           humanQuery: trimmed,
-          schema: payload.schema ?? schema,
+          schema: generationSchema,
         })
+        let currentSql = sqlRes.sql.trim()
+        let isSqlMarkedCorrect = false
+        const reviewNotices: string[] = []
+
+        for (let attempt = 0; attempt < MAX_CORRECTION_PASSES; attempt++) {
+          let review
+          try {
+            review = await reviewSqlCorrectness({
+              openaiUrl: url,
+              openaiKey: key,
+              schema: generationSchema,
+              dialect: generationDialect,
+              humanQuery: trimmed,
+              sql: currentSql,
+            })
+          } catch {
+            reviewNotices.push("AI correctness review failed. Using latest SQL candidate.")
+            break
+          }
+
+          if (review.status === "correct") {
+            isSqlMarkedCorrect = true
+            reviewNotices.push("AI correctness review passed. Using latest SQL candidate.")
+            break
+          }
+
+          if (!review.sql) {
+            reviewNotices.push("AI review returned `rewrite` without SQL. Using latest SQL candidate.")
+            break
+          }
+          currentSql = review.sql
+        }
+
+        if (!isSqlMarkedCorrect) {
+          reviewNotices.push(
+            `AI could not confirm correctness within ${MAX_CORRECTION_PASSES} passes. Review before running.`,
+          )
+        }
+        console.log("notices", reviewNotices)
+        let finalSql = currentSql
+        try {
+          const optimalityReview = await reviewSqlOptimality({
+            openaiUrl: url,
+            openaiKey: key,
+            schema: generationSchema,
+            dialect: generationDialect,
+            humanQuery: trimmed,
+            sql: currentSql,
+          })
+
+          if (optimalityReview.status === "alternative" && optimalityReview.sql) {
+            try {
+              const resolved = await resolveOptimalSql({
+                openaiUrl: url,
+                openaiKey: key,
+                schema: generationSchema,
+                dialect: generationDialect,
+                humanQuery: trimmed,
+                correctSql: currentSql,
+                alternativeSql: optimalityReview.sql,
+              })
+              finalSql = resolved.sql
+            } catch {
+              finalSql = optimalityReview.sql
+              reviewNotices.push("AI optimality resolution failed. Using alternative SQL candidate.")
+            }
+          }
+        } catch {
+          reviewNotices.push("AI optimality review failed. Using current SQL candidate.")
+        }
+
         const explanation = await generateExplanationForSql({
-          sql: sqlRes.sql,
+          sql: finalSql,
           style: explanationStyle,
         })
+
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", type: "sql", output: sqlRes.sql },
+          { role: "assistant", type: "sql", output: finalSql },
           {
             role: "assistant",
             type: "explanation",
             output: explanation,
             style: explanationStyle,
-            sql: sqlRes.sql,
+            sql: finalSql,
             fromGenerate: true,
           },
         ])

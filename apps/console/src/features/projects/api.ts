@@ -454,6 +454,51 @@ export interface OpenAiFixSqlResponse {
   fixedSql: string
 }
 
+export interface OpenAiReviewSqlCorrectnessRequest {
+  openaiUrl: string
+  openaiKey: string
+  schema: string
+  humanQuery: string
+  sql: string
+  dialect?: string
+}
+
+export interface OpenAiReviewSqlCorrectnessResponse {
+  status: "correct" | "rewrite"
+  sql?: string
+  reason?: string
+}
+
+export interface OpenAiReviewSqlOptimalityRequest {
+  openaiUrl: string
+  openaiKey: string
+  schema: string
+  humanQuery: string
+  sql: string
+  dialect?: string
+}
+
+export interface OpenAiReviewSqlOptimalityResponse {
+  status: "optimal" | "alternative"
+  sql?: string
+  reason?: string
+}
+
+export interface OpenAiResolveOptimalSqlRequest {
+  openaiUrl: string
+  openaiKey: string
+  schema: string
+  humanQuery: string
+  correctSql: string
+  alternativeSql: string
+  dialect?: string
+}
+
+export interface OpenAiResolveOptimalSqlResponse {
+  sql: string
+  reason?: string
+}
+
 function normalizeOpenAiCompletionsUrl(openaiUrl: string): string {
   const trimmed = openaiUrl.trim().replace(/\/+$/, "")
   if (!trimmed) {
@@ -642,6 +687,85 @@ function buildFixPrompt(data: {
   ].join("\n")
 }
 
+function buildCorrectnessReviewPrompt(data: {
+  schema: string
+  dialect: string
+  humanQuery: string
+  sql: string
+}): string {
+  return [
+    `schema: ${data.schema}`,
+    `dialect: ${data.dialect}`,
+    `human_prompt: ${data.humanQuery}`,
+    `sql: ${data.sql}`,
+    "Check whether this SQL fully and correctly answers the human prompt for the given schema.",
+    "If SQL is correct, return status `correct`.",
+    "If SQL is not correct, return status `rewrite` and provide a corrected SQL query in `sql`.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"status":"correct"|"rewrite","sql"?:string,"reason"?:string}',
+  ].join("\n")
+}
+
+function buildOptimalityReviewPrompt(data: {
+  schema: string
+  dialect: string
+  humanQuery: string
+  sql: string
+}): string {
+  return [
+    `schema: ${data.schema}`,
+    `dialect: ${data.dialect}`,
+    `human_prompt: ${data.humanQuery}`,
+    `sql: ${data.sql}`,
+    "Decide whether this SQL is already optimal for readability and performance while preserving semantics.",
+    "If SQL is already optimal, return status `optimal`.",
+    "If SQL can be improved, return status `alternative` and provide improved SQL in `sql`.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"status":"optimal"|"alternative","sql"?:string,"reason"?:string}',
+  ].join("\n")
+}
+
+function buildResolveOptimalSqlPrompt(data: {
+  schema: string
+  dialect: string
+  humanQuery: string
+  correctSql: string
+  alternativeSql: string
+}): string {
+  return [
+    `schema: ${data.schema}`,
+    `dialect: ${data.dialect}`,
+    `human_prompt: ${data.humanQuery}`,
+    `correct_sql: ${data.correctSql}`,
+    `alternative_sql: ${data.alternativeSql}`,
+    "Return one final SQL statement that preserves the human prompt semantics and is as optimal as possible.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"sql":string,"reason"?:string}',
+  ].join("\n")
+}
+
+function parseReviewStatus<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fieldName: string,
+): T {
+  if (typeof value !== "string") {
+    throw new Error(`OpenAI response missing \`${fieldName}\` string`)
+  }
+  const normalized = value.trim().toLowerCase()
+  const matched = allowed.find((candidate) => candidate === normalized)
+  if (!matched) {
+    throw new Error(`OpenAI response has invalid \`${fieldName}\``)
+  }
+  return matched
+}
+
+function parseOptionalSql(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const normalized = normalizeSqlCandidate(value)
+  return normalized || undefined
+}
+
 export async function generateSqlWithOpenAi(
   data: OpenAiGenerateSqlRequest,
 ): Promise<OpenAiGenerateSqlResponse> {
@@ -717,6 +841,77 @@ export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenA
     throw new Error("OpenAI response missing `fixedSql` string")
   }
   return { explanation, fixedSql }
+}
+
+export async function reviewSqlCorrectness(
+  data: OpenAiReviewSqlCorrectnessRequest,
+): Promise<OpenAiReviewSqlCorrectnessResponse> {
+  const assistantText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    prompt: buildCorrectnessReviewPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      humanQuery: data.humanQuery,
+      sql: data.sql,
+    }),
+  })
+  const json = parseJsonObjectFromAssistantText(assistantText)
+  const status = parseReviewStatus(json.status, ["correct", "rewrite"], "status")
+  const sql = parseOptionalSql(json.sql)
+  const reason = typeof json.reason === "string" ? json.reason.trim() : undefined
+
+  if (status === "rewrite" && !sql) {
+    throw new Error("OpenAI response missing `sql` string for rewrite status")
+  }
+  return { status, sql, reason }
+}
+
+export async function reviewSqlOptimality(
+  data: OpenAiReviewSqlOptimalityRequest,
+): Promise<OpenAiReviewSqlOptimalityResponse> {
+  const assistantText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    prompt: buildOptimalityReviewPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      humanQuery: data.humanQuery,
+      sql: data.sql,
+    }),
+  })
+  const json = parseJsonObjectFromAssistantText(assistantText)
+  const status = parseReviewStatus(json.status, ["optimal", "alternative"], "status")
+  const sql = parseOptionalSql(json.sql)
+  const reason = typeof json.reason === "string" ? json.reason.trim() : undefined
+
+  if (status === "alternative" && !sql) {
+    throw new Error("OpenAI response missing `sql` string for alternative status")
+  }
+  return { status, sql, reason }
+}
+
+export async function resolveOptimalSql(
+  data: OpenAiResolveOptimalSqlRequest,
+): Promise<OpenAiResolveOptimalSqlResponse> {
+  const assistantText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    prompt: buildResolveOptimalSqlPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      humanQuery: data.humanQuery,
+      correctSql: data.correctSql,
+      alternativeSql: data.alternativeSql,
+    }),
+  })
+  const json = parseJsonObjectFromAssistantText(assistantText)
+  const sql = parseOptionalSql(json.sql)
+  if (!sql) {
+    throw new Error("OpenAI response missing `sql` string")
+  }
+  const reason = typeof json.reason === "string" ? json.reason.trim() : undefined
+  return { sql, reason }
 }
 
 export interface SecretResponse {
