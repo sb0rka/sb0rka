@@ -231,6 +231,8 @@ const resources = {
         rowCount: "Строк: {{count}}",
         duration: "Время: {{duration}} мс",
         truncated: "Результат обрезан",
+        fullscreen: "На весь экран",
+        fullscreenTitle: "Результаты запроса",
       },
       dataExplorer: {
         nav: "Проводник данных",
@@ -583,6 +585,8 @@ const resources = {
         rowCount: "Rows: {{count}}",
         duration: "Duration: {{duration}} ms",
         truncated: "Result truncated",
+        fullscreen: "Fullscreen",
+        fullscreenTitle: "Query results",
       },
       dataExplorer: {
         nav: "Data Explorer",
