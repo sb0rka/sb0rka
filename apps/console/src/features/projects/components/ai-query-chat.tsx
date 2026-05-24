@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Check,
@@ -6,6 +6,10 @@ import {
   ClipboardPaste,
   Copy,
   Loader2,
+  ArrowDown,
+  ArrowDownAZ,
+  ArrowUp,
+  ArrowUpAZ,
   Play,
   Sparkles,
 } from "lucide-react"
@@ -16,7 +20,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -37,6 +40,63 @@ function toMicroDollarString(value: string): string {
   const n = Number(value)
   if (!Number.isFinite(n)) return "-"
   return `${(n * 1_000_000).toFixed(3)}u`
+}
+
+function modelTotalPrice(pricing: OpenAiModelPricing | undefined): number | null {
+  if (!pricing) return null
+  const prompt = Number(pricing.prompt)
+  const completion = Number(pricing.completion)
+  if (!Number.isFinite(prompt) || !Number.isFinite(completion)) return null
+  return prompt + completion
+}
+
+type ModelSortDirection = "asc" | "desc"
+type ModelSortField = "price" | "name"
+type ModelSort = { field: ModelSortField; direction: ModelSortDirection }
+
+function compareModelsByPrice(
+  a: OpenAiModelInfo,
+  b: OpenAiModelInfo,
+  direction: ModelSortDirection,
+): number {
+  const pa = modelTotalPrice(a.pricing)
+  const pb = modelTotalPrice(b.pricing)
+  if (pa === null && pb === null) return a.id.localeCompare(b.id)
+  if (pa === null) return 1
+  if (pb === null) return -1
+  const diff = pa - pb
+  if (diff !== 0) return direction === "asc" ? diff : -diff
+  return a.id.localeCompare(b.id)
+}
+
+function compareModels(a: OpenAiModelInfo, b: OpenAiModelInfo, sort: ModelSort): number {
+  if (sort.field === "name") {
+    const cmp = a.id.localeCompare(b.id)
+    return sort.direction === "asc" ? cmp : -cmp
+  }
+  return compareModelsByPrice(a, b, sort.direction)
+}
+
+function toggleModelSort(prev: ModelSort, field: ModelSortField): ModelSort {
+  if (prev.field === field) {
+    return { field, direction: prev.direction === "asc" ? "desc" : "asc" }
+  }
+  return { field, direction: "asc" }
+}
+
+function scrollElementIntoScrollParent(container: HTMLElement, element: HTMLElement): void {
+  const containerRect = container.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  const relativeTop = elementRect.top - containerRect.top + container.scrollTop
+  const relativeBottom = relativeTop + elementRect.height
+  const viewTop = container.scrollTop
+  const viewBottom = viewTop + container.clientHeight
+
+  if (relativeTop < viewTop) {
+    container.scrollTop = relativeTop
+  } else if (relativeBottom > viewBottom) {
+    container.scrollTop = relativeBottom - container.clientHeight
+  }
 }
 
 function pricingIndicator(pricing: OpenAiModelPricing | undefined): string {
@@ -79,6 +139,9 @@ function explainStyleLabelEnglish(key: ExplainStyleKey): string {
 }
 
 const EXPLANATION_STYLE_STORAGE_KEY = "ai-query-chat:explanation-style"
+
+const aiChatMenuTriggerClass =
+  "focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
 
 export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
@@ -139,17 +202,75 @@ export function AiQueryChat({
   } = chat
   const [input, setInput] = useState("")
   const [modelFilter, setModelFilter] = useState("")
+  const [modelSort, setModelSort] = useState<ModelSort>({ field: "price", direction: "asc" })
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const modelListScrollRef = useRef<HTMLDivElement>(null)
+  const selectedModelItemRef = useRef<HTMLDivElement>(null)
   const selectedExplanationStyleKey = explainStyleKeyFromPrompt(lastGenerateStyle)
-  const filteredModels = availableModels.filter((model) =>
-    model.id.toLowerCase().includes(modelFilter.trim().toLowerCase()),
-  )
+  const filteredModels = useMemo(() => {
+    const q = modelFilter.trim().toLowerCase()
+    const filtered = availableModels.filter((model) =>
+      model.id.toLowerCase().includes(q),
+    )
+    return [...filtered].sort((a, b) => compareModels(a, b, modelSort))
+  }, [availableModels, modelFilter, modelSort])
+
+  function modelSortLabel(field: ModelSortField): string {
+    const direction = modelSort.field === field ? modelSort.direction : "asc"
+    if (field === "price") {
+      return direction === "asc"
+        ? t("dataExplorer.aiChatMenuSortModelsByPriceAsc")
+        : t("dataExplorer.aiChatMenuSortModelsByPriceDesc")
+    }
+    return direction === "asc"
+      ? t("dataExplorer.aiChatMenuSortModelsByNameAsc")
+      : t("dataExplorer.aiChatMenuSortModelsByNameDesc")
+  }
 
   useLayoutEffect(() => {
     const el = listRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [messages, isPending])
+
+  const scrollSelectedModelIntoView = useCallback(() => {
+    const container = modelListScrollRef.current
+    if (!container) return false
+    const item =
+      selectedModelItemRef.current ??
+      container.querySelector<HTMLElement>('[data-model-selected="true"]')
+    if (!item) return false
+    scrollElementIntoScrollParent(container, item)
+    return true
+  }, [])
+
+  const handleModelMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setModelMenuOpen(open)
+      if (!open) return
+      const run = () => scrollSelectedModelIntoView()
+      requestAnimationFrame(() => {
+        if (!run()) requestAnimationFrame(run)
+      })
+    },
+    [scrollSelectedModelIntoView],
+  )
+
+  useEffect(() => {
+    if (!modelMenuOpen || modelsLoading) return
+    const run = () => scrollSelectedModelIntoView()
+    const id = requestAnimationFrame(() => {
+      if (!run()) requestAnimationFrame(run)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [
+    modelMenuOpen,
+    modelsLoading,
+    filteredModels,
+    selectedModel,
+    scrollSelectedModelIntoView,
+  ])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -456,30 +577,81 @@ export function AiQueryChat({
           disabled={isPending}
           spellCheck
         />
-        <div className="flex flex-wrap items-center gap-1.5">
-          <DropdownMenu>
+        <div className="flex flex-col gap-1.5">
+          <DropdownMenu open={modelMenuOpen} onOpenChange={handleModelMenuOpenChange}>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
-                className="h-7 max-w-[min(100%,24rem)] gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+                className={cn(
+                  "h-7 w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
+                  aiChatMenuTriggerClass,
+                )}
                 aria-label={t("dataExplorer.aiChatMenuGroupModel")}
               >
-                <span className="min-w-0 max-w-[18ch] truncate text-foreground">{selectedModel}</span>
+                <span className="min-w-0 flex-1 truncate text-left text-foreground">{selectedModel}</span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-[min(70vh,32rem)] w-72 overflow-y-auto">
-              <div className="space-y-1 p-1">
+            <DropdownMenuContent
+              align="start"
+              className="flex w-72 max-h-[min(70vh,32rem)] flex-col overflow-hidden p-0"
+            >
+              <div className="flex shrink-0 items-center gap-1 border-b border-border p-1">
                 <Input
                   value={modelFilter}
                   onChange={(event) => setModelFilter(event.target.value)}
                   onKeyDown={(event) => event.stopPropagation()}
                   placeholder={t("dataExplorer.aiChatMenuFilterModels")}
-                  className="h-8"
+                  className="h-8 min-w-0 flex-1"
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    modelSort.field === "price" && "bg-muted/50 text-foreground",
+                    aiChatMenuTriggerClass,
+                  )}
+                  aria-label={modelSortLabel("price")}
+                  title={modelSortLabel("price")}
+                  aria-pressed={modelSort.field === "price"}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={() => setModelSort((prev) => toggleModelSort(prev, "price"))}
+                >
+                  {modelSort.field === "price" && modelSort.direction === "desc" ? (
+                    <ArrowDown className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" aria-hidden />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                    modelSort.field === "name" && "bg-muted/50 text-foreground",
+                    aiChatMenuTriggerClass,
+                  )}
+                  aria-label={modelSortLabel("name")}
+                  title={modelSortLabel("name")}
+                  aria-pressed={modelSort.field === "name"}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={() => setModelSort((prev) => toggleModelSort(prev, "name"))}
+                >
+                  {modelSort.field === "name" && modelSort.direction === "desc" ? (
+                    <ArrowDownAZ className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <ArrowUpAZ className="h-4 w-4" aria-hidden />
+                  )}
+                </Button>
               </div>
-              <DropdownMenuSeparator />
+              <div
+                ref={modelListScrollRef}
+                className="h-0 min-h-0 flex-1 overflow-y-auto p-1"
+              >
               {modelsLoading ? (
                 <DropdownMenuItem disabled>{t("dataExplorer.aiChatMenuModelsLoading")}</DropdownMenuItem>
               ) : null}
@@ -498,7 +670,11 @@ export function AiQueryChat({
                     return (
                       <DropdownMenuItem
                         key={modelId}
+                        ref={selectedModel === modelId ? selectedModelItemRef : undefined}
                         className="gap-2"
+                        data-model-selected={
+                          selectedModel === modelId ? "true" : undefined
+                        }
                         onSelect={() => onModelSelect?.(modelId)}
                       >
                         <span className="min-w-0 flex-1 truncate">{modelId}</span>
@@ -517,19 +693,24 @@ export function AiQueryChat({
                     )
                   })
                 : null}
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <div className="flex w-full gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
-                className="h-7 max-w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+                className={cn(
+                  "h-7 min-w-0 flex-1 basis-0 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
+                  aiChatMenuTriggerClass,
+                )}
                 aria-label={t("dataExplorer.aiChatMenuGroupReasoning")}
               >
                 <span className="shrink-0">{t("dataExplorer.aiChatMenuGroupReasoning")}</span>
-                <span className="min-w-0 max-w-[14ch] truncate text-foreground">{selectedReasoningLabel}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{selectedReasoningLabel}</span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
@@ -556,11 +737,14 @@ export function AiQueryChat({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-7 max-w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+                className={cn(
+                  "h-7 min-w-0 flex-1 basis-0 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
+                  aiChatMenuTriggerClass,
+                )}
                 aria-label={t("dataExplorer.aiChatMenuGroupThird")}
               >
                 <span className="shrink-0">{t("dataExplorer.aiChatMenuGroupThird")}</span>
-                <span className="min-w-0 max-w-[14ch] truncate text-foreground">{selectedExplanationLabel}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{selectedExplanationLabel}</span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
@@ -579,6 +763,7 @@ export function AiQueryChat({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
         {/* <div className="flex justify-end">
           <Button
