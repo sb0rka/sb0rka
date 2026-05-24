@@ -7,35 +7,27 @@ export const EXPLAIN_STYLE_NONE_SENTINEL =
 export type ExplainStyleKey =
   | "none"
   | "short"
-  | "breakdown"
+  | "detailed"
   | "haiku"
-  | "homer"
-  | "russianBylina"
 
 export const EXPLAIN_STYLE_ORDER: ExplainStyleKey[] = [
   "none",
+  "detailed",
   "short",
-  "breakdown",
   "haiku",
-  "homer",
-  "russianBylina",
 ]
 
-/** Prompt fragment sent as nl2sql `style` (empty uses server default breakdown). */
+/** Prompt fragment sent as nl2sql `style`. */
 export function explainStylePrompt(key: ExplainStyleKey): string {
   switch (key) {
     case "none":
       return EXPLAIN_STYLE_NONE_SENTINEL
+    case "detailed":
+      return "Explain like I'm a good software engineer, but I don't use SQL a lot."
     case "short":
-      return "Keep it short: at most a short paragraph (roughly 5–8 sentences) covering intent, main joins and filters, and what the result set represents—no exhaustive clause-by-clause breakdown."
-    case "breakdown":
-      return ""
+      return "Explain like I'm an SQL specialist."
     case "haiku":
-      return "Explain this SQL as a haiku (or a short series of haikus)."
-    case "homer":
-      return "Explain in English using the elevated, epithet-rich narrative voice of Homeric epic (like the Iliad or Odyssey): rolling sentences, vivid comparisons where natural, and heroic gravity—while staying technically accurate about the SQL."
-    case "russianBylina":
-      return "Объясни SQL в духе русской былины: торжественный народный эпос, устойчивые формулы и параллелизмы, архаичный колорит; текст ответа на русском."
+      return "Explain this SQL as 1-2 haiku verses."
     default: {
       const _exhaustive: never = key
       return _exhaustive
@@ -43,12 +35,12 @@ export function explainStylePrompt(key: ExplainStyleKey): string {
   }
 }
 
-/** Map stored nl2sql style prompt back to a preset key for the UI (unknown → breakdown). */
+/** Map stored nl2sql style prompt back to a preset key for the UI (unknown -> none). */
 export function explainStyleKeyFromPrompt(prompt: string): ExplainStyleKey {
   const t = prompt.trim()
-  if (t === "") return "breakdown"
+  if (t === "") return "none"
   for (const key of EXPLAIN_STYLE_ORDER) {
     if (explainStylePrompt(key) === t) return key
   }
-  return "breakdown"
+  return "none"
 }
