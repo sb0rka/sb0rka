@@ -1,5 +1,5 @@
 import { useId } from "react"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -7,7 +7,6 @@ export type DataExplorerQueryErrorProps = {
   title: string
   message: string
   fixLabel: string
-  fixPendingLabel: string
   onFix: () => void
   fixDisabled: boolean
   fixPending: boolean
@@ -18,7 +17,6 @@ export function DataExplorerQueryError({
   title,
   message,
   fixLabel,
-  fixPendingLabel,
   onFix,
   fixDisabled,
   fixPending,
@@ -56,14 +54,7 @@ export function DataExplorerQueryError({
         disabled={fixDisabled || fixPending}
         onClick={onFix}
       >
-        {fixPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-            {fixPendingLabel}
-          </>
-        ) : (
-          fixLabel
-        )}
+        {fixLabel}
       </Button>
     </div>
   )
