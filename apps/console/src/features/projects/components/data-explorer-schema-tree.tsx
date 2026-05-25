@@ -78,11 +78,14 @@ export function DataExplorerSchemaTree({
     if (state === "initialLoading") {
       return (
         <span
-          className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
+          className={cn(
+            "flex size-4 shrink-0 items-center justify-center text-emerald-500",
+            "animate-pulse",
+          )}
           aria-label="Checking connection"
           title="Checking connection"
         >
-          <Loader2 className="size-3.5 animate-spin" />
+          <Wifi className="size-3.5" />
         </span>
       )
     }
