@@ -139,6 +139,24 @@ export function useRunDatabaseQuery() {
       })
     },
     onSuccess: (_data, variables) => {
+      const healthQueryKey = ["projects", variables.project_id, "dataExplorer", "databaseHealth"]
+      qc.setQueryData<DataExplorerDatabaseHealth[]>(
+        healthQueryKey,
+        (current) => {
+          if (!current) return current
+          return current.map((item) =>
+            item.database.resource_id === variables.database_id
+              ? { ...item, status: "healthy", errorMessage: undefined }
+              : item,
+          )
+        },
+      )
+      const hasNotConnectedDatabases = qc
+        .getQueryData<DataExplorerDatabaseHealth[]>(healthQueryKey)
+        ?.some((item) => item.status !== "healthy")
+      if (hasNotConnectedDatabases) {
+        qc.invalidateQueries({ queryKey: healthQueryKey })
+      }
       if (!mayAffectExplorerSchema(variables.query)) return
       qc.invalidateQueries({
         queryKey: ["projects", variables.project_id, "dataExplorer", "schema"],
