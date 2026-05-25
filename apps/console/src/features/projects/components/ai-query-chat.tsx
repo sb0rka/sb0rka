@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  ArrowUpDown,
   Check,
   ChevronDown,
   ClipboardPaste,
   Copy,
   Loader2,
-  ArrowDown,
-  ArrowDownAZ,
-  ArrowUp,
-  ArrowUpAZ,
   Play,
   Sparkles,
 } from "lucide-react"
@@ -20,6 +17,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -50,14 +50,19 @@ function modelTotalPrice(pricing: OpenAiModelPricing | undefined): number | null
   return prompt + completion
 }
 
-type ModelSortDirection = "asc" | "desc"
-type ModelSortField = "price" | "name"
-type ModelSort = { field: ModelSortField; direction: ModelSortDirection }
+type ModelSortKey = "id" | "name" | "priceAsc" | "priceDesc"
+
+const MODEL_SORT_OPTIONS: readonly ModelSortKey[] = [
+  "name",
+  "id",
+  "priceAsc",
+  "priceDesc",
+] as const
 
 function compareModelsByPrice(
   a: OpenAiModelInfo,
   b: OpenAiModelInfo,
-  direction: ModelSortDirection,
+  direction: "asc" | "desc",
 ): number {
   const pa = modelTotalPrice(a.pricing)
   const pb = modelTotalPrice(b.pricing)
@@ -69,19 +74,21 @@ function compareModelsByPrice(
   return a.id.localeCompare(b.id)
 }
 
-function compareModels(a: OpenAiModelInfo, b: OpenAiModelInfo, sort: ModelSort): number {
-  if (sort.field === "name") {
-    const cmp = a.id.localeCompare(b.id)
-    return sort.direction === "asc" ? cmp : -cmp
+function modelSortLabelKey(key: ModelSortKey): string {
+  switch (key) {
+    case "name":
+      return "dataExplorer.aiChatMenuSortByName"
+    case "id":
+      return "dataExplorer.aiChatMenuSortById"
+    case "priceAsc":
+      return "dataExplorer.aiChatMenuSortByPriceAsc"
+    case "priceDesc":
+      return "dataExplorer.aiChatMenuSortByPriceDesc"
+    default: {
+      const _x: never = key
+      return _x
+    }
   }
-  return compareModelsByPrice(a, b, sort.direction)
-}
-
-function toggleModelSort(prev: ModelSort, field: ModelSortField): ModelSort {
-  if (prev.field === field) {
-    return { field, direction: prev.direction === "asc" ? "desc" : "asc" }
-  }
-  return { field, direction: "asc" }
 }
 
 function scrollElementIntoScrollParent(container: HTMLElement, element: HTMLElement): void {
@@ -202,7 +209,7 @@ export function AiQueryChat({
   } = chat
   const [input, setInput] = useState("")
   const [modelFilter, setModelFilter] = useState("")
-  const [modelSort, setModelSort] = useState<ModelSort>({ field: "price", direction: "asc" })
+  const [modelSort, setModelSort] = useState<ModelSortKey>("id")
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const modelListScrollRef = useRef<HTMLDivElement>(null)
@@ -213,20 +220,17 @@ export function AiQueryChat({
     const filtered = availableModels.filter((model) =>
       model.id.toLowerCase().includes(q),
     )
-    return [...filtered].sort((a, b) => compareModels(a, b, modelSort))
-  }, [availableModels, modelFilter, modelSort])
-
-  function modelSortLabel(field: ModelSortField): string {
-    const direction = modelSort.field === field ? modelSort.direction : "asc"
-    if (field === "price") {
-      return direction === "asc"
-        ? t("dataExplorer.aiChatMenuSortModelsByPriceAsc")
-        : t("dataExplorer.aiChatMenuSortModelsByPriceDesc")
+    if (modelSort === "id") return filtered
+    const sorted = [...filtered]
+    if (modelSort === "name") {
+      sorted.sort((a, b) => a.id.localeCompare(b.id))
+    } else {
+      sorted.sort((a, b) =>
+        compareModelsByPrice(a, b, modelSort === "priceAsc" ? "asc" : "desc"),
+      )
     }
-    return direction === "asc"
-      ? t("dataExplorer.aiChatMenuSortModelsByNameAsc")
-      : t("dataExplorer.aiChatMenuSortModelsByNameDesc")
-  }
+    return sorted
+  }, [availableModels, modelFilter, modelSort])
 
   useLayoutEffect(() => {
     const el = listRef.current
@@ -605,48 +609,40 @@ export function AiQueryChat({
                   placeholder={t("dataExplorer.aiChatMenuFilterModels")}
                   className="h-8 min-w-0 flex-1"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                    modelSort.field === "price" && "bg-muted/50 text-foreground",
-                    aiChatMenuTriggerClass,
-                  )}
-                  aria-label={modelSortLabel("price")}
-                  title={modelSortLabel("price")}
-                  aria-pressed={modelSort.field === "price"}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => setModelSort((prev) => toggleModelSort(prev, "price"))}
-                >
-                  {modelSort.field === "price" && modelSort.direction === "desc" ? (
-                    <ArrowDown className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <ArrowUp className="h-4 w-4" aria-hidden />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                    modelSort.field === "name" && "bg-muted/50 text-foreground",
-                    aiChatMenuTriggerClass,
-                  )}
-                  aria-label={modelSortLabel("name")}
-                  title={modelSortLabel("name")}
-                  aria-pressed={modelSort.field === "name"}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => setModelSort((prev) => toggleModelSort(prev, "name"))}
-                >
-                  {modelSort.field === "name" && modelSort.direction === "desc" ? (
-                    <ArrowDownAZ className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <ArrowUpAZ className="h-4 w-4" aria-hidden />
-                  )}
-                </Button>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-muted/50 data-[state=open]:text-foreground",
+                        aiChatMenuTriggerClass,
+                      )}
+                      aria-label={t("dataExplorer.aiChatMenuSortLabel")}
+                      title={t("dataExplorer.aiChatMenuSortLabel")}
+                    >
+                      <ArrowUpDown className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {MODEL_SORT_OPTIONS.map((key) => (
+                      <DropdownMenuItem
+                        key={key}
+                        className="gap-2"
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          setModelSort(key)
+                        }}
+                      >
+                        <span className="flex-1">{t(modelSortLabelKey(key))}</span>
+                        {modelSort === key ? (
+                          <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               </div>
               <div
                 ref={modelListScrollRef}
