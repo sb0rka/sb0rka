@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { ChevronRight, MessagesSquare } from "lucide-react"
+import { ArrowUp, ChevronRight, Loader2, MessagesSquare } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -316,7 +316,7 @@ export function DataExplorerPage() {
               )}
             </>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border-border bg-card p-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border-border bg-card p-0">
               <div className="grid shrink-0 gap-4">
                 <div className="flex items-center gap-1">
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -324,21 +324,37 @@ export function DataExplorerPage() {
                     {selectedName || "—"}
                   </p>
                 </div>
-                <Textarea
-                  ref={sqlTextareaRef}
-                  id="data-explorer-sql"
-                  value={sql}
-                  onChange={(e) => setSql(e.target.value)}
-                  onFocus={() => setActiveInput("sql")}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter" || e.shiftKey) return
-                    if (e.nativeEvent.isComposing) return
-                    e.preventDefault()
-                    void handleRunQuery()
-                  }}
-                  className="min-h-[240px] font-mono"
-                  spellCheck={false}
-                />
+                <div className="relative">
+                  <Textarea
+                    ref={sqlTextareaRef}
+                    id="data-explorer-sql"
+                    value={sql}
+                    onChange={(e) => setSql(e.target.value)}
+                    onFocus={() => setActiveInput("sql")}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" || e.shiftKey) return
+                      if (e.nativeEvent.isComposing) return
+                      e.preventDefault()
+                      void handleRunQuery()
+                    }}
+                    className="min-h-[240px] pr-10 font-mono"
+                    spellCheck={false}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="absolute bottom-2 right-2 h-7 w-7 rounded-full shadow-sm"
+                    disabled={isSqlEmpty || runQuery.isPending || !selectedResourceId}
+                    onClick={() => void handleRunQuery()}
+                    aria-label={runQuery.isPending ? t("databaseQuery.running") : t("dataExplorer.runQuery")}
+                  >
+                    {runQuery.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4" strokeWidth={3} />
+                    )}
+                  </Button>
+                </div>
               </div>
               {runQuery.isError ? (
                 <DataExplorerQueryError
@@ -365,15 +381,6 @@ export function DataExplorerPage() {
               ) : null}
               <div className="min-h-0 flex-1 overflow-auto">
                 {result ? <DatabaseQueryResults result={result} /> : null}
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
-                <Button
-                  type="button"
-                  disabled={isSqlEmpty || runQuery.isPending || !selectedResourceId}
-                  onClick={() => void handleRunQuery()}
-                >
-                  {runQuery.isPending ? t("databaseQuery.running") : t("dataExplorer.runQuery")}
-                </Button>
               </div>
             </div>
           )}
