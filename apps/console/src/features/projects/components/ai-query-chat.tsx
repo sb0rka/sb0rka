@@ -209,7 +209,7 @@ export function AiQueryChat({
   } = chat
   const [input, setInput] = useState("")
   const [modelFilter, setModelFilter] = useState("")
-  const [modelSort, setModelSort] = useState<ModelSortKey>("id")
+  const [modelSort, setModelSort] = useState<ModelSortKey>("priceAsc")
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const modelListScrollRef = useRef<HTMLDivElement>(null)
@@ -332,8 +332,14 @@ export function AiQueryChat({
               return (
                 <div
                   key={`${index}-user-fix`}
-                  className={cn("space-y-2 text-sm text-foreground", index > 0 && "mt-6")}
+                  className={cn(
+                    "rounded-lg border border-border/70 bg-muted/30 p-3 space-y-2",
+                    index > 0 && "mt-6",
+                  )}
                 >
+                  <p className="text-sm font-medium">
+                    {t("dataExplorer.aiChatFixPromptTitle")}
+                  </p>
                   <p className="text-xs font-medium text-muted-foreground">
                     {t("dataExplorer.fixChatSqlLabel")}
                   </p>
@@ -348,15 +354,18 @@ export function AiQueryChat({
               )
             }
             return (
-              <p
+              <div
                 key={`${index}-user`}
                 className={cn(
-                  "whitespace-pre-wrap text-sm text-foreground",
+                  "rounded-lg border border-border/70 bg-muted/30 p-3",
                   index > 0 && "mt-6",
                 )}
               >
-                {m.content}
-              </p>
+                <p className="mb-2 text-sm font-medium">
+                  {t("dataExplorer.aiChatPromptTitle")}
+                </p>
+                <p className="whitespace-pre-wrap text-sm">{m.content}</p>
+              </div>
             )
           }
           if (m.type === "sql") {
@@ -577,7 +586,7 @@ export function AiQueryChat({
             handleSend()
           }}
           placeholder={t("dataExplorer.aiChatInputPlaceholder")}
-          className="max-h-40 min-h-[88px] resize-y shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="max-h-60 min-h-[140px] resize-y shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={isPending}
           spellCheck
         />
@@ -588,7 +597,7 @@ export function AiQueryChat({
                 type="button"
                 variant="ghost"
                 className={cn(
-                  "h-7 w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
+                  "h-9 w-full gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
                   aiChatMenuTriggerClass,
                 )}
                 aria-label={t("dataExplorer.aiChatMenuGroupModel")}
@@ -693,20 +702,26 @@ export function AiQueryChat({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="flex w-full gap-1.5">
+          <div className="flex w-full flex-wrap gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
                 className={cn(
-                  "h-7 min-w-0 flex-1 basis-0 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
+                  "h-11 min-w-[9.5rem] flex-1 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
                   aiChatMenuTriggerClass,
                 )}
                 aria-label={t("dataExplorer.aiChatMenuGroupReasoning")}
               >
-                <span className="shrink-0">{t("dataExplorer.aiChatMenuGroupReasoning")}</span>
-                <span className="min-w-0 flex-1 truncate text-foreground">{selectedReasoningLabel}</span>
+                <span className="min-w-0 flex-1 text-left leading-none">
+                  <span className="block truncate text-[10px] leading-3">
+                    {t("dataExplorer.aiChatMenuGroupReasoning")}
+                  </span>
+                  <span className="mt-1 block truncate text-xs leading-4 text-foreground">
+                    {selectedReasoningLabel}
+                  </span>
+                </span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
@@ -734,13 +749,19 @@ export function AiQueryChat({
                 type="button"
                 variant="ghost"
                 className={cn(
-                  "h-7 min-w-0 flex-1 basis-0 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
+                  "h-11 min-w-[9.5rem] flex-1 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
                   aiChatMenuTriggerClass,
                 )}
                 aria-label={t("dataExplorer.aiChatMenuGroupThird")}
               >
-                <span className="shrink-0">{t("dataExplorer.aiChatMenuGroupThird")}</span>
-                <span className="min-w-0 flex-1 truncate text-foreground">{selectedExplanationLabel}</span>
+                <span className="min-w-0 flex-1 text-left leading-none">
+                  <span className="block truncate text-[10px] leading-3">
+                    {t("dataExplorer.aiChatMenuGroupThird")}
+                  </span>
+                  <span className="mt-1 block truncate text-xs leading-4 text-foreground">
+                    {selectedExplanationLabel}
+                  </span>
+                </span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
