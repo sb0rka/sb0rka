@@ -77,10 +77,17 @@ export type AiQueryChatFixMessage = {
   fixedSql: string
 }
 
+export type AiQueryChatErrorMessage = {
+  role: "assistant"
+  type: "error"
+  output: string
+}
+
 export type AiQueryChatAssistantMessage =
   | AiQueryChatSqlMessage
   | AiQueryChatExplanationMessage
   | AiQueryChatFixMessage
+  | AiQueryChatErrorMessage
 
 export type AiQueryChatMessage = AiQueryChatUserMessage | AiQueryChatAssistantMessage
 
@@ -152,10 +159,8 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
 
   const [messages, setMessages] = useState<AiQueryChatMessage[]>([])
   const [isPending, setIsPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [lastGenerateStyle, setLastGenerateStyleState] = useState(DEFAULT_LAST_GENERATE_STYLE)
 
-  const clearError = useCallback(() => setError(null), [])
   const setLastGenerateStyle = useCallback((style: string) => {
     setLastGenerateStyleState(style)
   }, [])
@@ -187,7 +192,6 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
 
   const reset = useCallback(() => {
     setMessages([])
-    setError(null)
     setIsPending(false)
     setLastGenerateStyleState(DEFAULT_LAST_GENERATE_STYLE)
   }, [])
@@ -198,7 +202,6 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       const errTrim = payload.errorMessage.trim()
       if (!sqlTrim || !errTrim) return
 
-      setError(null)
       setIsPending(true)
       setMessages((prev) => [
         ...prev,
@@ -226,7 +229,14 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
           },
         ])
       } catch (e) {
-        setError(errorMessage(e, "Request failed"))
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            type: "error",
+            output: errorMessage(e, "Request failed"),
+          },
+        ])
       } finally {
         setIsPending(false)
       }
@@ -236,7 +246,6 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     const trimmed = payload.message.trim()
     if (!trimmed) return
 
-    setError(null)
     setIsPending(true)
     setMessages((prev) => [...prev, { role: "user", variant: "text", content: trimmed }])
 
@@ -377,7 +386,14 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         setLastGenerateStyleState(explanationStyle)
       }
     } catch (e) {
-      setError(errorMessage(e, "Request failed"))
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          type: "error",
+          output: errorMessage(e, "Request failed"),
+        },
+      ])
     } finally {
       setIsPending(false)
     }
@@ -388,7 +404,6 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       const msg = messages[index]
       if (!msg || msg.role !== "assistant" || msg.type !== "explanation") return
 
-      setError(null)
       setIsPending(true)
       try {
         const trimmedStyle = stylePrompt.trim()
@@ -419,7 +434,14 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         })
         setLastGenerateStyleState(trimmedStyle)
       } catch (e) {
-        setError(errorMessage(e, "Request failed"))
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            type: "error",
+            output: errorMessage(e, "Request failed"),
+          },
+        ])
       } finally {
         setIsPending(false)
       }
@@ -430,12 +452,10 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   return {
     messages,
     isPending,
-    error,
     lastGenerateStyle,
     setLastGenerateStyle,
     sendMessage,
     refreshExplanationAt,
     reset,
-    clearError,
   }
 }
