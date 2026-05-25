@@ -3,7 +3,7 @@ import { getToken, setToken, clearToken, registerRefreshHandler } from "./auth-s
 const AUTH_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru"
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_API_BASE_URL ?? "https://api.sb0rka.ru"
 const QUERY_RUNNER_BASE_URL =
-  import.meta.env.VITE_QUERY_RUNNER_BASE_URL ?? "http://localhost:8081"
+  import.meta.env.VITE_QUERY_RUNNER_BASE_URL ?? "https://psql-executor.proxy.sb0rka.ru/"
 // nl2sql default listen: HTTP_LISTEN_ADDR=:8083 (apps/nl2sql)
 const NL2SQL_BASE_URL = import.meta.env.VITE_NL2SQL_BASE_URL ?? "http://localhost:8083"
 const NL2SQL_SHARED_SECRET = (import.meta.env.VITE_NL2SQL_SHARED_SECRET as string | undefined)?.trim()

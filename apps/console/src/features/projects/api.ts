@@ -161,7 +161,7 @@ export interface RunDatabaseQueryRequest {
 interface QueryRunnerExecuteRequest {
   project_id: string
   database_id: string
-  sql: string
+  query: string
 }
 
 export interface RunDatabaseQueryResponse {
@@ -178,7 +178,7 @@ export async function runDatabaseQuery(
   const payload: QueryRunnerExecuteRequest = {
     project_id: data.project_id,
     database_id: data.database_id,
-    sql: data.query,
+    query: data.query,
   }
 
   return apiRequest<RunDatabaseQueryResponse>({
