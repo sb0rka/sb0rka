@@ -150,15 +150,24 @@ const EXPLANATION_STYLE_STORAGE_KEY = "ai-query-chat:explanation-style"
 const aiChatMenuTriggerClass =
   "focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
 
+const userMessageBubbleClass =
+  "relative max-w-[95%] rounded-2xl rounded-br-[4px] border border-border/70 bg-muted/30 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-right-[10px] after:h-5 after:w-5 after:rounded-bl-[15px] after:bg-transparent after:[box-shadow:-10px_10px_0_0_color-mix(in_srgb,var(--muted)_30%,transparent)]"
+
+const responseMessageRowClass = "flex justify-start pl-3"
+
+const responseMessageBubbleClass =
+  "relative max-w-[95%] rounded-2xl rounded-bl-[4px] border border-border/70 bg-muted/30 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-left-[10px] after:h-5 after:w-5 after:rounded-br-[15px] after:bg-transparent after:[box-shadow:10px_10px_0_0_color-mix(in_srgb,var(--muted)_30%,transparent)]"
+
+const errorMessageBubbleClass =
+  "relative max-w-[95%] rounded-2xl rounded-bl-[4px] border border-destructive/25 bg-destructive/5 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-left-[10px] after:h-5 after:w-5 after:rounded-br-[15px] after:bg-transparent after:[box-shadow:10px_10px_0_0_color-mix(in_srgb,var(--destructive)_5%,transparent)]"
+
 export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
   isPending: boolean
-  error: string | null
   lastGenerateStyle: string
   setLastGenerateStyle: (style: string) => void
   sendMessage: (payload: AiQueryChatSendPayload) => Promise<void>
   refreshExplanationAt: (index: number, stylePrompt: string) => Promise<void>
-  clearError: () => void
 }
 
 export type AiQueryChatProps = {
@@ -200,12 +209,10 @@ export function AiQueryChat({
   const {
     messages,
     isPending,
-    error,
     lastGenerateStyle,
     setLastGenerateStyle,
     sendMessage,
     refreshExplanationAt,
-    clearError,
   } = chat
   const [input, setInput] = useState("")
   const [modelFilter, setModelFilter] = useState("")
@@ -304,7 +311,6 @@ export function AiQueryChat({
   function handleSend() {
     const trimmed = input.trim()
     if (!trimmed || isPending) return
-    clearError()
     void sendMessage({
       type: "generate",
       message: trimmed,
@@ -332,14 +338,9 @@ export function AiQueryChat({
               return (
                 <div
                   key={`${index}-user-fix`}
-                  className={cn(
-                    "rounded-lg border border-border/70 bg-muted/30 p-3 space-y-2",
-                    index > 0 && "mt-6",
-                  )}
+                  className={cn("flex justify-end pr-3", index > 0 && "mt-6")}
                 >
-                  <p className="text-sm font-medium">
-                    {t("dataExplorer.aiChatFixPromptTitle")}
-                  </p>
+                  <div className={cn(userMessageBubbleClass, "space-y-2")}>
                   <p className="text-xs font-medium text-muted-foreground">
                     {t("dataExplorer.fixChatSqlLabel")}
                   </p>
@@ -349,31 +350,30 @@ export function AiQueryChat({
                   <p className="pt-1 text-xs font-medium text-muted-foreground">
                     {t("dataExplorer.fixChatErrorLabel")}
                   </p>
-                  <p className="whitespace-pre-wrap text-sm">{m.errorMessage}</p>
+                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                    {m.errorMessage}
+                  </p>
+                  </div>
                 </div>
               )
             }
             return (
               <div
                 key={`${index}-user`}
-                className={cn(
-                  "rounded-lg border border-border/70 bg-muted/30 p-3",
-                  index > 0 && "mt-6",
-                )}
+                className={cn("flex justify-end pr-3", index > 0 && "mt-6")}
               >
-                <p className="mb-2 text-sm font-medium">
-                  {t("dataExplorer.aiChatPromptTitle")}
-                </p>
-                <p className="whitespace-pre-wrap text-sm">{m.content}</p>
+                <div className={userMessageBubbleClass}>
+                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                    {m.content}
+                  </p>
+                </div>
               </div>
             )
           }
           if (m.type === "sql") {
             return (
-              <div
-                key={`${index}-sql`}
-                className="rounded-lg border border-border/70 bg-muted/30 p-3"
-              >
+              <div key={`${index}-sql`} className={responseMessageRowClass}>
+                <div className={responseMessageBubbleClass}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium">SQL</p>
                   <div className="flex items-center gap-1">
@@ -420,6 +420,7 @@ export function AiQueryChat({
                 <pre className="max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap text-muted-foreground">
                   {m.output}
                 </pre>
+                </div>
               </div>
             )
           }
@@ -429,15 +430,18 @@ export function AiQueryChat({
                 key={`${index}-fix`}
                 className={cn("space-y-3", index > 0 && "mt-6")}
               >
-                <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                <div className={responseMessageRowClass}>
+                  <div className={responseMessageBubbleClass}>
                   <p className="mb-2 text-sm font-medium">
                     {t("dataExplorer.fixDiagnosisTitle")}
                   </p>
                   <div className="max-h-[280px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground">
                     {m.explanation}
                   </div>
+                  </div>
                 </div>
-                <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                <div className={responseMessageRowClass}>
+                  <div className={responseMessageBubbleClass}>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium">
                       {t("dataExplorer.aiChatFixedSql")}
@@ -486,33 +490,51 @@ export function AiQueryChat({
                   <pre className="max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap text-muted-foreground">
                     {m.fixedSql}
                   </pre>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          if (m.type === "error") {
+            return (
+              <div
+                key={`${index}-error`}
+                className={cn(responseMessageRowClass, index > 0 && "mt-6")}
+              >
+                <div className={errorMessageBubbleClass} role="alert">
+                  <p className="mb-2 text-sm font-medium text-foreground">
+                    {t("dataExplorer.aiChatErrorTitle")}
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                    {m.output}
+                  </p>
                 </div>
               </div>
             )
           }
           const styleKey = explainStyleKeyFromPrompt(m.style)
           const explanationChromeNone = styleKey === "none"
+          const hasExplanationContent = m.output.trim().length > 0
           const explanationMenuKeys = explanationChromeNone
             ? EXPLAIN_STYLE_ORDER.filter((k) => k !== "none")
             : EXPLAIN_STYLE_ORDER
           return (
             <div
               key={`${index}-explanation`}
-              className={cn(
-                explanationChromeNone
-                  ? undefined
-                  : "rounded-lg border border-border/70 bg-muted/30 p-3",
-              )}
+              className={hasExplanationContent ? responseMessageRowClass : "flex justify-end"}
             >
+              <div className={hasExplanationContent ? responseMessageBubbleClass : undefined}>
               <div
                 className={cn(
                   "flex flex-wrap items-center gap-2",
-                  explanationChromeNone
-                    ? "justify-end"
-                    : "mb-2 justify-between",
+                  hasExplanationContent
+                    ? explanationChromeNone
+                      ? "justify-end"
+                      : "mb-2 justify-between"
+                    : "justify-end",
                 )}
               >
-                {!explanationChromeNone ? (
+                {hasExplanationContent && !explanationChromeNone ? (
                   <p className="text-sm font-medium">{t("dataExplorer.aiChatAnalysisTitle")}</p>
                 ) : null}
                 <DropdownMenu>
@@ -550,8 +572,11 @@ export function AiQueryChat({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="max-h-[420px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground">
-                {m.output}
+              {hasExplanationContent ? (
+                <div className="max-h-[420px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground">
+                  {m.output}
+                </div>
+              ) : null}
               </div>
             </div>
           )
@@ -567,12 +592,6 @@ export function AiQueryChat({
           </div>
         ) : null}
       </div>
-
-      {error ? (
-        <p className="shrink-0 text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       <div className="shrink-0 space-y-2 border-t border-border pt-3">
         <p className="text-sm font-medium">{t("dataExplorer.aiChatNewQuery")}</p>

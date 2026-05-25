@@ -270,6 +270,7 @@ export {
   useAiQueryChat,
   type AiReasoningLevel,
   type AiQueryChatAssistantMessage,
+  type AiQueryChatErrorMessage,
   type AiQueryChatExplainPayload,
   type AiQueryChatExplanationMessage,
   type AiQueryChatFixMessage,
