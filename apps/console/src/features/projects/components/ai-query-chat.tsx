@@ -121,16 +121,16 @@ function pricingHoverText(modelId: string, pricing: OpenAiModelPricing | undefin
   return lines.join("\n")
 }
 
-function explainStyleLabelEnglish(key: ExplainStyleKey): string {
+function explainStyleLabelKey(key: ExplainStyleKey): string {
   switch (key) {
     case "none":
-      return "None"
+      return "dataExplorer.styleNone"
     case "detailed":
-      return "Detailed"
+      return "dataExplorer.styleDetailed"
     case "short":
-      return "Short"
+      return "dataExplorer.styleShort"
     case "haiku":
-      return "Haiku"
+      return "dataExplorer.styleHaiku"
     default: {
       const _x: never = key
       return _x
@@ -314,7 +314,7 @@ export function AiQueryChat({
   const selectedReasoningLabel = t(
     `dataExplorer.aiChatMenuReasoningLevel${reasoningLevel[0].toUpperCase()}${reasoningLevel.slice(1)}`,
   )
-  const selectedExplanationLabel = explainStyleLabelEnglish(selectedExplanationStyleKey)
+  const selectedExplanationLabel = t(explainStyleLabelKey(selectedExplanationStyleKey))
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
@@ -500,7 +500,7 @@ export function AiQueryChat({
                 )}
               >
                 {!explanationChromeNone ? (
-                  <p className="text-sm font-medium">Analysis</p>
+                  <p className="text-sm font-medium">{t("dataExplorer.aiChatAnalysisTitle")}</p>
                 ) : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -527,7 +527,7 @@ export function AiQueryChat({
                           }}
                         >
                           <span className="flex-1">
-                            {explainStyleLabelEnglish(key)}
+                            {t(explainStyleLabelKey(key))}
                           </span>
                           {styleKey === key ? (
                             <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -550,7 +550,7 @@ export function AiQueryChat({
             aria-busy="true"
           >
             <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-            <span>Thinking…</span>
+            <span>{t("dataExplorer.aiChatThinking")}</span>
           </div>
         ) : null}
       </div>
@@ -562,7 +562,7 @@ export function AiQueryChat({
       ) : null}
 
       <div className="shrink-0 space-y-2 border-t border-border pt-3">
-        <p className="text-sm font-medium">New Query</p>
+        <p className="text-sm font-medium">{t("dataExplorer.aiChatNewQuery")}</p>
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -572,7 +572,7 @@ export function AiQueryChat({
             e.preventDefault()
             handleSend()
           }}
-          placeholder="Ask in natural language…"
+          placeholder={t("dataExplorer.aiChatInputPlaceholder")}
           className="max-h-40 min-h-[88px] resize-y shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={isPending}
           spellCheck
@@ -755,7 +755,7 @@ export function AiQueryChat({
                   className="gap-2"
                   onSelect={() => handleSelectExplanationStyle(key)}
                 >
-                  <span className="flex-1">{explainStyleLabelEnglish(key)}</span>
+                  <span className="flex-1">{t(explainStyleLabelKey(key))}</span>
                   {selectedExplanationStyleKey === key ? (
                     <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
                   ) : null}
