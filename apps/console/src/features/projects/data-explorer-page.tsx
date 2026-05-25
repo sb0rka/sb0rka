@@ -264,34 +264,18 @@ export function DataExplorerPage() {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
           {nodes.length === 0 ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border-border bg-card p-4">
-              {databasesQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">{t("dataExplorer.loadingSchema")}</p>
-              ) : databasesQuery.isError ? (
+            <>
+              {!databasesQuery.isLoading && !databasesQuery.isError && (
                 <>
-                  <p className="text-sm text-destructive">
-                    {getErrorMessage(databasesQuery.error, t("dataExplorer.schemaError"))}
-                  </p>
-                  <Button variant="outline" asChild>
-                    <Link to={`/projects/${id}?tab=databases`}>{t("dataExplorer.backToDatabases")}</Link>
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">{t("dataExplorer.noDatabases")}</p>
+                  <p className="text-sm text-muted-foreground mb-2">{t("dataExplorer.noDatabases")}</p>
                   <Button variant="outline" asChild>
                     <Link to={`/projects/${id}?tab=databases`}>{t("dataExplorer.backToDatabases")}</Link>
                   </Button>
                 </>
               )}
-            </div>
+            </>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border-border bg-card p-4">
-              {schemaQuery.isError ? (
-                <p className="text-sm text-destructive">
-                  {getErrorMessage(schemaQuery.error, t("dataExplorer.schemaError"))}
-                </p>
-              ) : null}
               <div className="grid shrink-0 gap-4">
                 <div className="flex items-center gap-1">
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
