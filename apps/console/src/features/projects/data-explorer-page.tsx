@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -30,6 +30,7 @@ import {
 const MAX_SCHEMA_CHARS = 190_000
 const AI_REASONING_LEVEL_STORAGE_KEY = "sb0rka.console.aiReasoningLevel"
 const AI_SELECTED_MODEL_STORAGE_KEY = "sb0rka.console.aiSelectedModel"
+type ActiveInput = "sql" | "prompt"
 
 function parseAiReasoningLevel(value: string | null | undefined): AiReasoningLevel | null {
   if (!value) return null
@@ -103,6 +104,9 @@ export function DataExplorerPage() {
   const [aiReasoningLevel, setAiReasoningLevel] = useState<AiReasoningLevel>(() =>
     getStoredAiReasoningLevel(),
   )
+  const [activeInput, setActiveInput] = useState<ActiveInput>("sql")
+  const [promptInserter, setPromptInserter] = useState<((text: string) => void) | null>(null)
+  const sqlTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const nodes = useMemo(() => {
     const databases = databasesQuery.data?.databases ?? []
@@ -247,6 +251,41 @@ export function DataExplorerPage() {
     }
   }
 
+  const insertIntoSql = useCallback((text: string) => {
+    if (!text) return
+    const el = sqlTextareaRef.current
+    if (!el) {
+      setSql((prev) => `${prev}${text}`)
+      return
+    }
+
+    const selectionStart = el.selectionStart ?? el.value.length
+    const selectionEnd = el.selectionEnd ?? selectionStart
+
+    setSql((prev) => {
+      const start = Math.min(selectionStart, prev.length)
+      const end = Math.min(selectionEnd, prev.length)
+      return `${prev.slice(0, start)}${text}${prev.slice(end)}`
+    })
+
+    const nextCaret = selectionStart + text.length
+    requestAnimationFrame(() => {
+      const next = sqlTextareaRef.current
+      if (!next) return
+      next.focus()
+      next.setSelectionRange(nextCaret, nextCaret)
+    })
+  }, [])
+
+  const insertIntoActiveInput = useCallback((text: string) => {
+    if (!text) return
+    if (activeInput === "prompt" && promptInserter) {
+      promptInserter(text)
+      return
+    }
+    insertIntoSql(text)
+  }, [activeInput, insertIntoSql, promptInserter])
+
   return (
     <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-4 overflow-hidden">
 
@@ -255,6 +294,8 @@ export function DataExplorerPage() {
           nodes={nodes}
           selectedResourceId={selectedResourceId}
           onSelectDatabase={setSelectedResourceId}
+          onInsertTableName={insertIntoActiveInput}
+          onInsertColumnName={insertIntoActiveInput}
           isSchemaRefetching={
             Boolean(schemaQuery.data) &&
             schemaQuery.fetchStatus === "fetching"
@@ -284,9 +325,11 @@ export function DataExplorerPage() {
                   </p>
                 </div>
                 <Textarea
+                  ref={sqlTextareaRef}
                   id="data-explorer-sql"
                   value={sql}
                   onChange={(e) => setSql(e.target.value)}
+                  onFocus={() => setActiveInput("sql")}
                   onKeyDown={(e) => {
                     if (e.key !== "Enter" || e.shiftKey) return
                     if (e.nativeEvent.isComposing) return
@@ -389,6 +432,8 @@ export function DataExplorerPage() {
                         void handleRunQuery(next)
                       }}
                       applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
+                      onPromptFocus={() => setActiveInput("prompt")}
+                      onRegisterPromptInserter={(fn) => setPromptInserter(() => fn)}
                       className="min-h-0 flex-1 overflow-hidden"
                     />
                   </div>

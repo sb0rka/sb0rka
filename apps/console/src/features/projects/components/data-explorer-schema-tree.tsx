@@ -10,6 +10,8 @@ export interface DataExplorerSchemaTreeProps {
   nodes: DataExplorerDatabaseNode[]
   selectedResourceId: string | null
   onSelectDatabase: (resourceId: string) => void
+  onInsertTableName?: (tableName: string) => void
+  onInsertColumnName?: (columnName: string) => void
   isSchemaRefetching?: boolean
   projectId: string
 }
@@ -36,6 +38,8 @@ export function DataExplorerSchemaTree({
   nodes,
   selectedResourceId,
   onSelectDatabase,
+  onInsertTableName,
+  onInsertColumnName,
   isSchemaRefetching = false,
   projectId,
 }: DataExplorerSchemaTreeProps) {
@@ -238,24 +242,24 @@ export function DataExplorerSchemaTree({
 
                       return (
                         <li key={tableKey}>
-                          <button
-                            type="button"
-                            aria-expanded={tableOpen}
-                            onClick={() =>
-                              toggleTableExpanded(
-                                database.resource_id,
-                                tableKey,
-                                tableCount,
-                              )
-                            }
+                          <div
                             className={cn(
                               "flex w-full items-center gap-0.5 rounded-sm py-0.5 pl-0 pr-1 text-left text-xs text-foreground",
                               "hover:bg-muted/50",
                             )}
                           >
-                            <span
-                              className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"
-                              aria-hidden
+                            <button
+                              type="button"
+                              aria-expanded={tableOpen}
+                              aria-label={`Toggle ${displayName} columns`}
+                              onClick={() =>
+                                toggleTableExpanded(
+                                  database.resource_id,
+                                  tableKey,
+                                  tableCount,
+                                )
+                              }
+                              className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                             >
                               <ChevronRight
                                 className={cn(
@@ -263,20 +267,27 @@ export function DataExplorerSchemaTree({
                                   tableOpen && "rotate-90",
                                 )}
                               />
-                            </span>
-                            <span className="min-w-0 truncate font-medium">
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onInsertTableName?.(displayName)}
+                              className="min-w-0 flex-1 truncate rounded-sm py-0 text-left font-medium hover:bg-muted/80"
+                            >
                               {displayName}
-                            </span>
-                          </button>
+                            </button>
+                          </div>
 
                           {tableOpen ? (
                             <ul className="ml-6 border-l border-border/60 pl-2 py-0.5">
                               {table.columns.map((col) => (
-                                <li
-                                  key={`${tableKey}:${col.name}`}
-                                  className="py-0.5 text-xs text-muted-foreground"
-                                >
-                                  {col.name} · {col.data_type}
+                                <li key={`${tableKey}:${col.name}`} className="py-0.5 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => onInsertColumnName?.(col.name)}
+                                    className="w-full rounded-sm px-1 py-0.5 text-left text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                  >
+                                    {col.name} · {col.data_type}
+                                  </button>
                                 </li>
                               ))}
                             </ul>

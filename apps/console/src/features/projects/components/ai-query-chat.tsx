@@ -151,15 +151,15 @@ const aiChatMenuTriggerClass =
   "focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
 
 const userMessageBubbleClass =
-  "relative max-w-[95%] rounded-2xl rounded-br-[4px] border border-border/70 bg-muted/30 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-right-[10px] after:h-5 after:w-5 after:rounded-bl-[15px] after:bg-transparent after:[box-shadow:-10px_10px_0_0_color-mix(in_srgb,var(--muted)_30%,transparent)]"
+  "relative max-w-[90%] rounded-2xl rounded-br-[4px] border border-border/70 bg-muted/30 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-right-[10px] after:h-5 after:w-5 after:rounded-bl-[15px] after:bg-transparent after:[box-shadow:-10px_10px_0_0_color-mix(in_srgb,var(--muted)_30%,transparent)]"
 
 const responseMessageRowClass = "flex justify-start pl-3"
 
 const responseMessageBubbleClass =
-  "relative max-w-[95%] rounded-2xl rounded-bl-[4px] border border-border/70 bg-muted/30 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-left-[10px] after:h-5 after:w-5 after:rounded-br-[15px] after:bg-transparent after:[box-shadow:10px_10px_0_0_color-mix(in_srgb,var(--muted)_30%,transparent)]"
+  "relative max-w-[90%] rounded-2xl rounded-bl-[4px] border border-border/70 bg-muted/30 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-left-[10px] after:h-5 after:w-5 after:rounded-br-[15px] after:bg-transparent after:[box-shadow:10px_10px_0_0_color-mix(in_srgb,var(--muted)_30%,transparent)]"
 
 const errorMessageBubbleClass =
-  "relative max-w-[95%] rounded-2xl rounded-bl-[4px] border border-destructive/25 bg-destructive/5 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-left-[10px] after:h-5 after:w-5 after:rounded-br-[15px] after:bg-transparent after:[box-shadow:10px_10px_0_0_color-mix(in_srgb,var(--destructive)_5%,transparent)]"
+  "relative max-w-[90%] rounded-2xl rounded-bl-[4px] border border-destructive/25 bg-destructive/5 p-3 after:pointer-events-none after:absolute after:bottom-0 after:-left-[10px] after:h-5 after:w-5 after:rounded-br-[15px] after:bg-transparent after:[box-shadow:10px_10px_0_0_color-mix(in_srgb,var(--destructive)_5%,transparent)]"
 
 export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
@@ -186,6 +186,8 @@ export type AiQueryChatProps = {
   onApplySqlAndRun?: (sql: string) => void
   /** When true, disables apply-and-run (e.g. no DB selected or run already in flight). */
   applySqlAndRunDisabled?: boolean
+  onPromptFocus?: () => void
+  onRegisterPromptInserter?: (fn: ((text: string) => void) | null) => void
   className?: string
 }
 
@@ -203,6 +205,8 @@ export function AiQueryChat({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  onPromptFocus,
+  onRegisterPromptInserter,
   className,
 }: AiQueryChatProps) {
   const { t } = useTranslation()
@@ -219,6 +223,7 @@ export function AiQueryChat({
   const [modelSort, setModelSort] = useState<ModelSortKey>("priceAsc")
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null)
   const modelListScrollRef = useRef<HTMLDivElement>(null)
   const selectedModelItemRef = useRef<HTMLDivElement>(null)
   const selectedExplanationStyleKey = explainStyleKeyFromPrompt(lastGenerateStyle)
@@ -325,6 +330,37 @@ export function AiQueryChat({
     `dataExplorer.aiChatMenuReasoningLevel${reasoningLevel[0].toUpperCase()}${reasoningLevel.slice(1)}`,
   )
   const selectedExplanationLabel = t(explainStyleLabelKey(selectedExplanationStyleKey))
+
+  const insertIntoPrompt = useCallback((text: string) => {
+    if (!text) return
+    const el = promptTextareaRef.current
+    if (!el) {
+      setInput((prev) => `${prev}${text}`)
+      return
+    }
+
+    const selectionStart = el.selectionStart ?? el.value.length
+    const selectionEnd = el.selectionEnd ?? selectionStart
+
+    setInput((prev) => {
+      const start = Math.min(selectionStart, prev.length)
+      const end = Math.min(selectionEnd, prev.length)
+      return `${prev.slice(0, start)}${text}${prev.slice(end)}`
+    })
+
+    const nextCaret = selectionStart + text.length
+    requestAnimationFrame(() => {
+      const next = promptTextareaRef.current
+      if (!next) return
+      next.focus()
+      next.setSelectionRange(nextCaret, nextCaret)
+    })
+  }, [])
+
+  useEffect(() => {
+    onRegisterPromptInserter?.(insertIntoPrompt)
+    return () => onRegisterPromptInserter?.(null)
+  }, [insertIntoPrompt, onRegisterPromptInserter])
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
@@ -596,8 +632,10 @@ export function AiQueryChat({
       <div className="shrink-0 space-y-2 border-t border-border pt-3">
         <p className="text-sm font-medium">{t("dataExplorer.aiChatNewQuery")}</p>
         <Textarea
+          ref={promptTextareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onFocus={() => onPromptFocus?.()}
           onKeyDown={(e) => {
             if (e.key !== "Enter" || e.shiftKey) return
             if (e.nativeEvent.isComposing) return
