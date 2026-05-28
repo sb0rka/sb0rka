@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { ApiError } from "@/lib/api-client"
 import {
   explainSqlWithOpenAiStream,
@@ -177,6 +178,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   const abortControllerRef = useRef<AbortController | null>(null)
   const thinkingMessageIndexRef = useRef(-1)
   const sqlMessageIndexRef = useRef(-1)
+  const fixSqlMessageIndexRef = useRef(-1)
   const fixMessageIndexRef = useRef(-1)
 
   const setLastGenerateStyle = useCallback((style: string) => {
@@ -189,6 +191,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     abortControllerRef.current = controller
     thinkingMessageIndexRef.current = -1
     sqlMessageIndexRef.current = -1
+    fixSqlMessageIndexRef.current = -1
     fixMessageIndexRef.current = -1
     setIsPending(true)
     return controller
@@ -210,6 +213,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       })
       thinkingMessageIndexRef.current = -1
       sqlMessageIndexRef.current = -1
+      fixSqlMessageIndexRef.current = -1
       fixMessageIndexRef.current = -1
       return next.length === prev.length ? prev : next
     })
@@ -251,24 +255,52 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     })
   }, [])
 
+  const findFixSqlMessageIndex = useCallback((prev: AiQueryChatMessage[]) => {
+    const fixIndex = fixMessageIndexRef.current
+    if (fixIndex < 0) return -1
+    for (let i = fixIndex + 1; i < prev.length; i++) {
+      const m = prev[i]
+      if (m.role === "assistant" && m.type === "sql") return i
+      if (m.role === "user") break
+    }
+    return -1
+  }, [])
+
   const upsertStreamingSql = useCallback((text: string) => {
     if (!text.trim()) return
     setMessages((prev) => {
-      const sqlIndex = sqlMessageIndexRef.current
-      if (
-        sqlIndex >= 0 &&
-        sqlIndex < prev.length &&
-        prev[sqlIndex]?.role === "assistant" &&
-        prev[sqlIndex]?.type === "sql"
-      ) {
+      const useFixSqlSlot = fixSqlMessageIndexRef.current >= 0
+      let sqlIndex = useFixSqlSlot
+        ? fixSqlMessageIndexRef.current
+        : sqlMessageIndexRef.current
+
+      const isSqlMessage = (index: number) =>
+        index >= 0 &&
+        index < prev.length &&
+        prev[index]?.role === "assistant" &&
+        prev[index]?.type === "sql"
+
+      if (!isSqlMessage(sqlIndex) && useFixSqlSlot) {
+        const scanned = findFixSqlMessageIndex(prev)
+        if (scanned >= 0) {
+          sqlIndex = scanned
+          fixSqlMessageIndexRef.current = scanned
+        }
+      }
+
+      if (isSqlMessage(sqlIndex)) {
         const next = [...prev]
         next[sqlIndex] = { role: "assistant", type: "sql", output: text }
         return next
       }
-      sqlMessageIndexRef.current = prev.length
+
+      if (useFixSqlSlot) return prev
+
+      const appendIndex = prev.length
+      sqlMessageIndexRef.current = appendIndex
       return [...prev, { role: "assistant", type: "sql", output: text }]
     })
-  }, [])
+  }, [findFixSqlMessageIndex])
 
   const upsertThinkingText = useCallback((text: string) => {
     setMessages((prev) => {
@@ -350,6 +382,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     abortControllerRef.current = null
     thinkingMessageIndexRef.current = -1
     sqlMessageIndexRef.current = -1
+    fixSqlMessageIndexRef.current = -1
     fixMessageIndexRef.current = -1
     setMessages([])
     setIsPending(false)
@@ -384,14 +417,19 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
 
       const beginFixSqlPhase = () => {
         thinkingMessageIndexRef.current = -1
-        sqlMessageIndexRef.current = -1
-        setMessages((prev) => {
-          const fixIndex = fixMessageIndexRef.current
-          const next = [...prev]
-          const thinkingIndex = fixIndex >= 0 ? fixIndex + 1 : next.length
-          next.splice(thinkingIndex, 0, { role: "assistant", type: "thinking", output: "" })
-          thinkingMessageIndexRef.current = thinkingIndex
-          return next
+        fixSqlMessageIndexRef.current = -1
+        flushSync(() => {
+          setMessages((prev) => {
+            const fixIndex = fixMessageIndexRef.current
+            const next = [...prev]
+            const thinkingIndex = fixIndex >= 0 ? fixIndex + 1 : next.length
+            next.splice(thinkingIndex, 0, { role: "assistant", type: "thinking", output: "" })
+            thinkingMessageIndexRef.current = thinkingIndex
+            const sqlIndex = thinkingIndex + 1
+            next.splice(sqlIndex, 0, { role: "assistant", type: "sql", output: "" })
+            fixSqlMessageIndexRef.current = sqlIndex
+            return next
+          })
         })
       }
 
@@ -414,8 +452,39 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
           onReasoningText: upsertThinkingText,
         })
         if (signal.aborted) return
-        upsertFixMessage({ explanation: res.explanation })
-        upsertStreamingSql(res.fixedSql)
+        const fixedSql = res.fixedSql.trim()
+        setMessages((prev) => {
+          const next = [...prev]
+          const fixIndex = fixMessageIndexRef.current
+          if (
+            fixIndex >= 0 &&
+            fixIndex < next.length &&
+            next[fixIndex]?.role === "assistant" &&
+            next[fixIndex]?.type === "fix"
+          ) {
+            const current = next[fixIndex]
+            if (current.role === "assistant" && current.type === "fix") {
+              next[fixIndex] = { ...current, explanation: res.explanation }
+            }
+          }
+          if (fixedSql) {
+            let sqlIndex = fixSqlMessageIndexRef.current
+            const sqlAtIndex =
+              sqlIndex >= 0 && sqlIndex < next.length ? next[sqlIndex] : undefined
+            const hasValidSqlSlot =
+              sqlAtIndex?.role === "assistant" && sqlAtIndex.type === "sql"
+            if (!hasValidSqlSlot) {
+              sqlIndex = findFixSqlMessageIndex(next)
+            }
+            if (sqlIndex >= 0) {
+              next[sqlIndex] = { role: "assistant", type: "sql", output: fixedSql }
+            } else {
+              fixSqlMessageIndexRef.current = next.length
+              next.push({ role: "assistant", type: "sql", output: fixedSql })
+            }
+          }
+          return next
+        })
       } catch (e) {
         if (isAbortError(e, signal)) return
         setMessages((prev) => [
@@ -674,7 +743,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     } finally {
       finishRequest(controller)
     }
-  }, [schema, dialect, assertOpenAiConfig, beginRequest, finishRequest, generateExplanationForSql, selectedModel, reasoningPolicy.maxCorrectnessPasses, reasoningPolicy.runFurtherSteps, updateAssistantMessageAt, upsertFixMessage, upsertStreamingSql, upsertThinkingText])
+  }, [schema, dialect, assertOpenAiConfig, beginRequest, finishRequest, findFixSqlMessageIndex, generateExplanationForSql, selectedModel, reasoningPolicy.maxCorrectnessPasses, reasoningPolicy.runFurtherSteps, updateAssistantMessageAt, upsertFixMessage, upsertStreamingSql, upsertThinkingText])
 
   const refreshExplanationAt = useCallback(
     async (index: number, stylePrompt: string) => {
