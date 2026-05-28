@@ -89,7 +89,7 @@ export function ProjectSidebar() {
       : `/projects/${projectId}?tab=${activeTab}`
 
   return (
-    <aside className="flex h-full w-[175px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
+    <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
       <div className="border-b border-border p-2.5 h-[60px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

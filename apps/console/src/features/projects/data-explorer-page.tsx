@@ -6,6 +6,7 @@ import { ArrowUp, ChevronRight, Loader2, MessagesSquare } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { getResolvedLanguage } from "@/lib/i18n"
 import {
   type AiReasoningLevel,
   useAiQueryChat,
@@ -95,6 +96,7 @@ export function DataExplorerPage() {
   const schemaQuery = useDataExplorerSchema(id)
   const secretsQuery = useSecrets(id)
   const runQuery = useRunDatabaseQuery()
+  const locale = getResolvedLanguage()
 
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [sql, setSql] = useState("select 1;")
@@ -110,14 +112,18 @@ export function DataExplorerPage() {
 
   const nodes = useMemo(() => {
     const databases = databasesQuery.data?.databases ?? []
+    const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "base" })
+    const sortedDatabases = [...databases].sort((a, b) =>
+      collator.compare(a.name ?? "", b.name ?? ""),
+    )
     const tablesByResourceId = new Map(
       (schemaQuery.data ?? []).map((node) => [node.database.resource_id, node.tables]),
     )
-    return databases.map((database) => ({
+    return sortedDatabases.map((database) => ({
       database,
       tables: tablesByResourceId.get(database.resource_id) ?? [],
     }))
-  }, [databasesQuery.data?.databases, schemaQuery.data])
+  }, [databasesQuery.data?.databases, locale, schemaQuery.data])
   const nl2sqlSchema = useMemo(() => {
     if (!selectedResourceId) return ""
     return buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)

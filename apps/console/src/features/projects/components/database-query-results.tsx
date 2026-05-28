@@ -32,7 +32,7 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
               {result.columns.map((column) => (
                 <th
                   key={column}
-                  className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="px-3 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground"
                 >
                   {column}
                 </th>
