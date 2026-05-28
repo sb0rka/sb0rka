@@ -440,6 +440,7 @@ export interface OpenAiGenerateSqlRequest {
   schema: string
   humanQuery: string
   model?: string
+  signal?: AbortSignal
 }
 
 export interface OpenAiGenerateSqlResponse {
@@ -454,6 +455,7 @@ export interface OpenAiExplainSqlRequest {
   sql: string
   style?: string
   model?: string
+  signal?: AbortSignal
 }
 
 export interface OpenAiExplainSqlResponse {
@@ -468,6 +470,7 @@ export interface OpenAiFixSqlRequest {
   sql: string
   errorMessage: string
   model?: string
+  signal?: AbortSignal
 }
 
 export interface OpenAiFixSqlResponse {
@@ -483,6 +486,7 @@ export interface OpenAiReviewSqlCorrectnessRequest {
   sql: string
   dialect?: string
   model?: string
+  signal?: AbortSignal
 }
 
 export interface OpenAiReviewSqlCorrectnessResponse {
@@ -499,6 +503,7 @@ export interface OpenAiReviewSqlOptimalityRequest {
   sql: string
   dialect?: string
   model?: string
+  signal?: AbortSignal
 }
 
 export interface OpenAiReviewSqlOptimalityResponse {
@@ -516,6 +521,7 @@ export interface OpenAiResolveOptimalSqlRequest {
   alternativeSql: string
   dialect?: string
   model?: string
+  signal?: AbortSignal
 }
 
 export interface OpenAiResolveOptimalSqlResponse {
@@ -532,6 +538,11 @@ function normalizeOpenAiCompletionsUrl(openaiUrl: string): string {
     return trimmed
   }
   return `${trimmed}/chat/completions`
+}
+
+function normalizeOpenAiResponsesUrl(openaiUrl: string): string {
+  const base = normalizeOpenAiBaseUrl(openaiUrl).replace(/\/+$/, "")
+  return `${base}/responses`
 }
 
 function normalizeOpenAiBaseUrl(openaiUrl: string): string {
@@ -734,6 +745,7 @@ async function requestOpenAiAssistantText(opts: {
   openaiKey: string
   prompt: string
   model?: string
+  signal?: AbortSignal
 }): Promise<string> {
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
@@ -757,6 +769,7 @@ async function requestOpenAiAssistantText(opts: {
         },
       ],
     }),
+    signal: opts.signal,
   })
 
   if (!res.ok) {
@@ -768,14 +781,196 @@ async function requestOpenAiAssistantText(opts: {
   return extractAssistantMessage(payload)
 }
 
+function parseSseBlock(block: string): { event: string | null; data: string } | null {
+  const lines = block.split(/\r?\n/)
+  let event: string | null = null
+  const dataLines: string[] = []
+  for (const line of lines) {
+    if (!line || line.startsWith(":")) continue
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trim() || null
+      continue
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart())
+    }
+  }
+  if (dataLines.length === 0) return null
+  return { event, data: dataLines.join("\n") }
+}
+
+function extractOutputTextFromCompletedResponse(eventPayload: unknown): string {
+  if (!isObject(eventPayload) || !isObject(eventPayload.response)) return ""
+  const output = eventPayload.response.output
+  if (!Array.isArray(output)) return ""
+  const chunks: string[] = []
+  for (const item of output) {
+    if (!isObject(item)) continue
+    const content = item.content
+    if (!Array.isArray(content)) continue
+    for (const part of content) {
+      if (!isObject(part)) continue
+      const isOutputText = part.type === "output_text"
+      if (!isOutputText || typeof part.text !== "string") continue
+      chunks.push(part.text)
+    }
+  }
+  return chunks.join("")
+}
+
+type OpenAiAssistantStreamRequest = {
+  openaiUrl: string
+  openaiKey: string
+  prompt: string
+  model?: string
+  signal?: AbortSignal
+  onText?: (text: string) => void
+  onReasoningText?: (text: string) => void
+}
+
+function parseEmbeddedSseJsonLine(line: string): { type: string; delta?: string } | null {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith("data:")) return null
+  const rawJson = trimmed.slice(5).trim()
+  if (!rawJson || rawJson === "[DONE]") return null
+  try {
+    const parsed = JSON.parse(rawJson) as unknown
+    if (!isObject(parsed) || typeof parsed.type !== "string") return null
+    return {
+      type: parsed.type,
+      delta: typeof parsed.delta === "string" ? parsed.delta : undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function requestOpenAiAssistantTextStream(
+  opts: OpenAiAssistantStreamRequest,
+): Promise<string> {
+  const openaiKey = opts.openaiKey.trim()
+  if (!openaiKey) {
+    throw new Error("Secret `openaikey` is empty")
+  }
+  const url = normalizeOpenAiResponsesUrl(opts.openaiUrl)
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: opts.model?.trim() || OPENAI_DEFAULT_MODEL,
+      input: opts.prompt,
+      temperature: 0,
+      stream: true,
+    }),
+    signal: opts.signal,
+  })
+
+  if (!res.ok) {
+    const bodyText = await res.text()
+    throw new Error(bodyText || `OpenAI request failed with status ${res.status}`)
+  }
+  if (!res.body) {
+    throw new Error("OpenAI stream is missing response body")
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let accumulated = ""
+  let reasoningAccumulated = ""
+  const separatorRegex = /\r?\n\r?\n/
+
+  const flushBlock = (block: string) => {
+    const parsed = parseSseBlock(block)
+    if (!parsed || parsed.data === "[DONE]") return
+    let payload: unknown
+    try {
+      payload = JSON.parse(parsed.data) as unknown
+    } catch {
+      return
+    }
+    if (!isObject(payload)) return
+    const type = typeof payload.type === "string" ? payload.type : parsed.event
+    if (type === "error") {
+      const message =
+        isObject(payload.error) && typeof payload.error.message === "string"
+          ? payload.error.message
+          : "OpenAI stream returned an error"
+      throw new Error(message)
+    }
+    if (type === "response.output_text.delta" && typeof payload.delta === "string") {
+      const rawDelta = payload.delta
+      const lines = rawDelta.split(/\r?\n/)
+      const visibleDeltaParts: string[] = []
+      for (const line of lines) {
+        const embedded = parseEmbeddedSseJsonLine(line)
+        if (embedded?.type === "response.reasoning_text.delta" && embedded.delta) {
+          reasoningAccumulated += embedded.delta
+          opts.onReasoningText?.(reasoningAccumulated)
+          continue
+        }
+        visibleDeltaParts.push(line)
+      }
+      const visibleDelta = visibleDeltaParts.join("\n")
+      if (!visibleDelta) return
+      accumulated += visibleDelta
+      opts.onText?.(accumulated)
+      return
+    }
+    if (type === "response.reasoning_text.delta" && typeof payload.delta === "string") {
+      reasoningAccumulated += payload.delta
+      opts.onReasoningText?.(reasoningAccumulated)
+      return
+    }
+    if (type === "response.refusal.delta" && typeof payload.delta === "string") {
+      accumulated += payload.delta
+      opts.onText?.(accumulated)
+      return
+    }
+    if (type === "response.completed" && accumulated.trim().length === 0) {
+      const completedText = extractOutputTextFromCompletedResponse(payload).trim()
+      if (completedText.length > 0) {
+        accumulated = completedText
+        opts.onText?.(accumulated)
+      }
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let separatorMatch = separatorRegex.exec(buffer)
+    while (separatorMatch) {
+      const separatorStart = separatorMatch.index
+      const separatorLength = separatorMatch[0].length
+      const block = buffer.slice(0, separatorStart)
+      buffer = buffer.slice(separatorStart + separatorLength)
+      flushBlock(block)
+      separatorMatch = separatorRegex.exec(buffer)
+    }
+  }
+
+  buffer += decoder.decode()
+  const tail = buffer.trim()
+  if (tail.length > 0) {
+    flushBlock(tail)
+  }
+  return accumulated
+}
+
 function buildGeneratePrompt(schema: string, humanQuery: string): string {
   return [
     `schema: ${schema}`,
     `query: ${humanQuery}`,
     "Dialect: postgresql",
     "Create one SQL statement that answers the query.",
-    "Return ONLY a valid JSON object with no markdown or code fences.",
-    'Response shape: {"sql": string}',
+    "Return ONLY the SQL text.",
+    "Do not return JSON.",
+    "Do not add explanations before or after SQL.",
   ].join("\n")
 }
 
@@ -794,12 +989,29 @@ function buildExplainPrompt(data: {
     `sql: ${data.sql}`,
     styleInstruction,
     "Explain this SQL query.",
-    "Return ONLY a valid JSON object with no markdown or code fences.",
-    'Response shape: {"explanation": string}',
+    "Return ONLY plain explanation text.",
+    "Do not return JSON.",
   ].join("\n")
 }
 
-function buildFixPrompt(data: {
+function buildFixExplanationPrompt(data: {
+  schema: string
+  dialect: string
+  sql: string
+  errorMessage: string
+}): string {
+  return [
+    `schema: ${data.schema}`,
+    `dialect: ${data.dialect}`,
+    `sql: ${data.sql}`,
+    `error: ${data.errorMessage}`,
+    "Explain what is wrong with this SQL query and how to fix it.",
+    "Return ONLY plain explanation text.",
+    "Do not return JSON.",
+  ].join("\n")
+}
+
+function buildFixSqlPrompt(data: {
   schema: string
   dialect: string
   sql: string
@@ -811,8 +1023,9 @@ function buildFixPrompt(data: {
     `sql: ${data.sql}`,
     `error: ${data.errorMessage}`,
     "Fix this SQL query according to the schema and the database error.",
-    "Return ONLY a valid JSON object with no markdown or code fences.",
-    'Response shape: {"explanation": string, "fixedSql": string}',
+    "Return ONLY the fixed SQL text.",
+    "Do not return JSON.",
+    "Do not add explanations before or after SQL.",
   ].join("\n")
 }
 
@@ -903,15 +1116,34 @@ export async function generateSqlWithOpenAi(
     openaiKey: data.openaiKey,
     model: data.model,
     prompt: buildGeneratePrompt(data.schema, data.humanQuery),
+    signal: data.signal,
   })
 
-  let sql = ""
-  try {
-    const json = parseJsonObjectFromAssistantText(assistantText)
-    sql = typeof json.sql === "string" ? json.sql.trim() : ""
-  } catch {
-    sql = extractSqlFromAssistantText(assistantText)
+  const sql = extractSqlFromAssistantText(assistantText)
+
+  if (!sql) {
+    throw new Error("OpenAI response missing `sql` string")
   }
+  return { sql }
+}
+
+export async function generateSqlWithOpenAiStream(
+  data: OpenAiGenerateSqlRequest & {
+    onText?: (text: string) => void
+    onReasoningText?: (text: string) => void
+  },
+): Promise<OpenAiGenerateSqlResponse> {
+  const assistantText = await requestOpenAiAssistantTextStream({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    model: data.model,
+    prompt: buildGeneratePrompt(data.schema, data.humanQuery),
+    signal: data.signal,
+    onText: data.onText,
+    onReasoningText: data.onReasoningText,
+  })
+
+  const sql = extractSqlFromAssistantText(assistantText)
 
   if (!sql) {
     throw new Error("OpenAI response missing `sql` string")
@@ -932,43 +1164,114 @@ export async function explainSqlWithOpenAi(
       sql: data.sql,
       style: data.style ?? "",
     }),
+    signal: data.signal,
   })
 
-  let explanation = ""
-  try {
-    const json = parseJsonObjectFromAssistantText(assistantText)
-    explanation = typeof json.explanation === "string" ? json.explanation : ""
-  } catch {
-    explanation = extractExplanationFromAssistantText(assistantText)
-  }
-
-  return { explanation }
+  return { explanation: extractExplanationFromAssistantText(assistantText) }
 }
 
-export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenAiFixSqlResponse> {
-  const assistantText = await requestOpenAiAssistantText({
+export async function explainSqlWithOpenAiStream(
+  data: OpenAiExplainSqlRequest & {
+    onText?: (text: string) => void
+    onReasoningText?: (text: string) => void
+  },
+): Promise<OpenAiExplainSqlResponse> {
+  const assistantText = await requestOpenAiAssistantTextStream({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
-    prompt: buildFixPrompt({
+    prompt: buildExplainPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      sql: data.sql,
+      style: data.style ?? "",
+    }),
+    signal: data.signal,
+    onText: data.onText,
+    onReasoningText: data.onReasoningText,
+  })
+
+  return { explanation: extractExplanationFromAssistantText(assistantText) }
+}
+
+export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenAiFixSqlResponse> {
+  const explanationText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    model: data.model,
+    prompt: buildFixExplanationPrompt({
       schema: data.schema,
       dialect: data.dialect ?? "postgresql",
       sql: data.sql,
       errorMessage: data.errorMessage,
     }),
+    signal: data.signal,
   })
 
-  let explanation = ""
-  let fixedSql = ""
-  try {
-    const json = parseJsonObjectFromAssistantText(assistantText)
-    explanation = typeof json.explanation === "string" ? json.explanation : ""
-    fixedSql = typeof json.fixedSql === "string" ? json.fixedSql.trim() : ""
-  } catch {
-    fixedSql = extractSqlFromAssistantText(assistantText)
-    explanation = extractExplanationFromAssistantText(assistantText)
-  }
+  const fixedSqlText = await requestOpenAiAssistantText({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    model: data.model,
+    prompt: buildFixSqlPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      sql: data.sql,
+      errorMessage: data.errorMessage,
+    }),
+    signal: data.signal,
+  })
 
+  const explanation = extractExplanationFromAssistantText(explanationText)
+  const fixedSql = extractSqlFromAssistantText(fixedSqlText)
+  if (!fixedSql) {
+    throw new Error("OpenAI response missing `fixedSql` string")
+  }
+  return { explanation, fixedSql }
+}
+
+export async function fixSqlWithOpenAiStream(
+  data: OpenAiFixSqlRequest & {
+    onExplanationText?: (text: string) => void
+    onSqlText?: (text: string) => void
+    onReasoningText?: (text: string) => void
+    /** Called after diagnosis finishes and before the fixed-SQL request starts. */
+    onSqlPhaseStart?: () => void
+  },
+): Promise<OpenAiFixSqlResponse> {
+  const explanationText = await requestOpenAiAssistantTextStream({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    model: data.model,
+    prompt: buildFixExplanationPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      sql: data.sql,
+      errorMessage: data.errorMessage,
+    }),
+    signal: data.signal,
+    onText: data.onExplanationText,
+    onReasoningText: data.onReasoningText,
+  })
+
+  data.onSqlPhaseStart?.()
+
+  const fixedSqlText = await requestOpenAiAssistantTextStream({
+    openaiUrl: data.openaiUrl,
+    openaiKey: data.openaiKey,
+    model: data.model,
+    prompt: buildFixSqlPrompt({
+      schema: data.schema,
+      dialect: data.dialect ?? "postgresql",
+      sql: data.sql,
+      errorMessage: data.errorMessage,
+    }),
+    signal: data.signal,
+    onText: data.onSqlText,
+    onReasoningText: data.onReasoningText,
+  })
+
+  const explanation = extractExplanationFromAssistantText(explanationText)
+  const fixedSql = extractSqlFromAssistantText(fixedSqlText)
   if (!fixedSql) {
     throw new Error("OpenAI response missing `fixedSql` string")
   }
@@ -988,6 +1291,7 @@ export async function reviewSqlCorrectness(
       humanQuery: data.humanQuery,
       sql: data.sql,
     }),
+    signal: data.signal,
   })
   const json = parseJsonObjectFromAssistantText(assistantText)
   const status = parseReviewStatus(json.status, ["correct", "rewrite"], "status")
@@ -1013,6 +1317,7 @@ export async function reviewSqlOptimality(
       humanQuery: data.humanQuery,
       sql: data.sql,
     }),
+    signal: data.signal,
   })
   const json = parseJsonObjectFromAssistantText(assistantText)
   const status = parseReviewStatus(json.status, ["optimal", "alternative"], "status")
@@ -1039,6 +1344,7 @@ export async function resolveOptimalSql(
       correctSql: data.correctSql,
       alternativeSql: data.alternativeSql,
     }),
+    signal: data.signal,
   })
   const json = parseJsonObjectFromAssistantText(assistantText)
   const sql = parseOptionalSql(json.sql)

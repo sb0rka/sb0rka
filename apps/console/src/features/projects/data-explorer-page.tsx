@@ -390,7 +390,7 @@ export function DataExplorerPage() {
           ? aiPanelOpen
             ? (
                 <aside
-                  className="flex min-h-0 w-[min(100%,22rem)] shrink-0 flex-col overflow-hidden border-l border-border bg-muted/15"
+                  className="flex min-h-0 w-[min(100%,28rem)] shrink-0 flex-col overflow-hidden border-l border-border bg-muted/15"
                   aria-label={t("dataExplorer.aiChatTitle")}
                 >
                   <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">

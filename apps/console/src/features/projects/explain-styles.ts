@@ -35,6 +35,23 @@ export function explainStylePrompt(key: ExplainStyleKey): string {
   }
 }
 
+export function explainStyleLabelKey(key: ExplainStyleKey): string {
+  switch (key) {
+    case "none":
+      return "dataExplorer.styleNone"
+    case "detailed":
+      return "dataExplorer.styleDetailed"
+    case "short":
+      return "dataExplorer.styleShort"
+    case "haiku":
+      return "dataExplorer.styleHaiku"
+    default: {
+      const _x: never = key
+      return _x
+    }
+  }
+}
+
 /** Map stored nl2sql style prompt back to a preset key for the UI (unknown -> none). */
 export function explainStyleKeyFromPrompt(prompt: string): ExplainStyleKey {
   const t = prompt.trim()
