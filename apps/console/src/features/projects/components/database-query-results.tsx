@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { hideScrollbarClass } from "./ai-query-chat-message-styles"
 import type { RunDatabaseQueryResponse } from "../api"
 
 export function formatQueryCellValue(value: unknown): string {
@@ -22,7 +23,9 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
 
   function renderResultTable(heightClassName: string) {
     return (
-      <div className={`${heightClassName} overflow-auto rounded-md border border-border/80 bg-background`}>
+      <div
+        className={`${heightClassName} overflow-auto rounded-md border border-border/80 bg-background ${hideScrollbarClass}`}
+      >
         <table className="w-full min-w-max text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-border/90 bg-card/95 text-muted-foreground backdrop-blur">
             <tr>
