@@ -11,15 +11,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/crypto/chacha20poly1305"
 )
 
 const (
 	DefaultLoggerLevel  = "info"
 	DefaultLoggerFormat = "text"
 
-	DefaultPlatformDatabasePsqlURI = "postgres://postgres:postgres@localhost:5432/platform"
+	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/platform"
 	DefaultDatabaseMaxConns        = 10
 	DefaultDatabaseConnMaxLifetime = 30 * time.Second
 
@@ -32,6 +30,7 @@ const (
 	DefaultAccessTokenAudience = "api.local"
 	DefaultAccessTokenKid      = "ed25519-v1" // TODO(kompotkot): Add rotation of access token kid logic
 	DefaultAccessTokenTyp      = "access+jwt"
+	DefaultSecretKeyRef        = "default"
 
 	// Tenants database defaults
 	DefaultTenantsDatabasePublicBaseHost = "localhost.sslip.io"
@@ -102,7 +101,7 @@ func Load() (*Config, error) {
 	logLevelEnv := getStringEnv("LOG_LEVEL", DefaultLoggerLevel)
 	logFormatEnv := getStringEnv("LOG_FORMAT", DefaultLoggerFormat)
 
-	platformDatabaseURIEnv := getStringEnv("PLATFORM_DATABASE_URI", DefaultPlatformDatabasePsqlURI)
+	databaseURIEnv := getStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
 	databaseMaxConns := getIntEnv("DATABASE_MAX_OPEN_CONNS", DefaultDatabaseMaxConns)
 	databaseConnMaxLifetime := getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", DefaultDatabaseConnMaxLifetime)
@@ -170,22 +169,22 @@ func Load() (*Config, error) {
 	accessTokenKid := getStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
 	accessTokenTyp := getStringEnv("ACCESS_TOKEN_TYP", DefaultAccessTokenTyp)
 
-	secretMasterKeyB64 := getStringEnv("SECRET_MASTER_KEY", "")
-	if secretMasterKeyB64 == "" {
-		return nil, fmt.Errorf("SECRET_MASTER_KEY should be set")
+	secretKeyRef := getStringEnv("SECRET_KEY_REF", DefaultSecretKeyRef)
+	var secretTinkKeysetJSON []byte
+	secretTinkKeysetJSONFilePathEnv := getStringEnv("SECRET_TINK_KEYSET_JSON_FILE_PATH", "")
+	if secretTinkKeysetJSONFilePathEnv != "" {
+		secretTinkKeysetJSON, err = os.ReadFile(secretTinkKeysetJSONFilePathEnv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read secret tink keyset json file: %v", err)
+		}
+	} else {
+		secretTinkKeysetJSONEnv := strings.TrimSpace(os.Getenv("SECRET_TINK_KEYSET_JSON"))
+		if secretTinkKeysetJSONEnv != "" {
+			secretTinkKeysetJSON = []byte(secretTinkKeysetJSONEnv)
+		}
 	}
-	secretMasterKeyBytes, err := base64.RawStdEncoding.DecodeString(secretMasterKeyB64)
-	if err != nil {
-		return nil, fmt.Errorf("decode %s error: %w", secretMasterKeyB64, err)
-	}
-
-	if len(secretMasterKeyBytes) != chacha20poly1305.KeySize {
-		return nil, fmt.Errorf("%s must decode to %d bytes, got %d", secretMasterKeyBytes, chacha20poly1305.KeySize, len(secretMasterKeyBytes))
-	}
-
-	secretMasterKey, err := chacha20poly1305.NewX(secretMasterKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("create xchacha20poly1305 error: %w", err)
+	if len(secretTinkKeysetJSON) == 0 {
+		return nil, fmt.Errorf("SECRET_TINK_KEYSET_JSON or SECRET_TINK_KEYSET_JSON_FILE_PATH should be set")
 	}
 
 	tenantsDatabasePublicBaseHost := getStringEnv("TENANTS_DATABASE_PUBLIC_BASE_HOST", DefaultTenantsDatabasePublicBaseHost)
@@ -203,7 +202,7 @@ func Load() (*Config, error) {
 			Format: logFormatEnv,
 		},
 		PlatformDatabase: DatabaseConfig{
-			URI:             platformDatabaseURIEnv,
+			URI:             databaseURIEnv,
 			MaxConns:        databaseMaxConns,
 			ConnMaxLifetime: databaseConnMaxLifetime,
 		},
@@ -221,7 +220,8 @@ func Load() (*Config, error) {
 				AccessTokenKid:        accessTokenKid,
 				AccessTokenTyp:        accessTokenTyp,
 
-				SecretMasterKey: secretMasterKey,
+				SecretKeyRef:         secretKeyRef,
+				SecretTinkKeysetJSON: secretTinkKeysetJSON,
 			},
 
 			TenantsDatabasePublicBaseHost: tenantsDatabasePublicBaseHost,

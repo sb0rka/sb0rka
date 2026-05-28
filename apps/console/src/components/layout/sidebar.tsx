@@ -7,18 +7,22 @@ import {
   ExternalLink,
   PanelLeft,
   User,
+  ChevronsUp,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { SborkaLogo } from "@/components/logo"
+import { SborkaLogo, SborkaLogoMark } from "@/components/logo"
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
+
+const UPGRADE_LIMITS_FORM_URL =
+  "https://forms.yandex.ru/cloud/6984ca2c84227c2270c569db"
 
 const externalItems = [
   {
@@ -58,11 +62,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
             collapsed ? "justify-center px-2" : "px-6",
           )}
         >
-          {collapsed ? (
-            <div className="h-4 w-4 rounded-sm bg-foreground" />
-          ) : (
-            <SborkaLogo />
-          )}
+          {collapsed ? <SborkaLogoMark /> : <SborkaLogo />}
         </div>
 
         <nav className={cn("flex flex-col gap-3", collapsed ? "px-2" : "px-4")}>
@@ -127,11 +127,27 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
           collapsed ? "px-2" : "px-4",
         )}
       >
-        {!collapsed && (
-          <Button variant="outline" className="w-full">
-            {t("nav.upgradeLimits")}
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          className={cn(
+            "w-full",
+            collapsed && "aspect-square h-auto px-2 py-2",
+          )}
+          asChild
+        >
+          <a
+            href={UPGRADE_LIMITS_FORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={collapsed ? t("nav.upgradeLimits") : undefined}
+          >
+            {collapsed ? (
+              <ChevronsUp className="h-4 w-4" />
+            ) : (
+              t("nav.upgradeLimits")
+            )}
+          </a>
+        </Button>
         <Separator />
         <button
           type="button"

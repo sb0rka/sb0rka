@@ -1,5 +1,5 @@
 services:
-  drones-gc:
+  drone-gc:
     build:
       context: .
       dockerfile: Dockerfile

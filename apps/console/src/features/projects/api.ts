@@ -1433,6 +1433,23 @@ export async function createSecret(
   })
 }
 
+export interface UpdateSecretValueRequest {
+  secret_value: string
+}
+
+export async function updateSecretValue(
+  projectId: string,
+  resourceId: string,
+  data: UpdateSecretValueRequest,
+): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${resourceId}/secret`,
+    json: data,
+    base: "resource",
+  })
+}
+
 export async function revealSecretValue(
   projectId: string,
   resourceId: string,

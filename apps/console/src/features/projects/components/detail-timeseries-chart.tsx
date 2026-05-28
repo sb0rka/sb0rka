@@ -1,8 +1,9 @@
 import type { CSSProperties } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -13,12 +14,19 @@ import {
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 
+export interface DetailTimeseriesResourceSeries {
+  resourceId: string
+  label: string
+  points: ObservabilityMetricPoint[]
+}
+
 interface DetailTimeseriesChartProps {
   title: string
   xAxisLabel?: string
   yAxisLabel?: string
   points: ObservabilityMetricPoint[]
   formatValue: (value: number) => string
+  resourceSeries?: DetailTimeseriesResourceSeries[]
 }
 
 interface ChartPoint {
@@ -27,8 +35,68 @@ interface ChartPoint {
   value: number
 }
 
+type MultiSeriesChartRow = { timestampMs: number } & Record<string, number | undefined>
+
+const LINE_STROKE_COLORS = [
+  "var(--primary)",
+  "#3b82f6",
+  "#22c55e",
+  "#f59e0b",
+  "#a855f7",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+] as const
+
+function normalizeObservabilityPoints(points: ObservabilityMetricPoint[]): ChartPoint[] {
+  return points
+    .map((point) => ({
+      timestampMs: new Date(point.timestamp).getTime(),
+      timestampIso: point.timestamp,
+      value: point.value,
+    }))
+    .filter((point) => Number.isFinite(point.timestampMs))
+    .sort((left, right) => left.timestampMs - right.timestampMs)
+}
+
+function buildMultiSeriesChartData(
+  resourceSeries: DetailTimeseriesResourceSeries[],
+  bucketMs: number,
+): { rows: MultiSeriesChartRow[]; lineSpecs: { dataKey: string; name: string; stroke: string }[] } {
+  const lineSpecs = resourceSeries.map((series, index) => ({
+    dataKey: `series_${index}`,
+    name: series.label,
+    stroke: LINE_STROKE_COLORS[index % LINE_STROKE_COLORS.length]!,
+  }))
+
+  const perSeriesPoints = resourceSeries.map((series) =>
+    aggregateChartPoints(normalizeObservabilityPoints(series.points), bucketMs),
+  )
+
+  const allTimes = new Set<number>()
+  for (const chartPoints of perSeriesPoints) {
+    for (const point of chartPoints) {
+      allTimes.add(point.timestampMs)
+    }
+  }
+
+  const sortedTimes = [...allTimes].sort((left, right) => left - right)
+  const rows: MultiSeriesChartRow[] = sortedTimes.map((timestampMs) => {
+    const row: MultiSeriesChartRow = { timestampMs }
+    for (let i = 0; i < lineSpecs.length; i++) {
+      const key = lineSpecs[i]!.dataKey
+      const match = perSeriesPoints[i]!.find((p) => p.timestampMs === timestampMs)
+      row[key] = match?.value
+    }
+    return row
+  })
+
+  return { rows, lineSpecs }
+}
+
 const DEFAULT_WINDOW_MS = 2 * 60 * 60 * 1000
 const MIN_WINDOW_PERCENT = 0.01
+const MIN_VISIBLE_POINTS = 12
 const BASE_STEP_MS = 5 * 60_000
 
 const STEP_OPTIONS = [
@@ -175,64 +243,102 @@ export function DetailTimeseriesChart({
   yAxisLabel = "",
   points,
   formatValue,
+  resourceSeries,
 }: DetailTimeseriesChartProps) {
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const [windowPercent, setWindowPercent] = useState(100)
   const [selectedStepMs, setSelectedStepMs] = useState(BASE_STEP_MS)
+  const [viewMode, setViewMode] = useState<"total" | "perResource">("total")
+
+  const showResourceToggle = (resourceSeries?.length ?? 0) >= 2
+
+  useEffect(() => {
+    if (!showResourceToggle) setViewMode("total")
+  }, [showResourceToggle])
+
+  const isPerResourceView = showResourceToggle && viewMode === "perResource"
 
   const normalizedChartData = useMemo<ChartPoint[]>(
-    () =>
-      points
-        .map((point) => ({
-          timestampMs: new Date(point.timestamp).getTime(),
-          timestampIso: point.timestamp,
-          value: point.value,
-        }))
-        .filter((point) => Number.isFinite(point.timestampMs))
-        .sort((left, right) => left.timestampMs - right.timestampMs),
+    () => normalizeObservabilityPoints(points),
     [points],
   )
 
-  const chartData = useMemo(
+  const totalChartData = useMemo(
     () => aggregateChartPoints(normalizedChartData, selectedStepMs),
     [normalizedChartData, selectedStepMs],
   )
 
-  const hasData = chartData.length > 0
+  const multiSeries = useMemo(() => {
+    if (!resourceSeries || !showResourceToggle) return null
+    return buildMultiSeriesChartData(resourceSeries, selectedStepMs)
+  }, [resourceSeries, showResourceToggle, selectedStepMs])
+
+  const chartData = isPerResourceView && multiSeries ? multiSeries.rows : totalChartData
+  const multiLineSpecs = isPerResourceView && multiSeries ? multiSeries.lineSpecs : null
+
+  const hasData = totalChartData.length > 0
   const fullRangeMs = useMemo(() => {
     if (chartData.length < 2) return 0
     return chartData[chartData.length - 1]!.timestampMs - chartData[0]!.timestampMs
   }, [chartData])
 
+  const minWindowPercentFor12Points = useMemo(() => {
+    if (chartData.length < 2) return 100
+    const minMs = chartData[0]!.timestampMs
+    const maxMs = chartData[chartData.length - 1]!.timestampMs
+    const rangeMs = maxMs - minMs
+    if (rangeMs <= 0) return 100
+    if (chartData.length < MIN_VISIBLE_POINTS) return 100
+    const startMs = chartData[chartData.length - MIN_VISIBLE_POINTS]!.timestampMs
+    const windowMs = maxMs - startMs
+    const pct = (windowMs / rangeMs) * 100
+    return Math.min(100, Math.max(MIN_WINDOW_PERCENT, pct))
+  }, [chartData])
+
+  const prevFullRangeMsRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (fullRangeMs <= 0) {
       setWindowPercent(100)
+      prevFullRangeMsRef.current = fullRangeMs
       return
     }
+    const prevRange = prevFullRangeMsRef.current
+    const rangeChanged = prevRange !== fullRangeMs
+    prevFullRangeMsRef.current = fullRangeMs
     const defaultWindowPercent = Math.min(
       100,
       Math.max(MIN_WINDOW_PERCENT, (DEFAULT_WINDOW_MS / fullRangeMs) * 100),
     )
-    setWindowPercent(defaultWindowPercent)
-  }, [fullRangeMs])
+    const floor = Math.max(defaultWindowPercent, minWindowPercentFor12Points)
+    setWindowPercent((prev) => {
+      if (prevRange === null || rangeChanged) return floor
+      return Math.max(prev, minWindowPercentFor12Points)
+    })
+  }, [fullRangeMs, minWindowPercentFor12Points])
+
+  const effectiveWindowPercent = useMemo(
+    () => Math.max(windowPercent, minWindowPercentFor12Points),
+    [windowPercent, minWindowPercentFor12Points],
+  )
 
   const xWindowDomain = useMemo<[number, number]>(() => {
     if (chartData.length === 0) return [0, 1]
     const min = chartData[0]!.timestampMs
     const max = chartData[chartData.length - 1]!.timestampMs
     if (min === max) return [min - 60_000, max + 60_000]
-    if (windowPercent >= 100) return [min, max]
-    const windowMs = (fullRangeMs * windowPercent) / 100
+    if (effectiveWindowPercent >= 100) return [min, max]
+    const windowMs = (fullRangeMs * effectiveWindowPercent) / 100
     return [Math.max(min, max - windowMs), max]
-  }, [chartData, fullRangeMs, windowPercent])
+  }, [chartData, fullRangeMs, effectiveWindowPercent])
 
   const visibleChartData = useMemo(() => {
     if (chartData.length === 0) return chartData
-    if (windowPercent >= 100) return chartData
+    if (effectiveWindowPercent >= 100) return chartData
     const [windowStart] = xWindowDomain
     return chartData.filter((point) => point.timestampMs >= windowStart)
-  }, [chartData, windowPercent, xWindowDomain])
+  }, [chartData, effectiveWindowPercent, xWindowDomain])
 
   const activeWindowMs = useMemo(() => {
     if (xWindowDomain[1] <= xWindowDomain[0]) return 0
@@ -240,7 +346,7 @@ export function DetailTimeseriesChart({
   }, [xWindowDomain])
   const sliderStyle = useMemo(
     () => {
-      const fillStartPercent = Math.max(0, 100 - windowPercent)
+      const fillStartPercent = Math.max(0, 100 - effectiveWindowPercent)
       return {
         background: `linear-gradient(to right, var(--border) 0%, var(--border) ${fillStartPercent}%, var(--primary) ${fillStartPercent}%, var(--primary) 100%)`,
         "--slider-thumb-size": "16px",
@@ -249,13 +355,27 @@ export function DetailTimeseriesChart({
         "--slider-thumb-shadow": "0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent)",
       } as CSSProperties
     },
-    [windowPercent],
+    [effectiveWindowPercent],
   )
-  const sliderPosition = useMemo(() => 100 - windowPercent, [windowPercent])
+  const sliderPosition = useMemo(() => 100 - effectiveWindowPercent, [effectiveWindowPercent])
 
   const yDomain = useMemo<[number, number]>(() => {
     if (visibleChartData.length === 0) return [0, 1]
-    const values = visibleChartData.map((point) => point.value)
+
+    let values: number[]
+    if (multiLineSpecs && multiLineSpecs.length > 0) {
+      values = []
+      for (const row of visibleChartData as MultiSeriesChartRow[]) {
+        for (const spec of multiLineSpecs) {
+          const v = row[spec.dataKey]
+          if (typeof v === "number" && Number.isFinite(v)) values.push(v)
+        }
+      }
+    } else {
+      values = (visibleChartData as ChartPoint[]).map((point) => point.value)
+    }
+
+    if (values.length === 0) return [0, 1]
     const min = Math.min(...values)
     const max = Math.max(...values)
     if (min === max) {
@@ -264,7 +384,9 @@ export function DetailTimeseriesChart({
     }
     const padding = (max - min) * 0.08
     return [min - padding, max + padding]
-  }, [visibleChartData])
+  }, [visibleChartData, multiLineSpecs])
+
+  const chartBottomMargin = multiLineSpecs ? 52 : 26
 
   const axisTicks = useMemo(() => {
     const [minMs, maxMs] = xWindowDomain
@@ -349,6 +471,38 @@ export function DetailTimeseriesChart({
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {showResourceToggle ? (
+            <div
+              className="flex rounded-md border border-border p-0.5"
+              role="group"
+              aria-label={t("metrics.viewModeGroup")}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("total")}
+                aria-pressed={viewMode === "total"}
+                className={`rounded px-2 py-1 text-xs transition-colors ${
+                  viewMode === "total"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {t("metrics.viewTotal")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("perResource")}
+                aria-pressed={viewMode === "perResource"}
+                className={`rounded px-2 py-1 text-xs transition-colors ${
+                  viewMode === "perResource"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {t("metrics.viewPerResource")}
+              </button>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-1">
             {STEP_OPTIONS.map((option) => {
               const isActive = option.ms === selectedStepMs
@@ -380,7 +534,10 @@ export function DetailTimeseriesChart({
       ) : (
         <div className="min-h-[320px] max-h-[500px] flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={visibleChartData} margin={{ top: 8, right: 8, left: 4, bottom: 26 }}>
+            <LineChart
+              data={visibleChartData}
+              margin={{ top: 8, right: 8, left: 4, bottom: chartBottomMargin }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.35} />
               <XAxis
                 type="number"
@@ -436,15 +593,42 @@ export function DetailTimeseriesChart({
                 labelStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
                 itemStyle={{ color: "var(--muted-foreground)", fontSize: 14 }}
               />
-              <Line
-                dataKey="value"
-                type="monotone"
-                stroke="var(--primary)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-                isAnimationActive={false}
-              />
+              {multiLineSpecs ? (
+                <>
+                  <Legend
+                    verticalAlign="bottom"
+                    align="center"
+                    wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                    formatter={(value) => (
+                      <span style={{ color: "var(--muted-foreground)" }}>{value}</span>
+                    )}
+                  />
+                  {multiLineSpecs.map((spec) => (
+                    <Line
+                      key={spec.dataKey}
+                      dataKey={spec.dataKey}
+                      name={spec.name}
+                      type="monotone"
+                      stroke={spec.stroke}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
+                      activeDot={{ r: 4 }}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </>
+              ) : (
+                <Line
+                  dataKey="value"
+                  type="monotone"
+                  stroke="var(--primary)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -453,7 +637,7 @@ export function DetailTimeseriesChart({
         <div className="pt-4 space-y-2">
           <div className="flex items-center justify-end text-xs text-muted-foreground">
             <span>
-              {windowPercent >= 100
+              {effectiveWindowPercent >= 100
                 ? t("metrics.allData")
                 : `~${formatWindowDuration(activeWindowMs, locale)}`}
             </span>
@@ -464,7 +648,11 @@ export function DetailTimeseriesChart({
             max={100}
             step={0.01}
             value={sliderPosition}
-            onChange={(event) => setWindowPercent(100 - Number(event.target.value))}
+            onChange={(event) =>
+              setWindowPercent(
+                Math.max(minWindowPercentFor12Points, 100 - Number(event.target.value)),
+              )
+            }
             className="timeseries-window-slider h-1.5 w-full cursor-pointer appearance-none rounded-full"
             style={sliderStyle}
             aria-label={t("metrics.timeWindowZoom")}

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sb0rka/sb0rka/apps/api/internal/authz"
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
@@ -24,8 +25,61 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 	return &Handler{deps: deps}
 }
 
+func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
+	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	if !ok {
+		return uuid.Nil, false
+	}
+	subjectID, err := uuid.Parse(strings.TrimSpace(subjectIDStr))
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return subjectID, true
+}
+
+func parsePathInt64(raw, name string) (int64, error) {
+	if raw == "" {
+		return 0, errors.New(name + " is required")
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, errors.New(name + " must be a valid integer")
+	}
+	if id == 0 {
+		return 0, errors.New(name + " is required")
+	}
+	return id, nil
+}
+
+func parsePathID(raw, name string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if id == "" {
+		return "", errors.New(name + " is required")
+	}
+	return id, nil
+}
+
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
+	decision, err := h.deps.Authorizer.Authorize(r.Context(), callerID, action, authz.ResourceRef{
+		Type: "project",
+		ID:   projectID,
+	})
+	if err != nil {
+		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return false
+	}
+	if !decision.Allowed {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
+		return false
+	}
+	return true
+}
+
 func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
-	userID, ok := parseUserID(r)
+	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -35,13 +89,12 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if !h.authorize(w, r, subjectID, authz.ActionTagList, projectID) {
+		return
+	}
 
-	tags, err := h.deps.PlatformDatabase.ListProjectTags(r.Context(), userID, projectID)
+	tags, err := h.deps.PlatformDatabase.ListProjectTags(r.Context(), projectID)
 	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
 		h.deps.Log.Error("list_project_tags_failed", "error", err)
 		http.Error(w, "Failed to list project tags", http.StatusInternalServerError)
 		return
@@ -49,11 +102,14 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{Tags: toTags(tags)})
+	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{
+		ProjectID: projectID,
+		Tags:      toTagListEntries(tags),
+	})
 }
 
 func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
-	userID, ok := parseUserID(r)
+	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -68,13 +124,12 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if !h.authorize(w, r, subjectID, authz.ActionTagList, projectID) {
+		return
+	}
 
-	tags, err := h.deps.PlatformDatabase.ListResourceTags(r.Context(), userID, projectID, resourceID)
+	tags, err := h.deps.PlatformDatabase.ListResourceTags(r.Context(), projectID, resourceID)
 	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Resource not found", http.StatusNotFound)
 			return
@@ -86,11 +141,15 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{Tags: toTags(tags)})
+	_ = json.NewEncoder(w).Encode(contract.ResourceTagListResponse{
+		ProjectID:  projectID,
+		ResourceID: resourceID,
+		Tags:       toTagListEntries(tags),
+	})
 }
 
 func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
-	userID, ok := parseUserID(r)
+	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -103,6 +162,9 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.authorize(w, r, subjectID, authz.ActionResourceTagAttach, projectID) {
 		return
 	}
 	var req contract.AttachResourceTagRequest
@@ -128,12 +190,8 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), userID, projectID, resourceID, tagKey, tagValue, tagColor)
+	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), projectID, resourceID, tagKey, tagValue, tagColor)
 	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Resource not found", http.StatusNotFound)
 			return
@@ -153,7 +211,7 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
-	userID, ok := parseUserID(r)
+	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -173,16 +231,11 @@ func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if !h.authorize(w, r, subjectID, authz.ActionResourceTagDetach, projectID) {
+		return
+	}
 
-	if err := h.deps.PlatformDatabase.DetachResourceTag(r.Context(), userID, projectID, resourceID, tagID); err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		if errors.Is(err, db.ErrResourceNotFound) {
-			http.Error(w, "Resource not found", http.StatusNotFound)
-			return
-		}
+	if err := h.deps.PlatformDatabase.DetachResourceTag(r.Context(), projectID, resourceID, tagID); err != nil {
 		if errors.Is(err, db.ErrResourceTagNotFound) {
 			http.Error(w, "Tag not found", http.StatusNotFound)
 			return
@@ -199,40 +252,6 @@ func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func parseUserID(r *http.Request) (uuid.UUID, bool) {
-	userIDStr, ok := runtime.AuthUserIDFromContext(r.Context())
-	if !ok {
-		return uuid.Nil, false
-	}
-	userID, err := uuid.Parse(strings.TrimSpace(userIDStr))
-	if err != nil {
-		return uuid.Nil, false
-	}
-	return userID, true
-}
-
-func parsePathInt64(raw, name string) (int64, error) {
-	if raw == "" {
-		return 0, errors.New(name + " is required")
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, errors.New(name + " must be a valid integer")
-	}
-	if id == 0 {
-		return 0, errors.New("id is required")
-	}
-	return id, nil
-}
-
-func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
-}
-
 func toTagResponse(tag model.Tag) contract.TagResponse {
 	return contract.TagResponse{
 		ID:         tag.ID,
@@ -245,10 +264,21 @@ func toTagResponse(tag model.Tag) contract.TagResponse {
 	}
 }
 
-func toTags(tags []model.Tag) []contract.TagResponse {
-	out := make([]contract.TagResponse, 0, len(tags))
+func toTagListEntries(tags []model.Tag) []contract.TagListEntry {
+	out := make([]contract.TagListEntry, 0, len(tags))
 	for _, tag := range tags {
-		out = append(out, toTagResponse(tag))
+		out = append(out, toTagListEntry(tag))
 	}
 	return out
+}
+
+func toTagListEntry(tag model.Tag) contract.TagListEntry {
+	return contract.TagListEntry{
+		ID:         tag.ID,
+		TagKey:     tag.TagKey,
+		TagValue:   tag.TagValue,
+		Color:      tag.Color,
+		IsSystem:   tag.IsSystem,
+		IsReadonly: tag.IsReadonly,
+	}
 }

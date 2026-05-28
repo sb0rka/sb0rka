@@ -15,7 +15,7 @@ const (
 )
 
 type PlatformReader interface {
-	GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error)
+	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DBInstance, error)
 }
 
 type telemetryTarget struct {
@@ -32,7 +32,7 @@ func (a *prometheusInfraAdapter) resolveTarget(ctx context.Context, req AdapterQ
 	}
 
 	if a.platform != nil {
-		database, err := a.platform.GetDatabase(ctx, req.UserID, req.ProjectID, req.ResourceID)
+		database, err := a.platform.GetDatabase(ctx, req.SubjectID, req.ProjectID, req.ResourceID)
 		if err == nil {
 			alias = strings.TrimSpace(database.Name)
 		}

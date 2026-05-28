@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom"
-import { ChevronRight, Sun, Moon, User } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useTheme } from "@/components/theme-provider"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import {
   DropdownMenu,
@@ -23,15 +25,27 @@ interface HeaderProps {
   breadcrumbs: BreadcrumbItem[]
 }
 
+function accountInitial(email: string | undefined, username: string | undefined): string {
+  const fromEmail = email?.trim()
+  if (fromEmail) {
+    const first = fromEmail[0]
+    return first ? first.toUpperCase() : "?"
+  }
+  const fromUser = username?.trim()
+  if (fromUser) {
+    const first = fromUser[0]
+    return first ? first.toUpperCase() : "?"
+  }
+  return "?"
+}
+
 export function Header({ breadcrumbs }: HeaderProps) {
   const { t } = useTranslation()
-  const { theme, setTheme } = useTheme()
   const { user } = useAuth()
   const logoutMutation = useLogout()
-  const isDark = theme === "dark"
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
+    <header className="flex h-[var(--app-header-height)] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
       <nav className="flex items-center gap-2.5">
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
@@ -64,7 +78,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
         })}
       </nav>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* <Button variant="ghost" size="sm" className="text-sm font-medium">
           Оставить фидбек
         </Button>
@@ -78,30 +92,43 @@ export function Header({ breadcrumbs }: HeaderProps) {
           <HelpCircle className="h-4 w-4" />
         </Button> */}
 
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 rounded-full"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={t("header.toggleTheme")}
+        <Badge
+          className="shrink-0 rounded-full border-0 bg-[var(--alpha-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--alpha-badge-fg)]"
+          title={t("app.alphaWarning")}
+          aria-label={t("app.alphaWarning")}
         >
-          {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-        </Button>
+          alpha
+        </Badge>
+
+        <Separator orientation="vertical" className="h-2 shrink-0" />
+
+        <ThemeToggle />
 
         <LanguageSwitcher />
+
+        <Separator orientation="vertical" className="h-2 shrink-0" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-auto gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-muted/60"
+              className="h-auto gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/60"
               aria-label={t("header.openProfileMenu")}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <User className="h-5 w-5 text-muted-foreground" />
-              </div>
               {user ? (
-                <span className="text-sm font-medium text-foreground">{user.username}</span>
+                <>
+                  <div className="flex min-w-0 flex-col items-end justify-center gap-0 text-left leading-normal">
+                    <span className="truncate text-xs font-medium text-foreground">
+                      {user.username}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                  </div>
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {accountInitial(user.email, user.username)}
+                    </span>
+                  </div>
+                </>
               ) : null}
             </Button>
           </DropdownMenuTrigger>

@@ -6,6 +6,8 @@ import (
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
+
+	"github.com/google/uuid"
 )
 
 type responseWriter struct {
@@ -94,5 +96,51 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		}
 		ctx := runtime.WithAuthIdentity(r.Context(), identity)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// requireLiveSessionMiddleware is chained after authMiddleware on security-sensitive endpoints.
+// It verifies the current token's session with a minimal live-session check:
+//   - authMiddleware has already verified the JWT and stored sub/sid in context.
+//   - sid and sub are parsed as UUIDs.
+//   - Platform calls the auth-owned live-session function through the store, which
+//     returns only a boolean: session exists, is not revoked/expired, and belongs
+//     to the token subject. Platform never reads refresh token/session internals.
+func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sessionIDRaw, ok := runtime.AuthSessionIDFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		sessionID, err := uuid.Parse(sessionIDRaw)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		subjectID, err := uuid.Parse(subjectIDRaw)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		live, err := s.deps.PlatformDatabase.IsLiveSession(r.Context(), sessionID, subjectID)
+		if err != nil {
+			s.deps.Log.Error("live_session_check_failed", "path", r.URL.Path, "session_id", sessionIDRaw, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if !live {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }

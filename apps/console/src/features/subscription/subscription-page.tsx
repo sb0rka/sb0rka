@@ -11,29 +11,22 @@ import { ApiError } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 import { useCurrentPlan, usePlans, useSubscriptionUsage } from "./hooks"
 import type { SubscriptionUsage } from "./hooks"
-import type { PlanResponse } from "./api"
+
+/** Limits that exist in the product UI today (deployed / available). */
+const DEPLOYED_LIMIT_KEYS = ["project_limit", "db_limit", "secret_limit"] as const
+
+type DeployedLimitKey = (typeof DEPLOYED_LIMIT_KEYS)[number]
 
 interface LimitItem {
-  key: keyof Pick<
-    PlanResponse,
-    | "project_limit"
-    | "db_limit"
-    | "secret_limit"
-    | "function_limit"
-    | "code_limit"
-    | "group_limit"
-  >
+  key: DeployedLimitKey
   labelKey: string
-  usageKey?: keyof SubscriptionUsage
+  usageKey: keyof SubscriptionUsage
 }
 
 const LIMIT_ITEMS: LimitItem[] = [
   { key: "project_limit", labelKey: "subscription.limits.projects", usageKey: "projects" },
   { key: "db_limit", labelKey: "subscription.limits.databases", usageKey: "databases" },
   { key: "secret_limit", labelKey: "subscription.limits.secrets", usageKey: "secrets" },
-  { key: "function_limit", labelKey: "subscription.limits.functions" },
-  { key: "code_limit", labelKey: "subscription.limits.codeUnits" },
-  { key: "group_limit", labelKey: "subscription.limits.groups" },
 ]
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -78,67 +71,65 @@ export function SubscriptionPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-foreground">{t("subscription.title")}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("subscription.description")}
-          </p>
+    <div className="flex flex-col gap-6 text-foreground dark:!bg-transparent">
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold leading-normal text-foreground">
+            {t("subscription.title")}
+          </h1>
+          <Badge className="shrink-0 rounded-full border-0 bg-[var(--plan-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--plan-badge-fg)] hover:bg-[var(--plan-badge-bg)]">
+            {currentPlan.name}
+          </Badge>
         </div>
-        <Badge variant="active">{t("subscription.currentPlan")}</Badge>
+        <p className="text-sm text-[#667085] dark:text-muted-foreground">
+          {t("subscription.description")}
+        </p>
       </div>
 
-      <Card>
-        <CardHeader className="gap-2">
-          <CardTitle>{currentPlan.name}</CardTitle>
-          <CardDescription>
-            {currentPlan.description || t("subscription.noPlanDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-start gap-4">
+      <Card className="border-none bg-white shadow-none dark:border-border dark:!bg-card">
+        <CardContent className="flex flex-wrap items-start gap-4 px-0">
           {LIMIT_ITEMS.map((item) => {
             const limit = currentPlan[item.key]
-            const used = item.usageKey ? usage?.[item.usageKey] : undefined
-            const progress = item.usageKey
-              ? getUsageProgress(typeof used === "number" ? used : 0, limit)
-              : 0
+            const used = usage?.[item.usageKey]
+            const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
 
             return (
               <div
                 key={item.key}
-                className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-border p-4"
+                className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-[#EAECF0] bg-white p-4 dark:border-border dark:!bg-card"
               >
-                <p className="text-sm text-muted-foreground">{t(item.labelKey)}</p>
+                <p className="text-sm text-[#667085] dark:text-muted-foreground">
+                  {t(item.labelKey)}
+                </p>
                 <p className="mt-2 text-2xl font-bold tracking-tight">{limit}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-[#667085] dark:text-muted-foreground">
                   {t("subscription.used")}{" "}
                   {typeof used === "number" ? `${used} / ${limit}` : "—"}
                 </p>
-                {/* {item.usageKey ? ( */}
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-[#5c7c2f] transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                {/* ) : null} */}
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#F2F4F7] dark:!bg-muted">
+                  <div
+                    className="h-full rounded-full bg-[#1D2939] transition-all dark:!bg-foreground"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
             )
           })}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-[#EAECF0] bg-white shadow-none dark:border-border dark:!bg-card">
         <CardHeader>
           <CardTitle className="text-xl">{t("subscription.availablePlans")}</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-[#667085] dark:text-muted-foreground">
             {t("subscription.comparePlans")}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-4">
           {plans.length === 0 ? (
-            <p className="w-full text-sm text-muted-foreground">{t("subscription.emptyPlans")}</p>
+            <p className="w-full text-sm text-[#667085] dark:text-muted-foreground">
+              {t("subscription.emptyPlans")}
+            </p>
           ) : (
             plans.map((plan) => {
               const isCurrent = plan.id === currentPlan.id
@@ -146,8 +137,8 @@ export function SubscriptionPage() {
                 <div
                   key={plan.id}
                   className={cn(
-                    "flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-border p-5",
-                    isCurrent && "border-[#5c7c2f] ring-1 ring-[#5c7c2f]/25",
+                    "flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-[#EAECF0] bg-white p-5 dark:border-border dark:!bg-transparent",
+                    isCurrent && "border-black dark:border-foreground",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -155,20 +146,26 @@ export function SubscriptionPage() {
                       <h3 className="truncate text-lg font-semibold tracking-tight">
                         {plan.name}
                       </h3>
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      <p className="mt-1 line-clamp-2 text-sm text-[#667085] dark:text-muted-foreground">
                         {plan.description || t("subscription.noPlanDescription")}
                       </p>
                     </div>
-                    {isCurrent ? <Badge variant="active-solid">{t("subscription.current")}</Badge> : null}
+                    {isCurrent ? (
+                      <Badge className="rounded-md border border-[#EAECF0] bg-white px-3 py-1 font-medium text-[#667085] hover:bg-white dark:border-border dark:!bg-transparent dark:text-muted-foreground dark:hover:bg-transparent">
+                        {t("subscription.current")}
+                      </Badge>
+                    ) : null}
                   </div>
 
-                  <ul className="mt-4 overflow-hidden rounded-md">
+                  <ul className="mt-4 overflow-hidden rounded-md bg-[#F9FAFB] dark:!bg-secondary">
                     {LIMIT_ITEMS.map((item) => (
                       <li
                         key={item.key}
                         className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
                       >
-                        <span className="text-muted-foreground">{t(item.labelKey)}</span>
+                        <span className="text-[#667085] dark:text-muted-foreground">
+                          {t(item.labelKey)}
+                        </span>
                         <span className="font-semibold tabular-nums">{plan[item.key]}</span>
                       </li>
                     ))}

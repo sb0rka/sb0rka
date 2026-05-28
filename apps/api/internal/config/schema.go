@@ -1,7 +1,6 @@
 package config
 
 import (
-	"crypto/cipher"
 	"crypto/ed25519"
 	"time"
 )
@@ -23,7 +22,8 @@ type AuthConfig struct {
 	AccessTokenAudience   string
 	AccessTokenKid        string
 	AccessTokenTyp        string
-	SecretMasterKey       cipher.AEAD
+	SecretKeyRef          string
+	SecretTinkKeysetJSON  []byte
 }
 
 type TelemetryConfig struct {

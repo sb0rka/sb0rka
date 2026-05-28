@@ -17,7 +17,7 @@ const (
 )
 
 type DatabaseGate interface {
-	GetDatabase(ctx context.Context, userID uuid.UUID, projectID string, resourceID string) (model.DB, error)
+	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DBInstance, error)
 }
 
 type Service interface {
@@ -25,14 +25,14 @@ type Service interface {
 }
 
 type QueryRequest struct {
-	UserID     uuid.UUID
+	SubjectID  uuid.UUID
 	ProjectID  string
 	ResourceID string
 	Metric     Metric
 }
 
 type AdapterQueryRequest struct {
-	UserID       uuid.UUID
+	SubjectID    uuid.UUID
 	ProjectID    string
 	ResourceID   string
 	DatabaseName string
@@ -77,7 +77,7 @@ func (s *service) QueryResourceTimeseries(ctx context.Context, req QueryRequest)
 		return Timeseries{}, err
 	}
 
-	row, err := s.gate.GetDatabase(ctx, req.UserID, req.ProjectID, req.ResourceID)
+	row, err := s.gate.GetDatabase(ctx, req.SubjectID, req.ProjectID, req.ResourceID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) || errors.Is(err, db.ErrResourceNotFound) {
 			return Timeseries{}, ErrResourceNotFound
@@ -93,7 +93,7 @@ func (s *service) QueryResourceTimeseries(ctx context.Context, req QueryRequest)
 	}
 
 	result, err := s.adapter.QueryResourceMetric(ctx, AdapterQueryRequest{
-		UserID:       req.UserID,
+		SubjectID:    req.SubjectID,
 		ProjectID:    req.ProjectID,
 		ResourceID:   req.ResourceID,
 		DatabaseName: row.Name,

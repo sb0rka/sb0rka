@@ -62,6 +62,8 @@ jobs:
     if: needs.check.outputs.exists == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      GOWORK: off
     steps:
       - name: Checkout
         uses: actions/checkout@v4

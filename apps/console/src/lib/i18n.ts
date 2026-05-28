@@ -68,12 +68,17 @@ const resources = {
         },
         messages: {
           changesSaved: "Изменения сохранены",
+          copied: "Скопировано",
           copyFailed: "Не удалось скопировать",
           noDataYet: "Данные пока не поступили",
           tagAdded: "Тег добавлен",
           tagAddError: "Не удалось добавить тег",
           tagDuplicate: "Такой тег уже добавлен",
-          tagFormat: "Тег должен быть в формате key:value",
+          tagFormat:
+            "Тег в формате ключ:значение или одно значение без ключа",
+        },
+        a11y: {
+          dismissToast: "Закрыть уведомление",
         },
       },
       language: {
@@ -81,9 +86,15 @@ const resources = {
         ru: "Русский",
         en: "English",
         switcherLabel: "Сменить язык",
+        switchToEn: "Переключить на английский",
+        switchToRu: "Переключить на русский",
       },
       app: {
         alphaWarning: "Альфа-версия: не храните критичные данные",
+        alphaToastTitle: "Продукт находится на альфа-стадии",
+        alphaToastDescription:
+          "Некоторые функции могут работать нестабильно. Пожалуйста, делайте резервные копии важных данных.",
+        alphaToastAction: "Ок, понятно",
       },
       nav: {
         projects: "Проекты",
@@ -151,6 +162,9 @@ const resources = {
         emptyDescription: "Создайте первый проект и мы подготовим окружение для ваших баз данных и секретов",
         active: "Активен",
         inactive: "Неактивен",
+        cardOnline: "Онлайн",
+        cardOffline: "Не в сети",
+        cardConnect: "Открыть",
         dbCount_zero: "{{count}} баз данных",
         dbCount_one: "{{count}} база данных",
         dbCount_few: "{{count}} базы данных",
@@ -161,6 +175,10 @@ const resources = {
         allProjects: "Все проекты",
         noProjects: "Нет проектов",
         notFound: "Проект не найден",
+        detail: {
+          copyProjectId: "Скопировать ID проекта",
+          idCopied: "ID скопирован",
+        },
         createDialog: {
           title: "Новый проект",
           description: "Рабочее пространство для вашей инфраструктуры",
@@ -170,7 +188,10 @@ const resources = {
         },
         settings: {
           title: "Настройки",
-          createdAt: "Создан: {{date}}",
+          createdAt: "Дата создания: {{date}}",
+          editSectionTitle: "Проект",
+          editSectionDescription: "Измените название и описание проекта.",
+          saveError: "Не удалось сохранить изменения, попробуйте снова",
           deleteTitle: "Удалить проект?",
           deleteDescription: "Базы данных, секреты и связанные ресурсы будут удалены без возможности восстановления",
           deleted: "Проект удален",
@@ -182,12 +203,18 @@ const resources = {
       },
       databases: {
         singularTitle: "База данных",
-        description: "Создайте PostgreSQL-базу и подключите ее к вашему приложению",
+        description:
+          "Создайте PostgreSQL-базу и подключите ее к вашему приложению",
         empty: "Баз данных пока нет",
         createTitle: "Создать базу данных",
+        createCardTitle: "Создать новую базу данных",
+        engineVersion: "PostgreSQL v18",
         namePlaceholder: "Например: product_db",
         descriptionPlaceholder: "Коротко опишите назначение базы",
         addTag: "+ добавить тег",
+        addTagModalTitle: "Добавить тег",
+        tagInputHint:
+          "Добавьте тег в формате ключ: значение или только значение (без ключа)",
         tagExample: "Например: env:dev",
         createdPartial: "База данных создана, но часть тегов не добавлена",
         created: "База данных создана",
@@ -206,6 +233,17 @@ const resources = {
         deleteError: "Не удалось удалить базу данных, попробуйте снова",
         deleteButton: "Удалить базу данных",
         dangerDescription: "Безвозвратно удалить базу данных",
+        accessTitle: "Доступ",
+        accessDescription: "Данные для доступа к базе данных",
+        credentialsUnavailableNotice:
+          "Параметры подключения доступны только когда база данных онлайн. Текущий статус: {{status}}.",
+        hostname: "Имя хоста",
+        port: "Порт",
+        username: "Пользователь",
+        password: "Пароль",
+        connectionDb: "База данных подключения",
+        fullUri: "Полная ссылка URI",
+        copyField: "Скопировать",
         diskUsage: "Использование диска",
         status: {
           online: "online",
@@ -336,6 +374,11 @@ const resources = {
         deleteButton: "Удалить секрет",
         dangerDescription: "Безвозвратно удалить секрет",
         searchPlaceholder: "Поиск...",
+        updateValue: "Изменить значение",
+        updateValueTitle: "Новое значение секрета",
+        updateValueDescription:
+          "Новое значение будет сохранено в зашифрованном виде и станет текущим для этого секрета",
+        updateValueError: "Не удалось обновить значение секрета",
       },
       tables: {
         columns: "Колонки",
@@ -421,6 +464,9 @@ const resources = {
         loadError: "Не удалось загрузить метрику",
         allData: "Все данные",
         timeWindowZoom: "Масштаб по времени",
+        viewTotal: "Всего",
+        viewPerResource: "По базам",
+        viewModeGroup: "Режим отображения графика",
         sparkline: "График {{title}}",
       },
     },
@@ -458,12 +504,16 @@ const resources = {
         },
         messages: {
           changesSaved: "Changes saved",
+          copied: "Copied",
           copyFailed: "Could not copy",
           noDataYet: "No data yet",
           tagAdded: "Tag added",
           tagAddError: "Could not add tag",
           tagDuplicate: "This tag has already been added",
-          tagFormat: "Tag must use the key:value format",
+          tagFormat: "Use key:value or a single value without a key",
+        },
+        a11y: {
+          dismissToast: "Dismiss notification",
         },
       },
       language: {
@@ -471,9 +521,15 @@ const resources = {
         ru: "Русский",
         en: "English",
         switcherLabel: "Change language",
+        switchToEn: "Switch to English",
+        switchToRu: "Switch to Russian",
       },
       app: {
         alphaWarning: "Alpha version: do not store critical data",
+        alphaToastTitle: "This product is in alpha stage",
+        alphaToastDescription:
+          "Some features may be unstable. Please back up any important data.",
+        alphaToastAction: "OK, got it",
       },
       nav: {
         projects: "Projects",
@@ -541,6 +597,9 @@ const resources = {
         emptyDescription: "Create your first project and we’ll prepare a workspace for your databases and secrets",
         active: "Active",
         inactive: "Inactive",
+        cardOnline: "Online",
+        cardOffline: "Offline",
+        cardConnect: "Connect",
         dbCount_one: "{{count}} database",
         dbCount_other: "{{count}} databases",
         fallbackProject: "Project",
@@ -548,6 +607,10 @@ const resources = {
         allProjects: "All projects",
         noProjects: "No projects",
         notFound: "Project not found",
+        detail: {
+          copyProjectId: "Copy project ID",
+          idCopied: "ID copied",
+        },
         createDialog: {
           title: "New project",
           description: "A workspace for your infrastructure",
@@ -558,6 +621,9 @@ const resources = {
         settings: {
           title: "Settings",
           createdAt: "Created: {{date}}",
+          editSectionTitle: "Project",
+          editSectionDescription: "Change the project name and description.",
+          saveError: "Unable to save changes, please try again",
           deleteTitle: "Delete project?",
           deleteDescription: "Databases, secrets, and related resources will be permanently deleted",
           deleted: "Project deleted",
@@ -569,12 +635,17 @@ const resources = {
       },
       databases: {
         singularTitle: "Database",
-        description: "Create a PostgreSQL database and connect it to your app",
+        description:
+          "Create a PostgreSQL database and connect it to your app",
         empty: "No databases yet",
         createTitle: "Create database",
+        createCardTitle: "Create new database",
+        engineVersion: "PostgreSQL v18",
         namePlaceholder: "Example: product_db",
         descriptionPlaceholder: "Briefly describe what this database is for",
         addTag: "+ add tag",
+        addTagModalTitle: "Add tag",
+        tagInputHint: "Add a tag as key:value or value only (no key)",
         tagExample: "Example: env:dev",
         createdPartial: "Database created, but some tags were not added",
         created: "Database created",
@@ -593,6 +664,17 @@ const resources = {
         deleteError: "Unable to delete database, please try again",
         deleteButton: "Delete database",
         dangerDescription: "Permanently delete the database",
+        accessTitle: "Access",
+        accessDescription: "Credentials for connecting to the database",
+        credentialsUnavailableNotice:
+          "Connection details are available only while the database is online. Current status: {{status}}.",
+        hostname: "Hostname",
+        port: "Port",
+        username: "Username",
+        password: "Password",
+        connectionDb: "Database name",
+        fullUri: "Full connection URI",
+        copyField: "Copy",
         diskUsage: "Disk usage",
         status: {
           online: "online",
@@ -723,6 +805,11 @@ const resources = {
         deleteButton: "Delete secret",
         dangerDescription: "Permanently delete the secret",
         searchPlaceholder: "Search...",
+        updateValue: "Update value",
+        updateValueTitle: "New secret value",
+        updateValueDescription:
+          "The new value is stored encrypted and becomes the current secret value.",
+        updateValueError: "Unable to update secret value",
       },
       tables: {
         columns: "Columns",
@@ -808,6 +895,9 @@ const resources = {
         loadError: "Unable to load metric",
         allData: "All data",
         timeWindowZoom: "Time range zoom",
+        viewTotal: "Total",
+        viewPerResource: "Per database",
+        viewModeGroup: "Chart display mode",
         sparkline: "{{title}} sparkline",
       },
     },
