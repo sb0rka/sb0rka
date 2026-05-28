@@ -14,7 +14,7 @@ Secrets are encrypted key-value pairs scoped to a project. You use them to store
 | Field         | Type              | Description                                                                           |
 | ------------- | ----------------- | ------------------------------------------------------------------------------------- |
 | `resource_id` | hex-string        | The resource ID that uniquely identifies this secret within the project.              |
-| `name`        | string            | A descriptive name for the secret (for example, `OPENAI_API_KEY`).                    |
+| `name`        | string            | A descriptive name for the secret (for example, `LLM_API_KEY`).                       |
 | `description` | string \| null    | Optional description of what the secret is used for.                                  |
 | `revealed_at` | timestamp \| null | The last time the secret value was revealed. `null` if the value has never been read. |
 

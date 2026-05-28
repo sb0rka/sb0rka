@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   Database,
   KeyRound,
+  LayoutGrid,
   Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -23,14 +24,31 @@ import { useProject, useProjects } from "@/features/projects/hooks"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
 
-const projectNavItems: Array<{
-  labelKey: string
-  icon: ComponentType<{ className?: string }>
-  tab: ProjectTab
-}> = [
-  { labelKey: "tabs.overview", icon: BarChart3, tab: "overview" },
-  { labelKey: "tabs.databases", icon: Database, tab: "databases" },
-  { labelKey: "tabs.secrets", icon: KeyRound, tab: "secrets" },
+type ProjectNavItem =
+  | {
+      key: string
+      kind: "tab"
+      tab: ProjectTab
+      labelKey: string
+      icon: ComponentType<{ className?: string }>
+    }
+  | {
+      key: string
+      kind: "data-explorer"
+      labelKey: string
+      icon: ComponentType<{ className?: string }>
+    }
+
+const projectNavItems: ProjectNavItem[] = [
+  { key: "overview", kind: "tab", tab: "overview", labelKey: "tabs.overview", icon: BarChart3 },
+  { key: "databases", kind: "tab", tab: "databases", labelKey: "tabs.databases", icon: Database },
+  {
+    key: "data-explorer",
+    kind: "data-explorer",
+    labelKey: "dataExplorer.nav",
+    icon: LayoutGrid,
+  },
+  { key: "secrets", kind: "tab", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound },
 ]
 
 const settingsNavItem = {
@@ -43,7 +61,9 @@ export function ProjectSidebar() {
   const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
-  const isDatabaseDetailsRoute = useMatch("/projects/:id/databases/:resourceId") !== null
+  const isDatabaseDetailsRoute =
+    useMatch({ path: "/projects/:id/databases/:resourceId", end: false }) !== null
+  const isDataExplorerRoute = useMatch("/projects/:id/data-explorer") !== null
   const isMetricDetailsRoute = useMatch("/projects/:id/metrics/:metric") !== null
   const { data: project } = useProject(id)
   const { data: projectsData } = useProjects()
@@ -63,10 +83,13 @@ export function ProjectSidebar() {
   const projects = projectsData?.projects ?? []
 
   const getTabHref = (tab: ProjectTab) => `/projects/${id}?tab=${tab}`
-  const getProjectHref = (projectId: string) => `/projects/${projectId}?tab=${activeTab}`
+  const getProjectHref = (projectId: string) =>
+    isDataExplorerRoute
+      ? `/projects/${projectId}/data-explorer`
+      : `/projects/${projectId}?tab=${activeTab}`
 
   return (
-    <aside className="flex h-full w-[175px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
+    <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
       <div className="border-b border-border p-2.5 h-[60px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -111,11 +134,19 @@ export function ProjectSidebar() {
 
       <nav className="flex flex-col gap-3 px-4 py-3">
         {projectNavItems.map((item) => {
-          const isActive = activeTab === item.tab
+          const href =
+            item.kind === "tab"
+              ? getTabHref(item.tab)
+              : `/projects/${id}/data-explorer`
+          const isActive =
+            item.kind === "tab"
+              ? activeTab === item.tab && !isDataExplorerRoute
+              : isDataExplorerRoute
+          const Icon = item.icon
           return (
             <Link
-              key={item.tab}
-              to={getTabHref(item.tab)}
+              key={item.key}
+              to={href}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -123,7 +154,7 @@ export function ProjectSidebar() {
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
               )}
             >
-              <item.icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 shrink-0" />
               {t(item.labelKey)}
             </Link>
           )

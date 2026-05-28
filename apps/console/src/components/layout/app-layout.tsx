@@ -34,9 +34,11 @@ export function AppLayout() {
   const projectRootMatch = useMatch("/projects/:id")
   const projectNestedMatch = useMatch("/projects/:id/*")
   const databaseDetailsMatch = useMatch("/projects/:id/databases/:resourceId")
+  const dataExplorerMatch = useMatch("/projects/:id/data-explorer")
   const isProjectOpen = isProjectRoot || isProjectNested
   const projectId =
     databaseDetailsMatch?.params.id ??
+    dataExplorerMatch?.params.id ??
     projectNestedMatch?.params.id ??
     projectRootMatch?.params.id ??
     ""
@@ -67,23 +69,31 @@ export function AppLayout() {
     ? [
         { label: t("nav.projects"), href: "/projects" },
         { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
-        ...(databaseDetailsMatch
+        ...(dataExplorerMatch
           ? [
               {
                 label: tabLabelById.databases,
                 href: `/projects/${projectId}?tab=databases`,
               },
-              { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
+              { label: t("dataExplorer.nav") },
             ]
-          : activeTab === "secrets" && selectedSecretId
+          : databaseDetailsMatch
             ? [
                 {
-                  label: tabLabelById.secrets,
-                  href: `/projects/${projectId}?tab=secrets`,
+                  label: tabLabelById.databases,
+                  href: `/projects/${projectId}?tab=databases`,
                 },
-                { label: selectedSecret?.name ?? selectedSecretId },
+                { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
               ]
-            : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
+            : activeTab === "secrets" && selectedSecretId
+              ? [
+                  {
+                    label: tabLabelById.secrets,
+                    href: `/projects/${projectId}?tab=secrets`,
+                  },
+                  { label: selectedSecret?.name ?? selectedSecretId },
+                ]
+              : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
       ]
     : [] // No breadcrumbs for non-project routes
 

@@ -15,13 +15,16 @@ import {
   getDatabase,
   updateDatabase,
   getDatabaseUri,
+  runDatabaseQuery,
   deactivateResource,
   createSecret,
   updateSecretValue,
   revealSecretValue,
   listResources,
   getResourceMetricTimeseries,
+  fetchQueryRunnerSchema,
 } from "./api"
+import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
 import type {
   ProjectResponse,
@@ -41,9 +44,12 @@ import type {
   ProjectResourceListResponse,
   ObservabilityMetricPoint,
   ResourceMetricTimeseries,
+  RunDatabaseQueryRequest,
+  RunDatabaseQueryResponse,
 } from "./api"
 
 const PROJECTS_KEY = ["projects"] as const
+const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000
 const PROJECT_TIMESERIES_METRICS = [
   "active_connections",
   "db_size_rate",
@@ -146,6 +152,163 @@ export function useDatabaseUri(
     enabled: isAuthenticated && !!projectId && resourceId !== undefined && enabled,
   })
 }
+
+export function useRunDatabaseQuery() {
+  const qc = useQueryClient()
+
+  return useMutation<RunDatabaseQueryResponse, Error, RunDatabaseQueryRequest>({
+    mutationFn: runDatabaseQuery,
+    onError: (_error, variables) => {
+      qc.invalidateQueries({
+        queryKey: ["projects", variables.project_id, "dataExplorer", "databaseHealth"],
+      })
+    },
+    onSuccess: (_data, variables) => {
+      const healthQueryKey = ["projects", variables.project_id, "dataExplorer", "databaseHealth"]
+      qc.setQueryData<DataExplorerDatabaseHealth[]>(
+        healthQueryKey,
+        (current) => {
+          if (!current) return current
+          return current.map((item) =>
+            item.database.resource_id === variables.database_id
+              ? { ...item, status: "healthy", errorMessage: undefined }
+              : item,
+          )
+        },
+      )
+      const hasNotConnectedDatabases = qc
+        .getQueryData<DataExplorerDatabaseHealth[]>(healthQueryKey)
+        ?.some((item) => item.status !== "healthy")
+      if (hasNotConnectedDatabases) {
+        qc.invalidateQueries({ queryKey: healthQueryKey })
+      }
+      if (!mayAffectExplorerSchema(variables.query)) return
+      qc.invalidateQueries({
+        queryKey: ["projects", variables.project_id, "dataExplorer", "schema"],
+      })
+    },
+  })
+}
+
+export interface DataExplorerColumnNode {
+  name: string
+  data_type: string
+  is_nullable: boolean
+  is_pk: boolean
+}
+
+export interface DataExplorerTableNode {
+  schema: string
+  name: string
+  columns: DataExplorerColumnNode[]
+}
+
+export interface DataExplorerDatabaseNode {
+  database: DatabaseResponse
+  tables: DataExplorerTableNode[]
+}
+
+export interface DataExplorerDatabaseHealth {
+  database: DatabaseResponse
+  status: "healthy" | "unhealthy" | "checking"
+  errorMessage?: string
+}
+
+export function useDataExplorerSchema(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<DataExplorerDatabaseNode[]>({
+    queryKey: ["projects", projectId, "dataExplorer", "schema"],
+    queryFn: async () => {
+      const { databases } = await listDatabases(projectId)
+      const out: DataExplorerDatabaseNode[] = []
+
+      for (const database of databases) {
+        const payload = await fetchQueryRunnerSchema({
+          project_id: projectId,
+          database_id: database.resource_id,
+        })
+        const tables: DataExplorerTableNode[] = payload.tables.map((t) => ({
+          schema: t.schema,
+          name: t.name,
+          columns: t.columns.map((c) => ({
+            name: c.name,
+            data_type: c.data_type,
+            is_nullable: c.is_nullable,
+            is_pk: c.is_pk,
+          })),
+        }))
+        out.push({ database, tables })
+      }
+
+      return out
+    },
+    enabled: isAuthenticated && !!projectId,
+  })
+}
+
+export function useDataExplorerDatabaseHealth(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<DataExplorerDatabaseHealth[]>({
+    queryKey: ["projects", projectId, "dataExplorer", "databaseHealth"],
+    queryFn: async () => {
+      const { databases } = await listDatabases(projectId)
+
+      const checks = await Promise.all(
+        databases.map(async (database): Promise<DataExplorerDatabaseHealth> => {
+          try {
+            await runDatabaseQuery({
+              project_id: projectId,
+              database_id: database.resource_id,
+              query: "SELECT 1;",
+            })
+
+            return {
+              database,
+              status: "healthy",
+            }
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error && error.message.length > 0
+                ? error.message
+                : "Health check failed"
+
+            return {
+              database,
+              status: "unhealthy",
+              errorMessage,
+            }
+          }
+        }),
+      )
+
+      return checks
+    },
+    enabled: isAuthenticated && !!projectId,
+    refetchInterval: DATABASE_HEALTH_CHECK_INTERVAL_MS,
+  })
+}
+
+export {
+  lastExplanationStyle,
+  useAiQueryChat,
+  type AiReasoningLevel,
+  type AiQueryChatAssistantMessage,
+  type AiQueryChatErrorMessage,
+  type AiQueryChatExplainPayload,
+  type AiQueryChatExplanationMessage,
+  type AiQueryChatFixMessage,
+  type AiQueryChatFixPayload,
+  type AiQueryChatGeneratePayload,
+  type AiQueryChatMessage,
+  type AiQueryChatSendPayload,
+  type AiQueryChatSqlMessage,
+  type AiQueryChatUserFixMessage,
+  type AiQueryChatUserMessage,
+  type AiQueryChatUserTextMessage,
+  type UseAiQueryChatOptions,
+} from "./use-ai-query-chat"
 
 export function useDeactivateResource(projectId: string, resourceId?: string) {
   const qc = useQueryClient()
