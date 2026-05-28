@@ -127,7 +127,7 @@ export function DataExplorerPage() {
     return nodes.find((node) => node.database.resource_id === selectedResourceId)?.database.name ?? ""
   }, [nodes, selectedResourceId])
   const hasRequiredAiSecretNames = useMemo(() => {
-    const required = new Set(["openaiurl", "openaikey"])
+    const required = new Set(["llm_base_url", "llm_api_key"])
     const names = new Set(
       (secretsQuery.data?.secrets ?? []).map((secret) => secret.name.trim().toLowerCase()),
     )
@@ -144,10 +144,10 @@ export function DataExplorerPage() {
         byName.set(secret.name.trim().toLowerCase(), secret)
       }
 
-      const openaiUrlSecret = byName.get("openaiurl")
-      const openaiKeySecret = byName.get("openaikey")
+      const openaiUrlSecret = byName.get("llm_base_url")
+      const openaiKeySecret = byName.get("llm_api_key")
       if (!openaiUrlSecret || !openaiKeySecret) {
-        throw new Error("Missing required secrets: openaiurl/openaikey")
+        throw new Error("Missing required secrets: LLM_BASE_URL/LLM_API_KEY")
       }
 
       const [openaiUrlResponse, openaiKeyResponse] = await Promise.all([
@@ -158,7 +158,7 @@ export function DataExplorerPage() {
       const openaiUrl = openaiUrlResponse.secret_value.trim()
       const openaiKey = openaiKeyResponse.secret_value.trim()
       if (!openaiUrl || !openaiKey) {
-        throw new Error("Secrets openaiurl/openaikey must not be empty")
+        throw new Error("Secrets LLM_BASE_URL/LLM_API_KEY must not be empty")
       }
 
       return { openaiUrl, openaiKey }

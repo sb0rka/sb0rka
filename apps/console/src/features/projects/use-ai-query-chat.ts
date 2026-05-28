@@ -344,7 +344,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
 
   const assertOpenAiConfig = useCallback(() => {
     if (!openaiUrl || !openaiKey) {
-      throw new Error("AI assistant is not configured: missing openaiurl/openaikey")
+      throw new Error("AI assistant is not configured: missing LLM_BASE_URL/LLM_API_KEY")
     }
     return { openaiUrl, openaiKey }
   }, [openaiUrl, openaiKey])

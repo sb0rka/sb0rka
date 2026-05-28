@@ -532,7 +532,7 @@ export interface OpenAiResolveOptimalSqlResponse {
 function normalizeOpenAiCompletionsUrl(openaiUrl: string): string {
   const trimmed = openaiUrl.trim().replace(/\/+$/, "")
   if (!trimmed) {
-    throw new Error("Secret `openaiurl` is empty")
+    throw new Error("Secret `LLM_BASE_URL` is empty")
   }
   if (/\/chat\/completions$/i.test(trimmed)) {
     return trimmed
@@ -749,7 +749,7 @@ async function requestOpenAiAssistantText(opts: {
 }): Promise<string> {
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
-    throw new Error("Secret `openaikey` is empty")
+    throw new Error("Secret `LLM_API_KEY` is empty")
   }
 
   const url = normalizeOpenAiCompletionsUrl(opts.openaiUrl)
@@ -850,7 +850,7 @@ async function requestOpenAiAssistantTextStream(
 ): Promise<string> {
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
-    throw new Error("Secret `openaikey` is empty")
+    throw new Error("Secret `LLM_API_KEY` is empty")
   }
   const url = normalizeOpenAiResponsesUrl(opts.openaiUrl)
   const res = await fetch(url, {
