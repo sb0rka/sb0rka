@@ -1,5 +1,6 @@
 import { useRef } from "react"
 import {
+  hideScrollbarClass,
   responseMessageBubbleClass,
   responseMessageRowClass,
 } from "./ai-query-chat-message-styles"
@@ -42,7 +43,7 @@ export function AiQueryChatSqlMessageView({
         </div>
         <pre
           ref={sqlTextRef}
-          className="max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap text-muted-foreground"
+          className={`max-h-48 overflow-auto text-xs font-mono whitespace-pre-wrap text-muted-foreground ${hideScrollbarClass}`}
         >
           {message.output}
         </pre>

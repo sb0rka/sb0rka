@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useAutoScrollOnContentChange } from "./use-auto-scroll-on-content-change"
 import { cn } from "@/lib/utils"
 import {
+  hideScrollbarClass,
   responseMessageBubbleClass,
   responseMessageRowClass,
 } from "./ai-query-chat-message-styles"
@@ -34,7 +35,7 @@ export function AiQueryChatAssistantFixMessageView({
             <p className="mb-2 text-sm font-medium">{t("dataExplorer.fixDiagnosisTitle")}</p>
             <div
               ref={explanationTextRef}
-              className="max-h-[280px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground"
+              className={`max-h-[280px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground ${hideScrollbarClass}`}
             >
               {message.explanation}
             </div>

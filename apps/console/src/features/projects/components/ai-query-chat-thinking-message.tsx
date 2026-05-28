@@ -5,7 +5,11 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { type AiQueryChatThinkingMessage } from "../use-ai-query-chat"
-import { responseMessageBubbleClass, responseMessageRowClass } from "./ai-query-chat-message-styles"
+import {
+  hideScrollbarClass,
+  responseMessageBubbleClass,
+  responseMessageRowClass,
+} from "./ai-query-chat-message-styles"
 
 export type AiQueryChatThinkingMessageViewProps = {
   message: AiQueryChatThinkingMessage
@@ -78,6 +82,7 @@ export function AiQueryChatThinkingMessageView({
               isThinkingExpanded
                 ? "max-h-[400px] overflow-auto"
                 : "min-h-[200px] max-h-[200px] overflow-auto",
+              hideScrollbarClass,
             )}
           >
             {message.output}

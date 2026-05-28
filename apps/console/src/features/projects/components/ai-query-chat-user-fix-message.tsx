@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { type AiQueryChatUserFixMessage } from "../use-ai-query-chat"
-import { userMessageBubbleClass } from "./ai-query-chat-message-styles"
+import { hideScrollbarClass, userMessageBubbleClass } from "./ai-query-chat-message-styles"
 
 export type AiQueryChatUserFixMessageProps = {
   message: AiQueryChatUserFixMessage
@@ -20,7 +20,9 @@ export function AiQueryChatUserFixMessageView({
         <p className="text-xs font-medium text-muted-foreground">
           {t("dataExplorer.fixChatSqlLabel")}
         </p>
-        <pre className="max-h-40 overflow-auto rounded-md border border-border/60 bg-muted/20 p-2 text-xs font-mono whitespace-pre-wrap">
+        <pre
+          className={`max-h-40 overflow-auto rounded-md border border-border/60 bg-muted/20 p-2 text-xs font-mono whitespace-pre-wrap ${hideScrollbarClass}`}
+        >
           {message.sql}
         </pre>
         <p className="pt-1 text-xs font-medium text-muted-foreground">

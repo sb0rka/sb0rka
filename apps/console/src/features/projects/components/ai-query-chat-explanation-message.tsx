@@ -17,7 +17,11 @@ import {
   explainStylePrompt,
 } from "../explain-styles"
 import { type AiQueryChatExplanationMessage } from "../use-ai-query-chat"
-import { responseMessageBubbleClass, responseMessageRowClass } from "./ai-query-chat-message-styles"
+import {
+  hideScrollbarClass,
+  responseMessageBubbleClass,
+  responseMessageRowClass,
+} from "./ai-query-chat-message-styles"
 
 export type AiQueryChatExplanationMessageProps = {
   message: AiQueryChatExplanationMessage
@@ -96,7 +100,7 @@ export function AiQueryChatExplanationMessageView({
         {hasExplanationContent ? (
           <div
             ref={explanationTextRef}
-            className="max-h-[420px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground"
+            className={`max-h-[420px] overflow-auto text-sm whitespace-pre-wrap text-muted-foreground ${hideScrollbarClass}`}
           >
             {message.output}
           </div>

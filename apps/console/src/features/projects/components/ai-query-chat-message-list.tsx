@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react"
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatMessageItem } from "./ai-query-chat-message-item"
+import { hideScrollbarClass } from "./ai-query-chat-message-styles"
 import {
   messagesAutoScrollKey,
   useAutoScrollOnContentChange,
@@ -44,7 +45,7 @@ export function AiQueryChatMessageList({
   return (
     <div
       ref={listRef}
-      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1"
+      className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 ${hideScrollbarClass}`}
     >
       {messages.map((message, index) => (
         <AiQueryChatMessageItem
