@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Copy } from "lucide-react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
 import { FloatingHint } from "@/components/ui/floating-hint"
