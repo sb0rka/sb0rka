@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Copy } from "lucide-react"
+import { Copy, Database } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
@@ -400,13 +400,35 @@ export function DatabaseDetailPage() {
   async function handleDeactivate() {
     if (deactivateResource.isPending) return
 
-    const confirmed = await confirm({
+    let confirmed = await confirm({
       title: t("databases.deleteTitle"),
       description: t("databases.deleteDescription"),
       confirmText: t("common.actions.delete"),
       cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",
     })
+
+    const infoNode = (
+      <div className="flex flex-col items-center gap-3 px-6">
+        <Database className="h-8 w-8 shrink-0" id="icon" />
+        <Label htmlFor="icon" className="text-xl">{databaseQuery.data?.name}</Label>
+        <p>Введите название базы данных для подтверждения</p>
+      </div>
+    )
+
+    if (confirmed) {
+      confirmed = await confirm({
+        title: t("databases.deleteTitle"),
+        infoNode: infoNode,
+        strongConfirmValue: databaseQuery.data?.name,
+        confirmText: t("common.actions.delete"),
+        cancelText: t("common.actions.cancel"),
+        confirmVariant: "destructive",
+      })
+    } else {
+      confirmed = false;
+    }
+
     if (!confirmed) return
 
     setDeleteError(null)
