@@ -1,5 +1,6 @@
 import * as React from "react"
 import { AlertCircle } from "lucide-react"
+import { buttonPressClass } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export interface AlphaToastProps
@@ -50,7 +51,10 @@ function AlphaToast({
       <button
         type="button"
         onClick={onAction}
-        className="inline-flex h-6 shrink-0 items-center justify-center whitespace-nowrap rounded-sm bg-primary px-2 text-xs font-normal text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className={cn(
+          "inline-flex h-6 shrink-0 items-center justify-center whitespace-nowrap rounded-sm bg-primary px-2 text-xs font-normal text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          buttonPressClass,
+        )}
       >
         {actionLabel}
       </button>

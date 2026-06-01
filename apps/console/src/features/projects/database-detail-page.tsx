@@ -35,6 +35,7 @@ import {
   getDatabaseStatusLabel,
   isDatabaseCredentialsAvailable,
 } from "./components/get-database-status-label"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 /** Same masking length as the secret value field on `SecretDetails`. */
 const SENSITIVE_MASK = "•••••••••••••••••••••••"
@@ -453,14 +454,16 @@ export function DatabaseDetailPage() {
 
   if (!isValidResourceId) {
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-destructive">{t("databases.invalidId")}</p>
-        <div>
+      <PageStagger className="flex flex-col gap-4">
+        <SlideIn>
+          <p className="text-sm text-destructive">{t("databases.invalidId")}</p>
+        </SlideIn>
+        <SlideIn>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=databases`)}>
             {t("databases.backToList")}
           </Button>
-        </div>
-      </div>
+        </SlideIn>
+      </PageStagger>
     )
   }
 
@@ -470,22 +473,24 @@ export function DatabaseDetailPage() {
 
   if (databaseQuery.isError || !databaseQuery.data) {
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-destructive">
-          {getErrorMessage(databaseQuery.error, t("databases.loadError"))}
-        </p>
-        <div>
+      <PageStagger className="flex flex-col gap-4">
+        <SlideIn>
+          <p className="text-sm text-destructive">
+            {getErrorMessage(databaseQuery.error, t("databases.loadError"))}
+          </p>
+        </SlideIn>
+        <SlideIn>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=databases`)}>
             {t("databases.backToList")}
           </Button>
-        </div>
-      </div>
+        </SlideIn>
+      </PageStagger>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
+    <PageStagger className="flex flex-col gap-6">
+      <SlideIn className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {databaseQuery.data.name}
@@ -525,9 +530,10 @@ export function DatabaseDetailPage() {
         {tagActionSuccess ? (
           <p className="text-sm text-emerald-600">{tagActionSuccess}</p>
         ) : null}
-      </div>
+      </SlideIn>
 
       <div className="flex flex-col gap-6">
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -568,7 +574,9 @@ export function DatabaseDetailPage() {
             </div>
           </CardFooter>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card className="shadow-sm">
           <CardHeader className="gap-1.5 border-b border-border pb-6">
             <CardTitle className="text-xl font-semibold tracking-tight text-card-foreground">
@@ -725,7 +733,9 @@ export function DatabaseDetailPage() {
             </div>
           </CardContent>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5 border-b border-border pb-6">
             <CardTitle className="text-xl font-semibold tracking-tight text-card-foreground">
@@ -747,6 +757,7 @@ export function DatabaseDetailPage() {
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </CardFooter>
         </Card>
+        </SlideIn>
       </div>
 
       <AddTagDialog
@@ -772,6 +783,6 @@ export function DatabaseDetailPage() {
           setTagActionSuccess(t("common.messages.tagAdded"))
         }}
       />
-    </div>
+    </PageStagger>
   )
 }

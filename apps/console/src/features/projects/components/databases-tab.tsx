@@ -26,6 +26,7 @@ import {
 } from "../api"
 import { AddTagDialog } from "./add-tag-dialog"
 import { DatabasesTable } from "./databases-table"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import type {
   CreateDatabaseFormActions,
   CreateDatabaseFormState,
@@ -151,8 +152,8 @@ export function DatabasesTab({
 
   return (
     <TabsContent value="databases" className="mt-2 flex flex-col gap-4">
-      <div className="flex flex-col gap-6">
-        <div className="flex items-start justify-between gap-4">
+      <PageStagger className="flex flex-col gap-6">
+        <SlideIn className="flex items-start justify-between gap-4">
           <div className="flex max-w-[650px] flex-col gap-1">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               {t("databases.singularTitle")}
@@ -163,8 +164,9 @@ export function DatabasesTab({
             <Plus className="size-4" aria-hidden />
             {t("databases.createTitle")}
           </Button>
-        </div>
+        </SlideIn>
 
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardContent className="px-6 pb-6 pt-0">
             <DatabasesTable
@@ -174,7 +176,9 @@ export function DatabasesTab({
             />
           </CardContent>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card ref={createDatabaseCardRef} className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5 space-y-0 p-6">
             <CardTitle className="text-xl font-semibold leading-5 tracking-[-0.015em]">
@@ -242,7 +246,8 @@ export function DatabasesTab({
             </CardFooter>
           </form>
         </Card>
-      </div>
+        </SlideIn>
+      </PageStagger>
 
       <AddTagDialog
         open={isTagModalOpen}

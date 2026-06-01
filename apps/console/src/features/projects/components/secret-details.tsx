@@ -36,6 +36,7 @@ import {
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import { AddTagDialog } from "./add-tag-dialog"
 import type { SecretRow } from "./project-detail-tab-types"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 interface SecretDetailsProps {
   projectId: string
@@ -180,8 +181,8 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     : null
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+    <PageStagger className="flex flex-col gap-6">
+      <SlideIn className="flex flex-col gap-2">
         <h3 className="text-2xl font-semibold tracking-tight">{secret.name}</h3>
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -203,8 +204,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           </div>
         </div>
         {tagActionSuccess ? <p className="text-sm text-emerald-600">{tagActionSuccess}</p> : null}
-      </div>
+      </SlideIn>
 
+      <SlideIn>
       <Card className="overflow-hidden">
         <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -217,7 +219,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           </div>
         </CardContent>
       </Card>
+      </SlideIn>
 
+      <SlideIn>
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.secret")}</CardTitle>
@@ -273,7 +277,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           ) : null}
         </CardContent>
       </Card>
+      </SlideIn>
 
+      <SlideIn>
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-border pb-6">
           <CardTitle className="text-[20px] font-semibold tracking-tight">{t("projects.settings.dangerTitle")}</CardTitle>
@@ -295,6 +301,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           </div>
         </CardFooter>
       </Card>
+      </SlideIn>
 
       <Dialog open={isUpdateDialogOpen} onOpenChange={handleUpdateDialogOpenChange}>
         <DialogContent>
@@ -374,6 +381,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           setTagActionSuccess(t("common.messages.tagAdded"))
         }}
       />
-    </div>
+    </PageStagger>
   )
 }

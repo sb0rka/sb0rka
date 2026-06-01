@@ -8,6 +8,7 @@ import { getResolvedLanguage } from "@/lib/i18n"
 // import { toErrorMessage } from "@/lib/errors"
 import { DetailTimeseriesChart } from "./components/detail-timeseries-chart"
 import { useDatabases, useProject, useProjectMetricTimeseries } from "./hooks"
+import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-entrance"
 
 const DETAIL_METRICS = [
   "db_size",
@@ -110,15 +111,16 @@ export function MetricDetailPage() {
 
   if (!isSupportedMetric) {
     return (
-      <div className="flex flex-col gap-4">
-        {/* <InlineMessage message="Метрика не поддерживается." /> */}
-        <p className="text-sm text-destructive">{t("metrics.unsupported")}</p>
-        <div>
+      <PageStagger className="flex flex-col gap-4">
+        <SlideIn>
+          <p className="text-sm text-destructive">{t("metrics.unsupported")}</p>
+        </SlideIn>
+        <SlideIn>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=overview`)}>
             {t("metrics.backToOverview")}
           </Button>
-        </div>
-      </div>
+        </SlideIn>
+      </PageStagger>
     )
   }
 
@@ -139,8 +141,8 @@ export function MetricDetailPage() {
   const latestValue = metricSeries[metricSeries.length - 1]?.value ?? 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <PageStagger className="flex h-full min-h-0 flex-col gap-5">
+      <SlideIn className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight">{t(meta.titleKey)}</h1>
           <p className="text-sm text-muted-foreground">{project?.name ?? t("projects.fallbackProject")}</p>
@@ -153,42 +155,43 @@ export function MetricDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t("metrics.backToOverview")}
         </Button>
-      </div>
+      </SlideIn>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-          <p className="text-sm text-muted-foreground">{t("metrics.currentValue")}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight">
-            {formatMetricValue(latestValue, metricUnit, metricFormatter)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-          <p className="text-sm text-muted-foreground">{t("metrics.description")}</p>
-          <p className="mt-1 text-sm leading-relaxed text-foreground/90">{t(meta.descriptionKey)}</p>
-        </div>
-      </div>
+      <StaggerGroup className="grid gap-4 sm:grid-cols-2">
+        <SlideIn>
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+            <p className="text-sm text-muted-foreground">{t("metrics.currentValue")}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight">
+              {formatMetricValue(latestValue, metricUnit, metricFormatter)}
+            </p>
+          </div>
+        </SlideIn>
+        <SlideIn>
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+            <p className="text-sm text-muted-foreground">{t("metrics.description")}</p>
+            <p className="mt-1 text-sm leading-relaxed text-foreground/90">{t(meta.descriptionKey)}</p>
+          </div>
+        </SlideIn>
+      </StaggerGroup>
 
       {metricQuery.isLoading ? (
-        <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-border/70 bg-card">
+        <SlideIn className="flex min-h-[420px] items-center justify-center rounded-xl border border-border/70 bg-card">
           <p className="text-sm text-muted-foreground">{t("metrics.loading")}</p>
-        </div>
+        </SlideIn>
       ) : metricQuery.isError ? (
-        <div className="rounded-xl border border-border/70 bg-card p-4">
-          {/* <InlineMessage
-            message={toErrorMessage(metricQuery.error, "Не удалось загрузить данные метрики.")}
-          /> */}
+        <SlideIn className="rounded-xl border border-border/70 bg-card p-4">
           <p className="text-sm text-destructive">{t("metrics.loadError")}</p>
-        </div>
+        </SlideIn>
       ) : (
-        <div className="min-h-0 flex-1">
+        <SlideIn className="min-h-0 flex-1">
           <DetailTimeseriesChart
             title={t(meta.titleKey)}
             points={metricSeries}
             resourceSeries={resourceSeriesForChart}
             formatValue={(value) => formatMetricValue(value, metricUnit, metricFormatter)}
           />
-        </div>
+        </SlideIn>
       )}
-    </div>
+    </PageStagger>
   )
 }

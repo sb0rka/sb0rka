@@ -1,3 +1,4 @@
+import { buttonPressClass } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useTranslation } from "react-i18next"
 import type { DatabaseRow } from "./project-detail-tab-types"
@@ -74,7 +75,10 @@ export function DatabasesTable({
                   DATABASES_TABLE_GRID_CLASS,
                   index < rows.length - 1 && "border-b border-border",
                   isInteractive &&
-                    "cursor-pointer transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
+                    cn(
+                      "cursor-pointer hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
+                      buttonPressClass,
+                    ),
                 )}
               >
                 <div className="flex min-h-20 flex-col justify-center gap-0 px-4 py-4">

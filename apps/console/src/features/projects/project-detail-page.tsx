@@ -29,6 +29,7 @@ import {
 import { ProjectPageTitle } from "./components/project-page-title"
 import type { CreateSecretRequest, DatabaseResponse } from "./api"
 import { parseDraftTag } from "./parse-draft-tag"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 type ProjectTab = "overview" | "databases" | "secrets" | "settings"
 const validTabs = new Set<ProjectTab>([
@@ -205,8 +206,10 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <ProjectPageTitle project={project} />
+    <PageStagger className="flex flex-col gap-6">
+      <SlideIn>
+        <ProjectPageTitle project={project} />
+      </SlideIn>
 
       <Tabs
         value={activeTab}
@@ -241,6 +244,6 @@ export function ProjectDetailPage() {
           projectDescription={project.description ?? ""}
         />
       </Tabs>
-    </div>
+    </PageStagger>
   )
 }
