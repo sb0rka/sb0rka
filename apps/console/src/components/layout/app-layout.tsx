@@ -5,8 +5,7 @@ import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
-
-type ProjectTab = "overview" | "databases" | "secrets" | "settings"
+import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 type BreadcrumbItem = {
   label: string
   href?: string
@@ -15,16 +14,10 @@ type BreadcrumbItem = {
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
   databases: "tabs.databases",
+  "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
   settings: "tabs.settings",
 }
-
-const isProjectTab = (value: string | null): value is ProjectTab =>
-  value === "overview" ||
-  value === "databases" ||
-  value === "secrets" ||
-  value === "settings"
-
 
 export function AppLayout() {
   const { t } = useTranslation()
@@ -34,11 +27,9 @@ export function AppLayout() {
   const projectRootMatch = useMatch("/projects/:id")
   const projectNestedMatch = useMatch("/projects/:id/*")
   const databaseDetailsMatch = useMatch("/projects/:id/databases/:resourceId")
-  const dataExplorerMatch = useMatch("/projects/:id/data-explorer")
   const isProjectOpen = isProjectRoot || isProjectNested
   const projectId =
     databaseDetailsMatch?.params.id ??
-    dataExplorerMatch?.params.id ??
     projectNestedMatch?.params.id ??
     projectRootMatch?.params.id ??
     ""
@@ -62,6 +53,7 @@ export function AppLayout() {
   const tabLabelById: Record<ProjectTab, string> = {
     overview: t(projectTabLabelKeyById.overview),
     databases: t(projectTabLabelKeyById.databases),
+    "data-explorer": t(projectTabLabelKeyById["data-explorer"]),
     secrets: t(projectTabLabelKeyById.secrets),
     settings: t(projectTabLabelKeyById.settings),
   }
@@ -69,13 +61,13 @@ export function AppLayout() {
     ? [
         { label: t("nav.projects"), href: "/projects" },
         { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
-        ...(dataExplorerMatch
+        ...(activeTab === "data-explorer"
           ? [
               {
                 label: tabLabelById.databases,
                 href: `/projects/${projectId}?tab=databases`,
               },
-              { label: t("dataExplorer.nav") },
+              { label: tabLabelById["data-explorer"] },
             ]
           : databaseDetailsMatch
             ? [
