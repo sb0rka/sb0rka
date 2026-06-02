@@ -400,7 +400,7 @@ export function DatabaseDetailPage() {
   async function handleDeactivate() {
     if (deactivateResource.isPending) return
 
-    let confirmed = await confirm({
+    const firstConfirmed = await confirm({
       title: t("databases.deleteTitle"),
       description: t("databases.deleteDescription"),
       confirmText: t("common.actions.delete"),
@@ -408,28 +408,26 @@ export function DatabaseDetailPage() {
       confirmVariant: "destructive",
     })
 
+    if (!firstConfirmed) return
+
     const infoNode = (
       <div className="flex flex-col items-center gap-3 px-6">
         <Database className="h-8 w-8 shrink-0" id="icon" />
         <Label htmlFor="icon" className="text-xl">{databaseQuery.data?.name}</Label>
-        <p>Введите название базы данных для подтверждения</p>
+        <p>{t("databases.typeNameToConfirm")}</p>
       </div>
     )
 
-    if (confirmed) {
-      confirmed = await confirm({
-        title: t("databases.deleteTitle"),
-        infoNode: infoNode,
-        strongConfirmValue: databaseQuery.data?.name,
-        confirmText: t("common.actions.delete"),
-        cancelText: t("common.actions.cancel"),
-        confirmVariant: "destructive",
-      })
-    } else {
-      confirmed = false;
-    }
+    const strongConfirmed = await confirm({
+      title: t("databases.deleteTitle"),
+      infoNode,
+      strongConfirmValue: databaseQuery.data?.name,
+      confirmText: t("common.actions.delete"),
+      cancelText: t("common.actions.cancel"),
+      confirmVariant: "destructive",
+    })
 
-    if (!confirmed) return
+    if (!strongConfirmed) return
 
     setDeleteError(null)
     try {

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +37,10 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
   const [queue, setQueue] = useState<ConfirmRequest[]>([])
   const activeRequest = queue[0] ?? null
   const [userInput, setUserInput] = useState("");
+
+  useEffect(() => {
+    setUserInput("")
+  }, [activeRequest?.id])
 
   const isConfirmDisabled = useMemo(() => {
     if (!activeRequest) return true
