@@ -21,34 +21,20 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { useProject, useProjects } from "@/features/projects/hooks"
+import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 
-type ProjectTab = "overview" | "databases" | "secrets" | "settings"
-
-type ProjectNavItem =
-  | {
-      key: string
-      kind: "tab"
-      tab: ProjectTab
-      labelKey: string
-      icon: ComponentType<{ className?: string }>
-    }
-  | {
-      key: string
-      kind: "data-explorer"
-      labelKey: string
-      icon: ComponentType<{ className?: string }>
-    }
+type ProjectNavItem = {
+  key: string
+  tab: ProjectTab
+  labelKey: string
+  icon: ComponentType<{ className?: string }>
+}
 
 const projectNavItems: ProjectNavItem[] = [
-  { key: "overview", kind: "tab", tab: "overview", labelKey: "tabs.overview", icon: BarChart3 },
-  { key: "databases", kind: "tab", tab: "databases", labelKey: "tabs.databases", icon: Database },
-  {
-    key: "data-explorer",
-    kind: "data-explorer",
-    labelKey: "dataExplorer.nav",
-    icon: LayoutGrid,
-  },
-  { key: "secrets", kind: "tab", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound },
+  { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: BarChart3 },
+  { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: Database },
+  { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: LayoutGrid },
+  { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound },
 ]
 
 const settingsNavItem = {
@@ -63,30 +49,19 @@ export function ProjectSidebar() {
   const [searchParams] = useSearchParams()
   const isDatabaseDetailsRoute =
     useMatch({ path: "/projects/:id/databases/:resourceId", end: false }) !== null
-  const isDataExplorerRoute = useMatch("/projects/:id/data-explorer") !== null
   const isMetricDetailsRoute = useMatch("/projects/:id/metrics/:metric") !== null
   const { data: project } = useProject(id)
   const { data: projectsData } = useProjects()
   const tabParam = searchParams.get("tab")
-  const isProjectTab = (value: string | null): value is ProjectTab =>
-    value === "overview" ||
-    value === "databases" ||
-    value === "secrets" ||
-    value === "settings"
   const activeTab: ProjectTab = isDatabaseDetailsRoute
     ? "databases"
-    : isMetricDetailsRoute
-      ? "overview"
-    : isProjectTab(tabParam)
-      ? tabParam
-      : "overview"
+    : isMetricDetailsRoute ? "overview"
+    : isProjectTab(tabParam) ? tabParam
+    : "overview"
   const projects = projectsData?.projects ?? []
 
   const getTabHref = (tab: ProjectTab) => `/projects/${id}?tab=${tab}`
-  const getProjectHref = (projectId: string) =>
-    isDataExplorerRoute
-      ? `/projects/${projectId}/data-explorer`
-      : `/projects/${projectId}?tab=${activeTab}`
+  const getProjectHref = (projectId: string) => `/projects/${projectId}?tab=${activeTab}`
 
   return (
     <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
@@ -134,14 +109,8 @@ export function ProjectSidebar() {
 
       <nav className="flex flex-col gap-3 px-4 py-3">
         {projectNavItems.map((item) => {
-          const href =
-            item.kind === "tab"
-              ? getTabHref(item.tab)
-              : `/projects/${id}/data-explorer`
-          const isActive =
-            item.kind === "tab"
-              ? activeTab === item.tab && !isDataExplorerRoute
-              : isDataExplorerRoute
+          const href = getTabHref(item.tab)
+          const isActive = activeTab === item.tab
           const Icon = item.icon
           return (
             <Link

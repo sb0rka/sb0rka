@@ -117,6 +117,7 @@ const resources = {
       tabs: {
         overview: "Обзор",
         databases: "Базы Данных",
+        dataExplorer: "SQL Навигатор",
         secrets: "Секреты",
         settings: "Настройки",
       },
@@ -273,7 +274,6 @@ const resources = {
         fullscreenTitle: "Результаты запроса",
       },
       dataExplorer: {
-        nav: "SQL Навигатор",
         queryTitle: "query {{databaseName}}",
         schemaTitle: "Схема",
         selectDatabase: "База данных",
@@ -552,6 +552,7 @@ const resources = {
       tabs: {
         overview: "Overview",
         databases: "Databases",
+        dataExplorer: "SQL Explorer",
         secrets: "Secrets",
         settings: "Settings",
       },
@@ -704,7 +705,6 @@ const resources = {
         fullscreenTitle: "Query results",
       },
       dataExplorer: {
-        nav: "SQL Explorer",
         queryTitle: "query {{databaseName}}",
         schemaTitle: "Schema",
         selectDatabase: "Database",
