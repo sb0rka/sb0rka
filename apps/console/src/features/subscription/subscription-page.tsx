@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { ApiError } from "@/lib/api-client"
-import { cn } from "@/lib/utils"
 import { useCurrentPlan, usePlans, useSubscriptionUsage } from "./hooks"
 import type { SubscriptionUsage } from "./hooks"
 import {
@@ -84,7 +83,7 @@ export function SubscriptionPage() {
           <h1 className="text-2xl font-semibold leading-normal text-[var(--subscription-heading)]">
             {t("subscription.title")}
           </h1>
-          <Badge className="mt-1 shrink-0 rounded-full border-0 bg-[var(--plan-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--plan-badge-fg)]">
+          <Badge className="mt-1 shrink-0 rounded-full border border-[var(--subscription-border)] bg-[var(--plan-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--plan-badge-fg)]">
             {currentPlan.name}
           </Badge>
         </div>
@@ -94,41 +93,37 @@ export function SubscriptionPage() {
       </SlideIn>
 
       <SlideIn>
-        <Card className="border border-[var(--subscription-border)] !bg-transparent shadow-none">
-          <CardContent className="flex flex-wrap items-start gap-4 p-6">
-            <StaggerGroup className="flex flex-wrap items-start gap-4">
-              {LIMIT_ITEMS.map((item, index) => {
-                const limit = currentPlan[item.key]
-                const used = usage?.[item.usageKey]
-                const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
+        <StaggerGroup className="flex flex-wrap items-start gap-4">
+          {LIMIT_ITEMS.map((item, index) => {
+            const limit = currentPlan[item.key]
+            const used = usage?.[item.usageKey]
+            const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
 
-                return (
-                  <SlideIn
-                    key={item.key}
-                    className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-[var(--subscription-border)] !bg-transparent p-4"
-                  >
-                    <p className="text-sm text-[var(--subscription-muted)]">
-                      {t(item.labelKey)}
-                    </p>
-                    <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--subscription-heading)]">
-                      {limit}
-                    </p>
-                    <p className="mt-1 text-sm text-[var(--subscription-muted)]">
-                      {t("subscription.used")}{" "}
-                      {typeof used === "number" ? `${used} / ${limit}` : "—"}
-                    </p>
-                    <UsageProgressBar
-                      className="mt-3 !bg-[var(--subscription-progress-track)] dark:!bg-[#2a2a2a]"
-                      barClassName="!bg-[var(--subscription-accent-bright)] dark:!bg-[#76933c]"
-                      progress={progress}
-                      delay={index * staggerStep}
-                    />
-                  </SlideIn>
-                )
-              })}
-            </StaggerGroup>
-          </CardContent>
-        </Card>
+            return (
+              <SlideIn
+                key={item.key}
+                className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-[var(--subscription-border)] !bg-transparent p-4"
+              >
+                <p className="text-sm text-[var(--subscription-muted)]">
+                  {t(item.labelKey)}
+                </p>
+                <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--subscription-heading)]">
+                  {limit}
+                </p>
+                <p className="mt-1 text-sm text-[var(--subscription-muted)]">
+                  {t("subscription.used")}{" "}
+                  {typeof used === "number" ? `${used} / ${limit}` : "—"}
+                </p>
+                <UsageProgressBar
+                  className="mt-3 !bg-[var(--subscription-progress-track)]"
+                  barClassName="!bg-[var(--subscription-accent-bright)]"
+                  progress={progress}
+                  delay={index * staggerStep}
+                />
+              </SlideIn>
+            )
+          })}
+        </StaggerGroup>
       </SlideIn>
 
       <SlideIn>
@@ -153,10 +148,7 @@ export function SubscriptionPage() {
                   return (
                     <SlideIn
                       key={plan.id}
-                      className={cn(
-                        "flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-[var(--subscription-border)] !bg-transparent p-5",
-                        isCurrent && "border-[var(--subscription-accent)]",
-                      )}
+                      className="flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-[var(--subscription-border)] !bg-transparent p-5"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -168,7 +160,7 @@ export function SubscriptionPage() {
                           </p>
                         </div>
                         {isCurrent ? (
-                          <Badge className="rounded-md border border-[var(--subscription-accent)] bg-[var(--subscription-accent)] px-3 py-1 font-medium text-[var(--plan-badge-fg)] hover:bg-[var(--subscription-accent)]">
+                          <Badge className="rounded-md border border-[var(--subscription-accent)] bg-[var(--subscription-accent)] px-3 py-1 font-medium text-[var(--subscription-accent-fg)] hover:bg-[var(--subscription-accent)]">
                             {t("subscription.current")}
                           </Badge>
                         ) : null}
