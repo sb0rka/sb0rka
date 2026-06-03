@@ -17,6 +17,7 @@ import {
   useProjectMetricsTimeseries,
 } from "./hooks"
 import {
+  DataExplorerTab,
   DatabasesTab,
   OverviewTab,
   type SecretRow,
@@ -26,18 +27,10 @@ import {
   type CreateDatabaseFormState,
   type CreateDatabaseFormActions,
 } from "./components/project-detail-tabs"
-import { ProjectPageTitle } from "./components/project-page-title"
 import type { CreateSecretRequest, DatabaseResponse } from "./api"
 import { parseDraftTag } from "./parse-draft-tag"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-
-type ProjectTab = "overview" | "databases" | "secrets" | "settings"
-const validTabs = new Set<ProjectTab>([
-  "overview",
-  "databases",
-  "secrets",
-  "settings",
-])
+import { isProjectTab, type ProjectTab } from "./project-tabs"
 
 export function ProjectDetailPage() {
   const { t } = useTranslation()
@@ -46,9 +39,7 @@ export function ProjectDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
   const activeTab: ProjectTab =
-    tabParam && validTabs.has(tabParam as ProjectTab)
-      ? (tabParam as ProjectTab)
-      : "overview"
+    isProjectTab(tabParam) ? tabParam : "overview"
 
   const { data: project, isLoading } = useProject(id)
   const { data: dbData } = useDatabases(id)
@@ -207,10 +198,6 @@ export function ProjectDetailPage() {
 
   return (
     <PageStagger className="flex flex-col gap-6">
-      <SlideIn>
-        <ProjectPageTitle project={project} />
-      </SlideIn>
-
       <Tabs
         value={activeTab}
         onValueChange={(value) => setSearchParams({ tab: value })}
@@ -232,6 +219,7 @@ export function ProjectDetailPage() {
           createActions={createDatabaseActions}
           onOpenDatabaseDetails={openDatabaseDetails}
         />
+        <DataExplorerTab />
         <SecretsTab
           projectId={id}
           secretRows={secretRows}

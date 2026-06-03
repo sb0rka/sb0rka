@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/layout/app-layout"
 import { ProjectsPage } from "@/features/projects/projects-page"
 import { ProjectDetailPage } from "@/features/projects/project-detail-page"
 import { DatabaseDetailPage } from "@/features/projects/database-detail-page"
+import { DatabaseQueryPage } from "@/features/projects/database-query-page"
 import { MetricDetailPage } from "@/features/projects/metric-detail-page"
 import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
@@ -35,6 +36,10 @@ export default function App() {
                         <Route path="/subscription" element={<SubscriptionPage />} />
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                        <Route
+                          path="/projects/:id/databases/:resourceId/query"
+                          element={<DatabaseQueryPage />}
+                        />
                         <Route
                           path="/projects/:id/databases/:resourceId"
                           element={<DatabaseDetailPage />}

@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   Database,
   KeyRound,
+  LayoutGrid,
   Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -23,18 +24,20 @@ import {
   ProjectNavLink,
   type ProjectNavIconAnimation,
 } from "@/components/layout/project-nav-icon"
+import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 
-type ProjectTab = "overview" | "databases" | "secrets" | "settings"
-
-const projectNavItems: Array<{
+type ProjectNavItem = {
+  key: string
+  tab: ProjectTab
   labelKey: string
   icon: ComponentType<{ className?: string }>
-  tab: ProjectTab
-  iconAnimation: ProjectNavIconAnimation
-}> = [
-  { labelKey: "tabs.overview", icon: BarChart3, tab: "overview", iconAnimation: "chart" },
-  { labelKey: "tabs.databases", icon: Database, tab: "databases", iconAnimation: "database" },
-  { labelKey: "tabs.secrets", icon: KeyRound, tab: "secrets", iconAnimation: "key" },
+}
+
+const projectNavItems: ProjectNavItem[] = [
+  { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: BarChart3 },
+  { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: Database },
+  { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: LayoutGrid },
+  { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound },
 ]
 
 const settingsNavItem = {
@@ -48,30 +51,24 @@ export function ProjectSidebar() {
   const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
-  const isDatabaseDetailsRoute = useMatch("/projects/:id/databases/:resourceId") !== null
+  const isDatabaseDetailsRoute =
+    useMatch({ path: "/projects/:id/databases/:resourceId", end: false }) !== null
   const isMetricDetailsRoute = useMatch("/projects/:id/metrics/:metric") !== null
   const { data: project } = useProject(id)
   const { data: projectsData } = useProjects()
   const tabParam = searchParams.get("tab")
-  const isProjectTab = (value: string | null): value is ProjectTab =>
-    value === "overview" ||
-    value === "databases" ||
-    value === "secrets" ||
-    value === "settings"
   const activeTab: ProjectTab = isDatabaseDetailsRoute
     ? "databases"
-    : isMetricDetailsRoute
-      ? "overview"
-    : isProjectTab(tabParam)
-      ? tabParam
-      : "overview"
+    : isMetricDetailsRoute ? "overview"
+    : isProjectTab(tabParam) ? tabParam
+    : "overview"
   const projects = projectsData?.projects ?? []
 
   const getTabHref = (tab: ProjectTab) => `/projects/${id}?tab=${tab}`
   const getProjectHref = (projectId: string) => `/projects/${projectId}?tab=${activeTab}`
 
   return (
-    <aside className="flex h-full w-[175px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
+    <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-border bg-[var(--sidebar-bg)]">
       <div className="border-b border-border p-2.5 h-[60px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

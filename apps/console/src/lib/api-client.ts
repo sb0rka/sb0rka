@@ -2,6 +2,11 @@ import { getToken, setToken, clearToken, registerRefreshHandler } from "./auth-s
 
 const AUTH_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru"
 const RESOURCE_BASE_URL = import.meta.env.VITE_RESOURCE_API_BASE_URL ?? "https://api.sb0rka.ru"
+const QUERY_RUNNER_BASE_URL =
+  import.meta.env.VITE_QUERY_RUNNER_BASE_URL ?? "https://psql-executor.proxy.sb0rka.ru"
+// nl2sql default listen: HTTP_LISTEN_ADDR=:8083 (apps/nl2sql)
+const NL2SQL_BASE_URL = import.meta.env.VITE_NL2SQL_BASE_URL ?? "http://localhost:8083"
+const NL2SQL_SHARED_SECRET = (import.meta.env.VITE_NL2SQL_SHARED_SECRET as string | undefined)?.trim()
 
 const COOKIE_PATHS = ["/auth/login", "/auth/refresh", "/auth/logout"]
 
@@ -38,7 +43,7 @@ interface RequestOptions {
   body?: Record<string, string>
   json?: unknown
   auth?: boolean
-  base?: "auth" | "resource"
+  base?: "auth" | "resource" | "queryRunner" | "nl2sql"
 }
 
 let refreshPromise: Promise<void> | null = null
@@ -87,6 +92,10 @@ function buildFetchInit(opts: RequestOptions): RequestInit {
     headers["Authorization"] = `Bearer ${getToken()}`
   }
 
+  if (opts.base === "nl2sql" && NL2SQL_SHARED_SECRET) {
+    headers["X-NL2SQL-Secret"] = NL2SQL_SHARED_SECRET
+  }
+
   if (opts.json !== undefined) {
     headers["Content-Type"] = "application/json"
     init.body = JSON.stringify(opts.json)
@@ -115,7 +124,14 @@ export async function apiRequestText(opts: RequestOptions): Promise<string> {
 }
 
 async function performRequest(opts: RequestOptions): Promise<Response> {
-  const baseUrl = opts.base === "resource" ? RESOURCE_BASE_URL : AUTH_BASE_URL
+  const baseUrl =
+    opts.base === "resource"
+      ? RESOURCE_BASE_URL
+      : opts.base === "queryRunner"
+        ? QUERY_RUNNER_BASE_URL
+        : opts.base === "nl2sql"
+          ? NL2SQL_BASE_URL
+          : AUTH_BASE_URL
   const url = `${baseUrl}${opts.path}`
   let res = await fetch(url, buildFetchInit(opts))
 

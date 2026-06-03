@@ -5,8 +5,7 @@ import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
-
-type ProjectTab = "overview" | "databases" | "secrets" | "settings"
+import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 type BreadcrumbItem = {
   label: string
   href?: string
@@ -15,16 +14,10 @@ type BreadcrumbItem = {
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
   databases: "tabs.databases",
+  "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
   settings: "tabs.settings",
 }
-
-const isProjectTab = (value: string | null): value is ProjectTab =>
-  value === "overview" ||
-  value === "databases" ||
-  value === "secrets" ||
-  value === "settings"
-
 
 export function AppLayout() {
   const { t } = useTranslation()
@@ -60,6 +53,7 @@ export function AppLayout() {
   const tabLabelById: Record<ProjectTab, string> = {
     overview: t(projectTabLabelKeyById.overview),
     databases: t(projectTabLabelKeyById.databases),
+    "data-explorer": t(projectTabLabelKeyById["data-explorer"]),
     secrets: t(projectTabLabelKeyById.secrets),
     settings: t(projectTabLabelKeyById.settings),
   }
@@ -67,23 +61,31 @@ export function AppLayout() {
     ? [
         { label: t("nav.projects"), href: "/projects" },
         { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
-        ...(databaseDetailsMatch
+        ...(activeTab === "data-explorer"
           ? [
               {
                 label: tabLabelById.databases,
                 href: `/projects/${projectId}?tab=databases`,
               },
-              { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
+              { label: tabLabelById["data-explorer"] },
             ]
-          : activeTab === "secrets" && selectedSecretId
+          : databaseDetailsMatch
             ? [
                 {
-                  label: tabLabelById.secrets,
-                  href: `/projects/${projectId}?tab=secrets`,
+                  label: tabLabelById.databases,
+                  href: `/projects/${projectId}?tab=databases`,
                 },
-                { label: selectedSecret?.name ?? selectedSecretId },
+                { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
               ]
-            : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
+            : activeTab === "secrets" && selectedSecretId
+              ? [
+                  {
+                    label: tabLabelById.secrets,
+                    href: `/projects/${projectId}?tab=secrets`,
+                  },
+                  { label: selectedSecret?.name ?? selectedSecretId },
+                ]
+              : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
       ]
     : [] // No breadcrumbs for non-project routes
 
