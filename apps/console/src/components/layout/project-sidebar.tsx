@@ -31,13 +31,14 @@ type ProjectNavItem = {
   tab: ProjectTab
   labelKey: string
   icon: ComponentType<{ className?: string }>
+  iconAnimation: ProjectNavIconAnimation
 }
 
 const projectNavItems: ProjectNavItem[] = [
-  { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: BarChart3 },
-  { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: Database },
-  { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: LayoutGrid },
-  { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound },
+  { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: BarChart3, iconAnimation: "chart" as const },
+  { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: Database, iconAnimation: "database" as const },
+  { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: LayoutGrid, iconAnimation: "database" as const },
+  { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound, iconAnimation: "key" as const },
 ]
 
 const settingsNavItem = {
