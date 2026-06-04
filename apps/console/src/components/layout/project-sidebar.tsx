@@ -19,8 +19,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
 import { useProject, useProjects } from "@/features/projects/hooks"
+import {
+  ProjectNavLink,
+  type ProjectNavIconAnimation,
+} from "@/components/layout/project-nav-icon"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 
 type ProjectNavItem = {
@@ -41,6 +44,7 @@ const settingsNavItem = {
   labelKey: "tabs.settings",
   icon: Settings,
   tab: "settings" as const,
+  iconAnimation: "settings" as const,
 }
 
 export function ProjectSidebar() {
@@ -108,41 +112,28 @@ export function ProjectSidebar() {
       </div>
 
       <nav className="flex flex-col gap-3 px-4 py-3">
-        {projectNavItems.map((item) => {
-          const href = getTabHref(item.tab)
-          const isActive = activeTab === item.tab
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.key}
-              to={href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {t(item.labelKey)}
-            </Link>
-          )
-        })}
+        {projectNavItems.map((item) => (
+          <ProjectNavLink
+            key={item.tab}
+            to={getTabHref(item.tab)}
+            isActive={activeTab === item.tab}
+            icon={item.icon}
+            animation={item.iconAnimation}
+          >
+            {t(item.labelKey)}
+          </ProjectNavLink>
+        ))}
 
         <Separator />
 
-        <Link
+        <ProjectNavLink
           to={getTabHref(settingsNavItem.tab)}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-            activeTab === settingsNavItem.tab
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-          )}
+          isActive={activeTab === settingsNavItem.tab}
+          icon={settingsNavItem.icon}
+          animation={settingsNavItem.iconAnimation}
         >
-          <settingsNavItem.icon className="h-4 w-4" />
           {t(settingsNavItem.labelKey)}
-        </Link>
+        </ProjectNavLink>
       </nav>
     </aside>
   )

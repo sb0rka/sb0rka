@@ -5,7 +5,8 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { Button, buttonPressClass } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import {
@@ -58,7 +59,10 @@ export function Header({ breadcrumbs }: HeaderProps) {
               {isLink ? (
                 <Link
                   to={item.href as string}
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className={cn(
+                    "text-sm text-muted-foreground hover:text-foreground",
+                    buttonPressClass,
+                  )}
                 >
                   {item.label}
                 </Link>

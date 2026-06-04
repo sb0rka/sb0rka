@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, buttonPressClass } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { AlphaToast } from "@/components/ui/alpha-toast"
 import { FloatingHint } from "@/components/ui/floating-hint"
 import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
+import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-entrance"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
@@ -58,7 +60,10 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
                 <li key={db.resource_id}>
                   <button
                     type="button"
-                    className="w-full truncate rounded-md py-0 text-left font-normal leading-5 text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className={cn(
+                      "w-full truncate rounded-md py-0 text-left font-normal leading-5 text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      buttonPressClass,
+                    )}
                     onClick={() =>
                       navigate(`/projects/${project.id}/databases/${db.resource_id}`)
                     }
@@ -76,7 +81,10 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
           <button
             type="button"
             onClick={() => void handleCopyProjectId()}
-            className="flex w-full min-w-0 items-center gap-2"
+            className={cn(
+              "flex w-full min-w-0 items-center gap-2",
+              buttonPressClass,
+            )}
             aria-label={t("projects.detail.copyProjectId")}
           >
             <Copy className="size-4 shrink-0 text-muted-foreground" />
@@ -111,39 +119,45 @@ export function ProjectsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("projects.create")}
-        </Button>
-      </div>
-
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center min-h-[500px]">
           <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
-      ) : projects.length === 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm">
-          <div className="flex flex-col items-center gap-1">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              {t("projects.emptyTitle")}
-            </h2>
-            <p className="text-sm tracking-tight text-muted-foreground">
-              {t("projects.emptyDescription")}
-            </p>
-            <Button className="mt-4" onClick={() => setCreateOpen(true)}>
+      ) : (
+        <PageStagger className="flex min-h-0 flex-1 flex-col gap-4">
+          <SlideIn className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
+            <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               {t("projects.create")}
             </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:h-full">
-          {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
+          </SlideIn>
+
+          {projects.length === 0 ? (
+            <SlideIn className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm">
+              <div className="flex flex-col items-center gap-1">
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                  {t("projects.emptyTitle")}
+                </h2>
+                <p className="text-sm tracking-tight text-muted-foreground">
+                  {t("projects.emptyDescription")}
+                </p>
+                <Button className="mt-4" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("projects.create")}
+                </Button>
+              </div>
+            </SlideIn>
+          ) : (
+            <StaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:h-full">
+              {projects.map((project) => (
+                <SlideIn key={project.id} className="h-full">
+                  <ProjectCard project={project} />
+                </SlideIn>
+              ))}
+            </StaggerGroup>
+          )}
+        </PageStagger>
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />

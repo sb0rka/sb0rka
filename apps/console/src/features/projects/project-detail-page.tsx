@@ -29,6 +29,7 @@ import {
 } from "./components/project-detail-tabs"
 import type { CreateSecretRequest, DatabaseResponse } from "./api"
 import { parseDraftTag } from "./parse-draft-tag"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { isProjectTab, type ProjectTab } from "./project-tabs"
 
 export function ProjectDetailPage() {
@@ -196,8 +197,7 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-
+    <PageStagger className="flex flex-col gap-6">
       <Tabs
         value={activeTab}
         onValueChange={(value) => setSearchParams({ tab: value })}
@@ -232,6 +232,6 @@ export function ProjectDetailPage() {
           projectDescription={project.description ?? ""}
         />
       </Tabs>
-    </div>
+    </PageStagger>
   )
 }

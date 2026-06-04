@@ -20,6 +20,7 @@ import type { CreateSecretRequest } from "../api"
 import type { SecretRow } from "./project-detail-tab-types"
 import { SecretDetails } from "./secret-details"
 import { SecretDetailsTable } from "./secret-details-table"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 interface SecretsTabProps {
   projectId: string
@@ -96,39 +97,43 @@ export function SecretsTab({
 
   return (
     <TabsContent value="secrets" className="flex flex-col gap-6">
-      {openedSecret ? null : (
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-semibold tracking-tight">{t("secrets.title")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("secrets.description")}
-            </p>
-          </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("secrets.create")}
-          </Button>
-        </div>
-      )}
+      <PageStagger className="flex flex-col gap-6">
+        {openedSecret ? null : (
+          <SlideIn className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-2xl font-semibold tracking-tight">{t("secrets.title")}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t("secrets.description")}
+              </p>
+            </div>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t("secrets.create")}
+            </Button>
+          </SlideIn>
+        )}
 
-      <Card className={openedSecret ? "overflow-visible border-0 shadow-none" : "overflow-hidden"}>
-        <CardContent className="p-0">
-          {openedSecret ? (
-            <SecretDetails
-              projectId={projectId}
-              secret={openedSecret}
-              onClose={() => setOpenedSecretId(null)}
-            />
-          ) : (
-            <SecretDetailsTable
-              projectId={projectId}
-              rows={secretRows}
-              emptyMessage={t("secrets.empty")}
-              onRowClick={(row) => setOpenedSecretId(row.id)}
-            />
-          )}
-        </CardContent>
-      </Card>
+        <SlideIn>
+          <Card className={openedSecret ? "overflow-visible border-0 shadow-none" : "overflow-hidden"}>
+            <CardContent className="p-0">
+              {openedSecret ? (
+                <SecretDetails
+                  projectId={projectId}
+                  secret={openedSecret}
+                  onClose={() => setOpenedSecretId(null)}
+                />
+              ) : (
+                <SecretDetailsTable
+                  projectId={projectId}
+                  rows={secretRows}
+                  emptyMessage={t("secrets.empty")}
+                  onRowClick={(row) => setOpenedSecretId(row.id)}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </SlideIn>
+      </PageStagger>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogOpenChange}>
         <DialogContent>

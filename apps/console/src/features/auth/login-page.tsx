@@ -2,14 +2,16 @@ import { useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { SborkaLogo } from "@/components/logo"
-import { Button } from "@/components/ui/button"
+import { Button, buttonPressClass } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { cn } from "@/lib/utils"
 import { useLogin } from "./hooks"
 import { ApiError } from "@/lib/api-client"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -28,11 +30,14 @@ export function LoginPage() {
         <ThemeToggle />
         <LanguageSwitcher />
       </div>
-      <div className="flex w-full max-w-sm flex-col items-center gap-6">
-        <a href={import.meta.env.VITE_LANDING_URL || "/"}>
-          <SborkaLogo />
-        </a>
+      <PageStagger className="flex w-full max-w-sm flex-col items-center gap-6">
+        <SlideIn>
+          <a href={import.meta.env.VITE_LANDING_URL || "/"}>
+            <SborkaLogo />
+          </a>
+        </SlideIn>
 
+        <SlideIn className="w-full">
         <Card className="w-full">
           <CardHeader>
             <CardTitle>{t("auth.login.title")}</CardTitle>
@@ -98,13 +103,14 @@ export function LoginPage() {
 
             <p className="pt-4 text-center text-sm text-foreground">
               {t("auth.login.noAccount")}{" "}
-              <Link to="/register" className="underline">
+              <Link to="/register" className={cn("underline", buttonPressClass)}>
                 {t("auth.login.registerLink")}
               </Link>
             </p>
           </CardFooter>
         </Card>
-      </div>
+        </SlideIn>
+      </PageStagger>
     </div>
   )
 }
