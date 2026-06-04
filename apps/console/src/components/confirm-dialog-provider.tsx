@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,10 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "./ui/input"
 
 export interface ConfirmDialogOptions {
   title: string
   description?: string
+  infoNode?: React.ReactNode
+  strongConfirmValue?: string
   confirmText?: string
   cancelText?: string
   confirmVariant?: "default" | "destructive"
@@ -33,6 +36,20 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
   const requestIdRef = useRef(0)
   const [queue, setQueue] = useState<ConfirmRequest[]>([])
   const activeRequest = queue[0] ?? null
+  const [userInput, setUserInput] = useState("");
+
+  useEffect(() => {
+    setUserInput("")
+  }, [activeRequest?.id])
+
+  const isConfirmDisabled = useMemo(() => {
+    if (!activeRequest) return true
+    const expected = activeRequest.options.strongConfirmValue
+    if (expected && (expected !== userInput.trim())) {
+        return true
+    }
+    return false
+  }, [activeRequest, userInput])
 
   const resolveRequest = useCallback((requestId: number, result: boolean) => {
     let requestToResolve: ConfirmRequest | undefined
@@ -79,6 +96,17 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
               <DialogDescription>{activeRequest.options.description}</DialogDescription>
             ) : null}
           </DialogHeader>
+          {activeRequest?.options.infoNode}
+          {activeRequest?.options.strongConfirmValue && (
+            <div className="p-6">
+              <Input
+                id="strong-confirm-input"
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder={activeRequest.options.strongConfirmValue}
+                required
+                />
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"
@@ -92,6 +120,7 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
             <Button
               type="button"
               variant={activeRequest?.options.confirmVariant ?? "default"}
+              disabled={isConfirmDisabled}
               onClick={() => {
                 if (activeRequest) resolveRequest(activeRequest.id, true)
               }}
