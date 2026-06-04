@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Button, buttonPressClass } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { SborkaLogoMark, SborkaLogoWordmarkText } from "@/components/logo"
+import { SborkaLogoMark, SborkaLogo } from "@/components/logo"
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
@@ -129,20 +129,32 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
       )}
     >
       <div className="flex flex-col gap-2">
-        <div className="relative flex h-[60px] items-center overflow-hidden border-b border-border px-6">
-          <SborkaLogoMark className="absolute left-[30px] top-1/2 z-10 -translate-x-1/2 -translate-y-1/2" />
-          <motion.div
-            className="absolute top-1/2 flex -translate-y-1/2 items-center overflow-hidden"
-            style={{ left: "calc(30px + 12.5px + 6px)" }}
-            initial={false}
-            animate={{
-              width: collapsed ? 0 : 58,
-              opacity: collapsed ? 0 : 1,
-            }}
-            transition={logoTransition}
-          >
-            <SborkaLogoWordmarkText />
-          </motion.div>
+        <div className="relative h-[60px] overflow-hidden border-b border-border">
+          <AnimatePresence mode="wait" initial={false}>
+            {collapsed ? (
+              <motion.div
+                key="mark"
+                className="absolute inset-0 flex items-center px-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0 } }}
+                transition={logoTransition}
+              >
+                <SborkaLogoMark />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="wordmark"
+                className="absolute inset-0 flex items-center px-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0 } }}
+                transition={logoTransition}
+              >
+                <SborkaLogo />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">

@@ -48,7 +48,7 @@ export function SborkaLogoWordmarkText({ className }: { className?: string }) {
 export function SborkaLogoWordmark({ className }: { className?: string }) {
   return (
     <svg
-      width="75"
+      width="100"
       height="25"
       viewBox="0 0 100 25"
       fill="none"
