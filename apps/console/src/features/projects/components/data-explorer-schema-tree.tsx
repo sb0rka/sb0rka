@@ -4,6 +4,7 @@ import { ChevronRight, Loader2, Wifi, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DataExplorerDatabaseNode } from "../hooks"
 import { useDataExplorerDatabaseHealth } from "../hooks"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 
 export interface DataExplorerSchemaTreeProps {
@@ -169,7 +170,11 @@ export function DataExplorerSchemaTree({
         {t("dataExplorer.schemaTreeDatabases", { count: nodes.length })}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <ScrollArea
+        type="always"
+        className="min-h-0 flex-1 w-full"
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <ul className="space-y-0.5">
           {nodes.map(({ database, tables }) => {
             const isSelected = selectedResourceId === database.resource_id
@@ -302,6 +307,8 @@ export function DataExplorerSchemaTree({
           })}
         </ul>
       </div>
+        <ScrollBar />
+        </ScrollArea>
     </div>
   )
 }
