@@ -149,9 +149,9 @@ export function ProjectsPage() {
               </div>
             </SlideIn>
           ) : (
-            <StaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:h-full">
+            <StaggerGroup className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(0,450px))] [&>*]:h-full">
               {projects.map((project) => (
-                <SlideIn key={project.id} className="h-full">
+                <SlideIn key={project.id} className="h-full max-w-[450px]">
                   <ProjectCard project={project} />
                 </SlideIn>
               ))}
