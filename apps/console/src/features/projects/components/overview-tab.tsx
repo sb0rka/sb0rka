@@ -1,11 +1,14 @@
 import { useCallback, useMemo, type KeyboardEvent, type ReactNode } from "react"
 import { Database, HardDrive, KeyRound } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { buttonPressClass } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import { TabsContent } from "@/components/ui/tabs"
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 import type { ProjectMetricsTimeseries } from "../hooks"
+import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-entrance"
 
 interface MetricCardProps {
   title: string
@@ -28,7 +31,14 @@ function MetricCard({ title, value, description, icon, onClick }: MetricCardProp
 
   return (
     <Card
-      className={`flex-1 ${isClickable ? "cursor-pointer transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" : ""}`}
+      className={cn(
+        "flex-1",
+        isClickable &&
+          cn(
+            "cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            buttonPressClass,
+          ),
+      )}
       onClick={onClick}
       onKeyDown={handleKeyDown}
       role={isClickable ? "button" : undefined}
@@ -171,7 +181,14 @@ function ChartCard({
 
   return (
     <Card
-      className={`flex-1 ${isClickable ? "cursor-pointer transition-colors hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" : ""}`}
+      className={cn(
+        "flex-1",
+        isClickable &&
+          cn(
+            "cursor-pointer hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            buttonPressClass,
+          ),
+      )}
       onClick={onClick}
       onKeyDown={handleKeyDown}
       role={isClickable ? "button" : undefined}
@@ -382,36 +399,46 @@ export function OverviewTab({
 
   return (
     <TabsContent value="overview" className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
-          title={t("metrics.databases")}
-          value={dbCount}
-          icon={<Database className="h-4 w-4" />}
-          onClick={onOpenDatabases}
-        />
-        <MetricCard
-          title={t("tabs.secrets")}
-          value={secretCount ?? 0}
-          icon={<KeyRound className="h-4 w-4" />}
-          onClick={onOpenSecrets}
-        />
-        <MetricCard
-          title={t("metrics.disk")}
-          value={formatDiskUsagePercent(diskUsageValue, diskUsageUnit)}
-          description={
-            diskUsageSeries.length > 0
-              ? ""
-              : t("common.messages.noDataYet")
-          }
-          icon={<HardDrive className="h-4 w-4" />}
-        />
-      </div>
+      <PageStagger className="flex flex-col gap-4">
+        <StaggerGroup className="grid gap-4 sm:grid-cols-3">
+          <SlideIn>
+            <MetricCard
+              title={t("metrics.databases")}
+              value={dbCount}
+              icon={<Database className="h-4 w-4" />}
+              onClick={onOpenDatabases}
+            />
+          </SlideIn>
+          <SlideIn>
+            <MetricCard
+              title={t("tabs.secrets")}
+              value={secretCount ?? 0}
+              icon={<KeyRound className="h-4 w-4" />}
+              onClick={onOpenSecrets}
+            />
+          </SlideIn>
+          <SlideIn>
+            <MetricCard
+              title={t("metrics.disk")}
+              value={formatDiskUsagePercent(diskUsageValue, diskUsageUnit)}
+              description={
+                diskUsageSeries.length > 0
+                  ? ""
+                  : t("common.messages.noDataYet")
+              }
+              icon={<HardDrive className="h-4 w-4" />}
+            />
+          </SlideIn>
+        </StaggerGroup>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {charts.map((chart) => (
-          <ChartCard key={chart.title} {...chart} />
-        ))}
-      </div>
+        <StaggerGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {charts.map((chart) => (
+            <SlideIn key={chart.title}>
+              <ChartCard {...chart} />
+            </SlideIn>
+          ))}
+        </StaggerGroup>
+      </PageStagger>
     </TabsContent>
   )
 }

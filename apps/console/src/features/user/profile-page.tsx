@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { ApiError } from "@/lib/api-client"
 import { useUser, useUpdateProfile, useChangePassword } from "./hooks"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
@@ -129,12 +130,13 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+    <PageStagger className="flex flex-col gap-4">
+      <SlideIn className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-foreground">{t("profile.title")}</h1>
-      </div>
+      </SlideIn>
 
       <div className="flex flex-col gap-6">
+        <SlideIn>
         <Card>
           <CardHeader className="gap-1.5">
             <CardTitle className="text-xl font-semibold tracking-tight">Email</CardTitle>
@@ -174,7 +176,9 @@ export function ProfilePage() {
             </CardFooter>
           </form>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card>
           <CardHeader className="gap-1.5">
             <CardTitle className="text-xl font-semibold tracking-tight">{t("profile.passwordTitle")}</CardTitle>
@@ -234,7 +238,9 @@ export function ProfilePage() {
             </CardFooter>
           </form>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card>
           <CardHeader className="gap-1.5 border-b border-border">
             <CardTitle className="text-xl font-semibold tracking-tight">
@@ -254,6 +260,7 @@ export function ProfilePage() {
             </Button>
           </CardFooter>
         </Card>
+        </SlideIn>
       </div>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -271,6 +278,6 @@ export function ProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageStagger>
   )
 }
