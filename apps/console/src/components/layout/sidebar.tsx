@@ -55,6 +55,14 @@ const labelTransitionClass =
 const sidebarAnchorClass =
   "absolute [left:calc(30px-var(--sidebar-nav-pl))] -translate-x-1/2"
 
+/** Logo mark center — 30px from sidebar edge (header is full-width, no nav padding). */
+const logoMarkCenterClass =
+  "absolute top-1/2 left-[30px] -translate-x-1/2 -translate-y-1/2"
+
+/** Expanded wordmark: mark left edge matches collapsed centered mark (30px − 12.5px). */
+const logoExpandedClass =
+  "absolute top-1/2 left-[calc(30px-12.5px)] -translate-y-1/2"
+
 const sidebarIconSlotClass = cn(
   "pointer-events-none top-1/2 z-10 -translate-y-1/2",
   sidebarAnchorClass,
@@ -134,24 +142,24 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
             {collapsed ? (
               <motion.div
                 key="mark"
-                className="absolute inset-0 flex items-center px-6"
+                className="absolute inset-0"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: { duration: 0 } }}
                 transition={logoTransition}
               >
-                <SborkaLogoMark />
+                <SborkaLogoMark className={logoMarkCenterClass} />
               </motion.div>
             ) : (
               <motion.div
                 key="wordmark"
-                className="absolute inset-0 flex items-center px-6"
+                className="absolute inset-0"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: { duration: 0 } }}
                 transition={logoTransition}
               >
-                <SborkaLogo />
+                <SborkaLogo className={logoExpandedClass} />
               </motion.div>
             )}
           </AnimatePresence>
