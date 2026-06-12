@@ -68,7 +68,7 @@ func NewCmdPsql() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Connecting to database %s ID: %s\n", database.Name, database.ResourceID)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Connecting to database %s ID: %s\n", database.Name, database.DBInstanceID)
 			if err != nil {
 				return err
 			}
@@ -155,19 +155,19 @@ func bootstrapPsqlDefaults(cmd *cobra.Command, platformService *app.PlatformServ
 	if err != nil {
 		return "", "", fmt.Errorf("create database: %w", err)
 	}
-	database := databasePayload.Database
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created database %s ID: %s\n", database.Name, database.ResourceID)
+	database := databasePayload.DBInstance
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created database %s ID: %s\n", database.Name, database.DBInstanceID)
 	if err != nil {
 		return "", "", err
 	}
 
 	cfg.ProjectID = project.ID
-	cfg.DatabaseID = database.ResourceID
+	cfg.DatabaseID = database.DBInstanceID
 	if err := config.Save(cfg); err != nil {
 		return "", "", fmt.Errorf("save config: %w", err)
 	}
 
-	return project.ID, database.ResourceID, nil
+	return project.ID, database.DBInstanceID, nil
 }
 
 func withoutPGPassword(env []string) []string {

@@ -1,0 +1,19 @@
+# Secrets & sensitive files
+.env
+.env.*
+!.env.sample
+*.key
+*.pem
+
+# Go binaries / artifacts
+*.exe
+*.exe~
+*.test
+*.out
+
+# Docs / IDE
+README.md
+AGENTS.md
+.idea/
+.vscode/
+.git/

@@ -127,6 +127,18 @@ func (h *Handler) countProjectOwners(ctx *http.Request, projectID string) (int, 
 	return owners, nil
 }
 
+// CreateProject godoc
+// @Summary  Создать проект
+// @Tags     projects
+// @Accept   json
+// @Produce  json
+// @Param    body  body      contract.CreateProjectRequest  true  "Параметры проекта"
+// @Success  201   {object}  contract.ProjectResponse
+// @Failure  400   {string}  string
+// @Failure  403   {string}  string
+// @Failure  409   {string}  string
+// @Security BearerAuth
+// @Router   /projects [post]
 func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -192,6 +204,16 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toProject(project))
 }
 
+// GetProject godoc
+// @Summary  Получить проект
+// @Tags     projects
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  contract.ProjectResponse
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id} [get]
 func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -225,6 +247,13 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toProject(project))
 }
 
+// ListProjects godoc
+// @Summary  Список проектов пользователя
+// @Tags     projects
+// @Produce  json
+// @Success  200  {object}  contract.ProjectListResponse
+// @Security BearerAuth
+// @Router   /projects [get]
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -251,6 +280,19 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(contract.ProjectListResponse{Projects: out})
 }
 
+// UpdateProject godoc
+// @Summary  Обновить метаданные проекта
+// @Tags     projects
+// @Accept   json
+// @Produce  json
+// @Param    project_id  path      string                         true  "ID проекта"
+// @Param    body        body      contract.UpdateProjectRequest  true  "Новые имя/описание"
+// @Success  200         {object}  contract.ProjectResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id} [patch]
 func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -313,6 +355,16 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toProject(project))
 }
 
+// DeleteProject godoc
+// @Summary  Удалить проект
+// @Description Проект можно удалить только если в нём нет баз данных.
+// @Tags     projects
+// @Param    project_id  path  string  true  "ID проекта"
+// @Success  204  "No Content"
+// @Failure  403  {string}  string
+// @Failure  404  {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id} [delete]
 func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -358,6 +410,15 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ListProjectMembers godoc
+// @Summary  Список участников проекта
+// @Tags     project-members
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  contract.ProjectMemberListResponse
+// @Failure  403         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/members [get]
 func (h *Handler) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -391,6 +452,17 @@ func (h *Handler) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{ProjectID: projectID, Members: items})
 }
 
+// GetProjectMember godoc
+// @Summary  Получить участника проекта
+// @Tags     project-members
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Param    subject_id  path      string  true  "UUID участника"
+// @Success  200         {object}  contract.ProjectMemberResponse
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/members/{subject_id} [get]
 func (h *Handler) GetProjectMember(w http.ResponseWriter, r *http.Request) {
 	subjectID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -429,6 +501,20 @@ func (h *Handler) GetProjectMember(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toProjectMember(member))
 }
 
+// AddProjectMember godoc
+// @Summary  Добавить участника проекта
+// @Tags     project-members
+// @Accept   json
+// @Produce  json
+// @Param    project_id  path      string                                true  "ID проекта"
+// @Param    body        body      contract.CreateProjectMemberRequest   true  "Subject и роль"
+// @Success  201         {object}  contract.ProjectMemberResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Failure  409         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/members [post]
 func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 	callerID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -501,6 +587,21 @@ func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toProjectMember(member))
 }
 
+// UpdateProjectMemberRole godoc
+// @Summary  Изменить роль участника
+// @Tags     project-members
+// @Accept   json
+// @Produce  json
+// @Param    project_id  path      string                                   true  "ID проекта"
+// @Param    subject_id  path      string                                   true  "UUID участника"
+// @Param    body        body      contract.UpdateProjectMemberRoleRequest  true  "Новая роль"
+// @Success  200         {object}  contract.ProjectMemberResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Failure  409         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/members/{subject_id} [patch]
 func (h *Handler) UpdateProjectMemberRole(w http.ResponseWriter, r *http.Request) {
 	callerID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {
@@ -600,6 +701,17 @@ func (h *Handler) UpdateProjectMemberRole(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(toProjectMember(member))
 }
 
+// RemoveProjectMember godoc
+// @Summary  Удалить участника проекта
+// @Tags     project-members
+// @Param    project_id  path  string  true  "ID проекта"
+// @Param    subject_id  path  string  true  "UUID участника"
+// @Success  204  "No Content"
+// @Failure  403  {string}  string
+// @Failure  404  {string}  string
+// @Failure  409  {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/members/{subject_id} [delete]
 func (h *Handler) RemoveProjectMember(w http.ResponseWriter, r *http.Request) {
 	callerID, subjectKind, ok := extractSubjectIdentity(w, r)
 	if !ok {

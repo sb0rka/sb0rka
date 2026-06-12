@@ -128,40 +128,9 @@ func Load() (*Config, error) {
 
 	serverCORSAllowedDefaultMethodsEnv := getStringEnv("SERVER_CORS_ALLOWED_DEFAULT_METHODS", DefaultCORSAllowedDefaultMethods)
 
-	var accessTokenPrivateKeyRaw []byte
-	var err error
-	accessTokenPrivateKeyFilePathEnv := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH", "")
-	if accessTokenPrivateKeyFilePathEnv != "" {
-		accessTokenPrivateKeyRaw, err = os.ReadFile(accessTokenPrivateKeyFilePathEnv)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read access token private key file: %v", err)
-		}
-	} else {
-		accessTokenPrivateKeyEnv := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY", "")
-		if accessTokenPrivateKeyEnv != "" {
-			accessTokenPrivateKeyRaw, err = base64.StdEncoding.DecodeString(accessTokenPrivateKeyEnv)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode base64 access token private key: %v", err)
-			}
-		}
-	}
-
-	if len(accessTokenPrivateKeyRaw) == 0 {
-		return nil, fmt.Errorf("access token private key is not set")
-	}
-
-	block, _ := pem.Decode(accessTokenPrivateKeyRaw)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM access token private key")
-	}
-	parsedPrivateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	accessTokenPrivateKey, err := LoadAccessTokenPrivateKey()
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse PKCS#8 access token private key: %v", err)
-	}
-
-	accessTokenPrivateKey, ok := parsedPrivateKey.(ed25519.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("access token private key is not ed25519")
+		return nil, err
 	}
 
 	accessTokenIssuer := getStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
@@ -239,4 +208,39 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// LoadAccessTokenPrivateKey — общий загрузчик ключа для config.Load и dev-команды gen-dev-token.
+func LoadAccessTokenPrivateKey() (ed25519.PrivateKey, error) {
+	var raw []byte
+	var err error
+	if path := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH", ""); path != "" {
+		raw, err = os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read access token private key file: %v", err)
+		}
+	} else if b64 := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY", ""); b64 != "" {
+		raw, err = base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode base64 access token private key: %v", err)
+		}
+	}
+
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("access token private key is not set")
+	}
+
+	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM access token private key")
+	}
+	parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse PKCS#8 access token private key: %v", err)
+	}
+	key, ok := parsed.(ed25519.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("access token private key is not ed25519")
+	}
+	return key, nil
 }

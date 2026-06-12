@@ -61,6 +61,21 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 	return true
 }
 
+// GetResourceMetricTimeseries godoc
+// @Summary  Временной ряд метрики ресурса
+// @Tags     telemetry
+// @Produce  json
+// @Param    project_id   path      string  true  "ID проекта"
+// @Param    resource_id  path      string  true  "ID ресурса"
+// @Param    metric       query     string  true  "Имя метрики"
+// @Success  200          {object}  contract.TelemetryTimeseriesResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  502          {string}  string
+// @Failure  504          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/observability/metrics/timeseries [get]
 func (h *Handler) GetResourceMetricTimeseries(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {

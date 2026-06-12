@@ -1,0 +1,103 @@
+name: sb0rka-dev
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d platform"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # Генерирует Ed25519 + Tink ключи в том `keys` (один раз).
+  keygen:
+    image: golang:1.25
+    working_dir: /src
+    command: ["bash", "/src/deploy/dev/keygen.sh"]
+    volumes:
+      - .:/src
+      - keys:/keys
+      - gomod:/go/pkg/mod
+    restart: "no"
+
+  # Схемы, search_path, миграции, dev-инициализация. Завершается после накатки.
+  migrate:
+    image: postgres:18
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bash", "/migrate.sh"]
+    volumes:
+      - ./db/migrations/platform:/migrations:ro
+      - ./deploy/dev/migrate.sh:/migrate.sh:ro
+      - ./deploy/dev/dev-setup.sql:/dev-setup.sql:ro
+    restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["/app/api", "server"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
+    environment:
+      SERVER_ADDR: "0.0.0.0"
+      SERVER_PORT: "8080"
+      SERVER_CORS_WHITELIST: "*"
+      DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
+      SECRET_KEY_REF: "default"
+      ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH: "/keys/access_token_private_key.pem"
+      SECRET_TINK_KEYSET_JSON_FILE_PATH: "/keys/secret_tink_keyset.json"
+      ACCESS_TOKEN_ISSUER: "auth.local"
+      ACCESS_TOKEN_AUDIENCE: "api.local"
+      ACCESS_TOKEN_KID: "ed25519-v1"
+      TENANTS_DATABASE_PUBLIC_BASE_HOST: "localhost.sslip.io"
+      TENANTS_DATABASE_PUBLIC_PORT: "5432"
+    volumes:
+      - keys:/keys:ro
+    ports:
+      - "8080:8080"
+
+  drones:
+    build:
+      context: ./apps/drones
+      dockerfile: Dockerfile
+    command: ["gc"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
+      GC_INTERVAL_SEC: "10"
+
+  proxy:
+    build:
+      context: ./apps/proxy-ql-executor
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      API_ENDPOINT: "http://api:8080"
+      LOCAL_HTTP_ADDR: "8070"
+      DANGER_ALLOW_ALL_QUERIES: "false"
+    ports:
+      - "8070:8070"
+
+volumes:
+  pgdata:
+  keys:
+  gomod:

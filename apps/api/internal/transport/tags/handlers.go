@@ -78,6 +78,17 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 	return true
 }
 
+// ListProjectTags godoc
+// @Summary  Список тегов проекта
+// @Tags     tags
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  contract.ProjectTagListResponse
+// @Failure  400         {string}  string
+// @Failure  401         {string}  string
+// @Failure  403         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/tags [get]
 func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -108,6 +119,19 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ListResourceTags godoc
+// @Summary  Список тегов ресурса
+// @Tags     tags
+// @Produce  json
+// @Param    project_id   path      string  true  "ID проекта"
+// @Param    resource_id  path      string  true  "ID ресурса"
+// @Success  200          {object}  contract.ResourceTagListResponse
+// @Failure  400          {string}  string
+// @Failure  401          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/tags [get]
 func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -148,6 +172,21 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// AttachResourceTag godoc
+// @Summary  Прикрепить тег к ресурсу
+// @Tags     tags
+// @Accept   json
+// @Produce  json
+// @Param    project_id   path      string                              true  "ID проекта"
+// @Param    resource_id  path      string                              true  "ID ресурса"
+// @Param    body         body      contract.AttachResourceTagRequest   true  "Параметры тега"
+// @Success  201          {object}  contract.TagResponse
+// @Failure  400          {string}  string
+// @Failure  401          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/tag [post]
 func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -210,6 +249,19 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toTagResponse(tag))
 }
 
+// DetachResourceTag godoc
+// @Summary  Открепить тег от ресурса
+// @Tags     tags
+// @Param    project_id   path  string  true  "ID проекта"
+// @Param    resource_id  path  string  true  "ID ресурса"
+// @Param    tag_id       path  int     true  "ID тега"
+// @Success  204          "No Content"
+// @Failure  400          {string}  string
+// @Failure  401          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach [delete]
 func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {

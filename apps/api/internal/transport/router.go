@@ -3,6 +3,8 @@ package transport
 import (
 	"net/http"
 
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
 	tdbis "github.com/sb0rka/sb0rka/apps/api/internal/transport/dbis"
 	tiam "github.com/sb0rka/sb0rka/apps/api/internal/transport/iam"
 	tprojects "github.com/sb0rka/sb0rka/apps/api/internal/transport/projects"
@@ -51,6 +53,9 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.HandleFunc("GET /ping", s.ping)
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("GET /plans", s.iam.ListPublicPlans)
+
+	// Swagger UI (публичный)
+	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 
 	// Plans & quotas
 

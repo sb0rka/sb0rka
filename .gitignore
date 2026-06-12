@@ -1,0 +1,50 @@
+# IDE / локальные индексы инструментов
+.idea/
+.vscode/
+.gitnexus/
+*.swp
+*.swo
+*~
+
+# Go build output / artifacts
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Node / console
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Secrets / env (примеры .env.sample НЕ игнорируются)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+.secrets/
+/deploy/dev/.keys/
+
+# Личные настройки Claude Code (общие правила/агенты — коммитятся)
+.claude/settings.local.json
+
+# Logs / temp
+*.log
+*.pid
+tmp/
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db

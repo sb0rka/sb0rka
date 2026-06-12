@@ -20,6 +20,9 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store"
 	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
+
+	// Регистрирует сгенерированную OpenAPI-спеку для Swagger UI.
+	_ "github.com/sb0rka/sb0rka/apps/api/internal/openapi"
 )
 
 //go:embed version.txt
@@ -158,6 +161,7 @@ func usageCMD(w *os.File) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  gen-secret-key     Generate secret key")
+	fmt.Fprintln(w, "  gen-dev-token      Generate a local dev access token (dev only)")
 	fmt.Fprintln(w, "  server    Run API server")
 	fmt.Fprintln(w, "  version   Print api version")
 }
@@ -171,6 +175,8 @@ func run(args []string) error {
 	switch args[0] {
 	case "gen-secret-key":
 		return secretKeyCMD(args[1:])
+	case "gen-dev-token":
+		return genDevTokenCMD(args[1:])
 	case "server":
 		return serverCMD(args[1:])
 	case "version":
@@ -184,6 +190,13 @@ func run(args []string) error {
 	}
 }
 
+// @title           Sb0rka Platform API
+// @version          0.1.0
+// @description      REST API платформы Sb0rka: проекты, базы данных, секреты, теги.
+// @BasePath         /
+// @securityDefinitions.apikey  BearerAuth
+// @in               header
+// @name             Authorization
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

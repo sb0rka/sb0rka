@@ -101,6 +101,20 @@ func (h *Handler) encryptSecretValue(r *http.Request, projectID string, secretID
 	return key, aad, encryptedMessage, nil
 }
 
+// CreateSecret godoc
+// @Summary  Создать секрет
+// @Tags     secrets
+// @Accept   json
+// @Produce  json
+// @Param    project_id  path      string                         true  "ID проекта"
+// @Param    body        body      contract.CreateSecretRequest   true  "Параметры секрета"
+// @Success  201         {object}  map[string]interface{}  "{\"secret\": {...}, \"version\": {...}}"
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Failure  422         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/secret [post]
 func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -200,6 +214,16 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ListSecrets godoc
+// @Summary  Список секретов проекта
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id  path      string                          true  "ID проекта"
+// @Success  200         {object}  contract.SecretListResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/secrets [get]
 func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -233,6 +257,18 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetSecret godoc
+// @Summary  Получить метаданные секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                    true  "ID проекта"
+// @Param    resource_id  path      string                    true  "ID секрета"
+// @Success  200          {object}  contract.SecretResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret [get]
 func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -256,6 +292,20 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toSecretResponse(secret))
 }
 
+// UpdateSecret godoc
+// @Summary  Обновить метаданные секрета
+// @Tags     secrets
+// @Accept   json
+// @Produce  json
+// @Param    project_id   path      string                         true  "ID проекта"
+// @Param    resource_id  path      string                         true  "ID секрета"
+// @Param    body         body      contract.UpdateSecretRequest   true  "Изменяемые поля"
+// @Success  200          {object}  contract.SecretResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret [patch]
 func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -291,6 +341,18 @@ func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toSecretResponse(secret))
 }
 
+// ListSecretVersions godoc
+// @Summary  Список версий секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                              true  "ID проекта"
+// @Param    resource_id  path      string                              true  "ID секрета"
+// @Success  200          {object}  contract.SecretVersionListResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/versions [get]
 func (h *Handler) ListSecretVersions(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -322,6 +384,19 @@ func (h *Handler) ListSecretVersions(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetSecretVersion godoc
+// @Summary  Получить версию секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                           true  "ID проекта"
+// @Param    resource_id  path      string                           true  "ID секрета"
+// @Param    version_no   path      integer                          true  "Номер версии"
+// @Success  200          {object}  contract.SecretVersionResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no} [get]
 func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -350,6 +425,22 @@ func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toSecretVersionResponse(version))
 }
 
+// CreateSecretVersion godoc
+// @Summary  Создать новую версию секрета
+// @Tags     secrets
+// @Accept   json
+// @Produce  json
+// @Param    project_id   path      string                                true  "ID проекта"
+// @Param    resource_id  path      string                                true  "ID секрета"
+// @Param    body         body      contract.CreateSecretVersionRequest   true  "Значение и тип payload"
+// @Success  201          {object}  contract.SecretVersionResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Failure  422          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/versions [post]
 func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -418,6 +509,21 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toSecretVersionResponse(version))
 }
 
+// DisableSecretVersion godoc
+// @Summary  Отключить версию секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                           true  "ID проекта"
+// @Param    resource_id  path      string                           true  "ID секрета"
+// @Param    version_no   path      integer                          true  "Номер версии"
+// @Success  200          {object}  contract.SecretVersionResponse
+// @Success  204          "Already disabled"
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable [post]
 func (h *Handler) DisableSecretVersion(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -450,6 +556,19 @@ func (h *Handler) DisableSecretVersion(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toSecretVersionResponse(version))
 }
 
+// RevealSecret godoc
+// @Summary  Раскрыть значение текущей версии секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                         true  "ID проекта"
+// @Param    resource_id  path      string                         true  "ID секрета"
+// @Success  200          {object}  contract.RevealSecretResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/reveal [post]
 func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -471,6 +590,20 @@ func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 	h.revealSecretVersion(w, r, projectID, secretID, secret.CurrentVersionNo)
 }
 
+// RevealSecretVersion godoc
+// @Summary  Раскрыть значение версии секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                         true  "ID проекта"
+// @Param    resource_id  path      string                         true  "ID секрета"
+// @Param    version_no   path      integer                        true  "Номер версии"
+// @Success  200          {object}  contract.RevealSecretResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal [post]
 func (h *Handler) RevealSecretVersion(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -492,6 +625,21 @@ func (h *Handler) RevealSecretVersion(w http.ResponseWriter, r *http.Request) {
 	h.revealSecretVersion(w, r, projectID, secretID, versionNo)
 }
 
+// ApplySecretVersionPasswordVerifier godoc
+// @Summary  Применить SCRAM-verifier пароля БД для версии секрета
+// @Tags     secrets
+// @Produce  json
+// @Param    project_id   path      string                                          true  "ID проекта"
+// @Param    resource_id  path      string                                          true  "ID секрета"
+// @Param    version_no   path      integer                                         true  "Номер версии"
+// @Success  200          {object}  contract.ApplySecretPasswordVerifierResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Failure  422          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/verifier/apply [post]
 func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -598,6 +746,18 @@ func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, pr
 	})
 }
 
+// DeleteSecret godoc
+// @Summary  Удалить секрет
+// @Tags     secrets
+// @Param    project_id   path  string  true  "ID проекта"
+// @Param    resource_id  path  string  true  "ID секрета"
+// @Success  204          "No Content"
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/secret [delete]
 func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
