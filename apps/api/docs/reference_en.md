@@ -3,7 +3,7 @@ title: "Endpoint reference"
 description: "The Platform API contract is generated from code (swaggo). The full list of endpoints, request and response bodies is in the Swagger UI."
 ---
 
-The endpoint reference is no longer maintained by hand — the contract is generated from code via swaggo annotations and always matches the implementation.
+The Platform API contract is generated from code via swaggo annotations and always matches the implementation.
 
 - **Swagger UI:** `/swagger/index.html`
 - **OpenAPI spec:** `/swagger/doc.json`

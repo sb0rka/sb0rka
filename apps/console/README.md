@@ -1,50 +1,31 @@
-# React + TypeScript + Vite
+# console
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Веб-консоль платформы Sb0rka — управление проектами, базами данных, секретами; интерактивный SQL и AI-ассистент.
 
-Currently, two official plugins are available:
+React 18 + Vite + TypeScript + Tailwind + Radix + TanStack Query + react-router + i18next.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Устройство фронта — [ARCHITECTURE.md](ARCHITECTURE.md). Общая картина системы — [корневой ARCHITECTURE.md](../../ARCHITECTURE.md).
 
-## Expanding the ESLint configuration
+## Разработка
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```bash
+npm install
+npm run dev      # Vite dev-сервер
+npm run build    # tsc + сборка
+npm run lint     # eslint
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Конфигурация (env)
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+Консоль ходит на 4 бэкенда — задаются переменными `VITE_*` (см. `src/lib/api-client.ts`):
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+| Переменная | Назначение | Дефолт |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | auth-сервис (логин/refresh) | `https://auth.sb0rka.ru` |
+| `VITE_RESOURCE_API_BASE_URL` | Platform API | `https://api.sb0rka.ru` |
+| `VITE_QUERY_RUNNER_BASE_URL` | proxy-ql-executor (выполнение SQL) | `https://psql-executor.proxy.sb0rka.ru` |
+| `VITE_NL2SQL_BASE_URL` | nl2sql | `http://localhost:8083` |
+
+Для локальной разработки положи их в `.env.local`. Без запущенного auth-сервиса логин не пройдёт (его нет в репозитории — см. корневой ARCHITECTURE.md).
+
+> AI-генерация SQL работает с OpenAI-совместимым API напрямую из браузера: URL и ключ берутся из секретов проекта `LLM_BASE_URL` / `LLM_API_KEY`, а не из env консоли.

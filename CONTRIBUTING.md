@@ -14,7 +14,7 @@
 
 | Инструмент | Зачем | Установка (Windows) |
 | --- | --- | --- |
-| [Task](https://taskfile.dev) (`go-task`) | task-runner, короткие команды вместо длинных (см. `Taskfile.yml`) | `winget install Task.Task` |
+| [Task](https://taskfile.dev) (`go-task`) | task-runner: короткие команды для рутины (см. `Taskfile.yml`) | `winget install Task.Task` |
 | [golangci-lint](https://golangci-lint.run) | линтер Go (конфиг — `.golangci.yml`) | `winget install golangci-lint` |
 | [swag](https://github.com/swaggo/swag) | генерация OpenAPI-спеки | тянется через `go run`, ставить не нужно |
 

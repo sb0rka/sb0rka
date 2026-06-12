@@ -1,3 +1,46 @@
+# Sb0rka — инструкции для кодовых агентов
+
+Управляемая инфраструктура: PostgreSQL как сервис, зашифрованные секреты, телеметрия. Go-монорепо (`go.work`) + React-консоль.
+
+Карта и потоки — [ARCHITECTURE.md](ARCHITECTURE.md). Схема БД — [db/SCHEMA.md](db/SCHEMA.md). Сборка/линтер/локальный запуск — [CONTRIBUTING.md](CONTRIBUTING.md). Контракт API — Swagger UI на `/swagger` (генерируется из кода).
+
+## Карта репозитория
+
+| Путь | Что это | Стек |
+| --- | --- | --- |
+| `apps/api` | Platform API — ядро | Go, net/http |
+| `apps/console` | веб-консоль | React 18, Vite, TS |
+| `apps/s0c` | CLI | Go, cobra |
+| `apps/drones` | фоновый GC | Go |
+| `apps/proxy-ql-executor` | serverless SQL-исполнитель | Go |
+| `packages/contract` | общие DTO (api ↔ s0c) | Go |
+| `db/migrations/platform` | миграции БД | SQL (psql) |
+
+## Конвенции
+
+- **Go (`apps/api`)** — строгая слоистость `transport/ → service/ → store/db/ → domain/model/`, зависимости через интерфейсы. Единственная дверь к БД — интерфейс `store/db.Database`. Ошибки — sentinel-значения + `errors.Is` в хендлерах. DTO — в `packages/contract`. Логирование — `log/slog`, без plaintext секретов.
+- **React (`apps/console`)** — feature-based (`src/features/<feature>/`), данные через TanStack Query, HTTP через `src/lib/api-client.ts`, тексты через i18next (ru+en).
+- **Миграции** — `NNN-name.sql`, psql-переменные `:"DB_API_SCHEMA_NAME"` (схема `api`), обновление `version_platform`. Меняешь схему — правь модели/стор/`contract` и `db/SCHEMA.md`.
+- **Эндпоинты** документируются swaggo-аннотациями над хендлером (`swag init`), не markdown.
+
+## Инварианты безопасности
+
+- `proxy-ql-executor`: ноль состояния в глобалах; каждый вызов резолвит URI БД по токену, создаёт и закрывает своё соединение; SQL по умолчанию read-only.
+- Секреты: Tink AEAD с AAD (`project/secret/version/class`) — AAD при шифровании и расшифровке совпадает. Reveal — с `Cache-Control: no-store`. Plaintext секретов не логировать.
+- RBAC — deny-by-default (`authz/`).
+
+## Рабочие правила
+
+- **Тесты не писать и не запускать** (в проекте их нет осознанно).
+- **Docker не запускать** без явного запроса.
+- Комментарии — про «почему», не пересказ кода.
+- Коммиты — conventional commits; на ветке `main` сначала создавай ветку.
+- Полный прод-сценарий локально не поднимается (нет auth-сервиса, nl2sql, оркестратора) — детали в `CONTRIBUTING.md`.
+
+---
+
+> Блок ниже — инструкции GitNexus, **актуальны только если доступен GitNexus MCP** (инструменты `gitnexus_*`). Без GitNexus игнорируй их.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
