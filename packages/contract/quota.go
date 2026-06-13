@@ -14,13 +14,6 @@ const (
 	QuotaUnitBps   = "bps"
 )
 
-type RefreshSessionResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	ExpiresIn    int64  `json:"expires_in,omitempty"`
-	ExpiresAt    string `json:"expires_at,omitempty"`
-}
-
 type PlanResponse struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
