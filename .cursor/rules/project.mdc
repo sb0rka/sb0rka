@@ -15,6 +15,7 @@ alwaysApply: true
 | Путь | Что это | Стек |
 | --- | --- | --- |
 | `apps/api` | Platform API — ядро | Go, net/http |
+| `apps/auth` | Auth API (JWT, refresh, RBAC) |
 | `apps/console` | веб-консоль | React 18, Vite, TS, Tailwind |
 | `apps/s0c` | CLI | Go, cobra |
 | `apps/drones` | фоновый GC | Go |
@@ -25,9 +26,9 @@ alwaysApply: true
 
 ## Окружение
 
-- Go 1.25+ (workspace). Команды — из корня репо. `drones` НЕ в `go.work` (собирать с `GOWORK=off` standalone).
+- Go 1.25+ (workspace), Go 1.23+ (proxy-ql-executor). Команды — из корня репо.
 - Запуск сервиса: `go run ./apps/api/cmd/api server`. Сборка: `go build -o bin/<name> ...` — не оставляй бинари в корне.
-- Полный локальный запуск невозможен: нет auth-сервиса, nl2sql и оркестратора инстансов. Локальный стенд — `docker-compose.dev.yml`.
+- Полный локальный запуск невозможен: нет оркестратора инстансов. Локальный стенд — `docker-compose.dev.yml`.
 
 ## Рабочие правила
 

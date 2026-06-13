@@ -1,6 +1,6 @@
 # drones
 
-Фоновый сборщик мусора платформы Sb0rka.
+Фоновые задачи Sb0rka.
 
 Русский | [English](README_EN.md)
 

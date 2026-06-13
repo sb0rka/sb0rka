@@ -1,6 +1,6 @@
 ![sborka](docs/imgs/logo.png)
 
-Sb0rka — managed infrastructure for your digital services.
+Sb0rka — a managed infrastructure for services, data, and AI agents.
 
 Quickly provision PostgreSQL, securely manage secrets, and get built-in observability — all in one platform.
 

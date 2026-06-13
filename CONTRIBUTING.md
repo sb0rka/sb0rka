@@ -6,9 +6,9 @@
 
 ## Окружение
 
-- **Go 1.25+** (workspace из нескольких модулей; `drones` — отдельный модуль вне `go.work`).
-- **Node 18+** — для `apps/console`.
-- **Docker** — для локального стенда.
+- **Go 1.25+** (workspace из нескольких модулей; `proxy-ql-executor` — Go 1.23).
+- **Node 22+ React 18+** — для `apps/console`.
+- **Docker Compose** — для локального стенда.
 
 ## Инструменты (опциональны, но удобны)
 
@@ -39,7 +39,7 @@ task dev-down    # погасить стенд
 
 ## Локальный запуск
 
-Полный прод-сценарий локально невозможен (нет auth-сервиса, nl2sql и оркестратора инстансов). Стенд из репо (Postgres + api + drones + proxy):
+Полный прод-сценарий локально невозможен (нет оркестратора инстансов). Стенд из репо (Postgres + api + drones + proxy):
 
 ```bash
 task dev    # или: docker compose -f docker-compose.dev.yml up -d --build

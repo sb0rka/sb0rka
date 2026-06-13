@@ -1,6 +1,6 @@
 module github.com/sb0rka/sb0rka/apps/proxy-ql-executor
 
-go 1.25.5
+go 1.25.0
 
 require github.com/jackc/pgx/v5 v5.9.2
 

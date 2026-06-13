@@ -1,11 +1,6 @@
 -- Локальная dev-инициализация. НЕ для прода.
 -- Запускается migrate.sh после миграций.
 
--- Заглушка проверки живой сессии: в проде её предоставляет auth-сервис,
--- которого нет в этом репозитории. Без неё все мутации API возвращают 401.
-CREATE OR REPLACE FUNCTION auth.is_live_session(uuid, uuid)
-RETURNS boolean LANGUAGE sql AS 'SELECT true';
-
 -- Планы. Квоты не задаём — отсутствие квоты трактуется как безлимит,
 -- поэтому в dev можно создавать сколько угодно проектов/баз/секретов.
 INSERT INTO api.plans (name, code, kind, is_public, is_available)

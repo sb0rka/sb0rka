@@ -169,10 +169,10 @@ erDiagram
 
 ## Ключевые паттерны
 
-1. **`resources` — единая точка наследования.** База (`dbis`) и секрет (`secrets`) делят `id`+`project_id`+`kind`; составные FK `(id, project_id, kind)` не дают перепутать тип.
-2. **Desired vs runtime.** Намерение пишет API (`dbis.desired_runtime_state`, `dbi_verifiers.password_desired_state`), факт отражает реконсилятор (`resource_states.runtime_state`). Расхождение — сигнал фоновым процессам.
+1. **`resources` — единая точка наследования.** База (`dbis`) и секрет (`secrets`) делят `id`+`project_id`+`kind`; составные FK `(id, project_id, kind)` не дают перепутать тип и защищены cross-project mismatch.
+2. **Desired vs runtime.** Намерение пишет API (`dbis.desired_runtime_state`, `dbi_verifiers.password_desired_state`), факт отражает реконсилятор (`resource_states.runtime_state`). Расхождение — сигнал фоновым процессам, данные поля редактируются только API, а состояние инфраструктуры отражено в `resource_states` - таблице состояний запрещенной для изменения из API.
 3. **Секрет нигде не лежит открыто.** Только зашифрованный материал + SCRAM-verifier; AAD привязывает шифртекст к `project/secret/version/class`.
 4. **Связка база↔секрет тройная.** `dbis` ↔ `dbi_verifiers` ↔ `secrets` + системный тег `db_secret`. Эту тройку зачищает GC-дрон при удалении базы (`cleanup_one_deleted_dbi()`).
 5. **Биллинг отделён.** Аккаунт-квоты — по `subject_plans`, проектные — по `projects.plan_id`.
 
-Почти у всех таблиц `created_at`/`updated_at` с триггером `set_updated_at`.
+У всех таблиц `created_at`/`updated_at` с триггером `set_updated_at` для трекинга изменений.

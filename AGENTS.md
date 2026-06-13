@@ -1,6 +1,6 @@
 # Sb0rka — инструкции для кодовых агентов
 
-Управляемая инфраструктура: PostgreSQL как сервис, зашифрованные секреты, телеметрия. Go-монорепо (`go.work`) + React-консоль.
+Управляемая инфраструктура для сервисов, данных и AI-агентов. Go-монорепо (`go.work`) + React-консоль.
 
 Карта и потоки — [ARCHITECTURE.md](ARCHITECTURE.md). Схема БД — [db/SCHEMA.md](db/SCHEMA.md). Сборка/линтер/локальный запуск — [CONTRIBUTING.md](CONTRIBUTING.md). Контракт API — Swagger UI на `/swagger` (генерируется из кода).
 
@@ -9,9 +9,10 @@
 | Путь | Что это | Стек |
 | --- | --- | --- |
 | `apps/api` | Platform API — ядро | Go, net/http |
-| `apps/console` | веб-консоль | React 18, Vite, TS |
+| `apps/auth` | Auth API | Go, net/http |
+| `apps/console` | веб-консоль | React, Vite, TS |
 | `apps/s0c` | CLI | Go, cobra |
-| `apps/drones` | фоновый GC | Go |
+| `apps/drones` | фоновые задачи | Go |
 | `apps/proxy-ql-executor` | serverless SQL-исполнитель | Go |
 | `packages/contract` | общие DTO (api ↔ s0c) | Go |
 | `db/migrations/platform` | миграции БД | SQL (psql) |
@@ -25,17 +26,17 @@
 
 ## Инварианты безопасности
 
-- `proxy-ql-executor`: ноль состояния в глобалах; каждый вызов резолвит URI БД по токену, создаёт и закрывает своё соединение; SQL по умолчанию read-only.
+- `proxy-ql-executor`: ноль состояния в глобалах; каждый вызов резолвит URI БД по токену, создаёт и закрывает своё соединение.
 - Секреты: Tink AEAD с AAD (`project/secret/version/class`) — AAD при шифровании и расшифровке совпадает. Reveal — с `Cache-Control: no-store`. Plaintext секретов не логировать.
 - RBAC — deny-by-default (`authz/`).
 
 ## Рабочие правила
 
-- **Тесты не писать и не запускать** (в проекте их нет осознанно).
+- **Тесты не писать и не запускать** (на стадии альфа-версии осознанно не пишутся).
 - **Docker не запускать** без явного запроса.
 - Комментарии — про «почему», не пересказ кода.
 - Коммиты — conventional commits; на ветке `main` сначала создавай ветку.
-- Полный прод-сценарий локально не поднимается (нет auth-сервиса, nl2sql, оркестратора) — детали в `CONTRIBUTING.md`.
+- Полный прод-сценарий локально не поднимается (нет оркестратора) — детали в `CONTRIBUTING.md`.
 
 ---
 

@@ -1,13 +1,13 @@
 name: Release s0c
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/s0c/**"
-      - ".github/workflows/release-s0c.yml"
-      - ".github/actions/go-build/**"
-  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "apps/s0c/**"
+  #     - ".github/workflows/release-s0c.yml"
+  #     - ".github/actions/go-build/**"
+  # workflow_dispatch:
 
 permissions:
   contents: write

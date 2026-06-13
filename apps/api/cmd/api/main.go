@@ -161,7 +161,6 @@ func usageCMD(w *os.File) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  gen-secret-key     Generate secret key")
-	fmt.Fprintln(w, "  gen-dev-token      Generate a local dev access token (dev only)")
 	fmt.Fprintln(w, "  server    Run API server")
 	fmt.Fprintln(w, "  version   Print api version")
 }
@@ -175,8 +174,6 @@ func run(args []string) error {
 	switch args[0] {
 	case "gen-secret-key":
 		return secretKeyCMD(args[1:])
-	case "gen-dev-token":
-		return genDevTokenCMD(args[1:])
 	case "server":
 		return serverCMD(args[1:])
 	case "version":

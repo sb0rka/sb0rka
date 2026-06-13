@@ -15,7 +15,7 @@ src/
 ├── App.tsx                 маршруты + провайдеры (Query, Auth, Theme, Tooltip, Toast, Confirm)
 ├── features/
 │   ├── auth/               логин/регистрация, AuthProvider, RequireAuth
-│   ├── projects/           основной модуль (~50 файлов): проекты, БД, секреты, теги,
+│   ├── projects/           основной модуль: проекты, БД, секреты, теги,
 │   │                       data-explorer, AI-SQL, метрики
 │   ├── subscription/       планы/квоты
 │   └── user/               профиль
@@ -59,7 +59,7 @@ flowchart LR
     client --> store[auth-store: токен + refresh]
 ```
 
-Компоненты не делают `fetch` напрямую — только через хуки (TanStack Query) → `api.ts` → `api-client.ts`. Исключение по смыслу — LLM-вызовы идут из браузера напрямую к стороннему OpenAI-совместимому API (не через наш бэкенд).
+Компоненты не делают `fetch` напрямую — только через хуки (TanStack Query) → `api.ts` → `api-client.ts`. Исключение по смыслу — PoC LLM-вызовы идут из браузера напрямую к стороннему OpenAI-совместимому API (не через наш бэкенд).
 
 ## Слой данных (`src/lib`)
 

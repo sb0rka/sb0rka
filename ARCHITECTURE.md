@@ -12,19 +12,19 @@
 
 ## Что это
 
-Платформа управляемых PostgreSQL-баз и зашифрованных секретов: пользователь создаёт проект, в нём — базы данных (каждая с изолированным инстансом и URI) и секреты. Управление через REST API, веб-консоль или CLI.
+Платформа управляемых PostgreSQL баз данных и зашифрованных секретов совместно с AI-агентами: пользователь создаёт проект, в нём — базы данных (каждая с изолированным инстансом и URI) и секреты. Управление через REST API, веб-консоль или CLI.
 
 ## Компоненты
 
 | Компонент | Роль | В репозитории? |
 | --- | --- | --- |
 | `apps/api` | Platform API — ядро (проекты, БД, секреты, теги, телеметрия, RBAC) | ✅ |
+| `apps/auth` | Auth API (JWT, refresh, RBAC) | ❌ не в репо |
 | `apps/console` | Веб-консоль (React) | ✅ |
 | `apps/s0c` | CLI (Go, cobra) | ✅ |
-| `apps/drones` | Фоновый GC удалённых ресурсов | ✅ |
+| `apps/drones` | Фоновые задачи | ✅ |
 | `apps/proxy-ql-executor` | Serverless-исполнитель read-only SQL | ✅ |
 | `packages/contract` | Общие DTO (api ↔ s0c) | ✅ |
-| **Auth-сервис** | Выдаёт JWT (login/refresh), `auth.is_live_session` | ❌ не в репо |
 | **nl2sql** | NL→SQL для AI-фичи консоли | ❌ не в репо |
 | **Оркестратор инстансов** | Физически поднимает PostgreSQL по desired-state | ❌ не в репо |
 
@@ -40,12 +40,12 @@ flowchart TB
     s0c -- "login" --> auth
     console -- "REST + Bearer JWT" --> api[apps/api]
     s0c -- "REST + Bearer JWT" --> api
-    console -- "SQL (read-only)" --> proxy[proxy-ql-executor]
+    console -- "SQL" --> proxy[proxy-ql-executor]
     console -- "NL→SQL" --> nl2sql[(nl2sql<br/>не в репо)]
 
     api -- "pgx" --> pdb[(Platform DB<br/>схема api)]
     api -- "PromQL" --> prom[(Prometheus)]
-    drones[apps/drones] -- "GC: cleanup_one_deleted_dbi()" --> pdb
+    drones[apps/drones] -- "Daemon tasks" --> pdb
     proxy -- "резолв URI БД по токену" --> api
     proxy -- "выполняет SQL" --> tdb[(Tenant PostgreSQL)]
 
@@ -66,4 +66,4 @@ flowchart TB
 
 ## Локальный запуск
 
-Полный прод-сценарий локально невозможен (нет auth/nl2sql/оркестратора). Что поднимается из репо и как — в `docker-compose.dev.yml` и навыке `.claude/skills/local-dev`. Кратко: Postgres + миграции + api + drones + proxy; токены выпускаются `api gen-dev-token`; реальные tenant-инстансы не поднимаются (нет оркестратора).
+Полный прод-сценарий локально невозможен (нет оркестратора). Что поднимается из репо и как — в `docker-compose.dev.yml` и навыке `.claude/skills/local-dev`. Кратко: Postgres + миграции + api + drones + proxy; токены выпускаются `api gen-dev-token`; реальные tenant-инстансы не поднимаются (нет оркестратора).

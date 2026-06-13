@@ -1,6 +1,6 @@
 # drones
 
-Background garbage collector for the Sb0rka platform.
+Background tasks for the Sb0rka platform.
 
 English | [Русский](README.md)
 

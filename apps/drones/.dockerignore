@@ -60,6 +60,7 @@ mkdocs.yml
 
 # Custom
 
+AGENTS.md
 README.md
 docs/
 docs-sb0rka/
