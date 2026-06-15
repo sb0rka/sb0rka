@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { listResourceTags, type TagResponse } from "../api"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import type { SecretRow } from "./project-detail-tab-types"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
   "grid grid-cols-[400px_minmax(220px,1fr)_160px_160px] items-stretch"
@@ -177,7 +178,7 @@ export function SecretDetailsTable({
       </div>
 
       <div className="px-6 pb-6">
-        <div className="overflow-x-auto">
+      <ScrollArea type="always" className="w-full">
           <div className="min-w-[820px]">
             <div
               className={cn(
@@ -210,7 +211,8 @@ export function SecretDetailsTable({
               ))
             )}
           </div>
-        </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </div>
   )

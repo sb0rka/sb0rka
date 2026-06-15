@@ -6,6 +6,8 @@ import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
 type BreadcrumbItem = {
   label: string
   href?: string
@@ -102,10 +104,17 @@ export function AppLayout() {
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
       />
       {isProjectOpen && <ProjectSidebar />}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Header breadcrumbs={breadcrumbs} />
-        <main className="flex flex-1 flex-col overflow-auto bg-background p-6">
-          <Outlet />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+          <ScrollArea
+            type="always"
+            className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:min-w-0"
+          >
+            <div className="min-w-0 max-w-full p-6">
+              <Outlet />
+            </div>
+          </ScrollArea>
         </main>
       </div>
     </div>

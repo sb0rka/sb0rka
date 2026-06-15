@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import { useTranslation } from "react-i18next"
 import type { DatabaseRow } from "./project-detail-tab-types"
 import { getDatabaseStatusLabel } from "./get-database-status-label"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 interface DatabasesTableProps {
   rows: DatabaseRow[]
@@ -29,7 +30,7 @@ export function DatabasesTable({
 }: DatabasesTableProps) {
   const { t } = useTranslation()
   return (
-    <div className="overflow-x-auto">
+    <ScrollArea type="always" className="w-full">
       <div className="min-w-[860px]">
         <div
           className={cn(
@@ -111,6 +112,7 @@ export function DatabasesTable({
           })
         )}
       </div>
-    </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   )
 }
