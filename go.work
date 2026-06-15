@@ -2,6 +2,7 @@ go 1.25.5
 
 use (
 	./apps/api
+	./apps/auth
 	./apps/drones
 	./apps/proxy-ql-executor
 	./apps/s0c

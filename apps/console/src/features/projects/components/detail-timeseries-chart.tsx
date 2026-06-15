@@ -11,6 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { buttonPressClass } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 
@@ -481,11 +483,13 @@ export function DetailTimeseriesChart({
                 type="button"
                 onClick={() => setViewMode("total")}
                 aria-pressed={viewMode === "total"}
-                className={`rounded px-2 py-1 text-xs transition-colors ${
+                className={cn(
+                  "rounded px-2 py-1 text-xs",
+                  buttonPressClass,
                   viewMode === "total"
                     ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
+                    : "text-muted-foreground hover:bg-muted",
+                )}
               >
                 {t("metrics.viewTotal")}
               </button>
@@ -493,11 +497,13 @@ export function DetailTimeseriesChart({
                 type="button"
                 onClick={() => setViewMode("perResource")}
                 aria-pressed={viewMode === "perResource"}
-                className={`rounded px-2 py-1 text-xs transition-colors ${
+                className={cn(
+                  "rounded px-2 py-1 text-xs",
+                  buttonPressClass,
                   viewMode === "perResource"
                     ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
+                    : "text-muted-foreground hover:bg-muted",
+                )}
               >
                 {t("metrics.viewPerResource")}
               </button>
@@ -513,11 +519,13 @@ export function DetailTimeseriesChart({
                   type="button"
                   onClick={() => setSelectedStepMs(option.ms)}
                   aria-pressed={isActive}
-                  className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                  className={cn(
+                    "rounded-md border px-2 py-1 text-xs",
+                    buttonPressClass,
                     isActive
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
+                      : "border-border text-muted-foreground hover:bg-muted",
+                  )}
                 >
                   {label}
                 </button>

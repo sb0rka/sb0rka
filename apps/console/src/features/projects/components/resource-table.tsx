@@ -1,3 +1,4 @@
+import { buttonPressClass } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useTranslation } from "react-i18next"
 
@@ -139,7 +140,10 @@ export function ResourceTable<T extends ResourceTableRow>({
                 row.isHighlighted && "bg-muted/70",
                 index < rows.length - 1 && "border-b border-border",
                 isInteractive &&
-                  "cursor-pointer transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none",
+                  cn(
+                    "cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none",
+                    buttonPressClass,
+                  ),
               )}
             >
               <ResourceTableRowContent

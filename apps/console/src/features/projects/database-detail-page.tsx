@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Copy } from "lucide-react"
+import { Copy, Database } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
@@ -35,6 +35,7 @@ import {
   getDatabaseStatusLabel,
   isDatabaseCredentialsAvailable,
 } from "./components/get-database-status-label"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 /** Same masking length as the secret value field on `SecretDetails`. */
 const SENSITIVE_MASK = "•••••••••••••••••••••••"
@@ -400,14 +401,34 @@ export function DatabaseDetailPage() {
   async function handleDeactivate() {
     if (deactivateResource.isPending) return
 
-    const confirmed = await confirm({
+    const firstConfirmed = await confirm({
       title: t("databases.deleteTitle"),
       description: t("databases.deleteDescription"),
       confirmText: t("common.actions.delete"),
       cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",
     })
-    if (!confirmed) return
+
+    if (!firstConfirmed) return
+
+    const infoNode = (
+      <div className="flex flex-col items-center gap-3 px-6">
+        <Database className="h-8 w-8 shrink-0" id="icon" />
+        <Label htmlFor="icon" className="text-xl">{databaseQuery.data?.name}</Label>
+        <p>{t("databases.typeNameToConfirm")}</p>
+      </div>
+    )
+
+    const strongConfirmed = await confirm({
+      title: t("databases.deleteTitle"),
+      infoNode,
+      strongConfirmValue: databaseQuery.data?.name,
+      confirmText: t("common.actions.delete"),
+      cancelText: t("common.actions.cancel"),
+      confirmVariant: "destructive",
+    })
+
+    if (!strongConfirmed) return
 
     setDeleteError(null)
     try {
@@ -453,14 +474,16 @@ export function DatabaseDetailPage() {
 
   if (!isValidResourceId) {
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-destructive">{t("databases.invalidId")}</p>
-        <div>
+      <PageStagger className="flex flex-col gap-4">
+        <SlideIn>
+          <p className="text-sm text-destructive">{t("databases.invalidId")}</p>
+        </SlideIn>
+        <SlideIn>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=databases`)}>
             {t("databases.backToList")}
           </Button>
-        </div>
-      </div>
+        </SlideIn>
+      </PageStagger>
     )
   }
 
@@ -470,22 +493,24 @@ export function DatabaseDetailPage() {
 
   if (databaseQuery.isError || !databaseQuery.data) {
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-destructive">
-          {getErrorMessage(databaseQuery.error, t("databases.loadError"))}
-        </p>
-        <div>
+      <PageStagger className="flex flex-col gap-4">
+        <SlideIn>
+          <p className="text-sm text-destructive">
+            {getErrorMessage(databaseQuery.error, t("databases.loadError"))}
+          </p>
+        </SlideIn>
+        <SlideIn>
           <Button variant="outline" onClick={() => navigate(`/projects/${id}?tab=databases`)}>
             {t("databases.backToList")}
           </Button>
-        </div>
-      </div>
+        </SlideIn>
+      </PageStagger>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
+    <PageStagger className="flex flex-col gap-6">
+      <SlideIn className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {databaseQuery.data.name}
@@ -525,9 +550,10 @@ export function DatabaseDetailPage() {
         {tagActionSuccess ? (
           <p className="text-sm text-emerald-600">{tagActionSuccess}</p>
         ) : null}
-      </div>
+      </SlideIn>
 
       <div className="flex flex-col gap-6">
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -568,7 +594,9 @@ export function DatabaseDetailPage() {
             </div>
           </CardFooter>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card className="shadow-sm">
           <CardHeader className="gap-1.5 border-b border-border pb-6">
             <CardTitle className="text-xl font-semibold tracking-tight text-card-foreground">
@@ -725,7 +753,9 @@ export function DatabaseDetailPage() {
             </div>
           </CardContent>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5 border-b border-border pb-6">
             <CardTitle className="text-xl font-semibold tracking-tight text-card-foreground">
@@ -747,6 +777,7 @@ export function DatabaseDetailPage() {
             {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </CardFooter>
         </Card>
+        </SlideIn>
       </div>
 
       <AddTagDialog
@@ -772,6 +803,6 @@ export function DatabaseDetailPage() {
           setTagActionSuccess(t("common.messages.tagAdded"))
         }}
       />
-    </div>
+    </PageStagger>
   )
 }

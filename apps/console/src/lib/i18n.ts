@@ -117,6 +117,7 @@ const resources = {
       tabs: {
         overview: "Обзор",
         databases: "Базы Данных",
+        dataExplorer: "SQL Навигатор",
         secrets: "Секреты",
         settings: "Настройки",
       },
@@ -229,6 +230,7 @@ const resources = {
         uriError: "Не удалось получить URI",
         deleteTitle: "Удалить базу данных?",
         deleteDescription: "База данных будет удалена без возможности восстановления",
+        typeNameToConfirm: "Введите название базы данных для подтверждения",
         deleted: "База данных удалена",
         deleteError: "Не удалось удалить базу данных, попробуйте снова",
         deleteButton: "Удалить базу данных",
@@ -273,7 +275,6 @@ const resources = {
         fullscreenTitle: "Результаты запроса",
       },
       dataExplorer: {
-        nav: "SQL Навигатор",
         queryTitle: "query {{databaseName}}",
         schemaTitle: "Схема",
         selectDatabase: "База данных",
@@ -552,6 +553,7 @@ const resources = {
       tabs: {
         overview: "Overview",
         databases: "Databases",
+        dataExplorer: "SQL Explorer",
         secrets: "Secrets",
         settings: "Settings",
       },
@@ -660,6 +662,7 @@ const resources = {
         uriError: "Unable to get URI",
         deleteTitle: "Delete database?",
         deleteDescription: "This database and its related data will be permanently deleted",
+        typeNameToConfirm: "Type the database name to confirm",
         deleted: "Database deleted",
         deleteError: "Unable to delete database, please try again",
         deleteButton: "Delete database",
@@ -704,7 +707,6 @@ const resources = {
         fullscreenTitle: "Query results",
       },
       dataExplorer: {
-        nav: "SQL Explorer",
         queryTitle: "query {{databaseName}}",
         schemaTitle: "Schema",
         selectDatabase: "Database",

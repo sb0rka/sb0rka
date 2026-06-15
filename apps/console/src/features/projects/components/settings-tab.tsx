@@ -16,6 +16,7 @@ import { ApiError } from "@/lib/api-client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useDeactivateProject, useUpdateProject } from "../hooks"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 interface ProjectSettingsProps {
   projectId: string
@@ -116,13 +117,15 @@ export function ProjectSettings({
     "text-xl font-semibold leading-5 tracking-tight text-card-foreground"
 
   return (
-    <div className="flex flex-col gap-6">
-      <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-        {t("projects.settings.title")}
-      </h2>
+    <PageStagger className="flex flex-col gap-6">
+      <SlideIn>
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          {t("projects.settings.title")}
+        </h2>
+      </SlideIn>
 
       <div className="flex flex-col gap-6">
-
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5">
             <CardTitle className={cardTitleClass}>
@@ -174,7 +177,9 @@ export function ProjectSettings({
             ) : null}
           </CardFooter>
         </Card>
+        </SlideIn>
 
+        <SlideIn>
         <Card className="overflow-hidden shadow-sm">
           <CardHeader className="gap-1.5 border-b border-border">
             <CardTitle className={cardTitleClass}>{t("projects.settings.dangerTitle")}</CardTitle>
@@ -200,8 +205,9 @@ export function ProjectSettings({
             ) : null}
           </CardFooter>
         </Card>
+        </SlideIn>
       </div>
-    </div>
+    </PageStagger>
   )
 }
 
