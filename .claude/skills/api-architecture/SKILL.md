@@ -42,4 +42,4 @@ router.go → middlewares.go (JWT→context) → <domain>/handlers.go:
 
 ## Локальный запуск и токены
 
-См. скилл `local-dev`: docker-стенд, выпуск тестового JWT (`gen-dev-token`), happy-path.
+См. скилл `local-dev`: docker-стенд, получение токена через `auth` (регистрация + логин), happy-path.

@@ -35,6 +35,7 @@ services:
     command: ["bash", "/migrate.sh"]
     volumes:
       - ./db/migrations/platform:/migrations:ro
+      - ./db/migrations/auth:/migrations-auth:ro
       - ./deploy/dev/migrate.sh:/migrate.sh:ro
       - ./deploy/dev/dev-setup.sql:/dev-setup.sql:ro
     restart: "no"
@@ -68,6 +69,37 @@ services:
       - keys:/keys:ro
     ports:
       - "8080:8080"
+
+  auth:
+    build:
+      context: ./apps/auth
+      dockerfile: Dockerfile
+    command: ["/app/auth", "server"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
+    environment:
+      SERVER_ADDR: "0.0.0.0"
+      SERVER_PORT: "8020"
+      SERVER_CORS_WHITELIST: "*"
+      # Та же БД, что у api: схема auth (search_path api,auth,public) — api зовёт auth.is_live_session.
+      DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
+      # Тот же ключ, что проверяет api: auth подписывает, api верифицирует.
+      ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH: "/keys/access_token_private_key.pem"
+      ACCESS_TOKEN_ISSUER: "auth.local"
+      ACCESS_TOKEN_AUDIENCE: "api.local"
+      ACCESS_TOKEN_KID: "ed25519-v1"
+      # refresh-cookie для локального http (не secure)
+      REFRESH_TOKEN_COOKIE_SECURE: "false"
+      REFRESH_TOKEN_COOKIE_SAMESITE: "0"
+    volumes:
+      - keys:/keys:ro
+    ports:
+      - "8020:8020"
 
   drones:
     build:

@@ -39,17 +39,13 @@ task dev-down    # погасить стенд
 
 ## Локальный запуск
 
-Полный прод-сценарий локально невозможен (нет оркестратора инстансов). Стенд из репо (Postgres + api + drones + proxy):
+Полный прод-сценарий локально невозможен (нет оркестратора инстансов). Стенд из репо (Postgres + auth + api + drones + proxy):
 
 ```bash
 task dev    # или: docker compose -f docker-compose.dev.yml up -d --build
 ```
 
-Доступ к API — по Bearer-JWT. Локально токен выпускается командой:
-
-```bash
-docker compose -f docker-compose.dev.yml exec api /app/api gen-dev-token -sub 11111111-1111-1111-1111-111111111111
-```
+Доступ к API — по Bearer-JWT. Токен получают через `auth` (:8020): регистрация `POST /identity/users`, затем логин `POST /auth/login` → `access_token`.
 
 Дальше: Swagger UI — http://localhost:8080/swagger/index.html (кнопка **Authorize** → `Bearer <токен>`). Подробности и happy-path — в `.claude/skills/local-dev/SKILL.md`.
 
