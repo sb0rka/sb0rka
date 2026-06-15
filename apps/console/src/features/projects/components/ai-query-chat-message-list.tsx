@@ -1,11 +1,11 @@
 import { useMemo, useRef } from "react"
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatMessageItem } from "./ai-query-chat-message-item"
-import { hideScrollbarClass } from "./ai-query-chat-message-styles"
 import {
   messagesAutoScrollKey,
   useAutoScrollOnContentChange,
 } from "./use-auto-scroll-on-content-change"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export type AiQueryChatMessageListProps = {
   messages: AiQueryChatMessage[]
@@ -43,28 +43,33 @@ export function AiQueryChatMessageList({
   // console.log(messages)
 
   return (
-    <div
-      ref={listRef}
-      className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 ${hideScrollbarClass}`}
+    <ScrollArea
+      viewportRef={listRef}
+      type="always"
+      className="min-h-0 flex-1 w-full rounded-md border border-border/80 bg-background"
     >
-      {messages.map((message, index) => (
-        <AiQueryChatMessageItem
-          key={index}
-          message={message}
-          index={index}
-          isPending={isPending}
-          isActiveThinking={
-            isPending &&
-            message.role === "assistant" &&
-            message.type === "thinking" &&
-            index === lastThinkingIndex
-          }
-          onApplySql={onApplySql}
-          onApplySqlAndRun={onApplySqlAndRun}
-          applySqlAndRunDisabled={applySqlAndRunDisabled}
-          onRefreshExplanationAt={onRefreshExplanationAt}
-        />
-      ))}
-    </div>
+      <div
+        className="flex flex-col gap-3 pr-4"
+      >
+        {messages.map((message, index) => (
+          <AiQueryChatMessageItem
+            key={index}
+            message={message}
+            index={index}
+            isPending={isPending}
+            isActiveThinking={
+              isPending &&
+              message.role === "assistant" &&
+              message.type === "thinking" &&
+              index === lastThinkingIndex
+            }
+            onApplySql={onApplySql}
+            onApplySqlAndRun={onApplySqlAndRun}
+            applySqlAndRunDisabled={applySqlAndRunDisabled}
+            onRefreshExplanationAt={onRefreshExplanationAt}
+          />
+        ))}
+      </div>
+    </ScrollArea>
   )
 }
