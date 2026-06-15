@@ -19,13 +19,12 @@
 | Компонент | Роль | В репозитории? |
 | --- | --- | --- |
 | `apps/api` | Platform API — ядро (проекты, БД, секреты, теги, телеметрия, RBAC) | ✅ |
-| `apps/auth` | Auth API (JWT, refresh, RBAC) | ❌ не в репо |
+| `apps/auth` | Auth API (регистрация, логин, JWT, refresh, сессии, организации) | ✅ |
 | `apps/console` | Веб-консоль (React) | ✅ |
 | `apps/s0c` | CLI (Go, cobra) | ✅ |
 | `apps/drones` | Фоновые задачи | ✅ |
 | `apps/proxy-ql-executor` | Serverless-исполнитель read-only SQL | ✅ |
 | `packages/contract` | Общие DTO (api ↔ s0c) | ✅ |
-| **nl2sql** | NL→SQL для AI-фичи консоли | ❌ не в репо |
 | **Оркестратор инстансов** | Физически поднимает PostgreSQL по desired-state | ❌ не в репо |
 
 ## Как сервисы взаимодействуют
@@ -36,12 +35,11 @@ flowchart TB
     user --> console[console]
     user --> s0c[s0c CLI]
 
-    console -- "JWT login/refresh" --> auth[(auth-сервис<br/>не в репо)]
-    s0c -- "login" --> auth
+    console -- "регистрация/логин/refresh" --> auth[apps/auth]
+    s0c -- "логин" --> auth
     console -- "REST + Bearer JWT" --> api[apps/api]
     s0c -- "REST + Bearer JWT" --> api
     console -- "SQL" --> proxy[proxy-ql-executor]
-    console -- "NL→SQL" --> nl2sql[(nl2sql<br/>не в репо)]
 
     api -- "pgx" --> pdb[(Platform DB<br/>схема api)]
     api -- "PromQL" --> prom[(Prometheus)]
@@ -56,7 +54,7 @@ flowchart TB
 
 ## Сквозные потоки
 
-**Аутентификация.** Логин/refresh выдаёт внешний auth-сервис → клиент получает короткоживущий JWT (Ed25519). `apps/api` его только проверяет (не выдаёт). Мутации дополнительно требуют живой сессии (`auth.is_live_session` в БД).
+**Аутентификация.** Регистрацию, логин и refresh обслуживает `apps/auth` → клиент получает короткоживущий JWT (Ed25519). `apps/api` его только проверяет (не выдаёт) — оба используют один ключ. Мутации дополнительно требуют живой сессии (`auth.is_live_session` в БД).
 
 **Создание базы.** console/s0c → `POST /dbi` к api. API в одной транзакции пишет desired-state: запись БД, password-секрет (зашифрован Tink AEAD + SCRAM-verifier), системный тег. Оркестратор (внешний) видит desired-state и физически поднимает PostgreSQL-инстанс, проставляя runtime-state. Детали — в [api/docs/architecture.md](apps/api/docs/architecture.md).
 
@@ -66,4 +64,4 @@ flowchart TB
 
 ## Локальный запуск
 
-Полный прод-сценарий локально невозможен (нет оркестратора). Что поднимается из репо и как — в `docker-compose.dev.yml` и навыке `.claude/skills/local-dev`. Кратко: Postgres + миграции + api + drones + proxy; токены выпускаются `api gen-dev-token`; реальные tenant-инстансы не поднимаются (нет оркестратора).
+Полный прод-сценарий локально невозможен (нет оркестратора). Что поднимается из репо и как — в `docker-compose.dev.yml` и навыке `.claude/skills/local-dev`. Кратко: Postgres + миграции + auth + api + drones + proxy; токен получают регистрацией и логином через `apps/auth`; реальные tenant-инстансы не поднимаются (нет оркестратора).

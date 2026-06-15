@@ -53,9 +53,9 @@ JSON-форматы запросов/ответов живут в `packages/cont
 
 ## Identity: мост JWT → context
 
-`authMiddleware` (`transport/middlewares.go`) проверяет `Authorization: Bearer <jwt>` через `service.ParseAndVerifyAccessTokenFromAuthHeader` (Ed25519/EdDSA, claims `sub`/`sid`/`sk`/`jti`) и кладёт identity в `context` через `runtime.WithAuthIdentity`. Дальше хендлеры читают её геттерами `runtime.AuthSubjectIDFromContext` и т.п. Сам `apps/api` токены **не выдаёт** — это делает внешний auth-сервис.
+`authMiddleware` (`transport/middlewares.go`) проверяет `Authorization: Bearer <jwt>` через `service.ParseAndVerifyAccessTokenFromAuthHeader` (Ed25519/EdDSA, claims `sub`/`sid`/`sk`/`jti`) и кладёт identity в `context` через `runtime.WithAuthIdentity`. Дальше хендлеры читают её геттерами `runtime.AuthSubjectIDFromContext` и т.п. Сам `apps/api` токены **не выдаёт** — это делает `apps/auth`.
 
-`requireLiveSessionMiddleware` для мутаций вызывает `auth.is_live_session()` в БД (функция принадлежит auth-сервису; в локальном стенде — заглушка).
+`requireLiveSessionMiddleware` для мутаций вызывает `auth.is_live_session()` в БД — функцию и сессии предоставляет `apps/auth`.
 
 ## RBAC
 

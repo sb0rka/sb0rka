@@ -63,7 +63,7 @@ flowchart LR
 
 ## Слой данных (`src/lib`)
 
-- **`api-client.ts`** — весь HTTP. Знает **4 базовых URL** (env `VITE_*`): `auth` (логин/refresh/user), `resource` (Platform API), `queryRunner` (выполнение SQL), `nl2sql`. Сам обновляет access-токен через `POST /auth/refresh` при 401 (дедупликация параллельных refresh). Новые вызовы добавляются сюда, базовые адреса не дублируются.
+- **`api-client.ts`** — весь HTTP. Знает базовые URL (env `VITE_*`): `auth` (логин/refresh/user), `resource` (Platform API), `queryRunner` (выполнение SQL). Сам обновляет access-токен через `POST /auth/refresh` при 401 (дедупликация параллельных refresh). Новые вызовы добавляются сюда, базовые адреса не дублируются.
 - **`auth-store.ts`** — access-токен в `localStorage`; планирует авто-refresh, парся `exp` из JWT и обновляя токен незадолго до истечения.
 - **`query-client.ts`** — TanStack Query: `staleTime` 5 мин, `retry` 1, без `refetchOnWindowFocus`.
 

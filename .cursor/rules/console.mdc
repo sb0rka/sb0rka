@@ -10,6 +10,6 @@ alwaysApply: false
 
 - Структура **feature-based**: `src/features/<feature>/` (api.ts, hooks.ts, компоненты). Общий UI — `src/components/ui` (Radix + cva), не плодить дубли.
 - Данные с сервера — только через **TanStack Query** (`src/lib/query-client.ts`), не голый `fetch`/`useEffect` в компонентах.
-- HTTP — через `src/lib/api-client.ts` (он знает 4 базовых URL: auth/resource/queryRunner/nl2sql и refresh токена). Новые вызовы — туда, без дублирования базовых адресов.
+- HTTP — через `src/lib/api-client.ts` (он знает базовые URL auth/resource/queryRunner и refresh токена). Новые вызовы — туда, без дублирования базовых адресов.
 - Любой пользовательский текст — через **i18next** (`src/lib/i18n.ts`), ru и en сразу. Без захардкоженных строк в JSX.
 - Ответы внешних API (особенно LLM в `features/projects/api.ts`) не парсить как `Record<string,unknown>` без валидации; проверяй структуру (например `data.access_token`).

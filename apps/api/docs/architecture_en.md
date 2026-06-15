@@ -53,9 +53,9 @@ Request/response JSON shapes live in `packages/contract` (shared with the `s0c` 
 
 ## Identity: the JWT → context bridge
 
-`authMiddleware` (`transport/middlewares.go`) verifies `Authorization: Bearer <jwt>` via `service.ParseAndVerifyAccessTokenFromAuthHeader` (Ed25519/EdDSA, claims `sub`/`sid`/`sk`/`jti`) and stores identity in `context` via `runtime.WithAuthIdentity`. Handlers then read it through `runtime.AuthSubjectIDFromContext` etc. `apps/api` itself does **not** issue tokens — an external auth service does.
+`authMiddleware` (`transport/middlewares.go`) verifies `Authorization: Bearer <jwt>` via `service.ParseAndVerifyAccessTokenFromAuthHeader` (Ed25519/EdDSA, claims `sub`/`sid`/`sk`/`jti`) and stores identity in `context` via `runtime.WithAuthIdentity`. Handlers then read it through `runtime.AuthSubjectIDFromContext` etc. `apps/api` itself does **not** issue tokens — `apps/auth` does.
 
-`requireLiveSessionMiddleware` (for mutations) calls `auth.is_live_session()` in the DB (a function owned by the auth service; a stub in the local stack).
+`requireLiveSessionMiddleware` (for mutations) calls `auth.is_live_session()` in the DB — the function and sessions are provided by `apps/auth`.
 
 ## RBAC
 
