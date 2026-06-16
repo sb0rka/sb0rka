@@ -181,7 +181,56 @@ erDiagram
 
 Сервис [`apps/auth`](../apps/auth/docs/architecture.md) держит свои таблицы в схеме `auth` (миграции `db/migrations/auth/`, переменная `:"DB_AUTH_SCHEMA_NAME"`). В деплое схема `auth` живёт в **той же БД**, что и `api`, — чтобы `apps/api` мог вызвать функцию `auth.is_live_session`.
 
-- **`subjects`** — общий идентификатор актора (на него ссылаются `subject_id` в платформе).
+```mermaid
+erDiagram
+    SUBJECTS ||--o| USERS : "user is-a subject"
+    SUBJECTS ||--o| ORGANIZATIONS : "org is-a subject"
+    SUBJECTS ||--o{ AUTH_SESSIONS : "сессии"
+    AUTH_SESSIONS ||--o| AUTH_SESSIONS : "replaced_by (ротация)"
+    USERS ||--o{ USER_INVITES : "инвайты"
+    USERS ||--o{ ORGANIZATION_MEMBERS : "членство"
+    ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : "участники"
+
+    SUBJECTS {
+        uuid id PK
+        varchar kind "user | organization"
+    }
+    USERS {
+        uuid id PK,FK "= subjects.id"
+        varchar username UK
+        varchar email UK
+        int phone UK
+        varchar password_hash
+        bool is_active
+    }
+    AUTH_SESSIONS {
+        uuid id PK
+        uuid subject_id FK
+        uuid family_id
+        varchar refresh_token_hash UK
+        timestamptz expires_at
+        timestamptz revoked_at
+        uuid replaced_by FK "self, ротация"
+    }
+    USER_INVITES {
+        varchar id PK
+        uuid user_id FK "nullable"
+    }
+    ORGANIZATIONS {
+        uuid id PK,FK "= subjects.id"
+        varchar name
+    }
+    ORGANIZATION_MEMBERS {
+        uuid user_id PK,FK
+        uuid organization_id PK,FK
+        varchar role "owner|admin|editor|viewer"
+    }
+    VERSION_AUTH {
+        varchar version_num PK
+    }
+```
+
+- **`subjects`** — общий идентификатор актора (`kind` = `user`|`organization`); на него ссылаются `subject_id` в платформе. `users` и `organizations` наследуют от него (`id` = `subjects.id`).
 - **`users`** — учётка: `username`/`email`/хеш пароля, привязка к `subjects`.
 - **`auth_sessions`** — refresh-сессии: хеш refresh-токена, ip/ua, `expires_at`, отзыв (`revoked_at`/`revoke_reason`), ротация (`replaced_by`).
 - **`user_invites`** — инвайт-коды (если `IS_INVITE_REQUIRED`).
