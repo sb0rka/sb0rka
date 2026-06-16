@@ -176,3 +176,15 @@ erDiagram
 5. **Биллинг отделён.** Аккаунт-квоты — по `subject_plans`, проектные — по `projects.plan_id`.
 
 У всех таблиц `created_at`/`updated_at` с триггером `set_updated_at` для трекинга изменений.
+
+## Схема `auth` (apps/auth)
+
+Сервис [`apps/auth`](../apps/auth/docs/architecture.md) держит свои таблицы в схеме `auth` (миграции `db/migrations/auth/`, переменная `:"DB_AUTH_SCHEMA_NAME"`). В деплое схема `auth` живёт в **той же БД**, что и `api`, — чтобы `apps/api` мог вызвать функцию `auth.is_live_session`.
+
+- **`subjects`** — общий идентификатор актора (на него ссылаются `subject_id` в платформе).
+- **`users`** — учётка: `username`/`email`/хеш пароля, привязка к `subjects`.
+- **`auth_sessions`** — refresh-сессии: хеш refresh-токена, ip/ua, `expires_at`, отзыв (`revoked_at`/`revoke_reason`), ротация (`replaced_by`).
+- **`user_invites`** — инвайт-коды (если `IS_INVITE_REQUIRED`).
+- **`organizations`** + **`organization_members`** — организации и их участники с ролями (`owner`/`admin`/…).
+- **`version_auth`** — версия применённых auth-миграций.
+- **`auth.is_live_session(sid, sub)`** — функция: сессия существует, не отозвана и не истекла. Зовётся из `apps/auth` и `apps/api`.

@@ -8,7 +8,7 @@ Go-монорепо (`go.work`) + React-консоль. Публичная до�
 | Путь | Что это | Стек |
 | --- | --- | --- |
 | `apps/api` | Platform API — ядро | Go, net/http |
-| `apps/auth` | Auth API (JWT, refresh, RBAC) |
+| `apps/auth` | Auth API (регистрация, логин, JWT, refresh, сессии) | Go, net/http |
 | `apps/console` | веб-консоль | React 18, Vite, TS, Tailwind |
 | `apps/s0c` | CLI | Go, cobra |
 | `apps/drones` | фоновые задачи | Go |

@@ -1,12 +1,14 @@
 ---
-description: Конвенции Platform API (apps/api) — слоистость, ошибки, swaggo, как добавлять эндпоинт
-globs: apps/api/**/*.go
+description: Конвенции Go-сервисов apps/api и apps/auth — слоистость, ошибки, swaggo, как добавлять эндпоинт
+globs: apps/api/**/*.go,apps/auth/**/*.go
 alwaysApply: false
 ---
 
-# apps/api — конвенции
+# apps/api и apps/auth — конвенции
 
-Перед работой прочитай `apps/api/docs/architecture.md` (слои, потоки) и `db/SCHEMA.md`.
+`apps/api` (Platform API) и `apps/auth` (Auth API) следуют одной слоистости и конвенциям. Перед работой прочитай `apps/api/docs/architecture.md` / `apps/auth/docs/architecture.md` (слои, потоки) и `db/SCHEMA.md`.
+
+> swaggo/OpenAPI (`/swagger`, `internal/openapi/`) — пока только у `apps/api`; у `apps/auth` его нет.
 
 ## Слоистость (строгая, не смешивать)
 

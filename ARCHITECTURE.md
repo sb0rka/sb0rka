@@ -5,7 +5,8 @@
 | Документ | О чём |
 | --- | --- |
 | [apps/api/docs/architecture.md](apps/api/docs/architecture.md) | Внутреннее устройство Platform API (слои, потоки) |
-| [db/SCHEMA.md](db/SCHEMA.md) | Схема БД (ER-диаграмма, таблицы) |
+| [apps/auth/docs/architecture.md](apps/auth/docs/architecture.md) | Внутреннее устройство Auth API |
+| [db/SCHEMA.md](db/SCHEMA.md) | Схема БД (ER-диаграмма, таблицы api+auth) |
 | [apps/console/ARCHITECTURE.md](apps/console/ARCHITECTURE.md) | Устройство веб-консоли |
 | [apps/drones/README.md](apps/drones/README.md), [apps/s0c/README.md](apps/s0c/README.md), [apps/proxy-ql-executor/README.md](apps/proxy-ql-executor/README.md) | Отдельные сервисы |
 | Swagger UI (`/swagger`) | Контракт Platform API (генерируется из кода) |

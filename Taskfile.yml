@@ -7,10 +7,11 @@ tasks:
     desc: Собрать все Go-сервисы в bin/
     cmds:
       - go build -o bin/api ./apps/api/cmd/api
+      - go build -o bin/auth ./apps/auth/cmd/auth
       - go build -o bin/s0c ./apps/s0c
-      # drones не входит в go.work — собираем вне workspace
-      - GOWORK=off go build -o bin/drones ./apps/drones
-      - go build -tags dev -o bin/proxy-ql-executor ./apps/proxy-ql-executor
+      - go build -o bin/drones ./apps/drones
+      # proxy-ql-executor не в go.work (Yandex CF, Go 1.23) — собираем standalone
+      - GOWORK=off go build -tags dev -o bin/proxy-ql-executor ./apps/proxy-ql-executor
 
   fmt:
     desc: gofmt по всем модулям
