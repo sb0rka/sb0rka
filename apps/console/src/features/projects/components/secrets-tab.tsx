@@ -99,17 +99,23 @@ export function SecretsTab({
     <TabsContent value="secrets" className="flex flex-col gap-6">
       <PageStagger className="flex flex-col gap-6">
         {openedSecret ? null : (
-          <SlideIn className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-1">
+          <SlideIn className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-3">
               <h2 className="text-2xl font-semibold tracking-tight">{t("secrets.title")}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t("secrets.description")}
-              </p>
+              <Button
+                type="button"
+                size="icon"
+                className="size-9 shrink-0 rounded-xl md:h-9 md:w-auto md:rounded-md md:px-4"
+                onClick={() => setIsCreateDialogOpen(true)}
+                aria-label={t("secrets.create")}
+              >
+                <Plus className="size-4 md:mr-2" aria-hidden />
+                <span className="hidden md:inline">{t("secrets.create")}</span>
+              </Button>
             </div>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              {t("secrets.create")}
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              {t("secrets.description")}
+            </p>
           </SlideIn>
         )}
 
