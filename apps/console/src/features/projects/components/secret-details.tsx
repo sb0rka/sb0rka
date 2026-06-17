@@ -183,7 +183,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   return (
     <PageStagger className="flex flex-col gap-6">
       <SlideIn className="flex flex-col gap-2">
-        <h3 className="text-2xl font-semibold tracking-tight">{secret.name}</h3>
+        <h3 className="text-base font-semibold tracking-tight md:text-2xl">{secret.name}</h3>
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
             {tagsQuery.data?.tags.map((tag) => (
@@ -206,7 +206,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         {tagActionSuccess ? <p className="text-sm text-emerald-600">{tagActionSuccess}</p> : null}
       </SlideIn>
 
-      <SlideIn>
+      <SlideIn className="hidden md:block">
       <Card className="overflow-hidden">
         <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -224,16 +224,12 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       <SlideIn>
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.secret")}</CardTitle>
-          <CardDescription>
-            {t("secrets.lastViewed", { date: formatDateTime(secret.revealedAt, locale) })}
-          </CardDescription>
+          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.key")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 pb-6">
-          <p className="text-sm font-medium text-foreground">{t("secrets.key")}</p>
           <div className="relative">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="min-w-0 flex-1 rounded-md bg-secondary px-3.5 py-2.5">
+            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+              <div className="min-w-0 w-full rounded-md bg-secondary px-3.5 py-2.5 md:flex-1">
                 <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
                   {displayedValue}
                 </p>
