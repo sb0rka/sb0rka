@@ -1,11 +1,10 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Copy, Database } from "lucide-react"
+import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonPressClass } from "@/components/ui/button"
 import { FloatingHint } from "@/components/ui/floating-hint"
-import { useDatabases } from "@/features/projects/hooks"
 import type { ProjectResponse } from "@/features/projects/api"
 import { cn } from "@/lib/utils"
 
@@ -13,8 +12,6 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
-  const { data, isLoading, isError } = useDatabases(project.id)
-  const databases = data?.databases ?? []
 
   async function handleCopyProjectId() {
     try {
@@ -54,46 +51,6 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
         >
           {project.is_active ? t("projects.cardOnline") : t("projects.cardOffline")}
         </Badge>
-      </div>
-
-      <div className="mt-4 rounded-xl bg-muted/40 p-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Database className="size-4 text-muted-foreground" />
-          {t("tabs.databases")}
-        </div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          {isLoading ? (
-            <p>{t("common.loading")}</p>
-          ) : isError ? (
-            <p>{t("common.notAvailable")}</p>
-          ) : databases.length === 0 ? (
-            <p>{t("databases.empty")}</p>
-          ) : (
-            <ul className="space-y-1">
-              {databases.slice(0, 3).map((db) => (
-                <li key={db.resource_id}>
-                  <button
-                    type="button"
-                    className={cn(
-                      "w-full truncate rounded-md py-1 text-left text-muted-foreground hover:text-foreground",
-                      buttonPressClass,
-                    )}
-                    onClick={() =>
-                      navigate(`/projects/${project.id}/databases/${db.resource_id}`)
-                    }
-                  >
-                    {db.name}
-                  </button>
-                </li>
-              ))}
-              {databases.length > 3 ? (
-                <li className="text-xs text-muted-foreground">
-                  +{databases.length - 3}
-                </li>
-              ) : null}
-            </ul>
-          )}
-        </div>
       </div>
 
       <Button
