@@ -94,7 +94,7 @@ export function MobileDatabasesList({
 
       <div className="flex shrink-0 flex-col">
         <div className="flex h-12 items-center justify-end border-b border-border px-4 text-sm font-medium text-muted-foreground">
-          {t("tables.diskUsage")}
+          {t("metrics.disk")}
         </div>
         {rows.map((row) => {
           const isInteractive = Boolean(onRowClick)
