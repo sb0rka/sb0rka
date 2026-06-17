@@ -23,11 +23,6 @@ const mobileNavItems = [
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
 
-function accountInitial(email: string | undefined, username: string | undefined): string {
-  const value = email?.trim() || username?.trim()
-  return value?.[0]?.toUpperCase() ?? "?"
-}
-
 export function MobileRootNav() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -56,14 +51,12 @@ export function MobileRootNav() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
-                  className="size-9 rounded-full"
+                  className="size-9 shrink-0 rounded-full"
                   aria-label={t("header.openProfileMenu")}
                 >
-                  <span className="flex size-7 items-center justify-center rounded-full border border-border bg-background text-xs font-medium text-muted-foreground">
-                    {accountInitial(user?.email, user?.username)}
-                  </span>
+                  <User className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
