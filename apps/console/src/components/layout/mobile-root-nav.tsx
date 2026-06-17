@@ -1,4 +1,4 @@
-import { Link, useLocation, useMatch } from "react-router-dom"
+import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
 import { ArrowLeft, Home, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SborkaLogoMark, SborkaLogoWordmarkText } from "@/components/logo"
@@ -15,8 +15,17 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
-import { useDatabase, useProject } from "@/features/projects/hooks"
+import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
+import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 import { cn } from "@/lib/utils"
+
+const projectTabLabelKeyById: Record<ProjectTab, string> = {
+  overview: "tabs.overview",
+  databases: "tabs.databases",
+  "data-explorer": "tabs.dataExplorer",
+  secrets: "tabs.secrets",
+  settings: "tabs.settings",
+}
 
 const mobileNavItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
@@ -26,6 +35,7 @@ const mobileNavItems = [
 
 function useMobileProjectHeader() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const databaseQueryMatch = useMatch("/projects/:id/databases/:resourceId/query")
   const databaseDetailsMatch = useMatch({
     path: "/projects/:id/databases/:resourceId",
@@ -51,6 +61,7 @@ function useMobileProjectHeader() {
 
   const { data: project } = useProject(projectId)
   const { data: database } = useDatabase(projectId, resourceId)
+  const { data: secretsData } = useSecrets(projectId)
 
   if (!isProjectView) {
     return null
@@ -77,6 +88,44 @@ function useMobileProjectHeader() {
       backHref: `/projects/${projectId}?tab=overview`,
       backLabel: t("metrics.backToOverview"),
       title: project?.name ?? t("projects.fallbackProject"),
+    }
+  }
+
+  if (projectMatch) {
+    const tabParam = searchParams.get("tab")
+    const activeTab = isProjectTab(tabParam) ? tabParam : "overview"
+    const selectedSecretId = searchParams.get("secret")?.trim()
+
+    if (activeTab === "secrets" && selectedSecretId) {
+      const selectedSecret = secretsData?.secrets.find(
+        (secret) => secret.resource_id === selectedSecretId,
+      )
+      return {
+        backHref: `/projects/${projectId}?tab=secrets`,
+        backLabel: t("tabs.secrets"),
+        title: selectedSecret?.name ?? selectedSecretId,
+      }
+    }
+
+    if (activeTab !== "overview") {
+      const backTabByActiveTab: Partial<Record<ProjectTab, ProjectTab>> = {
+        databases: "overview",
+        secrets: "overview",
+        settings: "overview",
+        "data-explorer": "databases",
+      }
+      const backTab = backTabByActiveTab[activeTab] ?? "overview"
+
+      return {
+        backHref: `/projects/${projectId}?tab=${backTab}`,
+        backLabel:
+          backTab === "overview"
+            ? t("metrics.backToOverview")
+            : backTab === "databases"
+              ? t("databases.backToList")
+              : t(projectTabLabelKeyById[backTab]),
+        title: t(projectTabLabelKeyById[activeTab]),
+      }
     }
   }
 
