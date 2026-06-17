@@ -12,6 +12,7 @@ import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
 import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-entrance"
+import { MobileProjectCard } from "./components/mobile-project-card"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
@@ -124,12 +125,17 @@ export function ProjectsPage() {
           <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
       ) : (
-        <PageStagger className="flex min-h-0 flex-1 flex-col gap-4">
-          <SlideIn className="flex items-center justify-between">
+        <PageStagger className="flex min-h-0 flex-1 flex-col gap-4 md:gap-4">
+          <SlideIn className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              {t("projects.create")}
+            <Button
+              size="icon"
+              className="size-9 shrink-0 rounded-xl md:h-9 md:w-auto md:rounded-md md:px-4"
+              onClick={() => setCreateOpen(true)}
+              aria-label={t("projects.create")}
+            >
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">{t("projects.create")}</span>
             </Button>
           </SlideIn>
 
@@ -149,13 +155,22 @@ export function ProjectsPage() {
               </div>
             </SlideIn>
           ) : (
-            <StaggerGroup className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(0,450px))] [&>*]:h-full">
-              {projects.map((project) => (
-                <SlideIn key={project.id} className="h-full max-w-[450px]">
-                  <ProjectCard project={project} />
-                </SlideIn>
-              ))}
-            </StaggerGroup>
+            <>
+              <StaggerGroup className="grid gap-3 md:hidden">
+                {projects.map((project) => (
+                  <SlideIn key={project.id}>
+                    <MobileProjectCard project={project} />
+                  </SlideIn>
+                ))}
+              </StaggerGroup>
+              <StaggerGroup className="hidden gap-4 [grid-template-columns:repeat(auto-fill,minmax(0,450px))] md:grid [&>*]:h-full">
+                {projects.map((project) => (
+                  <SlideIn key={project.id} className="h-full max-w-[450px]">
+                    <ProjectCard project={project} />
+                  </SlideIn>
+                ))}
+              </StaggerGroup>
+            </>
           )}
         </PageStagger>
       )}
@@ -164,7 +179,7 @@ export function ProjectsPage() {
 
       {alphaToastOpen ? (
         <div
-          className="fixed bottom-[10px] right-[10px] z-50 max-w-[400px]"
+          className="fixed inset-x-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-50 md:inset-x-auto md:bottom-[10px] md:right-[10px] md:max-w-[400px]"
           aria-live="polite"
         >
           <AlphaToast
