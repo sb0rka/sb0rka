@@ -1,11 +1,11 @@
-import { Link, useLocation } from "react-router-dom"
-import { Home, RussianRuble, User } from "lucide-react"
+import { Link, useLocation, useMatch } from "react-router-dom"
+import { ArrowLeft, Home, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SborkaLogoMark, SborkaLogoWordmarkText } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonPressClass } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
+import { useDatabase, useProject } from "@/features/projects/hooks"
 import { cn } from "@/lib/utils"
 
 const mobileNavItems = [
@@ -23,20 +24,102 @@ const mobileNavItems = [
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
 
+function useMobileProjectHeader() {
+  const { t } = useTranslation()
+  const databaseQueryMatch = useMatch("/projects/:id/databases/:resourceId/query")
+  const databaseDetailsMatch = useMatch({
+    path: "/projects/:id/databases/:resourceId",
+    end: true,
+  })
+  const metricDetailsMatch = useMatch("/projects/:id/metrics/:metric")
+  const projectMatch = useMatch({ path: "/projects/:id", end: true })
+  const projectNestedMatch = useMatch("/projects/:id/*")
+
+  const isProjectView = projectMatch !== null || projectNestedMatch !== null
+  const projectId = isProjectView
+    ? (databaseQueryMatch?.params.id ??
+      databaseDetailsMatch?.params.id ??
+      metricDetailsMatch?.params.id ??
+      projectNestedMatch?.params.id ??
+      projectMatch?.params.id ??
+      "")
+    : ""
+  const resourceId = isProjectView
+    ? (databaseQueryMatch?.params.resourceId?.trim() ??
+      databaseDetailsMatch?.params.resourceId?.trim())
+    : undefined
+
+  const { data: project } = useProject(projectId)
+  const { data: database } = useDatabase(projectId, resourceId)
+
+  if (!isProjectView) {
+    return null
+  }
+
+  if (databaseQueryMatch) {
+    return {
+      backHref: `/projects/${projectId}/databases/${resourceId}`,
+      backLabel: t("databaseQuery.backToDatabase"),
+      title: database?.name ?? t("projects.fallbackResource"),
+    }
+  }
+
+  if (databaseDetailsMatch) {
+    return {
+      backHref: `/projects/${projectId}?tab=databases`,
+      backLabel: t("databases.backToList"),
+      title: database?.name ?? resourceId ?? t("projects.fallbackResource"),
+    }
+  }
+
+  if (metricDetailsMatch) {
+    return {
+      backHref: `/projects/${projectId}?tab=overview`,
+      backLabel: t("metrics.backToOverview"),
+      title: project?.name ?? t("projects.fallbackProject"),
+    }
+  }
+
+  return {
+    backHref: "/projects",
+    backLabel: t("projects.allProjects"),
+    title: project?.name ?? t("projects.fallbackProject"),
+  }
+}
+
 export function MobileRootNav() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const location = useLocation()
   const logoutMutation = useLogout()
+  const projectHeader = useMobileProjectHeader()
 
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-[var(--mobile-chrome-bg)] px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <div className="flex h-12 items-center justify-between gap-3">
-          <Link to="/projects" className="flex min-w-0 items-center gap-2">
-            <SborkaLogoMark />
-            <SborkaLogoWordmarkText />
-          </Link>
+          {projectHeader ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <Link
+                to={projectHeader.backHref}
+                aria-label={projectHeader.backLabel}
+                className={cn(
+                  "flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  buttonPressClass,
+                )}
+              >
+                <ArrowLeft className="size-5" />
+              </Link>
+              <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+                {projectHeader.title}
+              </p>
+            </div>
+          ) : (
+            <Link to="/projects" className="flex min-w-0 items-center gap-2">
+              <SborkaLogoMark />
+              <SborkaLogoWordmarkText />
+            </Link>
+          )}
 
           <div className="flex shrink-0 items-center gap-1.5">
             <Badge
