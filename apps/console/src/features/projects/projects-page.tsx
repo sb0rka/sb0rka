@@ -126,16 +126,16 @@ export function ProjectsPage() {
         </div>
       ) : (
         <PageStagger className="flex min-h-0 flex-1 flex-col gap-4 md:gap-4">
-          <SlideIn className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
-            </div>
+          <SlideIn className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold text-foreground">{t("projects.title")}</h1>
             <Button
-              className="h-11 rounded-xl md:h-9 md:rounded-md"
+              size="icon"
+              className="size-9 shrink-0 rounded-xl md:h-9 md:w-auto md:rounded-md md:px-4"
               onClick={() => setCreateOpen(true)}
+              aria-label={t("projects.create")}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              {t("projects.create")}
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">{t("projects.create")}</span>
             </Button>
           </SlideIn>
 
