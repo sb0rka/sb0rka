@@ -36,7 +36,7 @@ export function MobileRootNav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-[var(--sidebar-bg)] px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-[var(--mobile-chrome-bg)] px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <div className="flex h-12 items-center justify-between gap-3">
           <Link to="/projects" className="flex min-w-0 items-center gap-2">
             <SborkaLogoMark />
@@ -99,7 +99,7 @@ export function MobileRootNav() {
         </div>
       </header>
 
-      <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--sidebar-bg)] p-1.5 shadow-lg">
+      <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--mobile-chrome-bg)] p-1.5 shadow-lg">
         <div className="grid grid-cols-3 gap-1">
           {mobileNavItems.map((item) => {
             const isActive =
