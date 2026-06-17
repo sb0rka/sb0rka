@@ -153,17 +153,25 @@ export function DatabasesTab({
   return (
     <TabsContent value="databases" className="mt-2 flex flex-col gap-4">
       <PageStagger className="flex flex-col gap-6">
-        <SlideIn className="flex items-start justify-between gap-4">
-          <div className="flex max-w-[650px] flex-col gap-1">
+        <SlideIn className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               {t("databases.singularTitle")}
             </h2>
-            <p className="text-sm leading-5 text-muted-foreground">{t("databases.description")}</p>
+            <Button
+              type="button"
+              size="icon"
+              className="size-9 shrink-0 rounded-xl md:h-9 md:w-auto md:rounded-md md:px-4"
+              onClick={focusCreateDatabaseSection}
+              aria-label={t("databases.createTitle")}
+            >
+              <Plus className="size-4 md:mr-2" aria-hidden />
+              <span className="hidden md:inline">{t("databases.createTitle")}</span>
+            </Button>
           </div>
-          <Button type="button" size="default" className="shrink-0 gap-2" onClick={focusCreateDatabaseSection}>
-            <Plus className="size-4" aria-hidden />
-            {t("databases.createTitle")}
-          </Button>
+          <p className="max-w-[650px] text-sm leading-5 text-muted-foreground">
+            {t("databases.description")}
+          </p>
         </SlideIn>
 
         <SlideIn>
