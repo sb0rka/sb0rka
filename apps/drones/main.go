@@ -64,7 +64,7 @@ func getDurationEnv(key string, fallback time.Duration) time.Duration {
 }
 
 type Config struct {
-	DatabaseURI     string
+	DatabaseURI             string
 	DatabaseMaxConns        int
 	DatabaseConnMaxLifetime time.Duration
 	GCInterval              time.Duration
@@ -72,7 +72,7 @@ type Config struct {
 
 func loadConfig() Config {
 	return Config{
-		DatabaseURI:     getStringEnv("DATABASE_URI", defaultDatabaseURI),
+		DatabaseURI:             getStringEnv("DATABASE_URI", defaultDatabaseURI),
 		DatabaseMaxConns:        getIntEnv("DATABASE_MAX_OPEN_CONNS", defaultDatabaseMaxConns),
 		DatabaseConnMaxLifetime: getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", defaultDatabaseConnMaxLifetime),
 		GCInterval:              getDurationEnv("GC_INTERVAL_SEC", defaultGCInterval),

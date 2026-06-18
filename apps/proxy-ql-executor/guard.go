@@ -7,6 +7,8 @@ import (
 )
 
 func ValidateSQL(sql string) error {
+	// UTF-8 BOM не убирается TrimSpace и сбил бы определение первого ключевого слова.
+	sql = strings.TrimPrefix(sql, string(rune(0xFEFF)))
 	trimmed := strings.TrimSpace(sql)
 	if trimmed == "" {
 		return NewStatusError(http.StatusBadRequest, "query is required", nil)

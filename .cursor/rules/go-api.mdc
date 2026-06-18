@@ -1,0 +1,32 @@
+---
+description: Конвенции Go-сервисов apps/api и apps/auth — слоистость, ошибки, swaggo, как добавлять эндпоинт
+globs: apps/api/**/*.go,apps/auth/**/*.go
+alwaysApply: false
+---
+
+# apps/api и apps/auth — конвенции
+
+`apps/api` (Platform API) и `apps/auth` (Auth API) следуют одной слоистости и конвенциям. Перед работой прочитай `apps/api/docs/architecture.md` / `apps/auth/docs/architecture.md` (слои, потоки) и `db/SCHEMA.md`.
+
+> swaggo/OpenAPI (`/swagger`, `internal/openapi/`) — пока только у `apps/api`; у `apps/auth` его нет.
+
+## Слоистость (строгая, не смешивать)
+
+`transport/` (HTTP) → `service/` (бизнес-логика, валидация) → `store/db/` (pgx) → `domain/model/`. Зависимости — через интерфейсы (`Database`, `Authorizer`, `SecretCrypto`), прокидываются в `runtime.Dependencies`.
+
+- **Единственная дверь к БД** — интерфейс `store/db.Database`. Новый запрос = метод интерфейса + реализация в `psql.go`. Многотабличные операции — в транзакции.
+- **Ошибки** — sentinel-значения в `store/db/errors.go`; хендлеры матчат через `errors.Is` и переводят в HTTP-коды. Не возвращай голые строки из стора.
+- **DTO** — в `packages/contract` (общие с s0c), единственный источник правды по JSON. Маппинг `model → contract` функциями `toX`.
+- Логирование — `log/slog`, структурно. **Никогда не логируй plaintext секретов/паролей/URI с паролем.**
+- Конфиг — из env через хелперы в `config.go`: новый параметр = поле в `schema.go` + чтение в `Load()` + строка в `.env.sample`.
+
+## Как добавить эндпоинт (вертикальный срез)
+
+`contract` (DTO) → `store/db` (метод интерфейса + реализация + sentinel-ошибки) → `service` (валидация) → `authz` (новый `Action` + матрица `rbac.go`) → хендлер (RBAC + маппинг ошибок + `toX`) → `router.go` (`authLive` для мутаций, `authOnly` для чтения) → **swaggo-аннотации** над хендлером (`// @Summary`, `// @Param`, `// @Success {object} contract.X`, `// @Router`) → регенерация спеки (`swag init`).
+
+Документацию эндпоинтов ведём ТОЛЬКО через swaggo-аннотации (UI `/swagger`), не markdown. Пакет `apps/api/internal/openapi/` коммитится (нужен компилятору).
+
+## Безопасность
+
+- RBAC deny-by-default (`authz/`): новое действие = `Action` + запись в матрице для ролей.
+- Секреты: AAD (`BuildSecretAAD`) при шифровании/расшифровке совпадает; reveal → `Cache-Control: no-store`.

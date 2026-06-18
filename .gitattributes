@@ -1,0 +1,4 @@
+# Shell-скрипты всегда с LF — иначе bash в Docker-контейнерах падает на Windows-CRLF
+*.sh text eol=lf
+# JSON-конфиги с LF (settings.json и пр. — стабильный парсинг)
+*.json text eol=lf

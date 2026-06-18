@@ -64,6 +64,19 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 	return true
 }
 
+// CreateDBInstance godoc
+// @Summary  Создать инстанс БД
+// @Tags     dbis
+// @Accept   json
+// @Produce  json
+// @Param    project_id  path      string                              true  "ID проекта"
+// @Param    body        body      contract.CreateDBInstanceRequest    true  "Параметры инстанса БД"
+// @Success  201         {object}  contract.DatabaseWithSecretResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/dbi [post]
 func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -188,6 +201,16 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// ListDBInstances godoc
+// @Summary  Список инстансов БД проекта
+// @Tags     dbis
+// @Produce  json
+// @Param    project_id  path      string                          true  "ID проекта"
+// @Success  200         {object}  contract.DBInstanceListResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/dbis [get]
 func (h *Handler) ListDBInstances(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -223,6 +246,18 @@ func (h *Handler) ListDBInstances(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetDBInstance godoc
+// @Summary  Получить инстанс БД
+// @Tags     dbis
+// @Produce  json
+// @Param    project_id   path      string                      true  "ID проекта"
+// @Param    resource_id  path      string                      true  "ID инстанса БД"
+// @Success  200          {object}  contract.DBInstanceResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi [get]
 func (h *Handler) GetDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -259,6 +294,20 @@ func (h *Handler) GetDBInstance(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toDBInstanceResponse(row))
 }
 
+// UpdateDBInstance godoc
+// @Summary  Обновить метаданные инстанса БД
+// @Tags     dbis
+// @Accept   json
+// @Produce  json
+// @Param    project_id   path      string                            true  "ID проекта"
+// @Param    resource_id  path      string                            true  "ID инстанса БД"
+// @Param    body         body      contract.UpdateDBInstanceRequest  true  "Обновляемые поля"
+// @Success  200          {object}  contract.DBInstanceResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi [patch]
 func (h *Handler) UpdateDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -324,10 +373,34 @@ func (h *Handler) UpdateDBInstance(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toDBInstanceResponse(row))
 }
 
+// StartDBInstance godoc
+// @Summary  Запустить инстанс БД
+// @Tags     dbis
+// @Produce  json
+// @Param    project_id   path      string                      true  "ID проекта"
+// @Param    resource_id  path      string                      true  "ID инстанса БД"
+// @Success  200          {object}  contract.DBInstanceResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi/state/start [post]
 func (h *Handler) StartDBInstance(w http.ResponseWriter, r *http.Request) {
 	h.setDBInstanceDesiredRuntimeState(w, r, authz.ActionDBStart, model.DBDesiredRuntimeStateRunning)
 }
 
+// StopDBInstance godoc
+// @Summary  Остановить инстанс БД
+// @Tags     dbis
+// @Produce  json
+// @Param    project_id   path      string                      true  "ID проекта"
+// @Param    resource_id  path      string                      true  "ID инстанса БД"
+// @Success  200          {object}  contract.DBInstanceResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi/state/stop [post]
 func (h *Handler) StopDBInstance(w http.ResponseWriter, r *http.Request) {
 	h.setDBInstanceDesiredRuntimeState(w, r, authz.ActionDBStop, model.DBDesiredRuntimeStateSuspended)
 }
@@ -368,6 +441,19 @@ func (h *Handler) setDBInstanceDesiredRuntimeState(w http.ResponseWriter, r *htt
 	_ = json.NewEncoder(w).Encode(toDBInstanceResponse(row))
 }
 
+// GetDBInstanceConnection godoc
+// @Summary  Параметры прямого подключения к инстансу БД
+// @Tags     dbis
+// @Produce  json
+// @Param    project_id   path      string                                true  "ID проекта"
+// @Param    resource_id  path      string                                true  "ID инстанса БД"
+// @Success  200          {object}  contract.DBInstanceConnParamsResponse
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi/connection/direct [get]
 func (h *Handler) GetDBInstanceConnection(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -414,6 +500,19 @@ func (h *Handler) GetDBInstanceConnection(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// RevealDBInstanceURI godoc
+// @Summary  Раскрыть строку подключения (URI) инстанса БД
+// @Tags     dbis
+// @Produce  plain
+// @Param    project_id   path      string  true  "ID проекта"
+// @Param    resource_id  path      string  true  "ID инстанса БД"
+// @Success  200          {string}  string  "Строка подключения PostgreSQL"
+// @Failure  400          {string}  string
+// @Failure  403          {string}  string
+// @Failure  404          {string}  string
+// @Failure  409          {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal [post]
 func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {
@@ -481,6 +580,17 @@ func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(uri))
 }
 
+// DeleteDBInstance godoc
+// @Summary  Удалить инстанс БД
+// @Tags     dbis
+// @Param    project_id   path  string  true  "ID проекта"
+// @Param    resource_id  path  string  true  "ID инстанса БД"
+// @Success  204
+// @Failure  400  {string}  string
+// @Failure  403  {string}  string
+// @Failure  404  {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources/{resource_id}/dbi [delete]
 func (h *Handler) DeleteDBInstance(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
 	if !ok {

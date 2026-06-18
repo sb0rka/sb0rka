@@ -1,0 +1,16 @@
+---
+description: Конвенции SQL-миграций платформы
+globs: db/migrations/**/*.sql
+alwaysApply: false
+---
+
+# Миграции БД
+
+- Файлы нумерованные: `NNN-name.sql`, применяются по порядку. Оборачивай в `BEGIN; ... COMMIT;`.
+- Схему НЕ хардкодь: psql-переменная `:"DB_API_SCHEMA_NAME"` (значение — `api`). GRANT дрону — через `:"DB_DRONE_MAPPING_USER"`. Запросы кода идут без префикса схемы → полагаются на `search_path`.
+- В конце миграции обнови `version_platform` (upsert как в существующих файлах).
+- Идемпотентность: `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `DROP TRIGGER IF EXISTS` перед `CREATE TRIGGER`.
+- Таймстампы — `TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL`; `updated_at` — триггер `set_updated_at`.
+- Имена ограничений: `pk_`/`fk_`/`uq_`/`ck_`/`ix_`. Enum-поля — через `CHECK (col IN (...))`.
+
+После изменения схемы синхронно правь: модели `apps/api/internal/domain/model`, интерфейс/реализацию `store/db`, DTO `packages/contract`, и **обнови `db/SCHEMA.md`** (ER-диаграмма + описание таблиц).
