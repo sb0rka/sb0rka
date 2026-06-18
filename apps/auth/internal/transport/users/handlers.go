@@ -7,10 +7,11 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	"github.com/sb0rka/sb0rka/packages/contract"
 )
 
@@ -73,20 +74,19 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	userID := uuid.New()
 
 	var inviteCode string
-	if h.deps.Cfg.IsInviteRequired {
+	if h.deps.RequireInvite {
 		if req.InviteCode == nil || *req.InviteCode == "" {
 			http.Error(w, "Invite code is required", http.StatusBadRequest)
 			return
 		}
 		inviteCode = *req.InviteCode
-		valid, err := h.deps.Database.CheckUserInvite(r.Context(), inviteCode)
-		if err != nil {
+		if err := h.deps.InviteProvider.Validate(r.Context(), inviteCode); err != nil {
+			if errors.Is(err, invite.ErrInvalid) {
+				http.Error(w, "Invite code not found or already used", http.StatusNotFound)
+				return
+			}
 			h.deps.Log.Error("register_check_invite_failed", "error", err)
 			http.Error(w, "Failed to check invite code", http.StatusInternalServerError)
-			return
-		}
-		if !valid {
-			http.Error(w, "Invite code not found or already used", http.StatusNotFound)
 			return
 		}
 	}
@@ -102,8 +102,8 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.deps.Cfg.IsInviteRequired {
-		if err := h.deps.Database.ClaimUserInvite(r.Context(), inviteCode, userID); err != nil {
+	if h.deps.RequireInvite {
+		if err := h.deps.InviteProvider.Claim(r.Context(), inviteCode, userID); err != nil {
 			h.deps.Log.Error("register_claim_invite_failed", "error", err)
 		}
 	}

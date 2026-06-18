@@ -30,9 +30,6 @@ type Database interface {
 	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
 	DeactivateUser(ctx context.Context, userID uuid.UUID) error
 
-	CheckUserInvite(ctx context.Context, inviteCode string) (bool, error)
-	ClaimUserInvite(ctx context.Context, inviteCode string, userID uuid.UUID) error
-
 	// --- Auth sessions ---
 
 	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)

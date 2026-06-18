@@ -10,19 +10,11 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"log/slog"
-	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
-	"time"
 
-	"github.com/sb0rka/sb0rka/apps/auth/internal/authz"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/authapp"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 )
 
 //go:embed version.txt
@@ -41,71 +33,11 @@ func serverCMD(args []string) error {
 		return fmt.Errorf("server cmd got unexpected arguments: %v", fs.Args())
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %v", err)
-	}
-
-	log, err := logger.New(cfg.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to initialize logger: %v", err)
-	}
-	slog.SetDefault(log)
-	log.Info("logger initialized")
-
-	log.Info("initializing database connection")
-	database, err := store.CreateDatabase(
-		cfg.Database.URI,
-		cfg.Database.MaxConns,
-		int64(cfg.Database.ConnMaxLifetime),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize database connection: %v", err)
-	}
-
-	if err := database.TestConnection(context.Background()); err != nil {
-		return fmt.Errorf("failed to test database connection: %v", err)
-	}
-	log.Info("database connection established successfully")
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	newSrv := transport.NewServer(transport.Dependencies{
-		Database:   database,
-		Authorizer: authz.NewRBACAuthorizer(database),
-		Cfg:        cfg.Server,
-		Log:        log,
+	app := authapp.New(authapp.Options{
+		RequireInvite:  false,
+		InviteProvider: invite.Disabled(),
 	})
-	commonHandler := newSrv.BuildCommonHandler()
-	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port),
-		Handler: *commonHandler,
-	}
-
-	go func() {
-		log.Info("starting HTTP server", "addr", cfg.Server.Addr, "port", cfg.Server.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("server error", "error", err)
-		}
-	}()
-
-	<-ctx.Done()
-	log.Info("received shutdown signal, starting graceful shutdown")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	log.Info("closing database connection")
-	database.Close()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("server shutdown error: %v", err)
-	}
-
-	log.Info("server shutdown completed successfully")
-
-	return nil
+	return app.Run(context.Background())
 }
 
 func tokenCMD(args []string) error {

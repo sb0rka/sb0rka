@@ -8,4 +8,5 @@ use (
 	./apps/drones
 	./apps/s0c
 	./packages/contract
+	./packages/core
 )

@@ -4,18 +4,13 @@ import (
 	"crypto/ed25519"
 	"net/http"
 	"time"
+
+	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
 )
 
-type LoggerConfig struct {
-	Level  string
-	Format string
-}
+type LoggerConfig = coreconfig.LoggerConfig
 
-type DatabaseConfig struct {
-	URI             string
-	MaxConns        int
-	ConnMaxLifetime time.Duration
-}
+type DatabaseConfig = coreconfig.DatabaseConfig
 
 type AuthConfig struct {
 	// Argon configuration
@@ -48,8 +43,7 @@ type ServerConfig struct {
 	Addr string
 	Port string
 
-	IsPhoneRequired  bool
-	IsInviteRequired bool
+	IsPhoneRequired bool
 
 	CORSWhitelist             map[string]bool
 	CORSAllowedDefaultMethods string
