@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Request struct {
@@ -29,6 +30,9 @@ type Hook interface {
 	// whole registration back (no user is created).
 	Provision(ctx context.Context, tx pgx.Tx, req Request, userID uuid.UUID) error
 }
+
+// HookFactory builds a Hook from the auth DB pool (available only after connect).
+type HookFactory func(pool *pgxpool.Pool) Hook
 
 func Noop() Hook { return noop{} }
 
