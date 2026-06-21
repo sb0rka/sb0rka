@@ -187,7 +187,6 @@ erDiagram
     SUBJECTS ||--o| ORGANIZATIONS : "org is-a subject"
     SUBJECTS ||--o{ AUTH_SESSIONS : "сессии"
     AUTH_SESSIONS ||--o| AUTH_SESSIONS : "replaced_by (ротация)"
-    USERS ||--o{ USER_INVITES : "инвайты"
     USERS ||--o{ ORGANIZATION_MEMBERS : "членство"
     ORGANIZATIONS ||--o{ ORGANIZATION_MEMBERS : "участники"
 
@@ -212,10 +211,6 @@ erDiagram
         timestamptz revoked_at
         uuid replaced_by FK "self, ротация"
     }
-    USER_INVITES {
-        varchar id PK
-        uuid user_id FK "nullable"
-    }
     ORGANIZATIONS {
         uuid id PK,FK "= subjects.id"
         varchar name
@@ -233,7 +228,6 @@ erDiagram
 - **`subjects`** — общий идентификатор актора (`kind` = `user`|`organization`); на него ссылаются `subject_id` в платформе. `users` и `organizations` наследуют от него (`id` = `subjects.id`).
 - **`users`** — учётка: `username`/`email`/хеш пароля, привязка к `subjects`.
 - **`auth_sessions`** — refresh-сессии: хеш refresh-токена, ip/ua, `expires_at`, отзыв (`revoked_at`/`revoke_reason`), ротация (`replaced_by`).
-- **`user_invites`** — инвайт-коды (если `IS_INVITE_REQUIRED`).
 - **`organizations`** + **`organization_members`** — организации и их участники с ролями (`owner`/`admin`/…).
 - **`version_auth`** — версия применённых auth-миграций.
 - **`auth.is_live_session(sid, sub)`** — функция: сессия существует, не отозвана и не истекла. Зовётся из `apps/auth` и `apps/api`.

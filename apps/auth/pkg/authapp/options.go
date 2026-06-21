@@ -2,12 +2,10 @@ package authapp
 
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/registration"
 )
 
 type Options struct {
-	RequireInvite bool
-	InviteProvider invite.Provider
-	// NewInviteProvider builds invite provider from the auth DB pool after connect.
-	NewInviteProvider func(pool *pgxpool.Pool) invite.Provider
+	RegistrationHook    registration.Hook
+	NewRegistrationHook func(pool *pgxpool.Pool) registration.Hook
 }

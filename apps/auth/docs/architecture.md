@@ -27,7 +27,7 @@ domain/model/ (subjects, users, sessions, organizations)
 
 ## Ключевые потоки
 
-**Регистрация** (`POST /identity/users`). Валидация (опц. invite-код / телефон — флаги `IS_INVITE_REQUIRED`/`IS_PHONE_REQUIRED`), создание `subjects` + `users` (пароль — хеш). Возвращает пользователя.
+**Регистрация** (`POST /identity/users`). Валидация (опц. телефон — флаг `IS_PHONE_REQUIRED`), создание `subjects` + `users` (пароль — хеш). Возвращает пользователя.
 
 **Логин** (`POST /auth/login`). По `username`/`email` + паролю: проверка хеша → создаётся `auth_sessions` (refresh-токен хранится хешем), выдаётся короткоживущий access-JWT (`ACCESS_TOKEN_TTL_SEC`) и refresh-токен в cookie (имя/secure/samesite — env `REFRESH_TOKEN_COOKIE_*`).
 
@@ -39,7 +39,7 @@ domain/model/ (subjects, users, sessions, organizations)
 
 ## Модель данных (схема `auth`)
 
-`subjects` (общий идентификатор актора), `users` (логин/email/хеш пароля → subject), `auth_sessions` (refresh-сессии: хеш токена, ip/ua, expires, revoke), `user_invites` (инвайты), `organizations` + `organization_members`, `version_auth` (версия миграций). Подробности — в [db/SCHEMA.md](../../../db/SCHEMA.md).
+`subjects` (общий идентификатор актора), `users` (логин/email/хеш пароля → subject), `auth_sessions` (refresh-сессии: хеш токена, ip/ua, expires, revoke), `organizations` + `organization_members`, `version_auth` (версия миграций). Подробности — в [db/SCHEMA.md](../../../db/SCHEMA.md).
 
 ## Связь с platform-БД
 
