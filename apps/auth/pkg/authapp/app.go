@@ -50,16 +50,13 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	log.Info("database connection established successfully")
 
-	hook := a.opts.RegistrationHook
-	if hook == nil && a.opts.NewRegistrationHook != nil {
+	hook := registration.Noop()
+	if a.opts.NewRegistrationHook != nil {
 		pool, err := store.PgxPool(database)
 		if err != nil {
 			return fmt.Errorf("failed to resolve database pool for registration hook: %w", err)
 		}
 		hook = a.opts.NewRegistrationHook(pool)
-	}
-	if hook == nil {
-		hook = registration.Noop()
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{

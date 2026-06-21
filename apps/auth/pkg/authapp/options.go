@@ -6,6 +6,7 @@ import (
 )
 
 type Options struct {
-	RegistrationHook    registration.Hook
+	// NewRegistrationHook builds the registration hook from the auth DB pool
+	// (available only after connect). Nil → registration.Noop().
 	NewRegistrationHook func(pool *pgxpool.Pool) registration.Hook
 }
