@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Copy } from "lucide-react"
+import { Copy, KeyRound } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
 import { FloatingHint } from "@/components/ui/floating-hint"
@@ -154,9 +154,19 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   async function handleDeleteSecret() {
     if (deactivateResource.isPending) return
 
+    const infoNode = (
+      <div className="flex flex-col items-center gap-3 px-6">
+        <KeyRound className="h-8 w-8 shrink-0" id="icon" />
+        <Label htmlFor="icon" className="text-lg">{secret.name}</Label>
+        <p>{t("secrets.typeNameToConfirm")}</p>
+      </div>
+    )
+
     const confirmed = await confirm({
       title: t("secrets.deleteTitle"),
       description: t("secrets.deleteDescription"),
+      infoNode,
+      strongConfirmValue: secret.name,
       confirmText: t("common.actions.delete"),
       cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",
