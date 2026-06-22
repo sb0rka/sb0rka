@@ -193,6 +193,15 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     return -1
   }, [])
 
+  const findLatestAssistantSqlInCurrentTurn = useCallback((prev: AiQueryChatMessage[]) => {
+    for (let i = prev.length - 1; i >= 0; i--) {
+      const m = prev[i]
+      if (m.role === "user") break
+      if (m.role === "assistant" && m.type === "sql") return i
+    }
+    return -1
+  }, [])
+
   const upsertStreamingSql = useCallback((text: string) => {
     if (!text.trim()) return
     setMessages((prev) => {
@@ -407,16 +416,19 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       const sqlToRender = sqlRes.sql.trim()
       setMessages((prev) => {
         let next = [...prev]
-        const sqlIndex = sqlMessageIndexRef.current
+        let sqlIndex = sqlMessageIndexRef.current
 
         if (sqlToRender) {
-          if (
-            sqlIndex >= 0 &&
-            sqlIndex < next.length &&
-            next[sqlIndex]?.role === "assistant" &&
-            next[sqlIndex]?.type === "sql"
-          ) {
+          const sqlAtIndex =
+            sqlIndex >= 0 && sqlIndex < next.length ? next[sqlIndex] : undefined
+          const hasValidSqlSlot =
+            sqlAtIndex?.role === "assistant" && sqlAtIndex.type === "sql"
+          if (!hasValidSqlSlot) {
+            sqlIndex = findLatestAssistantSqlInCurrentTurn(next)
+          }
+          if (sqlIndex >= 0) {
             next[sqlIndex] = { role: "assistant", type: "sql", output: sqlToRender }
+            sqlMessageIndexRef.current = sqlIndex
           } else {
             next.push({ role: "assistant", type: "sql", output: sqlToRender })
             sqlMessageIndexRef.current = next.length - 1
@@ -441,7 +453,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
     } finally {
       finishRequest(controller)
     }
-  }, [schema, dialect, assertOpenAiConfig, beginRequest, finishRequest, findFixSqlMessageIndex, selectedModel, upsertFixMessage, upsertStreamingSql, upsertThinkingText])
+  }, [schema, dialect, assertOpenAiConfig, beginRequest, finishRequest, findFixSqlMessageIndex, findLatestAssistantSqlInCurrentTurn, selectedModel, upsertFixMessage, upsertStreamingSql, upsertThinkingText])
 
   return {
     messages,
