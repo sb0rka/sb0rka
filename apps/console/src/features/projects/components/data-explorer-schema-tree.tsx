@@ -19,7 +19,7 @@ export interface DataExplorerSchemaTreeProps {
 /** resource_id → tree expanded (independent of selection) */
 type DatabaseExpandedMap = Record<string, boolean>
 
-/** resource_id → tableKey → expanded (missing key → default from table count) */
+/** resource_id → tableKey → expanded */
 type ExpandedTablesMap = Record<string, Record<string, boolean>>
 type DatabaseConnectionState = "initialLoading" | "connected" | "notConnected"
 
@@ -27,11 +27,10 @@ function isTableExpanded(
   map: ExpandedTablesMap,
   resourceId: string,
   tableKey: string,
-  tableCount: number,
 ): boolean {
   const v = map[resourceId]?.[tableKey]
   if (v !== undefined) return v
-  return tableCount <= 3
+  return false
 }
 
 export function DataExplorerSchemaTree({
@@ -136,9 +135,9 @@ export function DataExplorerSchemaTree({
   }, [])
 
   const toggleTableExpanded = useCallback(
-    (resourceId: string, tableKey: string, tableCount: number) => {
+    (resourceId: string, tableKey: string) => {
       setExpandedTables((prev) => {
-        const current = isTableExpanded(prev, resourceId, tableKey, tableCount)
+        const current = isTableExpanded(prev, resourceId, tableKey)
         return {
           ...prev,
           [resourceId]: {
@@ -185,7 +184,6 @@ export function DataExplorerSchemaTree({
         <ul className="space-y-0.5">
           {nodes.map(({ database, tables }) => {
             const isSelected = selectedResourceId === database.resource_id
-            const tableCount = tables.length
             const dbOpen = databaseExpanded[database.resource_id] ?? false
             const health = healthByResourceId.get(database.resource_id)
             const { state: connectionState, isRefetching: isConnectionRefetching } =
@@ -249,7 +247,6 @@ export function DataExplorerSchemaTree({
                         expandedTables,
                         database.resource_id,
                         tableKey,
-                        tableCount,
                       )
 
                       return (
@@ -268,7 +265,6 @@ export function DataExplorerSchemaTree({
                                 toggleTableExpanded(
                                   database.resource_id,
                                   tableKey,
-                                  tableCount,
                                 )
                               }
                               className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
