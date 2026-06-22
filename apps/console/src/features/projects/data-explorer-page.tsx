@@ -278,10 +278,7 @@ export function DataExplorerPage() {
           onSelectDatabase={setSelectedResourceId}
           onInsertTableName={insertIntoActiveInput}
           onInsertColumnName={insertIntoActiveInput}
-          isSchemaRefetching={
-            Boolean(schemaQuery.data) &&
-            schemaQuery.fetchStatus === "fetching"
-          }
+          isSchemaFetching={schemaQuery.isFetching}
           projectId={id}
         />
 
