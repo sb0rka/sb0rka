@@ -1,7 +1,6 @@
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatAssistantFixMessageView } from "./ai-query-chat-assistant-fix-message"
 import { AiQueryChatErrorMessageView } from "./ai-query-chat-error-message"
-import { AiQueryChatExplanationMessageView } from "./ai-query-chat-explanation-message"
 import { AiQueryChatSqlMessageView } from "./ai-query-chat-sql-message"
 import { AiQueryChatThinkingMessageView } from "./ai-query-chat-thinking-message"
 import { AiQueryChatUserFixMessageView } from "./ai-query-chat-user-fix-message"
@@ -15,7 +14,6 @@ export type AiQueryChatMessageItemProps = {
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
-  onRefreshExplanationAt: (index: number, stylePrompt: string) => void | Promise<void>
 }
 
 export function AiQueryChatMessageItem({
@@ -26,7 +24,6 @@ export function AiQueryChatMessageItem({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
-  onRefreshExplanationAt,
 }: AiQueryChatMessageItemProps) {
   if (message.role === "user") {
     if (message.variant === "fix") {
@@ -65,12 +62,5 @@ export function AiQueryChatMessageItem({
     return <AiQueryChatErrorMessageView message={message} index={index} />
   }
 
-  return (
-    <AiQueryChatExplanationMessageView
-      message={message}
-      index={index}
-      isPending={isPending}
-      onRefreshExplanationAt={onRefreshExplanationAt}
-    />
-  )
+  return null
 }

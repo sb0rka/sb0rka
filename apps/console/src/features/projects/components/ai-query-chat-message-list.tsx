@@ -13,7 +13,6 @@ export type AiQueryChatMessageListProps = {
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
-  onRefreshExplanationAt: (index: number, stylePrompt: string) => void | Promise<void>
 }
 
 export function AiQueryChatMessageList({
@@ -22,7 +21,6 @@ export function AiQueryChatMessageList({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
-  onRefreshExplanationAt,
 }: AiQueryChatMessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const scrollKey = useMemo(() => messagesAutoScrollKey(messages), [messages])
@@ -37,11 +35,6 @@ export function AiQueryChatMessageList({
   useAutoScrollOnContentChange(listRef, scrollKey, messages.length > 0, [isPending], {
     resetWhen: isPending,
   })
-
-
-
-  // console.log(messages)
-
   return (
     <div
       ref={listRef}
@@ -62,7 +55,6 @@ export function AiQueryChatMessageList({
           onApplySql={onApplySql}
           onApplySqlAndRun={onApplySqlAndRun}
           applySqlAndRunDisabled={applySqlAndRunDisabled}
-          onRefreshExplanationAt={onRefreshExplanationAt}
         />
       ))}
     </div>

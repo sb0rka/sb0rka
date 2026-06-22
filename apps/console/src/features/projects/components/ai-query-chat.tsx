@@ -1,43 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowUp, Check, ChevronDown, Square } from "lucide-react"
+import { ArrowUp, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import {
-  EXPLAIN_STYLE_ORDER,
-  explainStyleKeyFromPrompt,
-  explainStyleLabelKey,
-  explainStylePrompt,
-  type ExplainStyleKey,
-} from "../explain-styles"
 import { type OpenAiModelInfo } from "../api"
 import { AiQueryChatMessageList } from "./ai-query-chat-message-list"
 import { AiQueryChatModelSelector } from "./ai-query-chat-model-selector"
-import {
-  type AiQueryChatMessage,
-  type AiQueryChatSendPayload,
-  type AiReasoningLevel,
-} from "../use-ai-query-chat"
-
-const EXPLANATION_STYLE_STORAGE_KEY = "ai-query-chat:explanation-style"
-
-const aiChatMenuTriggerClass =
-  "focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+import { type AiQueryChatMessage, type AiQueryChatSendPayload } from "../use-ai-query-chat"
 
 export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
   isPending: boolean
-  lastGenerateStyle: string
-  setLastGenerateStyle: (style: string) => void
   sendMessage: (payload: AiQueryChatSendPayload) => Promise<void>
-  refreshExplanationAt: (index: number, stylePrompt: string) => Promise<void>
   stop: () => void
 }
 
@@ -45,11 +20,9 @@ export type AiQueryChatProps = {
   chat: AiQueryChatController
   availableModels: OpenAiModelInfo[]
   selectedModel: string
-  reasoningLevel: AiReasoningLevel
   modelsLoading?: boolean
   modelsError?: boolean
   onModelSelect?: (model: string) => void
-  onReasoningLevelChange?: (level: AiReasoningLevel) => void
   schema?: string
   dialect?: string
   onApplySql?: (sql: string) => void
@@ -66,11 +39,9 @@ export function AiQueryChat({
   chat,
   availableModels,
   selectedModel,
-  reasoningLevel,
   modelsLoading,
   modelsError,
   onModelSelect,
-  onReasoningLevelChange,
   schema,
   dialect,
   onApplySql,
@@ -84,32 +55,11 @@ export function AiQueryChat({
   const {
     messages,
     isPending,
-    lastGenerateStyle,
-    setLastGenerateStyle,
     sendMessage,
-    refreshExplanationAt,
     stop,
   } = chat
   const [input, setInput] = useState("")
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null)
-  const selectedExplanationStyleKey = explainStyleKeyFromPrompt(lastGenerateStyle)
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const stored = window.localStorage.getItem(EXPLANATION_STYLE_STORAGE_KEY)?.trim() ?? ""
-    if (!stored) return
-    const valid = EXPLAIN_STYLE_ORDER.find((key) => key === stored)
-    if (!valid) return
-    setLastGenerateStyle(explainStylePrompt(valid))
-  }, [setLastGenerateStyle])
-
-  function handleSelectExplanationStyle(key: ExplainStyleKey) {
-    const stylePrompt = explainStylePrompt(key)
-    setLastGenerateStyle(stylePrompt)
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(EXPLANATION_STYLE_STORAGE_KEY, key)
-    }
-  }
 
   function handleSend() {
     const trimmed = input.trim()
@@ -117,17 +67,11 @@ export function AiQueryChat({
     void sendMessage({
       type: "generate",
       message: trimmed,
-      style: lastGenerateStyle,
       schema,
       dialect,
     })
     setInput("")
   }
-
-  const selectedReasoningLabel = t(
-    `dataExplorer.aiChatMenuReasoningLevel${reasoningLevel[0].toUpperCase()}${reasoningLevel.slice(1)}`,
-  )
-  const selectedExplanationLabel = t(explainStyleLabelKey(selectedExplanationStyleKey))
 
   const insertIntoPrompt = useCallback((text: string) => {
     if (!text) return
@@ -168,7 +112,6 @@ export function AiQueryChat({
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
-        onRefreshExplanationAt={refreshExplanationAt}
       />
 
       <div className="shrink-0 space-y-2 pt-3">
@@ -218,88 +161,6 @@ export function AiQueryChat({
             modelsError={modelsError}
             onModelSelect={onModelSelect}
           />
-
-          <div className="flex w-full flex-wrap gap-1.5">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn(
-                    "h-11 min-w-[9.5rem] flex-1 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
-                    aiChatMenuTriggerClass,
-                  )}
-                  aria-label={t("dataExplorer.aiChatMenuGroupReasoning")}
-                >
-                  <span className="min-w-0 flex-1 text-left leading-none">
-                    <span className="block truncate text-[10px] leading-3">
-                      {t("dataExplorer.aiChatMenuGroupReasoning")}
-                    </span>
-                    <span className="mt-1 block truncate text-xs leading-4 text-foreground">
-                      {selectedReasoningLabel}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {(["low", "medium", "high"] as const).map((level) => (
-                  <DropdownMenuItem
-                    key={level}
-                    className="gap-2"
-                    onSelect={() => onReasoningLevelChange?.(level)}
-                  >
-                    <span className="flex-1">
-                      {t(
-                        `dataExplorer.aiChatMenuReasoningLevel${level[0].toUpperCase()}${level.slice(1)}`,
-                      )}
-                    </span>
-                    {reasoningLevel === level ? (
-                      <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    ) : null}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn(
-                    "h-11 min-w-[9.5rem] flex-1 gap-1 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/35 hover:text-foreground",
-                    aiChatMenuTriggerClass,
-                  )}
-                  aria-label={t("dataExplorer.aiChatMenuGroupThird")}
-                >
-                  <span className="min-w-0 flex-1 text-left leading-none">
-                    <span className="block truncate text-[10px] leading-3">
-                      {t("dataExplorer.aiChatMenuGroupThird")}
-                    </span>
-                    <span className="mt-1 block truncate text-xs leading-4 text-foreground">
-                      {selectedExplanationLabel}
-                    </span>
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {EXPLAIN_STYLE_ORDER.map((key) => (
-                  <DropdownMenuItem
-                    key={key}
-                    className="gap-2"
-                    onSelect={() => handleSelectExplanationStyle(key)}
-                  >
-                    <span className="flex-1">{t(explainStyleLabelKey(key))}</span>
-                    {selectedExplanationStyleKey === key ? (
-                      <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    ) : null}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
       </div>
     </div>

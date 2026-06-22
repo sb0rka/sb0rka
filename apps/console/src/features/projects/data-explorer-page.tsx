@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
-  type AiReasoningLevel,
   useAiQueryChat,
   useDatabases,
   useDataExplorerSchema,
@@ -29,23 +28,8 @@ import {
 } from "./api"
 
 const MAX_SCHEMA_CHARS = 190_000
-const AI_REASONING_LEVEL_STORAGE_KEY = "sb0rka.console.aiReasoningLevel"
 const AI_SELECTED_MODEL_STORAGE_KEY = "sb0rka.console.aiSelectedModel"
 type ActiveInput = "sql" | "prompt"
-
-function parseAiReasoningLevel(value: string | null | undefined): AiReasoningLevel | null {
-  if (!value) return null
-  const normalized = value.trim().toLowerCase()
-  if (normalized === "low" || normalized === "medium" || normalized === "high") {
-    return normalized
-  }
-  return null
-}
-
-function getStoredAiReasoningLevel(): AiReasoningLevel {
-  if (typeof window === "undefined") return "low"
-  return parseAiReasoningLevel(window.localStorage.getItem(AI_REASONING_LEVEL_STORAGE_KEY)) ?? "low"
-}
 
 function getStoredAiSelectedModel(): string {
   if (typeof window === "undefined") return OPENAI_DEFAULT_MODEL
@@ -103,9 +87,6 @@ export function DataExplorerPage() {
   const [result, setResult] = useState<RunDatabaseQueryResponse | null>(null)
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
   const [selectedAiModel, setSelectedAiModel] = useState(() => getStoredAiSelectedModel())
-  const [aiReasoningLevel, setAiReasoningLevel] = useState<AiReasoningLevel>(() =>
-    getStoredAiReasoningLevel(),
-  )
   const [activeInput, setActiveInput] = useState<ActiveInput>("sql")
   const [promptInserter, setPromptInserter] = useState<((text: string) => void) | null>(null)
   const sqlTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -194,11 +175,6 @@ export function DataExplorerPage() {
     })
   }, [aiModelsQuery.data])
 
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(AI_REASONING_LEVEL_STORAGE_KEY, aiReasoningLevel)
-  }, [aiReasoningLevel])
-
   function handleAiModelSelect(model: string) {
     setSelectedAiModel(model)
     if (typeof window === "undefined") return
@@ -213,8 +189,8 @@ export function DataExplorerPage() {
     openaiUrl: aiConfigQuery.data?.openaiUrl,
     openaiKey: aiConfigQuery.data?.openaiKey,
     selectedModel: selectedAiModel,
-    reasoningLevel: aiReasoningLevel,
   })
+  const resetAiChat = aiChat.reset
   const wasAiAssistantAvailableRef = useRef(false)
 
   useEffect(() => {
@@ -230,14 +206,14 @@ export function DataExplorerPage() {
     if (!hasRequiredAiSecretNames) {
       wasAiAssistantAvailableRef.current = false
       setAiPanelOpen(false)
-      aiChat.reset()
+      resetAiChat()
       return
     }
     if (!wasAiAssistantAvailableRef.current) {
       setAiPanelOpen(true)
     }
     wasAiAssistantAvailableRef.current = true
-  }, [aiChat.reset, hasRequiredAiSecretNames])
+  }, [hasRequiredAiSecretNames, resetAiChat])
 
   const isSqlEmpty = sql.trim().length === 0
 
@@ -433,8 +409,6 @@ export function DataExplorerPage() {
                       modelsLoading={aiModelsQuery.isLoading}
                       modelsError={aiModelsQuery.isError}
                       onModelSelect={handleAiModelSelect}
-                      reasoningLevel={aiReasoningLevel}
-                      onReasoningLevelChange={setAiReasoningLevel}
                       schema={nl2sqlSchema || undefined}
                       dialect="postgresql"
                       onApplySql={(next) => {

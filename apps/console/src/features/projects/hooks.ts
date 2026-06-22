@@ -291,13 +291,9 @@ export function useDataExplorerDatabaseHealth(projectId: string) {
 }
 
 export {
-  lastExplanationStyle,
   useAiQueryChat,
-  type AiReasoningLevel,
   type AiQueryChatAssistantMessage,
   type AiQueryChatErrorMessage,
-  type AiQueryChatExplainPayload,
-  type AiQueryChatExplanationMessage,
   type AiQueryChatFixMessage,
   type AiQueryChatFixPayload,
   type AiQueryChatGeneratePayload,
