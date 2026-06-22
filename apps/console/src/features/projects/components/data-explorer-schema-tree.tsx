@@ -150,36 +150,23 @@ export function DataExplorerSchemaTree({
     [],
   )
 
-  const isInitialSchemaFetch =
-    isSchemaFetching && nodes.every(({ tables }) => tables.length === 0)
-  const isSchemaRefetching = isSchemaFetching && !isInitialSchemaFetch
-
   return (
     <div
-      className="relative flex h-full min-h-0 w-56 shrink-0 flex-col border-r border-border bg-muted/20 font-sans"
+      className="flex h-full min-h-0 w-56 shrink-0 flex-col border-r border-border bg-muted/20 font-sans"
       aria-busy={isSchemaFetching}
     >
-      {isSchemaRefetching ? (
-        <div
-          className="pointer-events-none absolute right-3 top-3 z-10 bg-transparent p-1"
-          aria-hidden
-        >
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+      <div className="flex shrink-0 items-center justify-between px-3 pb-2 pt-3">
+        <div className="text-xs font-semibold text-muted-foreground">
+          {t("dataExplorer.schemaTreeDatabases", { count: nodes.length })}
         </div>
-      ) : null}
-
-      <div className="shrink-0 px-3 pb-2 pt-3 text-xs font-semibold text-muted-foreground">
-        {t("dataExplorer.schemaTreeDatabases", { count: nodes.length })}
-      </div>
-
-      {isInitialSchemaFetch ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
+        {isSchemaFetching ? (
           <Loader2
-            className="size-5 animate-spin text-muted-foreground"
+            className="size-4 shrink-0 animate-spin text-muted-foreground"
             aria-label={t("dataExplorer.loadingSchema")}
           />
-        </div>
-      ) : (
+        ) : null}
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <ul className="space-y-0.5">
           {nodes.map(({ database, tables }) => {
@@ -310,7 +297,6 @@ export function DataExplorerSchemaTree({
           })}
         </ul>
       </div>
-      )}
     </div>
   )
 }
