@@ -14,6 +14,7 @@ export type AiQueryChatController = {
   isPending: boolean
   sendMessage: (payload: AiQueryChatSendPayload) => Promise<void>
   stop: () => void
+  reset: () => void
 }
 
 export type AiQueryChatProps = {

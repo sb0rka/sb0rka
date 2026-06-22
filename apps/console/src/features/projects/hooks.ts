@@ -292,18 +292,13 @@ export function useDataExplorerDatabaseHealth(projectId: string) {
 
 export {
   useAiQueryChat,
-  type AiQueryChatAssistantMessage,
   type AiQueryChatErrorMessage,
   type AiQueryChatFixMessage,
-  type AiQueryChatFixPayload,
-  type AiQueryChatGeneratePayload,
   type AiQueryChatMessage,
   type AiQueryChatSendPayload,
   type AiQueryChatSqlMessage,
   type AiQueryChatUserFixMessage,
-  type AiQueryChatUserMessage,
   type AiQueryChatUserTextMessage,
-  type UseAiQueryChatOptions,
 } from "./use-ai-query-chat"
 
 export function useDeactivateResource(projectId: string, resourceId?: string) {
