@@ -97,7 +97,7 @@ export function AppLayout() {
   }, [isProjectOpen])
 
   return (
-    <div className="flex h-dvh w-full md:h-screen">
+    <div className="flex min-h-dvh w-full md:h-screen">
       <div className="hidden h-full md:block">
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -112,11 +112,11 @@ export function AppLayout() {
       <div className="md:hidden">
         <MobileRootNav />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
         <div className="hidden md:block">
           <Header breadcrumbs={breadcrumbs} />
         </div>
-        <main className="flex flex-1 flex-col overflow-auto bg-background px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))] md:p-6">
+        <main className="flex flex-1 flex-col bg-background px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))] md:min-h-0 md:overflow-auto md:p-6">
           <Outlet />
         </main>
       </div>
