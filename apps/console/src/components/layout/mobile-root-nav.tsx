@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
+import { BarChart3, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SborkaLogoMark, SborkaLogoWordmarkText } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -29,8 +29,9 @@ const projectTabLabelKeyById: Record<ProjectTab, string> = {
 }
 
 type MobileNavItem = {
-  labelKey: string
-  icon: ComponentType<{ className?: string }>
+  labelKey?: string
+  label?: string
+  icon?: ComponentType<{ className?: string }>
   href: string
   isActive: boolean
 }
@@ -204,9 +205,9 @@ function useMobileNavItems(): MobileNavItem[] {
 
   return [
     {
-      labelKey: "nav.projects",
-      icon: Home,
-      href: "/projects",
+      labelKey: "tabs.overview",
+      icon: BarChart3,
+      href: `/projects/${projectId}?tab=overview`,
       isActive:
         activeTab === "overview" ||
         activeTab === "settings" ||
@@ -241,14 +242,14 @@ export function MobileRootNav() {
           {projectHeader ? (
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <Link
-                to={projectHeader.backHref}
-                aria-label={projectHeader.backLabel}
+                to="/projects"
+                aria-label={t("nav.projects")}
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   buttonPressClass,
                 )}
               >
-                <ArrowLeft className="size-5" />
+                <Home className="size-5" />
               </Link>
               <p className="min-w-0 truncate text-sm font-semibold text-foreground">
                 {projectHeader.title}
@@ -328,8 +329,10 @@ export function MobileRootNav() {
                     : "text-muted-foreground hover:bg-background/60 hover:text-foreground dark:hover:bg-muted/50",
                 )}
               >
-                <item.icon className="size-4" />
-                <span className="max-w-full truncate">{t(item.labelKey)}</span>
+                {item.icon ? <item.icon className="size-4" /> : null}
+                <span className="max-w-full truncate">
+                  {item.label ?? t(item.labelKey!)}
+                </span>
               </Link>
             ))}
         </div>
