@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ArrowUp, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,8 +22,10 @@ export type AiQueryChatProps = {
   availableModels: OpenAiModelInfo[]
   selectedModel: string
   modelsLoading?: boolean
+  modelsRefreshing?: boolean
   modelsError?: boolean
   onModelSelect?: (model: string) => void
+  onRefreshModels?: () => void
   schema?: string
   dialect?: string
   onApplySql?: (sql: string) => void
@@ -41,8 +43,10 @@ export function AiQueryChat({
   availableModels,
   selectedModel,
   modelsLoading,
+  modelsRefreshing,
   modelsError,
   onModelSelect,
+  onRefreshModels,
   schema,
   dialect,
   onApplySql,
@@ -105,11 +109,17 @@ export function AiQueryChat({
     return () => onRegisterPromptInserter?.(null)
   }, [insertIntoPrompt, onRegisterPromptInserter])
 
+  const modelPricing = useMemo(
+    () => availableModels.find((model) => model.id === selectedModel)?.pricing,
+    [availableModels, selectedModel],
+  )
+
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
       <AiQueryChatMessageList
         messages={messages}
         isPending={isPending}
+        modelPricing={modelPricing}
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
@@ -159,8 +169,10 @@ export function AiQueryChat({
             availableModels={availableModels}
             selectedModel={selectedModel}
             modelsLoading={modelsLoading}
+            modelsRefreshing={modelsRefreshing}
             modelsError={modelsError}
             onModelSelect={onModelSelect}
+            onRefreshModels={onRefreshModels}
           />
         </div>
       </div>
