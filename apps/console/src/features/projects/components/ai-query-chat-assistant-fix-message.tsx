@@ -7,18 +7,22 @@ import {
   responseMessageBubbleClass,
   responseMessageRowClass,
 } from "./ai-query-chat-message-styles"
+import { type OpenAiModelPricing } from "../api"
+import { AiQueryChatUsageIcon } from "./ai-query-chat-usage-icon"
 import { type AiQueryChatFixMessage } from "../use-ai-query-chat"
 
 export type AiQueryChatAssistantFixMessageProps = {
   message: AiQueryChatFixMessage
   index: number
   isPending: boolean
+  modelPricing?: OpenAiModelPricing
 }
 
 export function AiQueryChatAssistantFixMessageView({
   message,
   index,
   isPending,
+  modelPricing,
 }: AiQueryChatAssistantFixMessageProps) {
   const { t } = useTranslation()
   const explanationTextRef = useRef<HTMLDivElement>(null)
@@ -39,6 +43,11 @@ export function AiQueryChatAssistantFixMessageView({
             >
               {message.explanation}
             </div>
+            {!isPending ? (
+              <div className="absolute bottom-1 right-1">
+                <AiQueryChatUsageIcon usage={message.usage} modelPricing={modelPricing} compact />
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

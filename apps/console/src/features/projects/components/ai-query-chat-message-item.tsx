@@ -1,7 +1,7 @@
+import { type OpenAiModelPricing } from "../api"
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatAssistantFixMessageView } from "./ai-query-chat-assistant-fix-message"
 import { AiQueryChatErrorMessageView } from "./ai-query-chat-error-message"
-import { AiQueryChatExplanationMessageView } from "./ai-query-chat-explanation-message"
 import { AiQueryChatSqlMessageView } from "./ai-query-chat-sql-message"
 import { AiQueryChatThinkingMessageView } from "./ai-query-chat-thinking-message"
 import { AiQueryChatUserFixMessageView } from "./ai-query-chat-user-fix-message"
@@ -12,10 +12,10 @@ export type AiQueryChatMessageItemProps = {
   index: number
   isPending: boolean
   isActiveThinking: boolean
+  modelPricing?: OpenAiModelPricing
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
-  onRefreshExplanationAt: (index: number, stylePrompt: string) => void | Promise<void>
 }
 
 export function AiQueryChatMessageItem({
@@ -23,10 +23,10 @@ export function AiQueryChatMessageItem({
   index,
   isPending,
   isActiveThinking,
+  modelPricing,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
-  onRefreshExplanationAt,
 }: AiQueryChatMessageItemProps) {
   if (message.role === "user") {
     if (message.variant === "fix") {
@@ -44,6 +44,7 @@ export function AiQueryChatMessageItem({
       <AiQueryChatSqlMessageView
         message={message}
         isPending={isPending}
+        modelPricing={modelPricing}
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
@@ -57,6 +58,7 @@ export function AiQueryChatMessageItem({
         message={message}
         index={index}
         isPending={isPending}
+        modelPricing={modelPricing}
       />
     )
   }
@@ -65,12 +67,5 @@ export function AiQueryChatMessageItem({
     return <AiQueryChatErrorMessageView message={message} index={index} />
   }
 
-  return (
-    <AiQueryChatExplanationMessageView
-      message={message}
-      index={index}
-      isPending={isPending}
-      onRefreshExplanationAt={onRefreshExplanationAt}
-    />
-  )
+  return null
 }

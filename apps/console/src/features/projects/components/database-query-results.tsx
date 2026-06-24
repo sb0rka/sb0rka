@@ -9,7 +9,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { hideScrollbarClass } from "./ai-query-chat-message-styles"
+import { cn } from "@/lib/utils"
 import type { RunDatabaseQueryResponse } from "../api"
+
+const queryTableCellBottomBorderClass = "border-b border-border/70"
+
+function queryTableCellBorderClass(columnIndex: number, columnCount: number) {
+  return cn(
+    queryTableCellBottomBorderClass,
+    columnIndex < columnCount - 1 && "border-r border-border/70",
+  )
+}
+
+function queryTableHeaderCellStyle(columnIndex: number, columnCount: number) {
+  const divider = "color-mix(in oklab, var(--border) 70%, transparent)"
+  const shadows = [`inset 0 -1px 0 0 ${divider}`]
+  if (columnIndex < columnCount - 1) {
+    shadows.unshift(`inset -1px 0 0 0 ${divider}`)
+  }
+  return { boxShadow: shadows.join(", ") }
+}
 
 export function formatQueryCellValue(value: unknown): string {
   if (value === null || value === undefined) return "NULL"
@@ -21,18 +40,19 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
   const { t } = useTranslation()
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false)
 
-  function renderResultTable(heightClassName: string) {
+  function renderResultTable(heightClassName: string, borderClassName: string) {
     return (
       <div
-        className={`${heightClassName} overflow-auto rounded-md border border-border/80 bg-background ${hideScrollbarClass}`}
+        className={`${heightClassName} overflow-auto ${borderClassName} border-border/80 bg-background ${hideScrollbarClass}`}
       >
-        <table className="w-full min-w-max text-left text-sm">
-          <thead className="sticky top-0 z-10 border-b border-border/90 bg-card/95 text-muted-foreground backdrop-blur">
+        <table className="w-full min-w-max border-separate border-spacing-0 text-left text-sm">
+          <thead className="sticky top-0 z-10 text-muted-foreground">
             <tr>
-              {result.columns.map((column) => (
+              {result.columns.map((column, columnIndex) => (
                 <th
                   key={column}
-                  className="px-3 py-2.5 text-xs font-semibold tracking-wide text-muted-foreground"
+                  style={queryTableHeaderCellStyle(columnIndex, result.columns.length)}
+                  className="relative z-10 bg-card/95 px-3 py-2.5 text-center text-xs font-semibold tracking-wide text-muted-foreground backdrop-blur"
                 >
                   {column}
                 </th>
@@ -43,14 +63,17 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
             {result.rows.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
-                className={`border-b border-border/70 transition-colors last:border-b-0 hover:bg-accent/40 ${
+                className={`transition-colors hover:bg-accent/40 ${
                   rowIndex % 2 === 0 ? "bg-background" : "bg-secondary/50"
                 }`}
               >
                 {result.columns.map((column, columnIndex) => (
                   <td
                     key={`${rowIndex}-${column}`}
-                    className="max-w-[320px] truncate px-3 py-2.5 font-mono text-sm leading-6 text-foreground/95 tabular-nums"
+                    className={cn(
+                      queryTableCellBorderClass(columnIndex, result.columns.length),
+                      "max-w-[320px] truncate px-3 py-2.5 font-mono text-sm leading-6 text-foreground/95 tabular-nums",
+                    )}
                     title={formatQueryCellValue(row[columnIndex])}
                   >
                     {formatQueryCellValue(row[columnIndex])}
@@ -87,7 +110,7 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
         </p>
       ) : (
         <div className="min-h-0 flex-1">
-          {renderResultTable("h-full")}
+          {renderResultTable("h-full", "border")}
         </div>
       )}
 
@@ -100,8 +123,8 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
               {t("databaseQuery.duration", { duration: result.duration_ms })}
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-hidden px-6 pb-6">
-            {renderResultTable("h-full")}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {renderResultTable("h-full", "")}
           </div>
         </DialogContent>
       </Dialog>
