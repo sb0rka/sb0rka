@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/authapp"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 )
 
 //go:embed version.txt
@@ -33,10 +32,7 @@ func serverCMD(args []string) error {
 		return fmt.Errorf("server cmd got unexpected arguments: %v", fs.Args())
 	}
 
-	app := authapp.New(authapp.Options{
-		RequireInvite:  false,
-		InviteProvider: invite.Disabled(),
-	})
+	app := authapp.New(authapp.Options{})
 	return app.Run(context.Background())
 }
 

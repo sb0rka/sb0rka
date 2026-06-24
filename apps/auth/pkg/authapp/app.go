@@ -10,7 +10,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/registration"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -50,25 +50,21 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	log.Info("database connection established successfully")
 
-	inviteProvider := a.opts.InviteProvider
-	if inviteProvider == nil && a.opts.NewInviteProvider != nil {
+	hook := registration.Noop()
+	if a.opts.RegistrationHookFactory != nil {
 		pool, err := store.PgxPool(database)
 		if err != nil {
-			return fmt.Errorf("failed to resolve database pool for invite provider: %w", err)
+			return fmt.Errorf("failed to resolve database pool for registration hook: %w", err)
 		}
-		inviteProvider = a.opts.NewInviteProvider(pool)
-	}
-	if inviteProvider == nil {
-		inviteProvider = invite.Disabled()
+		hook = a.opts.RegistrationHookFactory(pool)
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
-		Database:       database,
-		Authorizer:     authz.NewRBACAuthorizer(database),
-		Cfg:            cfg.Server,
-		Log:            log,
-		RequireInvite:  a.opts.RequireInvite,
-		InviteProvider: inviteProvider,
+		Database:         database,
+		Authorizer:       authz.NewRBACAuthorizer(database),
+		Cfg:              cfg.Server,
+		Log:              log,
+		RegistrationHook: hook,
 	})
 	handler := newSrv.BuildCommonHandler()
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)

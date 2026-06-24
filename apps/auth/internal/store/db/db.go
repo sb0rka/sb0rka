@@ -7,6 +7,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func CreateDatabase(uri string, maxConns int, connMaxLifetime int64) (Database, error) {
@@ -24,7 +25,7 @@ type Database interface {
 
 	// --- Users ---
 
-	CreateUser(ctx context.Context, userID uuid.UUID, isActive bool, username, email, passwordHash string, phone int) (model.User, error)
+	CreateUser(ctx context.Context, userID uuid.UUID, isActive bool, username, email, passwordHash string, phone int, postInsert func(ctx context.Context, tx pgx.Tx) error) (model.User, error)
 	GetUser(ctx context.Context, userID, username, email string) (model.User, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, username, email, phone string) (model.User, error)
 	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error

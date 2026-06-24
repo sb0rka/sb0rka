@@ -1,17 +1,19 @@
 package users
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/registration"
 	"github.com/sb0rka/sb0rka/packages/contract"
 )
 
@@ -73,44 +75,40 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	userID := uuid.New()
 
-	var inviteCode string
-	if h.deps.RequireInvite {
-		if req.InviteCode == nil || *req.InviteCode == "" {
-			http.Error(w, "Invite code is required", http.StatusBadRequest)
-			return
-		}
-		inviteCode = *req.InviteCode
-		if err := h.deps.InviteProvider.Validate(r.Context(), inviteCode); err != nil {
-			if errors.Is(err, invite.ErrInvalid) {
-				http.Error(w, "Invite code not found or already used", http.StatusNotFound)
-				return
-			}
-			h.deps.Log.Error("register_check_invite_failed", "error", err)
-			http.Error(w, "Failed to check invite code", http.StatusInternalServerError)
-			return
-		}
+	regReq := registration.Request{Username: username, Email: email, Extras: req.Extras}
+	if err := h.deps.RegistrationHook.BeforeCreate(r.Context(), regReq); err != nil {
+		h.writeHookError(w, err)
+		return
 	}
 
-	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone)
+	postInsert := func(ctx context.Context, tx pgx.Tx) error {
+		return h.deps.RegistrationHook.Provision(ctx, tx, regReq, userID)
+	}
+	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExists) {
 			http.Error(w, "Username or email already exists", http.StatusConflict)
 			return
 		}
-		h.deps.Log.Error("register_create_user_failed", "error", err)
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		h.writeHookError(w, err)
 		return
-	}
-
-	if h.deps.RequireInvite {
-		if err := h.deps.InviteProvider.Claim(r.Context(), inviteCode, userID); err != nil {
-			h.deps.Log.Error("register_claim_invite_failed", "error", err)
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ToUserResponse(user))
+}
+
+// writeHookError surfaces only a client-facing *StatusError (4xx); 5xx and any
+// other error are logged and returned as a generic 500 so hook internals never leak.
+func (h *Handler) writeHookError(w http.ResponseWriter, err error) {
+	var re *registration.StatusError
+	if errors.As(err, &re) && re.Status < http.StatusInternalServerError {
+		http.Error(w, re.Message, re.Status)
+		return
+	}
+	h.deps.Log.Error("register_hook_failed", "error", err)
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {

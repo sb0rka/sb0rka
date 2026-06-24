@@ -45,4 +45,4 @@ go run ./apps/auth/cmd/auth server
 | `ACCESS_TOKEN_ISSUER` / `…_AUDIENCE` / `…_KID` | `auth.local` / `api.local` / `ed25519-v1` | claims токена |
 | `ACCESS_TOKEN_TTL_SEC` / `ACCESS_SESSION_TTL_SEC` | `300` / `604800` | TTL access-токена и сессии |
 | `REFRESH_TOKEN_COOKIE_*` | см. `.env.sample` | имя/secure/samesite refresh-cookie |
-| `IS_INVITE_REQUIRED` / `IS_PHONE_REQUIRED` | `false` / `false` | требовать invite-код / телефон при регистрации |
+| `IS_PHONE_REQUIRED` | `false` | требовать телефон при регистрации |
