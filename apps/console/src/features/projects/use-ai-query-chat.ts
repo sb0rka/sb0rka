@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react"
 import {
   fixSqlWithOpenAiStream,
   generateSqlWithOpenAiStream,
+  type OpenAiRequestUsage,
 } from "./api"
 import {
   errorMessage,
@@ -32,12 +33,14 @@ export type AiQueryChatSqlMessage = {
   role: "assistant"
   type: "sql"
   output: string
+  usage?: OpenAiRequestUsage
 }
 
 export type AiQueryChatFixMessage = {
   role: "assistant"
   type: "fix"
   explanation: string
+  usage?: OpenAiRequestUsage
 }
 
 export type AiQueryChatErrorMessage = {
@@ -213,8 +216,12 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         })
         if (signal.aborted) return
         setMessages((prev) => {
-          const withExplanation = upsertFixExplanationInCurrentTurn(prev, res.explanation)
-          return finalizeSqlInCurrentTurn(withExplanation, res.fixedSql)
+          const withExplanation = upsertFixExplanationInCurrentTurn(prev, res.explanation, {
+            usage: res.explanationUsage,
+          })
+          return finalizeSqlInCurrentTurn(withExplanation, res.fixedSql, {
+            usage: res.fixedSqlUsage,
+          })
         })
       })
       return
@@ -244,7 +251,12 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         },
       })
       if (signal.aborted) return
-      setMessages((prev) => finalizeSqlInCurrentTurn(prev, sqlRes.sql, { removeIfEmpty: true }))
+      setMessages((prev) =>
+        finalizeSqlInCurrentTurn(prev, sqlRes.sql, {
+          removeIfEmpty: true,
+          usage: sqlRes.usage,
+        }),
+      )
     })
   }, [schema, dialect, assertOpenAiConfig, runRequest, selectedModel])
 

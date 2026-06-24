@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api-client"
+import type { OpenAiRequestUsage } from "./api"
 import type { AiQueryChatMessage } from "./use-ai-query-chat"
 
 type AssistantType = "thinking" | "sql" | "fix"
@@ -56,14 +57,19 @@ export function pruneEmptyAssistantMessages(messages: AiQueryChatMessage[]): AiQ
 export function upsertFixExplanationInCurrentTurn(
   messages: AiQueryChatMessage[],
   explanation: string,
+  options?: { usage?: OpenAiRequestUsage },
 ): AiQueryChatMessage[] {
-  if (!explanation.trim()) return messages
+  if (!explanation.trim() && !options?.usage) return messages
   const next = [...messages]
   const fixIndex = findAssistantIndexInCurrentTurn(next, "fix")
   if (fixIndex >= 0) {
     const current = next[fixIndex]
     if (current?.role === "assistant" && current.type === "fix") {
-      next[fixIndex] = { ...current, explanation }
+      next[fixIndex] = {
+        ...current,
+        explanation,
+        ...(options?.usage ? { usage: options.usage } : {}),
+      }
       return next
     }
   }
@@ -71,6 +77,7 @@ export function upsertFixExplanationInCurrentTurn(
     role: "assistant",
     type: "fix",
     explanation,
+    ...(options?.usage ? { usage: options.usage } : {}),
   })
   return next
 }
@@ -93,25 +100,38 @@ export function upsertThinkingInCurrentTurn(
 export function upsertSqlInCurrentTurn(
   messages: AiQueryChatMessage[],
   output: string,
+  options?: { usage?: OpenAiRequestUsage },
 ): AiQueryChatMessage[] {
-  if (!output.trim()) return messages
+  if (!output.trim() && !options?.usage) return messages
   const next = [...messages]
   const sqlIndex = findAssistantIndexInCurrentTurn(next, "sql")
   if (sqlIndex >= 0) {
-    next[sqlIndex] = { role: "assistant", type: "sql", output }
-    return next
+    const current = next[sqlIndex]
+    if (current?.role === "assistant" && current.type === "sql") {
+      next[sqlIndex] = {
+        ...current,
+        output,
+        ...(options?.usage ? { usage: options.usage } : {}),
+      }
+      return next
+    }
   }
-  next.push({ role: "assistant", type: "sql", output })
+  next.push({
+    role: "assistant",
+    type: "sql",
+    output,
+    ...(options?.usage ? { usage: options.usage } : {}),
+  })
   return next
 }
 
 export function finalizeSqlInCurrentTurn(
   messages: AiQueryChatMessage[],
   output: string,
-  options?: { removeIfEmpty?: boolean },
+  options?: { removeIfEmpty?: boolean; usage?: OpenAiRequestUsage },
 ): AiQueryChatMessage[] {
   const sql = output.trim()
-  if (sql) return upsertSqlInCurrentTurn(messages, sql)
+  if (sql) return upsertSqlInCurrentTurn(messages, sql, { usage: options?.usage })
 
   if (!options?.removeIfEmpty) return messages
   const sqlIndex = findAssistantIndexInCurrentTurn(messages, "sql")

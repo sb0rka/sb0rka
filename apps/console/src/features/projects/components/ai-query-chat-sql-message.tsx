@@ -4,13 +4,16 @@ import {
   responseMessageBubbleClass,
   responseMessageRowClass,
 } from "./ai-query-chat-message-styles"
+import { type OpenAiModelPricing } from "../api"
 import { AiQueryChatSqlActions } from "./ai-query-chat-sql-actions"
+import { AiQueryChatUsageIcon } from "./ai-query-chat-usage-icon"
 import { type AiQueryChatSqlMessage } from "../use-ai-query-chat"
 import { useAutoScrollOnContentChange } from "./use-auto-scroll-on-content-change"
 
 export type AiQueryChatSqlMessageProps = {
   message: AiQueryChatSqlMessage
   isPending: boolean
+  modelPricing?: OpenAiModelPricing
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
@@ -19,6 +22,7 @@ export type AiQueryChatSqlMessageProps = {
 export function AiQueryChatSqlMessageView({
   message,
   isPending,
+  modelPricing,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
@@ -47,6 +51,11 @@ export function AiQueryChatSqlMessageView({
         >
           {message.output}
         </pre>
+        {!isPending ? (
+          <div className="absolute bottom-1 right-1">
+            <AiQueryChatUsageIcon usage={message.usage} modelPricing={modelPricing} compact />
+          </div>
+        ) : null}
       </div>
     </div>
   )

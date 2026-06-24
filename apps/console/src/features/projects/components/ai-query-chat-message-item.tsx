@@ -1,3 +1,4 @@
+import { type OpenAiModelPricing } from "../api"
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatAssistantFixMessageView } from "./ai-query-chat-assistant-fix-message"
 import { AiQueryChatErrorMessageView } from "./ai-query-chat-error-message"
@@ -11,6 +12,7 @@ export type AiQueryChatMessageItemProps = {
   index: number
   isPending: boolean
   isActiveThinking: boolean
+  modelPricing?: OpenAiModelPricing
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
@@ -21,6 +23,7 @@ export function AiQueryChatMessageItem({
   index,
   isPending,
   isActiveThinking,
+  modelPricing,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
@@ -41,6 +44,7 @@ export function AiQueryChatMessageItem({
       <AiQueryChatSqlMessageView
         message={message}
         isPending={isPending}
+        modelPricing={modelPricing}
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
@@ -54,6 +58,7 @@ export function AiQueryChatMessageItem({
         message={message}
         index={index}
         isPending={isPending}
+        modelPricing={modelPricing}
       />
     )
   }

@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react"
+import { type OpenAiModelPricing } from "../api"
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatMessageItem } from "./ai-query-chat-message-item"
 import { hideScrollbarClass } from "./ai-query-chat-message-styles"
@@ -10,6 +11,7 @@ import {
 export type AiQueryChatMessageListProps = {
   messages: AiQueryChatMessage[]
   isPending: boolean
+  modelPricing?: OpenAiModelPricing
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
@@ -18,6 +20,7 @@ export type AiQueryChatMessageListProps = {
 export function AiQueryChatMessageList({
   messages,
   isPending,
+  modelPricing,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
@@ -52,6 +55,7 @@ export function AiQueryChatMessageList({
             message.type === "thinking" &&
             index === lastThinkingIndex
           }
+          modelPricing={modelPricing}
           onApplySql={onApplySql}
           onApplySqlAndRun={onApplySqlAndRun}
           applySqlAndRunDisabled={applySqlAndRunDisabled}
