@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:mobile": "vite --mode mobile",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.15.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -44,8 +47,10 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
+    "jsdom": "^29.1.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }

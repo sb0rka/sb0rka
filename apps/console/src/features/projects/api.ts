@@ -413,13 +413,6 @@ export async function listTableColumns(
 }
 
 export const OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
-export const OPENAI_FALLBACK_MODELS = Object.freeze([
-  OPENAI_DEFAULT_MODEL,
-  "openai/gpt-4o-mini",
-  "openai/gpt-4.1-mini",
-  "anthropic/claude-3.5-sonnet",
-  "google/gemini-2.0-flash-001",
-])
 
 export type OpenAiModelPricing = {
   prompt: string
@@ -430,6 +423,20 @@ export type OpenAiModelPricing = {
 export type OpenAiModelInfo = {
   id: string
   pricing?: OpenAiModelPricing
+}
+
+export type OpenAiRequestUsage = {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cachedInputTokens?: number
+  reasoningTokens?: number
+  costUsd?: number
+}
+
+export type OpenAiAssistantTextResult = {
+  text: string
+  usage?: OpenAiRequestUsage
 }
 
 type OpenAiResponseJson = Record<string, unknown>
@@ -445,6 +452,7 @@ export interface OpenAiGenerateSqlRequest {
 
 export interface OpenAiGenerateSqlResponse {
   sql: string
+  usage?: OpenAiRequestUsage
 }
 
 export interface OpenAiExplainSqlRequest {
@@ -476,6 +484,8 @@ export interface OpenAiFixSqlRequest {
 export interface OpenAiFixSqlResponse {
   explanation: string
   fixedSql: string
+  explanationUsage?: OpenAiRequestUsage
+  fixedSqlUsage?: OpenAiRequestUsage
 }
 
 export interface OpenAiReviewSqlCorrectnessRequest {
@@ -627,7 +637,7 @@ export async function listAvailableOpenAiModels(opts: {
 
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
-    return toModelInfoList(OPENAI_FALLBACK_MODELS)
+    return []
   }
 
   const modelsUrl = `${normalizeOpenAiBaseUrl(opts.openaiUrl)}/models`
@@ -639,14 +649,139 @@ export async function listAvailableOpenAiModels(opts: {
       },
     })
     if (!res.ok) {
-      return toModelInfoList(OPENAI_FALLBACK_MODELS)
+      return []
     }
     const payload = (await res.json()) as unknown
-    const models = extractModelsFromResponse(payload)
-    return models.length > 0 ? models : toModelInfoList(OPENAI_FALLBACK_MODELS)
+    return extractModelsFromResponse(payload)
   } catch {
-    return toModelInfoList(OPENAI_FALLBACK_MODELS)
+    return []
   }
+}
+
+function parseCachedInputTokens(value: unknown): number | undefined {
+  if (!isObject(value)) return undefined
+  for (const key of ["input_tokens_details", "prompt_tokens_details"] as const) {
+    const details = value[key]
+    if (
+      isObject(details) &&
+      typeof details.cached_tokens === "number" &&
+      Number.isFinite(details.cached_tokens) &&
+      details.cached_tokens > 0
+    ) {
+      return details.cached_tokens
+    }
+  }
+  return undefined
+}
+
+function parseReasoningTokens(value: unknown): number | undefined {
+  if (!isObject(value)) return undefined
+  for (const key of ["output_tokens_details", "completion_tokens_details"] as const) {
+    const details = value[key]
+    if (
+      isObject(details) &&
+      typeof details.reasoning_tokens === "number" &&
+      Number.isFinite(details.reasoning_tokens)
+    ) {
+      return details.reasoning_tokens
+    }
+  }
+  return undefined
+}
+
+export function parseOpenAiRequestUsage(value: unknown): OpenAiRequestUsage | undefined {
+  if (!isObject(value)) return undefined
+
+  const usesResponsesApiFields =
+    typeof value.input_tokens === "number" || typeof value.output_tokens === "number"
+
+  const inputTokens = usesResponsesApiFields
+    ? typeof value.input_tokens === "number"
+      ? value.input_tokens
+      : undefined
+    : typeof value.prompt_tokens === "number"
+      ? value.prompt_tokens
+      : undefined
+  const outputTokens = usesResponsesApiFields
+    ? typeof value.output_tokens === "number"
+      ? value.output_tokens
+      : undefined
+    : typeof value.completion_tokens === "number"
+      ? value.completion_tokens
+      : undefined
+
+  if (inputTokens === undefined && outputTokens === undefined) return undefined
+
+  const totalTokens =
+    typeof value.total_tokens === "number"
+      ? value.total_tokens
+      : (inputTokens ?? 0) + (outputTokens ?? 0)
+
+  const usage: OpenAiRequestUsage = {
+    inputTokens: inputTokens ?? 0,
+    outputTokens: outputTokens ?? 0,
+    totalTokens,
+  }
+
+  const reasoningTokens = parseReasoningTokens(value)
+  if (reasoningTokens !== undefined) {
+    usage.reasoningTokens = reasoningTokens
+  }
+
+  const cachedInputTokens = parseCachedInputTokens(value)
+  if (cachedInputTokens !== undefined) {
+    usage.cachedInputTokens = cachedInputTokens
+  }
+
+  if (typeof value.cost === "number" && Number.isFinite(value.cost)) {
+    usage.costUsd = value.cost
+  } else if (isObject(value.cost_details)) {
+    const upstream = value.cost_details.upstream_inference_cost
+    if (typeof upstream === "number" && Number.isFinite(upstream)) {
+      usage.costUsd = upstream
+    }
+  }
+
+  return usage
+}
+
+function parseUsageFromUnknown(value: unknown): OpenAiRequestUsage | undefined {
+  return parseOpenAiRequestUsage(value)
+}
+
+function extractUsageFromPayload(payload: unknown): OpenAiRequestUsage | undefined {
+  if (!isObject(payload)) return undefined
+
+  const direct = parseUsageFromUnknown(payload.usage)
+  if (direct) return direct
+
+  if (isObject(payload.response)) {
+    const fromResponse = parseUsageFromUnknown(payload.response.usage)
+    if (fromResponse) return fromResponse
+  }
+
+  return undefined
+}
+
+export function estimateUsageCostUsd(
+  usage: OpenAiRequestUsage,
+  pricing: OpenAiModelPricing | undefined,
+): number | null {
+  if (usage.costUsd !== undefined) return usage.costUsd
+  if (!pricing) return null
+
+  const promptRate = Number(pricing.prompt)
+  const completionRate = Number(pricing.completion)
+  if (
+    !Number.isFinite(promptRate) ||
+    !Number.isFinite(completionRate) ||
+    promptRate < 0 ||
+    completionRate < 0
+  ) {
+    return null
+  }
+
+  return usage.inputTokens * promptRate + usage.outputTokens * completionRate
 }
 
 function extractAssistantMessage(payload: unknown): string {
@@ -746,7 +881,7 @@ async function requestOpenAiAssistantText(opts: {
   prompt: string
   model?: string
   signal?: AbortSignal
-}): Promise<string> {
+}): Promise<OpenAiAssistantTextResult> {
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
     throw new Error("Secret `LLM_API_KEY` is empty")
@@ -778,7 +913,10 @@ async function requestOpenAiAssistantText(opts: {
   }
 
   const payload = (await res.json()) as unknown
-  return extractAssistantMessage(payload)
+  return {
+    text: extractAssistantMessage(payload),
+    usage: extractUsageFromPayload(payload),
+  }
 }
 
 function parseSseBlock(block: string): { event: string | null; data: string } | null {
@@ -845,9 +983,15 @@ function parseEmbeddedSseJsonLine(line: string): { type: string; delta?: string 
   }
 }
 
+function streamUsageEventRank(type: string | null | undefined): number {
+  if (type === "response.done" || type === "response.completed") return 2
+  if (type === "response.incomplete") return 1
+  return 0
+}
+
 async function requestOpenAiAssistantTextStream(
   opts: OpenAiAssistantStreamRequest,
-): Promise<string> {
+): Promise<OpenAiAssistantTextResult> {
   const openaiKey = opts.openaiKey.trim()
   if (!openaiKey) {
     throw new Error("Secret `LLM_API_KEY` is empty")
@@ -881,6 +1025,8 @@ async function requestOpenAiAssistantTextStream(
   let buffer = ""
   let accumulated = ""
   let reasoningAccumulated = ""
+  let latestUsage: OpenAiRequestUsage | undefined
+  let latestUsageRank = -1
   const separatorRegex = /\r?\n\r?\n/
 
   const flushBlock = (block: string) => {
@@ -893,7 +1039,17 @@ async function requestOpenAiAssistantTextStream(
       return
     }
     if (!isObject(payload)) return
+
     const type = typeof payload.type === "string" ? payload.type : parsed.event
+    const usageFromPayload = extractUsageFromPayload(payload)
+    if (usageFromPayload) {
+      const rank = streamUsageEventRank(type)
+      if (rank >= latestUsageRank) {
+        latestUsage = usageFromPayload
+        latestUsageRank = rank
+      }
+    }
+
     if (type === "error") {
       const message =
         isObject(payload.error) && typeof payload.error.message === "string"
@@ -930,7 +1086,10 @@ async function requestOpenAiAssistantTextStream(
       opts.onText?.(accumulated)
       return
     }
-    if (type === "response.completed" && accumulated.trim().length === 0) {
+    if (
+      (type === "response.completed" || type === "response.done") &&
+      accumulated.trim().length === 0
+    ) {
       const completedText = extractOutputTextFromCompletedResponse(payload).trim()
       if (completedText.length > 0) {
         accumulated = completedText
@@ -959,7 +1118,7 @@ async function requestOpenAiAssistantTextStream(
   if (tail.length > 0) {
     flushBlock(tail)
   }
-  return accumulated
+  return { text: accumulated, usage: latestUsage }
 }
 
 function buildGeneratePrompt(schema: string, humanQuery: string): string {
@@ -1111,7 +1270,7 @@ function parseOptionalSql(value: unknown): string | undefined {
 export async function generateSqlWithOpenAi(
   data: OpenAiGenerateSqlRequest,
 ): Promise<OpenAiGenerateSqlResponse> {
-  const assistantText = await requestOpenAiAssistantText({
+  const { text: assistantText, usage } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1124,7 +1283,7 @@ export async function generateSqlWithOpenAi(
   if (!sql) {
     throw new Error("OpenAI response missing `sql` string")
   }
-  return { sql }
+  return { sql, usage }
 }
 
 export async function generateSqlWithOpenAiStream(
@@ -1133,7 +1292,7 @@ export async function generateSqlWithOpenAiStream(
     onReasoningText?: (text: string) => void
   },
 ): Promise<OpenAiGenerateSqlResponse> {
-  const assistantText = await requestOpenAiAssistantTextStream({
+  const { text: assistantText, usage } = await requestOpenAiAssistantTextStream({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1148,13 +1307,13 @@ export async function generateSqlWithOpenAiStream(
   if (!sql) {
     throw new Error("OpenAI response missing `sql` string")
   }
-  return { sql }
+  return { sql, usage }
 }
 
 export async function explainSqlWithOpenAi(
   data: OpenAiExplainSqlRequest,
 ): Promise<OpenAiExplainSqlResponse> {
-  const assistantText = await requestOpenAiAssistantText({
+  const { text: assistantText } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1176,7 +1335,7 @@ export async function explainSqlWithOpenAiStream(
     onReasoningText?: (text: string) => void
   },
 ): Promise<OpenAiExplainSqlResponse> {
-  const assistantText = await requestOpenAiAssistantTextStream({
+  const { text: assistantText } = await requestOpenAiAssistantTextStream({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1195,7 +1354,7 @@ export async function explainSqlWithOpenAiStream(
 }
 
 export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenAiFixSqlResponse> {
-  const explanationText = await requestOpenAiAssistantText({
+  const { text: explanationText, usage: explanationUsage } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1208,7 +1367,7 @@ export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenA
     signal: data.signal,
   })
 
-  const fixedSqlText = await requestOpenAiAssistantText({
+  const { text: fixedSqlText, usage: fixedSqlUsage } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1226,7 +1385,7 @@ export async function fixSqlWithOpenAi(data: OpenAiFixSqlRequest): Promise<OpenA
   if (!fixedSql) {
     throw new Error("OpenAI response missing `fixedSql` string")
   }
-  return { explanation, fixedSql }
+  return { explanation, fixedSql, explanationUsage, fixedSqlUsage }
 }
 
 export async function fixSqlWithOpenAiStream(
@@ -1238,7 +1397,7 @@ export async function fixSqlWithOpenAiStream(
     onSqlPhaseStart?: () => void
   },
 ): Promise<OpenAiFixSqlResponse> {
-  const explanationText = await requestOpenAiAssistantTextStream({
+  const { text: explanationText, usage: explanationUsage } = await requestOpenAiAssistantTextStream({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1255,7 +1414,7 @@ export async function fixSqlWithOpenAiStream(
 
   data.onSqlPhaseStart?.()
 
-  const fixedSqlText = await requestOpenAiAssistantTextStream({
+  const { text: fixedSqlText, usage: fixedSqlUsage } = await requestOpenAiAssistantTextStream({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1275,13 +1434,13 @@ export async function fixSqlWithOpenAiStream(
   if (!fixedSql) {
     throw new Error("OpenAI response missing `fixedSql` string")
   }
-  return { explanation, fixedSql }
+  return { explanation, fixedSql, explanationUsage, fixedSqlUsage }
 }
 
 export async function reviewSqlCorrectness(
   data: OpenAiReviewSqlCorrectnessRequest,
 ): Promise<OpenAiReviewSqlCorrectnessResponse> {
-  const assistantText = await requestOpenAiAssistantText({
+  const { text: assistantText } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1307,7 +1466,7 @@ export async function reviewSqlCorrectness(
 export async function reviewSqlOptimality(
   data: OpenAiReviewSqlOptimalityRequest,
 ): Promise<OpenAiReviewSqlOptimalityResponse> {
-  const assistantText = await requestOpenAiAssistantText({
+  const { text: assistantText } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,
@@ -1333,7 +1492,7 @@ export async function reviewSqlOptimality(
 export async function resolveOptimalSql(
   data: OpenAiResolveOptimalSqlRequest,
 ): Promise<OpenAiResolveOptimalSqlResponse> {
-  const assistantText = await requestOpenAiAssistantText({
+  const { text: assistantText } = await requestOpenAiAssistantText({
     openaiUrl: data.openaiUrl,
     openaiKey: data.openaiKey,
     model: data.model,

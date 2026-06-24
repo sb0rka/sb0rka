@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react"
+import { type OpenAiModelPricing } from "../api"
 import { type AiQueryChatMessage } from "../use-ai-query-chat"
 import { AiQueryChatMessageItem } from "./ai-query-chat-message-item"
 import { hideScrollbarClass } from "./ai-query-chat-message-styles"
@@ -10,19 +11,19 @@ import {
 export type AiQueryChatMessageListProps = {
   messages: AiQueryChatMessage[]
   isPending: boolean
+  modelPricing?: OpenAiModelPricing
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
-  onRefreshExplanationAt: (index: number, stylePrompt: string) => void | Promise<void>
 }
 
 export function AiQueryChatMessageList({
   messages,
   isPending,
+  modelPricing,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
-  onRefreshExplanationAt,
 }: AiQueryChatMessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const scrollKey = useMemo(() => messagesAutoScrollKey(messages), [messages])
@@ -37,11 +38,6 @@ export function AiQueryChatMessageList({
   useAutoScrollOnContentChange(listRef, scrollKey, messages.length > 0, [isPending], {
     resetWhen: isPending,
   })
-
-
-
-  // console.log(messages)
-
   return (
     <div
       ref={listRef}
@@ -59,10 +55,10 @@ export function AiQueryChatMessageList({
             message.type === "thinking" &&
             index === lastThinkingIndex
           }
+          modelPricing={modelPricing}
           onApplySql={onApplySql}
           onApplySqlAndRun={onApplySqlAndRun}
           applySqlAndRunDisabled={applySqlAndRunDisabled}
-          onRefreshExplanationAt={onRefreshExplanationAt}
         />
       ))}
     </div>

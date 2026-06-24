@@ -291,23 +291,14 @@ export function useDataExplorerDatabaseHealth(projectId: string) {
 }
 
 export {
-  lastExplanationStyle,
   useAiQueryChat,
-  type AiReasoningLevel,
-  type AiQueryChatAssistantMessage,
   type AiQueryChatErrorMessage,
-  type AiQueryChatExplainPayload,
-  type AiQueryChatExplanationMessage,
   type AiQueryChatFixMessage,
-  type AiQueryChatFixPayload,
-  type AiQueryChatGeneratePayload,
   type AiQueryChatMessage,
   type AiQueryChatSendPayload,
   type AiQueryChatSqlMessage,
   type AiQueryChatUserFixMessage,
-  type AiQueryChatUserMessage,
   type AiQueryChatUserTextMessage,
-  type UseAiQueryChatOptions,
 } from "./use-ai-query-chat"
 
 export function useDeactivateResource(projectId: string, resourceId?: string) {

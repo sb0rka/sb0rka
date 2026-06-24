@@ -22,12 +22,11 @@ export function messagesAutoScrollKey(messages: AiQueryChatMessage[]): string {
     switch (m.type) {
       case "thinking":
       case "sql":
-      case "explanation":
       case "error":
         parts.push(String(m.output.length))
         break
       case "fix":
-        parts.push(`${m.explanation.length},${m.fixedSql.length}`)
+        parts.push(String(m.explanation.length))
         break
       default:
         parts.push("?")
