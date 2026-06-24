@@ -1,13 +1,35 @@
 package contract
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type RegisterUserRequest struct {
-	Username   string  `json:"username"`
-	Email      string  `json:"email"`
-	Password   string  `json:"password"`
-	Phone      *string `json:"phone,omitempty"`
-	InviteCode *string `json:"invite_code,omitempty"`
+	Username string  `json:"username"`
+	Email    string  `json:"email"`
+	Password string  `json:"password"`
+	Phone    *string `json:"phone,omitempty"`
+	// Extras holds non-core fields (credentials excluded) for downstream registration hooks.
+	Extras map[string]json.RawMessage `json:"-"`
+}
+
+func (r *RegisterUserRequest) UnmarshalJSON(data []byte) error {
+	type core RegisterUserRequest
+	var c core
+	if err := json.Unmarshal(data, &c); err != nil {
+		return err
+	}
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	for _, k := range []string{"username", "email", "password", "phone"} {
+		delete(all, k)
+	}
+	c.Extras = all
+	*r = RegisterUserRequest(c)
+	return nil
 }
 
 type UserUpdateRequest struct {

@@ -27,7 +27,7 @@ Routing — `net/http.ServeMux` (`transport/router.go`). `authMiddleware` verifi
 
 ## Key flows
 
-**Registration** (`POST /identity/users`). Validation (optional invite code / phone — `IS_INVITE_REQUIRED`/`IS_PHONE_REQUIRED` flags), creates `subjects` + `users` (password stored as a hash). Returns the user.
+**Registration** (`POST /identity/users`). Validation (optional phone — `IS_PHONE_REQUIRED` flag), creates `subjects` + `users` (password stored as a hash). Returns the user.
 
 **Login** (`POST /auth/login`). By `username`/`email` + password: hash check → an `auth_sessions` row is created (refresh token stored hashed), a short-lived access JWT (`ACCESS_TOKEN_TTL_SEC`) is issued, and a refresh token is set in a cookie (name/secure/samesite — env `REFRESH_TOKEN_COOKIE_*`).
 
@@ -39,7 +39,7 @@ Routing — `net/http.ServeMux` (`transport/router.go`). `authMiddleware` verifi
 
 ## Data model (schema `auth`)
 
-`subjects` (shared actor identifier), `users` (login/email/password hash → subject), `auth_sessions` (refresh sessions: token hash, ip/ua, expires, revoke), `user_invites` (invites), `organizations` + `organization_members`, `version_auth` (migration version). Details — in [db/SCHEMA.md](../../../db/SCHEMA.md).
+`subjects` (shared actor identifier), `users` (login/email/password hash → subject), `auth_sessions` (refresh sessions: token hash, ip/ua, expires, revoke), `organizations` + `organization_members`, `version_auth` (migration version). Details — in [db/SCHEMA.md](../../../db/SCHEMA.md).
 
 ## Relation to the platform DB
 

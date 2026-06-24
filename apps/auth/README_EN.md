@@ -45,4 +45,4 @@ Build: `go build -o bin/auth ./apps/auth/cmd/auth`. Local stack — `docker-comp
 | `ACCESS_TOKEN_ISSUER` / `…_AUDIENCE` / `…_KID` | `auth.local` / `api.local` / `ed25519-v1` | token claims |
 | `ACCESS_TOKEN_TTL_SEC` / `ACCESS_SESSION_TTL_SEC` | `300` / `604800` | access token and session TTL |
 | `REFRESH_TOKEN_COOKIE_*` | see `.env.sample` | refresh cookie name/secure/samesite |
-| `IS_INVITE_REQUIRED` / `IS_PHONE_REQUIRED` | `false` / `false` | require invite code / phone on registration |
+| `IS_PHONE_REQUIRED` | `false` | require phone on registration |

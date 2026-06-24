@@ -7,8 +7,11 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/sb0rka/sb0rka/packages/contract v0.0.8
+	github.com/sb0rka/sb0rka/packages/core v0.0.0
 	golang.org/x/crypto v0.49.0
 )
+
+replace github.com/sb0rka/sb0rka/packages/core => ../../packages/core
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
