@@ -17,11 +17,12 @@ import {
   UsageProgressBar,
 } from "@/components/motion/page-entrance"
 import { staggerStep } from "@/lib/motion"
+import {
+  MobilePlanCard,
+  MobileUsageCard,
+} from "./components/mobile-usage-card"
 
-/** Limits that exist in the product UI today (deployed / available). */
-const DEPLOYED_LIMIT_KEYS = ["project_limit", "db_limit", "secret_limit"] as const
-
-type DeployedLimitKey = (typeof DEPLOYED_LIMIT_KEYS)[number]
+type DeployedLimitKey = "project_limit" | "db_limit" | "secret_limit"
 
 interface LimitItem {
   key: DeployedLimitKey
@@ -93,7 +94,27 @@ export function SubscriptionPage() {
       </SlideIn>
 
       <SlideIn>
-        <StaggerGroup className="flex flex-wrap items-start gap-4">
+        <StaggerGroup className="grid gap-3 md:hidden">
+          {LIMIT_ITEMS.map((item, index) => {
+            const limit = currentPlan[item.key]
+            const used = usage?.[item.usageKey]
+            const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
+
+            return (
+              <SlideIn key={item.key}>
+                <MobileUsageCard
+                  label={t(item.labelKey)}
+                  limit={limit}
+                  used={used}
+                  usedLabel={t("subscription.used")}
+                  progress={progress}
+                  delay={index * staggerStep}
+                />
+              </SlideIn>
+            )
+          })}
+        </StaggerGroup>
+        <StaggerGroup className="hidden flex-wrap items-start gap-4 md:flex">
           {LIMIT_ITEMS.map((item, index) => {
             const limit = currentPlan[item.key]
             const used = usage?.[item.usageKey]
@@ -142,49 +163,67 @@ export function SubscriptionPage() {
                 {t("subscription.emptyPlans")}
               </p>
             ) : (
-              <StaggerGroup className="flex flex-wrap items-start gap-4">
-                {plans.map((plan) => {
-                  const isCurrent = plan.id === currentPlan.id
-                  return (
-                    <SlideIn
-                      key={plan.id}
-                      className="flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-[var(--subscription-border)] !bg-transparent p-5"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--subscription-heading)]">
-                            {plan.name}
-                          </h3>
-                          <p className="mt-1 line-clamp-2 text-sm text-[var(--subscription-muted)]">
-                            {plan.description || t("subscription.noPlanDescription")}
-                          </p>
-                        </div>
-                        {isCurrent ? (
-                          <Badge className="rounded-md border border-[var(--subscription-accent)] bg-[var(--subscription-accent)] px-3 py-1 font-medium text-[var(--subscription-accent-fg)] hover:bg-[var(--subscription-accent)]">
-                            {t("subscription.current")}
-                          </Badge>
-                        ) : null}
-                      </div>
-
-                      <ul className="mt-4 overflow-hidden rounded-md !bg-transparent">
-                        {LIMIT_ITEMS.map((limitItem) => (
-                          <li
-                            key={limitItem.key}
-                            className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
-                          >
-                            <span className="text-[var(--subscription-muted)]">
-                              {t(limitItem.labelKey)}
-                            </span>
-                            <span className="font-semibold tabular-nums text-[var(--subscription-heading)]">
-                              {plan[limitItem.key]}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+              <>
+                <StaggerGroup className="grid w-full gap-3 md:hidden">
+                  {plans.map((plan) => (
+                    <SlideIn key={plan.id}>
+                      <MobilePlanCard
+                        plan={plan}
+                        isCurrent={plan.id === currentPlan.id}
+                        currentLabel={t("subscription.current")}
+                        fallbackDescription={t("subscription.noPlanDescription")}
+                        limits={LIMIT_ITEMS.map((limitItem) => ({
+                          key: limitItem.key,
+                          label: t(limitItem.labelKey),
+                        }))}
+                      />
                     </SlideIn>
-                  )
-                })}
-              </StaggerGroup>
+                  ))}
+                </StaggerGroup>
+                <StaggerGroup className="hidden flex-wrap items-start gap-4 md:flex">
+                  {plans.map((plan) => {
+                    const isCurrent = plan.id === currentPlan.id
+                    return (
+                      <SlideIn
+                        key={plan.id}
+                        className="flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-[var(--subscription-border)] !bg-transparent p-5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--subscription-heading)]">
+                              {plan.name}
+                            </h3>
+                            <p className="mt-1 line-clamp-2 text-sm text-[var(--subscription-muted)]">
+                              {plan.description || t("subscription.noPlanDescription")}
+                            </p>
+                          </div>
+                          {isCurrent ? (
+                            <Badge className="rounded-md border border-[var(--subscription-accent)] bg-[var(--subscription-accent)] px-3 py-1 font-medium text-[var(--subscription-accent-fg)] hover:bg-[var(--subscription-accent)]">
+                              {t("subscription.current")}
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        <ul className="mt-4 overflow-hidden rounded-md !bg-transparent">
+                          {LIMIT_ITEMS.map((limitItem) => (
+                            <li
+                              key={limitItem.key}
+                              className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
+                            >
+                              <span className="text-[var(--subscription-muted)]">
+                                {t(limitItem.labelKey)}
+                              </span>
+                              <span className="font-semibold tabular-nums text-[var(--subscription-heading)]">
+                                {plan[limitItem.key]}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </SlideIn>
+                    )
+                  })}
+                </StaggerGroup>
+              </>
             )}
           </CardContent>
         </Card>

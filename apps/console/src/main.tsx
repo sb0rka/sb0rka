@@ -10,6 +10,14 @@ console.warn(
   "background:#111827;color:#f9fafb;padding:2px 8px;border-radius:0 4px 4px 0;"
 )
 
+if (import.meta.env.VITE_USE_MOCK_API === "true") {
+  console.warn(
+    "%c MOCK API %c auth + platform only — data explorer still needs real backends",
+    "background:#2563eb;color:#fff;padding:2px 8px;border-radius:4px 0 0 4px;font-weight:700;",
+    "background:#1e3a8a;color:#fff;padding:2px 8px;border-radius:0 4px 4px 0;"
+  )
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
