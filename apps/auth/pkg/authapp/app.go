@@ -51,12 +51,9 @@ func (a *App) Run(ctx context.Context) error {
 	log.Info("database connection established successfully")
 
 	hook := invite.Noop()
-	if a.opts.InviteHookFactory != nil {
-		pool, err := store.PgxPool(database)
-		if err != nil {
-			return fmt.Errorf("failed to resolve database pool for invite hook: %w", err)
-		}
-		hook = a.opts.InviteHookFactory(pool)
+	if a.opts.InviteRepositoryFactory != nil && a.opts.InviteHookFactory != nil {
+		repo := a.opts.InviteRepositoryFactory(database)
+		hook = a.opts.InviteHookFactory(repo)
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
