@@ -141,7 +141,7 @@ export function MetricDetailPage() {
   const latestValue = metricSeries[metricSeries.length - 1]?.value ?? 0
 
   return (
-    <PageStagger className="flex h-full min-h-0 flex-col gap-5">
+    <PageStagger className="flex flex-1 min-h-0 flex-col gap-5">
       <SlideIn className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight">{t(meta.titleKey)}</h1>

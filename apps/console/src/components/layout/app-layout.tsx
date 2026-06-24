@@ -109,9 +109,9 @@ export function AppLayout() {
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <ScrollArea
             type="always"
-            className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:min-w-0"
+            className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!flex [&_[data-radix-scroll-area-viewport]>div]:min-h-full"
           >
-            <div className="min-w-0 max-w-full p-6">
+            <div className="min-w-0 max-w-full p-6 flex flex-1">
               <Outlet />
             </div>
           </ScrollArea>
