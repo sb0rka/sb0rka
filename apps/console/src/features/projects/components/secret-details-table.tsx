@@ -7,6 +7,7 @@ import { buttonPressClass } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { listResourceTags, type TagResponse } from "../api"
 import { formatDraftTagLabel } from "../parse-draft-tag"
+import { MobileSecretsList } from "./mobile-secrets-list"
 import type { SecretRow } from "./project-detail-tab-types"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
@@ -176,8 +177,17 @@ export function SecretDetailsTable({
         />
       </div>
 
-      <div className="px-6 pb-6">
-        <div className="overflow-x-auto">
+      <div className="pb-6 md:px-6">
+        <div className="md:hidden">
+          <MobileSecretsList
+            rows={filteredRows}
+            emptyMessage={emptyMessage}
+            searchQuery={search}
+            onRowClick={onRowClick}
+          />
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <div className="min-w-[820px]">
             <div
               className={cn(

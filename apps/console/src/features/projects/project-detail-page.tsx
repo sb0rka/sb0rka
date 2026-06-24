@@ -1,6 +1,7 @@
 import {
   useMemo,
   useState,
+  useSyncExternalStore,
 } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -32,10 +33,23 @@ import { parseDraftTag } from "./parse-draft-tag"
 import { PageStagger } from "@/components/motion/page-entrance"
 import { isProjectTab, type ProjectTab } from "./project-tabs"
 
+function useMdUp() {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const mediaQueryList = window.matchMedia("(min-width: 768px)")
+      mediaQueryList.addEventListener("change", onStoreChange)
+      return () => mediaQueryList.removeEventListener("change", onStoreChange)
+    },
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => false,
+  )
+}
+
 export function ProjectDetailPage() {
   const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const isMdUp = useMdUp()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
   const activeTab: ProjectTab =
@@ -209,7 +223,11 @@ export function ProjectDetailPage() {
           metricsTimeseries={metricsTimeseries}
           onOpenDatabases={() => setSearchParams({ tab: "databases" })}
           onOpenSecrets={() => setSearchParams({ tab: "secrets" })}
-          onOpenMetricDetail={(metric) => navigate(`/projects/${id}/metrics/${metric}`)}
+          onOpenMetricDetail={
+            isMdUp
+              ? (metric) => navigate(`/projects/${id}/metrics/${metric}`)
+              : undefined
+          }
         />
         <DatabasesTab
           projectId={id}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  Card,
   CardContent,
   CardDescription,
   CardFooter,
@@ -22,6 +21,7 @@ import {
 import { ApiError } from "@/lib/api-client"
 import { useUser, useUpdateProfile, useChangePassword } from "./hooks"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
+import { MobileProfileSection } from "./components/mobile-profile-section"
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
@@ -137,141 +137,149 @@ export function ProfilePage() {
 
       <div className="flex flex-col gap-6">
         <SlideIn>
-        <Card>
-          <CardHeader className="gap-1.5">
-            <CardTitle className="text-xl font-semibold tracking-tight">Email</CardTitle>
-            <CardDescription>
-              {t("profile.emailDescription")}
-            </CardDescription>
-            <p className="text-sm text-muted-foreground">
-              {t("profile.currentEmail")}{" "}
-              <span className="font-medium text-foreground">{user.email}</span>
-            </p>
-          </CardHeader>
-          <form onSubmit={handleEmailSubmit}>
-            <CardContent className="space-y-2 border-b border-border pb-6 pt-0">
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-new-email">{t("profile.newEmail")}</Label>
-                <Input
-                  id="profile-new-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder={t("profile.newEmailPlaceholder")}
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  disabled={updateProfile.isPending}
-                />
-              </div>
-              {emailError ? (
-                <p className="text-sm text-destructive">{emailError}</p>
-              ) : null}
-              {emailSuccess ? (
-                <p className="text-sm text-muted-foreground">{t("common.messages.changesSaved")}</p>
-              ) : null}
-            </CardContent>
-            <CardFooter className="flex flex-row pt-6">
-              <Button type="submit" disabled={updateProfile.isPending}>
-                {updateProfile.isPending ? t("common.saving") : t("common.actions.saveChanges")}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+          <MobileProfileSection>
+            <CardHeader className="gap-1.5">
+              <CardTitle className="text-xl font-semibold tracking-tight">Email</CardTitle>
+              <CardDescription>{t("profile.emailDescription")}</CardDescription>
+              <p className="text-sm text-muted-foreground">
+                {t("profile.currentEmail")}{" "}
+                <span className="font-medium text-foreground">{user.email}</span>
+              </p>
+            </CardHeader>
+            <form onSubmit={handleEmailSubmit}>
+              <CardContent className="space-y-2 border-b border-border pb-6 pt-0">
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-new-email">{t("profile.newEmail")}</Label>
+                  <Input
+                    id="profile-new-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t("profile.newEmailPlaceholder")}
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    disabled={updateProfile.isPending}
+                  />
+                </div>
+                {emailError ? (
+                  <p className="text-sm text-destructive">{emailError}</p>
+                ) : null}
+                {emailSuccess ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("common.messages.changesSaved")}
+                  </p>
+                ) : null}
+              </CardContent>
+              <CardFooter className="flex flex-row pt-6 [&>button]:w-full md:[&>button]:w-auto">
+                <Button type="submit" disabled={updateProfile.isPending}>
+                  {updateProfile.isPending
+                    ? t("common.saving")
+                    : t("common.actions.saveChanges")}
+                </Button>
+              </CardFooter>
+            </form>
+          </MobileProfileSection>
         </SlideIn>
 
         <SlideIn>
-        <Card>
-          <CardHeader className="gap-1.5">
-            <CardTitle className="text-xl font-semibold tracking-tight">{t("profile.passwordTitle")}</CardTitle>
-            <CardDescription>
-              {t("profile.passwordDescription")}
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handlePasswordSubmit}>
-            <CardContent className="space-y-4 border-b border-border pb-6 pt-0">
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-current-password">{t("profile.currentPassword")}</Label>
-                <Input
-                  id="profile-current-password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder={t("profile.currentPasswordPlaceholder")}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  disabled={changePassword.isPending}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-new-password">{t("profile.newPassword")}</Label>
-                <Input
-                  id="profile-new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={t("profile.newPasswordPlaceholder")}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={changePassword.isPending}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-confirm-password">{t("profile.confirmPassword")}</Label>
-                <Input
-                  id="profile-confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={t("profile.confirmPasswordPlaceholder")}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={changePassword.isPending}
-                />
-              </div>
-              {passwordError ? (
-                <p className="text-sm text-destructive">{passwordError}</p>
-              ) : null}
-              {passwordSuccess ? (
-                <p className="text-sm text-muted-foreground">{t("profile.passwordUpdated")}</p>
-              ) : null}
-            </CardContent>
-            <CardFooter className="flex flex-row pt-6">
-              <Button type="submit" disabled={changePassword.isPending}>
-                {changePassword.isPending ? t("common.saving") : t("common.actions.saveChanges")}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+          <MobileProfileSection>
+            <CardHeader className="gap-1.5">
+              <CardTitle className="text-xl font-semibold tracking-tight">
+                {t("profile.passwordTitle")}
+              </CardTitle>
+              <CardDescription>{t("profile.passwordDescription")}</CardDescription>
+            </CardHeader>
+            <form onSubmit={handlePasswordSubmit}>
+              <CardContent className="space-y-4 border-b border-border pb-6 pt-0">
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-current-password">
+                    {t("profile.currentPassword")}
+                  </Label>
+                  <Input
+                    id="profile-current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder={t("profile.currentPasswordPlaceholder")}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    disabled={changePassword.isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-new-password">{t("profile.newPassword")}</Label>
+                  <Input
+                    id="profile-new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={t("profile.newPasswordPlaceholder")}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={changePassword.isPending}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-confirm-password">
+                    {t("profile.confirmPassword")}
+                  </Label>
+                  <Input
+                    id="profile-confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={t("profile.confirmPasswordPlaceholder")}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={changePassword.isPending}
+                  />
+                </div>
+                {passwordError ? (
+                  <p className="text-sm text-destructive">{passwordError}</p>
+                ) : null}
+                {passwordSuccess ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("profile.passwordUpdated")}
+                  </p>
+                ) : null}
+              </CardContent>
+              <CardFooter className="flex flex-row pt-6 [&>button]:w-full md:[&>button]:w-auto">
+                <Button type="submit" disabled={changePassword.isPending}>
+                  {changePassword.isPending
+                    ? t("common.saving")
+                    : t("common.actions.saveChanges")}
+                </Button>
+              </CardFooter>
+            </form>
+          </MobileProfileSection>
         </SlideIn>
 
         <SlideIn>
-        <Card>
-          <CardHeader className="gap-1.5 border-b border-border">
-            <CardTitle className="text-xl font-semibold tracking-tight">
-              {t("profile.accountTitle")}
-            </CardTitle>
-            <CardDescription>
-              {t("profile.accountDescription")}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex flex-row pt-6">
-            <Button
-              type="button"
-              variant="delete"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              {t("profile.deleteAccount")}
-            </Button>
-          </CardFooter>
-        </Card>
+          <MobileProfileSection>
+            <CardHeader className="gap-1.5 border-b border-border">
+              <CardTitle className="text-xl font-semibold tracking-tight">
+                {t("profile.accountTitle")}
+              </CardTitle>
+              <CardDescription>{t("profile.accountDescription")}</CardDescription>
+            </CardHeader>
+            <CardFooter className="flex flex-row pt-6 [&>button]:w-full md:[&>button]:w-auto">
+              <Button
+                type="button"
+                variant="delete"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                {t("profile.deleteAccount")}
+              </Button>
+            </CardFooter>
+          </MobileProfileSection>
         </SlideIn>
       </div>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[calc(100%-2rem)] rounded-2xl md:max-w-lg md:rounded-lg">
           <DialogHeader>
             <DialogTitle className="text-xl">{t("profile.deleteDialogTitle")}</DialogTitle>
             <DialogDescription>
               {t("profile.deleteDialogDescription")}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="[&>button]:w-full md:[&>button]:w-auto">
             <Button type="button" onClick={() => setDeleteDialogOpen(false)}>
               {t("profile.understood")}
             </Button>

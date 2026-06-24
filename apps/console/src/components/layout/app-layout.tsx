@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
+import { MobileRootNav } from "./mobile-root-nav"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 type BreadcrumbItem = {
@@ -96,15 +97,26 @@ export function AppLayout() {
   }, [isProjectOpen])
 
   return (
-    <div className="flex h-screen w-full">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
-      />
-      {isProjectOpen && <ProjectSidebar />}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header breadcrumbs={breadcrumbs} />
-        <main className="flex flex-1 flex-col overflow-auto bg-background p-6">
+    <div className="flex min-h-dvh w-full md:h-screen">
+      <div className="hidden h-full md:block">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        />
+      </div>
+      {isProjectOpen && (
+        <div className="hidden h-full md:block">
+          <ProjectSidebar />
+        </div>
+      )}
+      <div className="md:hidden">
+        <MobileRootNav />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
+        <div className="hidden md:block">
+          <Header breadcrumbs={breadcrumbs} />
+        </div>
+        <main className="flex flex-1 flex-col bg-background px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))] md:min-h-0 md:overflow-auto md:p-6">
           <Outlet />
         </main>
       </div>
