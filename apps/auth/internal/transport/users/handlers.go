@@ -13,7 +13,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/registration"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	"github.com/sb0rka/sb0rka/packages/contract"
 )
 
@@ -75,14 +75,14 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	userID := uuid.New()
 
-	regReq := registration.Request{Username: username, Email: email, Extras: req.Extras}
-	if err := h.deps.RegistrationHook.BeforeCreate(r.Context(), regReq); err != nil {
+	regReq := invite.Request{Username: username, Email: email, Extras: req.Extras}
+	if err := h.deps.InviteHook.BeforeCreate(r.Context(), regReq); err != nil {
 		h.writeHookError(w, err)
 		return
 	}
 
 	postInsert := func(ctx context.Context, tx pgx.Tx) error {
-		return h.deps.RegistrationHook.Provision(ctx, tx, regReq, userID)
+		return h.deps.InviteHook.Provision(ctx, tx, regReq, userID)
 	}
 	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
 	if err != nil {
@@ -102,12 +102,12 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 // writeHookError surfaces only a client-facing *StatusError (4xx); 5xx and any
 // other error are logged and returned as a generic 500 so hook internals never leak.
 func (h *Handler) writeHookError(w http.ResponseWriter, err error) {
-	var re *registration.StatusError
+	var re *invite.StatusError
 	if errors.As(err, &re) && re.Status < http.StatusInternalServerError {
 		http.Error(w, re.Message, re.Status)
 		return
 	}
-	h.deps.Log.Error("register_hook_failed", "error", err)
+	h.deps.Log.Error("invite_hook_failed", "error", err)
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 

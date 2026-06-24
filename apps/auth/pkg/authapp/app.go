@@ -10,7 +10,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/registration"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -50,13 +50,13 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	log.Info("database connection established successfully")
 
-	hook := registration.Noop()
-	if a.opts.RegistrationHookFactory != nil {
+	hook := invite.Noop()
+	if a.opts.InviteHookFactory != nil {
 		pool, err := store.PgxPool(database)
 		if err != nil {
-			return fmt.Errorf("failed to resolve database pool for registration hook: %w", err)
+			return fmt.Errorf("failed to resolve database pool for invite hook: %w", err)
 		}
-		hook = a.opts.RegistrationHookFactory(pool)
+		hook = a.opts.InviteHookFactory(pool)
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
@@ -64,7 +64,7 @@ func (a *App) Run(ctx context.Context) error {
 		Authorizer:       authz.NewRBACAuthorizer(database),
 		Cfg:              cfg.Server,
 		Log:              log,
-		RegistrationHook: hook,
+		InviteHook:       hook,
 	})
 	handler := newSrv.BuildCommonHandler()
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)

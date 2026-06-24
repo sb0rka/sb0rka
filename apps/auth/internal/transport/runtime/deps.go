@@ -6,7 +6,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/authz"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/registration"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 )
 
 type Dependencies struct {
@@ -14,5 +14,5 @@ type Dependencies struct {
 	Cfg              config.ServerConfig
 	Log              *slog.Logger
 	Authorizer       authz.Authorizer
-	RegistrationHook registration.Hook
+	InviteHook       invite.Hook
 }

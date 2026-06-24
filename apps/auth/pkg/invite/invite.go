@@ -1,4 +1,4 @@
-package registration
+package invite
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func (e *StatusError) Error() string { return e.Message }
 type Hook interface {
 	BeforeCreate(ctx context.Context, req Request) error
 	// Provision runs inside the user-creation transaction; an error rolls the
-	// whole registration back (no user is created).
+	// whole invite workflow back (no user is created).
 	Provision(ctx context.Context, tx pgx.Tx, req Request, userID uuid.UUID) error
 }
 
