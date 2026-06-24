@@ -18,8 +18,6 @@ const (
 	DefaultLoggerFormat = "text"
 
 	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/auth"
-	DefaultDatabaseMaxConns        = 10
-	DefaultDatabaseConnMaxLifetime = 30 * time.Second
 
 	DefaultServerAddr = "localhost"
 	DefaultServerPort = 8080
@@ -59,8 +57,8 @@ func Load() (*Config, error) {
 
 	databaseURIEnv := coreconfig.GetStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
-	databaseMaxConns := coreconfig.GetIntEnv("DATABASE_MAX_OPEN_CONNS", DefaultDatabaseMaxConns)
-	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", DefaultDatabaseConnMaxLifetime)
+	databaseMaxConns := coreconfig.GetIntEnv("DATABASE_MAX_OPEN_CONNS", coreconfig.DefaultDatabaseMaxConns)
+	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime)
 
 	serverAddr := coreconfig.GetStringEnv("SERVER_ADDR", DefaultServerAddr)
 	serverPort := coreconfig.GetIntEnv("SERVER_PORT", DefaultServerPort)
