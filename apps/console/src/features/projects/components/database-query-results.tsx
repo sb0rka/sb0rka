@@ -8,8 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { hideScrollbarClass } from "./ai-query-chat-message-styles"
 import { cn } from "@/lib/utils"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import type { RunDatabaseQueryResponse } from "../api"
 
 const queryTableCellBottomBorderClass = "border-b border-border/70"
@@ -42,8 +42,13 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
 
   function renderResultTable(heightClassName: string, borderClassName: string) {
     return (
-      <div
-        className={`${heightClassName} overflow-auto ${borderClassName} border-border/80 bg-background ${hideScrollbarClass}`}
+      <ScrollArea
+        type="always"
+        className={cn(
+          heightClassName,
+          "w-full rounded-md border border-border/80 bg-background",
+          borderClassName
+        )}
       >
         <table className="w-full min-w-max border-separate border-spacing-0 text-left text-sm">
           <thead className="sticky top-0 z-10 text-muted-foreground">
@@ -83,7 +88,8 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
             ))}
           </tbody>
         </table>
-      </div>
+      <ScrollBar orientation="horizontal"/>
+      </ScrollArea>
     )
   }
 
