@@ -402,10 +402,14 @@ export function DataExplorerPage() {
                     <AiQueryChat
                       chat={aiChat}
                       selectedModel={selectedAiModel}
-                      availableModels={aiModelsQuery.data ?? [{ id: OPENAI_DEFAULT_MODEL }]}
+                      availableModels={aiModelsQuery.data ?? []}
                       modelsLoading={aiModelsQuery.isLoading}
+                      modelsRefreshing={aiModelsQuery.isFetching && !aiModelsQuery.isLoading}
                       modelsError={aiModelsQuery.isError}
                       onModelSelect={handleAiModelSelect}
+                      onRefreshModels={() => {
+                        void aiModelsQuery.refetch()
+                      }}
                       schema={nl2sqlSchema || undefined}
                       dialect="postgresql"
                       onApplySql={(next) => {
