@@ -3,7 +3,6 @@ package registration
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -14,9 +13,11 @@ type Request struct {
 	Username string
 	Email    string
 	Extras   map[string]json.RawMessage
-	Header   http.Header
 }
 
+// StatusError is the only error a Hook may surface to the client. Status must be
+// a client error (4xx); 5xx is logged and returned to the client as a generic
+// message so hook internals never leak.
 type StatusError struct {
 	Status  int
 	Message string

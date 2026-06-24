@@ -75,15 +75,9 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	userID := uuid.New()
 
-	regReq := registration.Request{Username: username, Email: email, Extras: req.Extras, Header: r.Header}
+	regReq := registration.Request{Username: username, Email: email, Extras: req.Extras}
 	if err := h.deps.RegistrationHook.BeforeCreate(r.Context(), regReq); err != nil {
-		var re *registration.StatusError
-		if errors.As(err, &re) {
-			http.Error(w, re.Message, re.Status)
-			return
-		}
-		h.deps.Log.Error("register_before_create_failed", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.writeHookError(w, err)
 		return
 	}
 
@@ -92,22 +86,29 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
 	if err != nil {
-		var re *registration.StatusError
-		switch {
-		case errors.Is(err, db.ErrUserAlreadyExists):
+		if errors.Is(err, db.ErrUserAlreadyExists) {
 			http.Error(w, "Username or email already exists", http.StatusConflict)
-		case errors.As(err, &re):
-			http.Error(w, re.Message, re.Status)
-		default:
-			h.deps.Log.Error("register_create_user_failed", "error", err)
-			http.Error(w, "Failed to create user", http.StatusInternalServerError)
+			return
 		}
+		h.writeHookError(w, err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ToUserResponse(user))
+}
+
+// writeHookError surfaces only a client-facing *StatusError (4xx); 5xx and any
+// other error are logged and returned as a generic 500 so hook internals never leak.
+func (h *Handler) writeHookError(w http.ResponseWriter, err error) {
+	var re *registration.StatusError
+	if errors.As(err, &re) && re.Status < http.StatusInternalServerError {
+		http.Error(w, re.Message, re.Status)
+		return
+	}
+	h.deps.Log.Error("register_hook_failed", "error", err)
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
