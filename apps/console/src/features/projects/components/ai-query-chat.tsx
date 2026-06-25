@@ -35,6 +35,7 @@ export type AiQueryChatProps = {
   applySqlAndRunDisabled?: boolean
   onPromptFocus?: () => void
   onRegisterPromptInserter?: (fn: ((text: string) => void) | null) => void
+  inputDisabled?: boolean
   className?: string
 }
 
@@ -54,6 +55,7 @@ export function AiQueryChat({
   applySqlAndRunDisabled,
   onPromptFocus,
   onRegisterPromptInserter,
+  inputDisabled,
   className,
 }: AiQueryChatProps) {
   const { t } = useTranslation()
@@ -68,7 +70,7 @@ export function AiQueryChat({
 
   function handleSend() {
     const trimmed = input.trim()
-    if (!trimmed || isPending) return
+    if (!trimmed || isPending || inputDisabled) return
     void sendMessage({
       type: "generate",
       message: trimmed,
@@ -140,14 +142,14 @@ export function AiQueryChat({
             }}
             placeholder={t("dataExplorer.aiChatInputPlaceholder")}
             className="max-h-60 min-h-[140px] resize-y pr-10 shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            disabled={isPending}
+            disabled={isPending || inputDisabled}
             spellCheck
           />
           <Button
             type="button"
             size="icon"
             className="absolute bottom-2 right-2 h-6 w-6 rounded-full shadow-sm"
-            disabled={!isPending && input.trim().length === 0}
+            disabled={!isPending && (input.trim().length === 0 || inputDisabled)}
             onClick={() => {
               if (isPending) {
                 stop()
