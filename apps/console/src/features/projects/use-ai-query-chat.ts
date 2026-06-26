@@ -184,9 +184,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
         setMessages((prev) => [
           ...prev,
           { role: "user", variant: "fix", sql: sqlTrim, errorMessage: errTrim },
-          { role: "assistant", type: "thinking", output: "" },
           { role: "assistant", type: "fix", explanation: "" },
-          { role: "assistant", type: "thinking", output: "" },
           { role: "assistant", type: "sql", output: "" },
         ])
 

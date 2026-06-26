@@ -36,7 +36,7 @@ export function AiQueryChatThinkingMessageView({
     setIsThinkingExpanded(false)
   }, [isActive])
 
-  if (!isActive && !hasThinkingText) return null
+  if (!hasThinkingText) return null
 
   return (
     <div className={cn(responseMessageRowClass, "w-full")}>
