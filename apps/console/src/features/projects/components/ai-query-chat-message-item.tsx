@@ -16,6 +16,7 @@ export type AiQueryChatMessageItemProps = {
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
+  isQueryRunning?: boolean
 }
 
 export function AiQueryChatMessageItem({
@@ -27,6 +28,7 @@ export function AiQueryChatMessageItem({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
 }: AiQueryChatMessageItemProps) {
   if (message.role === "user") {
     if (message.variant === "fix") {
@@ -48,6 +50,7 @@ export function AiQueryChatMessageItem({
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
+        isQueryRunning={isQueryRunning}
       />
     )
   }

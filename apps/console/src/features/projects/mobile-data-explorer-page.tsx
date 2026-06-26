@@ -262,7 +262,7 @@ export function MobileDataExplorerPage() {
       setResult(response)
       setIsResultsOpen(true)
     } catch {
-      // Mutation state drives the mobile error UI.
+      setActivePanel("sql")
     }
   }
 
@@ -284,6 +284,7 @@ export function MobileDataExplorerPage() {
         nodes={nodes}
         selectedResourceId={selectedResourceId}
         activePanel={activePanel}
+        isQueryRunning={runQuery.isPending}
         databasesLoading={databasesQuery.isLoading}
         onSelectDatabase={handleSelectDatabase}
         onSelectPanel={setActivePanel}
@@ -360,10 +361,10 @@ export function MobileDataExplorerPage() {
             }}
             onApplySqlAndRun={(next) => {
               setSql(next)
-              setActivePanel("sql")
               void handleRunQuery(next)
             }}
             applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
+            isQueryRunning={runQuery.isPending}
           />
         )}
       </main>
@@ -381,6 +382,7 @@ function MobileExplorerHeader({
   nodes,
   selectedResourceId,
   activePanel,
+  isQueryRunning,
   databasesLoading,
   onSelectDatabase,
   onSelectPanel,
@@ -389,6 +391,7 @@ function MobileExplorerHeader({
   nodes: DataExplorerDatabaseNode[]
   selectedResourceId: string | null
   activePanel: MobileExplorerPanel
+  isQueryRunning: boolean
   databasesLoading: boolean
   onSelectDatabase: (resourceId: string) => void
   onSelectPanel: (panel: MobileExplorerPanel) => void
@@ -398,6 +401,7 @@ function MobileExplorerHeader({
   const selectedName =
     nodes.find((node) => node.database.resource_id === selectedResourceId)?.database.name ??
     t("dataExplorer.selectDatabase")
+  const sqlTabLabel = isQueryRunning ? t("databaseQuery.running") : t("dataExplorer.tabSql")
 
   return (
     <header className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
@@ -440,10 +444,11 @@ function MobileExplorerHeader({
       </MobileHeaderIcon>
       <MobileHeaderIcon
         active={activePanel === "sql"}
-        label={t("dataExplorer.tabSql")}
+        busy={isQueryRunning}
+        label={sqlTabLabel}
         onClick={() => onSelectPanel("sql")}
       >
-        <Code2 className="h-4 w-4" />
+        {isQueryRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Code2 className="h-4 w-4" />}
       </MobileHeaderIcon>
       <MobileHeaderIcon
         active={activePanel === "ai"}
@@ -468,11 +473,13 @@ function MobileExplorerHeader({
 
 function MobileHeaderIcon({
   active,
+  busy = false,
   label,
   onClick,
   children,
 }: {
   active: boolean
+  busy?: boolean
   label: string
   onClick: () => void
   children: React.ReactNode
@@ -482,7 +489,10 @@ function MobileHeaderIcon({
       type="button"
       variant={active ? "default" : "ghost"}
       size="icon"
-      className="h-9 w-9 shrink-0 rounded-full"
+      className={cn(
+        "h-9 w-9 shrink-0 rounded-full",
+        busy && !active && "animate-pulse text-primary",
+      )}
       onClick={onClick}
       aria-label={label}
     >
@@ -655,7 +665,10 @@ function MobileSqlPanel({
         <Button
           type="button"
           size="icon"
-          className="absolute bottom-3 right-3 h-10 w-10 rounded-full shadow-sm"
+          className={cn(
+            "absolute bottom-3 right-3 h-10 w-10 rounded-full shadow-sm",
+            isRunning && "animate-pulse",
+          )}
           disabled={isSqlEmpty || isRunning}
           onClick={onRun}
           aria-label={isRunning ? t("databaseQuery.running") : t("dataExplorer.runQuery")}
@@ -706,6 +719,7 @@ function MobileAiPanel({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
 }: {
   chat: ReturnType<typeof useAiQueryChat>
   configured: boolean
@@ -724,6 +738,7 @@ function MobileAiPanel({
   onApplySql: (sql: string) => void
   onApplySqlAndRun: (sql: string) => void
   applySqlAndRunDisabled: boolean
+  isQueryRunning: boolean
 }) {
   const { t } = useTranslation()
 
@@ -731,7 +746,6 @@ function MobileAiPanel({
     <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       <div className="shrink-0">
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.aiChatTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("dataExplorer.mobileAiSubtitle")}</p>
       </div>
 
       {missingConfig ? (
@@ -758,6 +772,7 @@ function MobileAiPanel({
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
+        isQueryRunning={isQueryRunning}
         inputDisabled={!configured}
         className="min-h-0 flex-1 overflow-hidden"
       />

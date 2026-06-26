@@ -15,6 +15,7 @@ export type AiQueryChatMessageListProps = {
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
+  isQueryRunning?: boolean
 }
 
 export function AiQueryChatMessageList({
@@ -24,6 +25,7 @@ export function AiQueryChatMessageList({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
 }: AiQueryChatMessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const scrollKey = useMemo(() => messagesAutoScrollKey(messages), [messages])
@@ -59,6 +61,7 @@ export function AiQueryChatMessageList({
           onApplySql={onApplySql}
           onApplySqlAndRun={onApplySqlAndRun}
           applySqlAndRunDisabled={applySqlAndRunDisabled}
+          isQueryRunning={isQueryRunning}
         />
       ))}
     </div>

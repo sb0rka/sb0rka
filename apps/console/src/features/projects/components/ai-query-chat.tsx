@@ -33,6 +33,7 @@ export type AiQueryChatProps = {
   onApplySqlAndRun?: (sql: string) => void
   /** When true, disables apply-and-run (e.g. no DB selected or run already in flight). */
   applySqlAndRunDisabled?: boolean
+  isQueryRunning?: boolean
   onPromptFocus?: () => void
   onRegisterPromptInserter?: (fn: ((text: string) => void) | null) => void
   inputDisabled?: boolean
@@ -53,6 +54,7 @@ export function AiQueryChat({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
   onPromptFocus,
   onRegisterPromptInserter,
   inputDisabled,
@@ -125,6 +127,7 @@ export function AiQueryChat({
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
+        isQueryRunning={isQueryRunning}
       />
 
       <div className="shrink-0 space-y-2 pt-3">
