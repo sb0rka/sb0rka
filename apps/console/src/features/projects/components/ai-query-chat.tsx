@@ -119,7 +119,7 @@ export function AiQueryChat({
   )
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
+    <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
       <AiQueryChatMessageList
         messages={messages}
         isPending={isPending}
@@ -130,8 +130,8 @@ export function AiQueryChat({
         isQueryRunning={isQueryRunning}
       />
 
-      <div className="shrink-0 space-y-2 pt-3">
-        <div className="relative">
+      <div className="w-full min-w-0 max-w-full shrink-0 space-y-2 pt-3">
+        <div className="relative w-full min-w-0 max-w-full">
           <Textarea
             ref={promptTextareaRef}
             value={input}
@@ -144,7 +144,7 @@ export function AiQueryChat({
               handleSend()
             }}
             placeholder={t("dataExplorer.aiChatInputPlaceholder")}
-            className="max-h-60 min-h-[140px] resize-y pr-10 shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="max-h-60 min-h-[140px] w-full min-w-0 max-w-full resize-none pr-10 text-base shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:resize-y md:text-sm"
             disabled={isPending || inputDisabled}
             spellCheck
           />
@@ -169,7 +169,7 @@ export function AiQueryChat({
             )}
           </Button>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex w-full min-w-0 max-w-full flex-col gap-1.5">
           <AiQueryChatModelSelector
             availableModels={availableModels}
             selectedModel={selectedModel}
