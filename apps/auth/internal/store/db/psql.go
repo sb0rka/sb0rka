@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	corestore "github.com/sb0rka/sb0rka/packages/core/store"
 )
 
 type PsqlDB struct {
@@ -12,15 +13,12 @@ type PsqlDB struct {
 }
 
 func NewPsqlDB(uri string, maxConns int, connMaxLifetime time.Duration) (*PsqlDB, error) {
-	pool, err := pgxpool.New(context.Background(), uri)
+	corePool, err := corestore.NewPool(uri, maxConns, connMaxLifetime)
 	if err != nil {
 		return nil, err
 	}
 
-	pool.Config().MaxConns = int32(maxConns)
-	pool.Config().MaxConnLifetime = connMaxLifetime
-
-	return &PsqlDB{pool: pool}, nil
+	return &PsqlDB{pool: corePool.Pgx()}, nil
 }
 
 func (p *PsqlDB) TestConnection(ctx context.Context) error {
@@ -34,4 +32,8 @@ func (p *PsqlDB) Close() error {
 		p.pool.Close()
 	}
 	return nil
+}
+
+func (p *PsqlDB) PgxPool() *pgxpool.Pool {
+	return p.pool
 }

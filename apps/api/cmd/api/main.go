@@ -20,6 +20,9 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store"
 	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
+
+	// Регистрирует сгенерированную OpenAPI-спеку для Swagger UI.
+	_ "github.com/sb0rka/sb0rka/apps/api/internal/openapi"
 )
 
 //go:embed version.txt
@@ -184,6 +187,13 @@ func run(args []string) error {
 	}
 }
 
+// @title           Sb0rka Platform API
+// @version          0.1.0
+// @description      REST API платформы Sb0rka: проекты, базы данных, секреты, теги.
+// @BasePath         /
+// @securityDefinitions.apikey  BearerAuth
+// @in               header
+// @name             Authorization
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

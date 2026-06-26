@@ -1,0 +1,13 @@
+---
+title: "Справочник эндпоинтов"
+description: "Контракт Platform API генерируется из кода (swaggo). Полный список эндпоинтов, тела запросов и ответов — в Swagger UI."
+---
+
+Контракт Platform API генерируется из кода аннотациями swaggo и всегда соответствует реализации.
+
+- **Swagger UI:** `/swagger/index.html`
+- **OpenAPI-спека:** `/swagger/doc.json`
+
+Права доступа и модель сессий описаны в [Аутентификация и доступ](authentication). Обзор сервиса — в [Обзор](overview).
+
+Регенерация спеки после изменения аннотаций: `swag init` (см. `.claude/commands/regen-swagger.md`).

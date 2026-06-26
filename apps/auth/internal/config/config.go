@@ -7,11 +7,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
-	"strings"
 	"time"
+
+	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
 )
 
 const (
@@ -19,15 +18,12 @@ const (
 	DefaultLoggerFormat = "text"
 
 	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/auth"
-	DefaultDatabaseMaxConns        = 10
-	DefaultDatabaseConnMaxLifetime = 30 * time.Second
 
 	DefaultServerAddr = "localhost"
 	DefaultServerPort = 8080
 	DefaultCORSAllowedDefaultMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS"
 
-	DefaultIsPhoneRequired  bool = false
-	DefaultIsInviteRequired bool = false
+	DefaultIsPhoneRequired bool = false
 
 	// Argon defaults
 	DefaultArgonTime    uint32 = 1
@@ -53,101 +49,35 @@ const (
 	DefaultRefreshTokenCookieSameSite int  = 2 // 1 = http.SameSiteDefaultMode, 2 = http.SameSiteLaxMode, 3 = http.SameSiteStrictMode, 4 = http.SameSiteNoneMode
 )
 
-func getStringEnv(key, fallback string) string {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return fallback
-	}
-	return v
-}
-
-func getIntEnv(key string, fallback int) int {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return fallback
-	}
-
-	if val, err := strconv.Atoi(v); err != nil {
-		return fallback
-	} else {
-		return val
-	}
-}
-
-func getDurationEnv(key string, fallback time.Duration) time.Duration {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return fallback
-	}
-
-	if val, err := strconv.Atoi(v); err != nil {
-		return fallback
-	} else {
-		return time.Duration(val) * time.Second
-	}
-}
-
-func getBoolEnv(key string, fallback bool) bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
-	if v == "" {
-		return fallback
-	}
-
-	switch v {
-	case "1", "true":
-		return true
-	case "0", "false":
-		return false
-	default:
-		return fallback
-	}
-}
-
 func Load() (*Config, error) {
 	var cfg Config
 
-	logLevelEnv := getStringEnv("LOG_LEVEL", DefaultLoggerLevel)
-	logFormatEnv := getStringEnv("LOG_FORMAT", DefaultLoggerFormat)
+	logLevelEnv := coreconfig.GetStringEnv("LOG_LEVEL", DefaultLoggerLevel)
+	logFormatEnv := coreconfig.GetStringEnv("LOG_FORMAT", DefaultLoggerFormat)
 
-	databaseURIEnv := getStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
+	databaseURIEnv := coreconfig.GetStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
-	databaseMaxConns := getIntEnv("DATABASE_MAX_OPEN_CONNS", DefaultDatabaseMaxConns)
-	databaseConnMaxLifetime := getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", DefaultDatabaseConnMaxLifetime)
+	databaseMaxConns := coreconfig.GetIntEnv("DATABASE_MAX_OPEN_CONNS", coreconfig.DefaultDatabaseMaxConns)
+	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime)
 
-	serverAddr := getStringEnv("SERVER_ADDR", DefaultServerAddr)
-	serverPort := getIntEnv("SERVER_PORT", DefaultServerPort)
-	isPhoneRequired := getBoolEnv("IS_PHONE_REQUIRED", DefaultIsPhoneRequired)
-	isInviteRequired := getBoolEnv("IS_INVITE_REQUIRED", DefaultIsInviteRequired)
+	serverAddr := coreconfig.GetStringEnv("SERVER_ADDR", DefaultServerAddr)
+	serverPort := coreconfig.GetIntEnv("SERVER_PORT", DefaultServerPort)
+	isPhoneRequired := coreconfig.GetBoolEnv("IS_PHONE_REQUIRED", DefaultIsPhoneRequired)
 
-	serverCORSWhitelistEnv := os.Getenv("SERVER_CORS_WHITELIST")
-	corsWhitelistSls := strings.Split(strings.ReplaceAll(serverCORSWhitelistEnv, " ", ""), ",")
-	corsWhitelist := make(map[string]bool, len(corsWhitelistSls))
-	for _, uri := range corsWhitelistSls {
-		if uri == "*" {
-			corsWhitelist = make(map[string]bool, 1)
-			corsWhitelist["*"] = true
-			break
-		}
-		valid, err := url.ParseRequestURI(uri)
-		if err != nil {
-			fmt.Printf("Ignoring incorrect URI %s", uri)
-			continue
-		}
-		corsWhitelist[valid.String()] = true
-	}
+	corsWhitelist := coreconfig.ParseCORSWhitelist(os.Getenv("SERVER_CORS_WHITELIST"))
 
-	serverCORSAllowedDefaultMethodsEnv := getStringEnv("SERVER_CORS_ALLOWED_DEFAULT_METHODS", DefaultCORSAllowedDefaultMethods)
+	serverCORSAllowedDefaultMethodsEnv := coreconfig.GetStringEnv("SERVER_CORS_ALLOWED_DEFAULT_METHODS", DefaultCORSAllowedDefaultMethods)
 
 	var accessTokenPrivateKeyRaw []byte
 	var err error
-	accessTokenPrivateKeyFilePathEnv := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH", "")
+	accessTokenPrivateKeyFilePathEnv := coreconfig.GetStringEnv("ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH", "")
 	if accessTokenPrivateKeyFilePathEnv != "" {
 		accessTokenPrivateKeyRaw, err = os.ReadFile(accessTokenPrivateKeyFilePathEnv)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read access token private key file: %v", err)
 		}
 	} else {
-		accessTokenPrivateKeyEnv := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY", "")
+		accessTokenPrivateKeyEnv := coreconfig.GetStringEnv("ACCESS_TOKEN_PRIVATE_KEY", "")
 		if accessTokenPrivateKeyEnv != "" {
 			accessTokenPrivateKeyRaw, err = base64.StdEncoding.DecodeString(accessTokenPrivateKeyEnv)
 			if err != nil {
@@ -174,20 +104,20 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("access token private key is not ed25519")
 	}
 
-	accessSessionTTL := getDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL)
-	accessTokenTTL := getDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL)
-	accessTokenIssuer := getStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
-	accessTokenAudience := getStringEnv("ACCESS_TOKEN_AUDIENCE", DefaultAccessTokenAudience)
-	accessTokenKid := getStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
-	accessTokenTyp := getStringEnv("ACCESS_TOKEN_TYP", DefaultAccessTokenTyp)
-	refreshTokenLen := getIntEnv("REFRESH_TOKEN_LEN", DefaultRefreshTokenLen)
+	accessSessionTTL := coreconfig.GetDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL)
+	accessTokenTTL := coreconfig.GetDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL)
+	accessTokenIssuer := coreconfig.GetStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
+	accessTokenAudience := coreconfig.GetStringEnv("ACCESS_TOKEN_AUDIENCE", DefaultAccessTokenAudience)
+	accessTokenKid := coreconfig.GetStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
+	accessTokenTyp := coreconfig.GetStringEnv("ACCESS_TOKEN_TYP", DefaultAccessTokenTyp)
+	refreshTokenLen := coreconfig.GetIntEnv("REFRESH_TOKEN_LEN", DefaultRefreshTokenLen)
 
-	refreshTokenCookieName := getStringEnv("REFRESH_TOKEN_COOKIE_NAME", DefaultRefreshTokenCookieName)
-	refreshTokenCookieSecure := getBoolEnv("REFRESH_TOKEN_COOKIE_SECURE", DefaultRefreshTokenCookieSecure)
-	refreshTokenCookiePath := getStringEnv("REFRESH_TOKEN_COOKIE_PATH", DefaultRefreshTokenCookiePath)
-	refreshTokenCookieDomain := getStringEnv("REFRESH_TOKEN_COOKIE_DOMAIN", DefaultRefreshTokenCookieDomain)
-	refreshTokenCookieHttpOnly := getBoolEnv("REFRESH_TOKEN_COOKIE_HTTP_ONLY", DefaultRefreshTokenCookieHttpOnly)
-	refreshTokenCookieSameSite := getIntEnv("REFRESH_TOKEN_COOKIE_SAMESITE", DefaultRefreshTokenCookieSameSite)
+	refreshTokenCookieName := coreconfig.GetStringEnv("REFRESH_TOKEN_COOKIE_NAME", DefaultRefreshTokenCookieName)
+	refreshTokenCookieSecure := coreconfig.GetBoolEnv("REFRESH_TOKEN_COOKIE_SECURE", DefaultRefreshTokenCookieSecure)
+	refreshTokenCookiePath := coreconfig.GetStringEnv("REFRESH_TOKEN_COOKIE_PATH", DefaultRefreshTokenCookiePath)
+	refreshTokenCookieDomain := coreconfig.GetStringEnv("REFRESH_TOKEN_COOKIE_DOMAIN", DefaultRefreshTokenCookieDomain)
+	refreshTokenCookieHttpOnly := coreconfig.GetBoolEnv("REFRESH_TOKEN_COOKIE_HTTP_ONLY", DefaultRefreshTokenCookieHttpOnly)
+	refreshTokenCookieSameSite := coreconfig.GetIntEnv("REFRESH_TOKEN_COOKIE_SAMESITE", DefaultRefreshTokenCookieSameSite)
 
 	cfg = Config{
 		Logger: LoggerConfig{
@@ -203,8 +133,7 @@ func Load() (*Config, error) {
 			Addr: serverAddr,
 			Port: fmt.Sprintf("%d", serverPort),
 
-			IsPhoneRequired:  isPhoneRequired,
-			IsInviteRequired: isInviteRequired,
+			IsPhoneRequired: isPhoneRequired,
 
 			CORSWhitelist:             corsWhitelist,
 			CORSAllowedDefaultMethods: serverCORSAllowedDefaultMethodsEnv,

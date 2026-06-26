@@ -62,6 +62,17 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 	return true
 }
 
+// ListResources godoc
+// @Summary  Список ресурсов проекта
+// @Tags     resources
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  contract.ResourceListResponse
+// @Failure  400         {string}  string
+// @Failure  403         {string}  string
+// @Failure  404         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/resources [get]
 func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := extractSubjectID(r)
 	if !ok {

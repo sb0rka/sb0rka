@@ -1,0 +1,2119 @@
+basePath: /
+definitions:
+  contract.ApplySecretPasswordVerifierResponse:
+    properties:
+      dbi_id:
+        type: string
+      project_id:
+        type: string
+      secret_id:
+        type: string
+      version_no:
+        type: integer
+    type: object
+  contract.AttachResourceTagRequest:
+    properties:
+      color:
+        type: string
+      tag_key:
+        type: string
+      tag_value:
+        type: string
+    type: object
+  contract.CreateDBInstanceRequest:
+    properties:
+      description:
+        type: string
+      desired_runtime_state:
+        type: string
+      name:
+        type: string
+    type: object
+  contract.CreateProjectMemberRequest:
+    properties:
+      role:
+        type: string
+      subject_id:
+        type: string
+    type: object
+  contract.CreateProjectRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      plan_id:
+        type: string
+    type: object
+  contract.CreateSecretRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      payload_kind:
+        type: string
+      secret_value:
+        type: string
+    type: object
+  contract.CreateSecretVersionRequest:
+    properties:
+      payload_kind:
+        type: string
+      secret_value:
+        type: string
+    type: object
+  contract.DBInstanceConnParamsResponse:
+    properties:
+      database_name:
+        type: string
+      host:
+        type: string
+      password_secret_id:
+        type: string
+      port:
+        type: integer
+      user:
+        type: string
+    type: object
+  contract.DBInstanceListResponse:
+    properties:
+      dbis:
+        items:
+          $ref: '#/definitions/contract.DBInstanceResponse'
+        type: array
+      project_id:
+        type: string
+    type: object
+  contract.DBInstanceResponse:
+    properties:
+      dbi_id:
+        type: string
+      description:
+        type: string
+      desired_runtime_state:
+        type: string
+      name:
+        type: string
+      normalized_name:
+        type: string
+      resource_state:
+        $ref: '#/definitions/contract.ResourceStateResponse'
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagResponse'
+        type: array
+    type: object
+  contract.DatabaseWithSecretResponse:
+    properties:
+      dbi:
+        $ref: '#/definitions/contract.DBInstanceResponse'
+      secret:
+        $ref: '#/definitions/contract.SecretResponse'
+    type: object
+  contract.PlanResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_available:
+        type: boolean
+      is_public:
+        type: boolean
+      kind:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.ProjectListResponse:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/contract.ProjectResponse'
+        type: array
+    type: object
+  contract.ProjectMemberItemResponse:
+    properties:
+      created_at:
+        type: string
+      role:
+        type: string
+      subject_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.ProjectMemberListResponse:
+    properties:
+      members:
+        items:
+          $ref: '#/definitions/contract.ProjectMemberItemResponse'
+        type: array
+      project_id:
+        type: string
+    type: object
+  contract.ProjectMemberResponse:
+    properties:
+      created_at:
+        type: string
+      project_id:
+        type: string
+      role:
+        type: string
+      subject_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.ProjectQuotaItemResponse:
+    properties:
+      created_at:
+        type: string
+      limit_value:
+        type: integer
+      plan_id:
+        type: string
+      quota_definition:
+        $ref: '#/definitions/contract.QuotaDefinitionSnippet'
+      updated_at:
+        type: string
+    type: object
+  contract.ProjectQuotaListResponse:
+    properties:
+      project_id:
+        type: string
+      quotas:
+        items:
+          $ref: '#/definitions/contract.ProjectQuotaItemResponse'
+        type: array
+    type: object
+  contract.ProjectResponse:
+    properties:
+      billing_subject_id:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      owner_subject_id:
+        type: string
+      plan_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.ProjectTagListResponse:
+    properties:
+      project_id:
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagListEntry'
+        type: array
+    type: object
+  contract.QuotaDefinitionSnippet:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      scope:
+        type: string
+      unit:
+        type: string
+    type: object
+  contract.ResourceListItem:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.ResourceListResponse:
+    properties:
+      project_id:
+        type: string
+      resources:
+        items:
+          $ref: '#/definitions/contract.ResourceListItem'
+        type: array
+    type: object
+  contract.ResourceStateResponse:
+    properties:
+      created_at:
+        type: string
+      runtime_state:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.ResourceTagListResponse:
+    properties:
+      project_id:
+        type: string
+      resource_id:
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagListEntry'
+        type: array
+    type: object
+  contract.RevealSecretResponse:
+    properties:
+      payload_kind:
+        type: string
+      project_id:
+        type: string
+      secret_id:
+        type: string
+      value:
+        type: string
+      version_no:
+        type: integer
+    type: object
+  contract.SecretListItem:
+    properties:
+      created_at:
+        type: string
+      created_by_subject_id:
+        type: string
+      current_version_no:
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      payload_kind:
+        type: string
+      protection_class:
+        type: string
+      secret_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.SecretListResponse:
+    properties:
+      project_id:
+        type: string
+      secrets:
+        items:
+          $ref: '#/definitions/contract.SecretListItem'
+        type: array
+    type: object
+  contract.SecretPasswordVerifierResponse:
+    properties:
+      created_at:
+        type: string
+      password_desired_state:
+        type: string
+      password_desired_version:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  contract.SecretResponse:
+    properties:
+      created_at:
+        type: string
+      created_by_subject_id:
+        type: string
+      current_version_no:
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      password_verifier:
+        $ref: '#/definitions/contract.SecretPasswordVerifierResponse'
+      payload_kind:
+        type: string
+      project_id:
+        type: string
+      protection_class:
+        type: string
+      resource_state:
+        $ref: '#/definitions/contract.ResourceStateResponse'
+      scheduled_destroy_at:
+        type: string
+      secret_id:
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagResponse'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  contract.SecretVersionListItem:
+    properties:
+      created_at:
+        type: string
+      created_by_subject_id:
+        type: string
+      payload_kind:
+        type: string
+      state:
+        type: string
+      updated_at:
+        type: string
+      version_no:
+        type: integer
+    type: object
+  contract.SecretVersionListResponse:
+    properties:
+      project_id:
+        type: string
+      secret_id:
+        type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionListItem'
+        type: array
+    type: object
+  contract.SecretVersionResponse:
+    properties:
+      created_at:
+        type: string
+      created_by_subject_id:
+        type: string
+      disabled_at:
+        type: string
+      payload_kind:
+        type: string
+      project_id:
+        type: string
+      secret_id:
+        type: string
+      state:
+        type: string
+      updated_at:
+        type: string
+      version_no:
+        type: integer
+    type: object
+  contract.TagListEntry:
+    properties:
+      color:
+        type: string
+      id:
+        type: integer
+      is_readonly:
+        type: boolean
+      is_system:
+        type: boolean
+      tag_key:
+        type: string
+      tag_value:
+        type: string
+    type: object
+  contract.TagResponse:
+    properties:
+      color:
+        type: string
+      id:
+        type: integer
+      is_readonly:
+        type: boolean
+      is_system:
+        type: boolean
+      project_id:
+        type: string
+      tag_key:
+        type: string
+      tag_value:
+        type: string
+    type: object
+  contract.TelemetryPointResponse:
+    properties:
+      timestamp:
+        type: string
+      value:
+        type: number
+    type: object
+  contract.TelemetryRangeResponse:
+    properties:
+      from:
+        type: string
+      step:
+        type: string
+      to:
+        type: string
+    type: object
+  contract.TelemetryTimeseriesResponse:
+    properties:
+      metric:
+        type: string
+      points:
+        items:
+          $ref: '#/definitions/contract.TelemetryPointResponse'
+        type: array
+      range:
+        $ref: '#/definitions/contract.TelemetryRangeResponse'
+      series_name:
+        type: string
+      unit:
+        type: string
+    type: object
+  contract.UpdateDBInstanceRequest:
+    properties:
+      description:
+        type: string
+      desired_runtime_state:
+        type: string
+      name:
+        type: string
+    type: object
+  contract.UpdateProjectMemberRoleRequest:
+    properties:
+      role:
+        type: string
+    type: object
+  contract.UpdateProjectRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  contract.UpdateSecretRequest:
+    properties:
+      description:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: 'REST API платформы Sb0rka: проекты, базы данных, секреты, теги.'
+  title: Sb0rka Platform API
+  version: 0.1.0
+paths:
+  /account/initialize:
+    post:
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Инициализировать аккаунт
+      tags:
+      - iam
+  /account/plan:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.PlanResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить тариф аккаунта
+      tags:
+      - iam
+  /plan:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.PlanResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить тариф аккаунта
+      tags:
+      - iam
+  /plans:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"plans\": [...]}'
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/contract.PlanResponse'
+              type: array
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Список публичных тарифов
+      tags:
+      - iam
+  /projects:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectListResponse'
+      security:
+      - BearerAuth: []
+      summary: Список проектов пользователя
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Параметры проекта
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.CreateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contract.ProjectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать проект
+      tags:
+      - projects
+  /projects/{project_id}:
+    delete:
+      description: Проект можно удалить только если в нём нет баз данных.
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить проект
+      tags:
+      - projects
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectResponse'
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить проект
+      tags:
+      - projects
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Новые имя/описание
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.UpdateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить метаданные проекта
+      tags:
+      - projects
+  /projects/{project_id}/dbi:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Параметры инстанса БД
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.CreateDBInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contract.DatabaseWithSecretResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать инстанс БД
+      tags:
+      - dbis
+  /projects/{project_id}/dbis:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DBInstanceListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список инстансов БД проекта
+      tags:
+      - dbis
+  /projects/{project_id}/members:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectMemberListResponse'
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список участников проекта
+      tags:
+      - project-members
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Subject и роль
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.CreateProjectMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contract.ProjectMemberResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Добавить участника проекта
+      tags:
+      - project-members
+  /projects/{project_id}/members/{subject_id}:
+    delete:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: UUID участника
+        in: path
+        name: subject_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить участника проекта
+      tags:
+      - project-members
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: UUID участника
+        in: path
+        name: subject_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectMemberResponse'
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить участника проекта
+      tags:
+      - project-members
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: UUID участника
+        in: path
+        name: subject_id
+        required: true
+        type: string
+      - description: Новая роль
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.UpdateProjectMemberRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectMemberResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Изменить роль участника
+      tags:
+      - project-members
+  /projects/{project_id}/plan:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.PlanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить тариф проекта
+      tags:
+      - iam
+  /projects/{project_id}/quotas:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectQuotaListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить квоты проекта
+      tags:
+      - iam
+  /projects/{project_id}/resources:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ResourceListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список ресурсов проекта
+      tags:
+      - resources
+  /projects/{project_id}/resources/{resource_id}/dbi:
+    delete:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить инстанс БД
+      tags:
+      - dbis
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DBInstanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить инстанс БД
+      tags:
+      - dbis
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Обновляемые поля
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.UpdateDBInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DBInstanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить метаданные инстанса БД
+      tags:
+      - dbis
+  /projects/{project_id}/resources/{resource_id}/dbi/connection/direct:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DBInstanceConnParamsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Параметры прямого подключения к инстансу БД
+      tags:
+      - dbis
+  /projects/{project_id}/resources/{resource_id}/dbi/state/start:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DBInstanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Запустить инстанс БД
+      tags:
+      - dbis
+  /projects/{project_id}/resources/{resource_id}/dbi/state/stop:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DBInstanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Остановить инстанс БД
+      tags:
+      - dbis
+  /projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID инстанса БД
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Строка подключения PostgreSQL
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Раскрыть строку подключения (URI) инстанса БД
+      tags:
+      - dbis
+  /projects/{project_id}/resources/{resource_id}/observability/metrics/timeseries:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID ресурса
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Имя метрики
+        in: query
+        name: metric
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.TelemetryTimeseriesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "502":
+          description: Bad Gateway
+          schema:
+            type: string
+        "504":
+          description: Gateway Timeout
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Временной ряд метрики ресурса
+      tags:
+      - telemetry
+  /projects/{project_id}/resources/{resource_id}/secret:
+    delete:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить секрет
+      tags:
+      - secrets
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.SecretResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить метаданные секрета
+      tags:
+      - secrets
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Изменяемые поля
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.UpdateSecretRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.SecretResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить метаданные секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/reveal:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.RevealSecretResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Раскрыть значение текущей версии секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/versions:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.SecretVersionListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список версий секрета
+      tags:
+      - secrets
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Значение и тип payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.CreateSecretVersionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contract.SecretVersionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+        "422":
+          description: Unprocessable Entity
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать новую версию секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Номер версии
+        in: path
+        name: version_no
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.SecretVersionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить версию секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Номер версии
+        in: path
+        name: version_no
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.SecretVersionResponse'
+        "204":
+          description: Already disabled
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Отключить версию секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Номер версии
+        in: path
+        name: version_no
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.RevealSecretResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Раскрыть значение версии секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/verifier/apply:
+    post:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID секрета
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Номер версии
+        in: path
+        name: version_no
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ApplySecretPasswordVerifierResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+        "422":
+          description: Unprocessable Entity
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Применить SCRAM-verifier пароля БД для версии секрета
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/tag:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID ресурса
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: Параметры тега
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.AttachResourceTagRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contract.TagResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Прикрепить тег к ресурсу
+      tags:
+      - tags
+  /projects/{project_id}/resources/{resource_id}/tags:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID ресурса
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ResourceTagListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список тегов ресурса
+      tags:
+      - tags
+  /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach:
+    delete:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: ID ресурса
+        in: path
+        name: resource_id
+        required: true
+        type: string
+      - description: ID тега
+        in: path
+        name: tag_id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Открепить тег от ресурса
+      tags:
+      - tags
+  /projects/{project_id}/secret:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      - description: Параметры секрета
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.CreateSecretRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: '{\"secret\": {...}, \"version\": {...}}'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "422":
+          description: Unprocessable Entity
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать секрет
+      tags:
+      - secrets
+  /projects/{project_id}/secrets:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.SecretListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список секретов проекта
+      tags:
+      - secrets
+  /projects/{project_id}/tags:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ProjectTagListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Список тегов проекта
+      tags:
+      - tags
+  /projects/{project_id}/usage:
+    get:
+      parameters:
+      - description: ID проекта
+        in: path
+        name: project_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить потребление проекта
+      tags:
+      - iam
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,53 @@
+version: '3'
+
+# Запуск: task <имя>. Требует go-task (https://taskfile.dev).
+
+tasks:
+  build:
+    desc: Собрать все Go-сервисы в bin/
+    cmds:
+      - go build -o bin/api ./apps/api/cmd/api
+      - go build -o bin/auth ./apps/auth/cmd/auth
+      - go build -o bin/s0c ./apps/s0c
+      - go build -o bin/drones ./apps/drones
+      # proxy-ql-executor не в go.work (Yandex CF, Go 1.23) — собираем standalone
+      - GOWORK=off go build -tags dev -o bin/proxy-ql-executor ./apps/proxy-ql-executor
+
+  fmt:
+    desc: gofmt по всем модулям
+    cmds:
+      - gofmt -w apps packages
+
+  lint:
+    desc: golangci-lint по всем модулям (помодульно — из-за go.work)
+    cmds:
+      - cd apps/api && golangci-lint run ./...
+      - cd apps/s0c && golangci-lint run ./...
+      - cd apps/proxy-ql-executor && golangci-lint run ./...
+      - cd apps/drones && golangci-lint run ./...
+      - cd packages/contract && golangci-lint run ./...
+
+  tidy:
+    desc: go mod tidy в каждом модуле
+    cmds:
+      - cd apps/api && go mod tidy
+      - cd apps/s0c && go mod tidy
+      - cd apps/drones && go mod tidy
+      - cd apps/proxy-ql-executor && go mod tidy
+      - cd packages/contract && go mod tidy
+
+  swagger:
+    desc: Перегенерировать OpenAPI-спеку api из swaggo-аннотаций
+    dir: apps/api
+    cmds:
+      - go run github.com/swaggo/swag/cmd/swag init -g cmd/api/main.go --output internal/openapi --parseDependency --parseInternal
+
+  dev:
+    desc: Поднять локальный стенд (Postgres + api + drones + proxy)
+    cmds:
+      - docker compose -f docker-compose.dev.yml up -d --build
+
+  dev-down:
+    desc: Остановить локальный стенд
+    cmds:
+      - docker compose -f docker-compose.dev.yml down

@@ -16,6 +16,7 @@ import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
+import { MobileDataExplorerPage } from "./features/projects/mobile-data-explorer-page"
 import "@/lib/i18n"
 
 export default function App() {
@@ -31,6 +32,10 @@ export default function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route element={<RequireAuth />}>
+                      <Route
+                        path="/projects/:id/mobile-data-explorer"
+                        element={<MobileDataExplorerPage />}
+                      />
                       <Route element={<AppLayout />}>
                         <Route path="/projects" element={<ProjectsPage />} />
                         <Route path="/subscription" element={<SubscriptionPage />} />

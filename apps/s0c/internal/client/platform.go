@@ -14,10 +14,10 @@ const (
 	RouteProjectList    = "/projects"
 	RouteProjectCreate  = "/projects"
 	RouteProjectGet     = "/projects/{project_id}"
-	RouteDatabaseList   = "/projects/{project_id}/databases"
-	RouteDatabaseCreate = "/projects/{project_id}/database"
-	RouteDatabaseGet    = "/projects/{project_id}/resources/{resource_id}/database"
-	RouteDatabaseURI    = "/projects/{project_id}/resources/{resource_id}/database/uri"
+	RouteDatabaseList   = "/projects/{project_id}/dbis"
+	RouteDatabaseCreate = "/projects/{project_id}/dbi"
+	RouteDatabaseGet    = "/projects/{project_id}/resources/{resource_id}/dbi"
+	RouteDatabaseURI    = "/projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal"
 )
 
 func ListProjects(ctx context.Context, client *Client, bearer string) (contract.ProjectListResponse, error) {
@@ -66,15 +66,15 @@ func GetUserPlan(ctx context.Context, client *Client, bearer string) (contract.P
 	return payload, nil
 }
 
-func ListDatabases(ctx context.Context, client *Client, bearer string, projectID string) (contract.DatabaseListResponse, error) {
-	var payload contract.DatabaseListResponse
+func ListDatabases(ctx context.Context, client *Client, bearer string, projectID string) (contract.DBInstanceListResponse, error) {
+	var payload contract.DBInstanceListResponse
 	if projectID == "" {
-		return contract.DatabaseListResponse{}, fmt.Errorf("project ID is required")
+		return contract.DBInstanceListResponse{}, fmt.Errorf("project ID is required")
 	}
 
 	path := routeWithProjectID(RouteDatabaseList, projectID)
 	if err := client.DoJSON(ctx, "GET", path, bearer, nil, &payload); err != nil {
-		return contract.DatabaseListResponse{}, err
+		return contract.DBInstanceListResponse{}, err
 	}
 
 	return payload, nil
@@ -99,8 +99,9 @@ func CreateDatabase(
 
 	path := routeWithProjectID(RouteDatabaseCreate, projectID)
 
-	reqBody := contract.CreateDatabaseRequest{
-		Name: name,
+	reqBody := contract.CreateDBInstanceRequest{
+		Name:                name,
+		DesiredRuntimeState: contract.DBInstanceDesiredRuntimeStateRunning,
 	}
 	description = strings.TrimSpace(description)
 	if description != "" {
@@ -116,14 +117,14 @@ func CreateDatabase(
 
 func GetDatabaseURI(ctx context.Context, client *Client, bearer string, projectID string, dbID string) (string, error) {
 	path := routeWithResourceID(RouteDatabaseURI, projectID, dbID)
-	return client.DoText(ctx, "GET", path, bearer)
+	return client.DoText(ctx, "POST", path, bearer)
 }
 
-func GetDatabase(ctx context.Context, client *Client, bearer string, projectID string, dbID string) (contract.DatabaseResponse, error) {
-	var payload contract.DatabaseResponse
+func GetDatabase(ctx context.Context, client *Client, bearer string, projectID string, dbID string) (contract.DBInstanceResponse, error) {
+	var payload contract.DBInstanceResponse
 	path := routeWithResourceID(RouteDatabaseGet, projectID, dbID)
 	if err := client.DoJSON(ctx, "GET", path, bearer, nil, &payload); err != nil {
-		return contract.DatabaseResponse{}, err
+		return contract.DBInstanceResponse{}, err
 	}
 	return payload, nil
 }

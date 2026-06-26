@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS subjects (
     id UUID NOT NULL,
 
     kind VARCHAR NOT NULL,
+    is_active BOOLEAN DEFAULT true NOT NULL,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
@@ -35,7 +36,6 @@ EXECUTE FUNCTION set_updated_at();
 CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT gen_random_uuid() NOT NULL, 
 
-    is_active BOOLEAN DEFAULT true NOT NULL, 
     username VARCHAR(128) NOT NULL, 
     email VARCHAR(128) NOT NULL, 
     phone INTEGER, 

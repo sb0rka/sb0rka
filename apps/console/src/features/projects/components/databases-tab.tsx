@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, type FormEvent } from "react"
 import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { Plus } from "lucide-react"
+import { Link } from "react-router-dom"
+import { LayoutGrid, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -182,6 +183,25 @@ export function DatabasesTab({
               emptyMessage={t("databases.empty")}
               onRowClick={(row) => onOpenDatabaseDetails(row.id)}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 flex w-full gap-2 md:hidden"
+              disabled={databaseRows.length === 0}
+              asChild={databaseRows.length > 0}
+            >
+              {databaseRows.length > 0 ? (
+                <Link to={`/projects/${projectId}/mobile-data-explorer`}>
+                  <LayoutGrid className="h-4 w-4" />
+                  {t("dataExplorer.mobileOpen")}
+                </Link>
+              ) : (
+                <span>
+                  <LayoutGrid className="h-4 w-4" />
+                  {t("dataExplorer.mobileOpen")}
+                </span>
+              )}
+            </Button>
           </CardContent>
         </Card>
         </SlideIn>

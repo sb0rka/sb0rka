@@ -1,10 +1,12 @@
 import { useTranslation } from "react-i18next"
-import { ClipboardPaste, Copy, Play } from "lucide-react"
+import { ClipboardPaste, Copy, Loader2, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export type AiQueryChatSqlActionsProps = {
   sql: string
   isPending: boolean
+  isQueryRunning?: boolean
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
@@ -21,6 +23,7 @@ async function copySql(sql: string) {
 export function AiQueryChatSqlActions({
   sql,
   isPending,
+  isQueryRunning = false,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
@@ -55,7 +58,10 @@ export function AiQueryChatSqlActions({
         type="button"
         variant="ghost"
         size="icon"
-        className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        className={cn(
+          "h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground",
+          isQueryRunning && "animate-pulse text-primary disabled:opacity-100",
+        )}
         disabled={
           isPending ||
           !onApplySqlAndRun ||
@@ -63,9 +69,15 @@ export function AiQueryChatSqlActions({
           sql.trim().length === 0
         }
         onClick={() => onApplySqlAndRun?.(sql)}
-        aria-label={t("dataExplorer.aiChatApplySqlAndRun")}
+        aria-label={
+          isQueryRunning ? t("databaseQuery.running") : t("dataExplorer.aiChatApplySqlAndRun")
+        }
       >
-        <Play className="h-4 w-4" />
+        {isQueryRunning ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Play className="h-4 w-4" />
+        )}
       </Button>
     </div>
   )

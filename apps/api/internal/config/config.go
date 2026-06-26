@@ -11,15 +11,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
 )
 
 const (
 	DefaultLoggerLevel  = "info"
 	DefaultLoggerFormat = "text"
 
-	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/platform"
-	DefaultDatabaseMaxConns        = 10
-	DefaultDatabaseConnMaxLifetime = 30 * time.Second
+	DefaultDatabasePsqlURI = "postgres://postgres:postgres@localhost:5432/platform"
 
 	DefaultServerAddr                = "localhost"
 	DefaultServerPort                = 8080
@@ -103,8 +103,8 @@ func Load() (*Config, error) {
 
 	databaseURIEnv := getStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
-	databaseMaxConns := getIntEnv("DATABASE_MAX_OPEN_CONNS", DefaultDatabaseMaxConns)
-	databaseConnMaxLifetime := getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", DefaultDatabaseConnMaxLifetime)
+	databaseMaxConns := getIntEnv("DATABASE_MAX_OPEN_CONNS", coreconfig.DefaultDatabaseMaxConns)
+	databaseConnMaxLifetime := getDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime)
 
 	serverAddr := getStringEnv("SERVER_ADDR", DefaultServerAddr)
 	serverPort := getIntEnv("SERVER_PORT", DefaultServerPort)

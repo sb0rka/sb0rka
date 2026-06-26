@@ -22,6 +22,16 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 	return &Handler{deps: deps}
 }
 
+// InitializeAccount godoc
+// @Summary  Инициализировать аккаунт
+// @Tags     iam
+// @Success  204
+// @Failure  401  {string}  string
+// @Failure  403  {string}  string
+// @Failure  404  {string}  string
+// @Failure  500  {string}  string
+// @Security BearerAuth
+// @Router   /account/initialize [post]
 func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
 	if !ok {
@@ -53,6 +63,17 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// GetAccountPlan godoc
+// @Summary  Получить тариф аккаунта
+// @Tags     iam
+// @Produce  json
+// @Success  200  {object}  contract.PlanResponse
+// @Failure  401  {string}  string
+// @Failure  404  {string}  string
+// @Failure  500  {string}  string
+// @Security BearerAuth
+// @Router   /plan [get]
+// @Router   /account/plan [get]
 func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
 	if !ok {
@@ -83,6 +104,13 @@ func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// ListPublicPlans godoc
+// @Summary  Список публичных тарифов
+// @Tags     iam
+// @Produce  json
+// @Success  200  {object}  map[string][]contract.PlanResponse  "{\"plans\": [...]}"
+// @Failure  500  {string}  string
+// @Router   /plans [get]
 func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 	plans, err := h.deps.PlatformDatabase.ListPublicPlans(r.Context())
 	if err != nil {
@@ -101,6 +129,17 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"plans": out})
 }
 
+// GetProjectPlan godoc
+// @Summary  Получить тариф проекта
+// @Tags     iam
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  contract.PlanResponse
+// @Failure  400         {string}  string
+// @Failure  404         {string}  string
+// @Failure  500         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/plan [get]
 func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 	projectID := strings.TrimSpace(r.PathValue("project_id"))
 	if projectID == "" {
@@ -124,6 +163,17 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toPlanResponse(plan))
 }
 
+// GetProjectQuotas godoc
+// @Summary  Получить квоты проекта
+// @Tags     iam
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  contract.ProjectQuotaListResponse
+// @Failure  400         {string}  string
+// @Failure  404         {string}  string
+// @Failure  500         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/quotas [get]
 func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 	projectID := strings.TrimSpace(r.PathValue("project_id"))
 	if projectID == "" {
@@ -165,6 +215,17 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetProjectUsage godoc
+// @Summary  Получить потребление проекта
+// @Tags     iam
+// @Produce  json
+// @Param    project_id  path      string  true  "ID проекта"
+// @Success  200         {object}  map[string]interface{}
+// @Failure  400         {string}  string
+// @Failure  404         {string}  string
+// @Failure  500         {string}  string
+// @Security BearerAuth
+// @Router   /projects/{project_id}/usage [get]
 func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
 	projectID := strings.TrimSpace(r.PathValue("project_id"))
 	if projectID == "" {

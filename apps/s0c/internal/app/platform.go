@@ -71,21 +71,21 @@ func (s *PlatformService) GetProject(ctx context.Context, projectID string) (con
 	})
 }
 
-func (s *PlatformService) ListDatabases(ctx context.Context, projectID string) (contract.DatabaseListResponse, error) {
-	return runAuthorized(s, ctx, func(ctx context.Context, apiClient *client.Client, bearer string) (contract.DatabaseListResponse, error) {
+func (s *PlatformService) ListDatabases(ctx context.Context, projectID string) (contract.DBInstanceListResponse, error) {
+	return runAuthorized(s, ctx, func(ctx context.Context, apiClient *client.Client, bearer string) (contract.DBInstanceListResponse, error) {
 		payload, err := client.ListDatabases(ctx, apiClient, bearer, projectID)
 		if err != nil {
-			return contract.DatabaseListResponse{}, fmt.Errorf("list databases: %w", err)
+			return contract.DBInstanceListResponse{}, fmt.Errorf("list databases: %w", err)
 		}
 		return payload, nil
 	})
 }
 
-func (s *PlatformService) GetDatabase(ctx context.Context, projectID string, databaseID string) (contract.DatabaseResponse, error) {
-	return runAuthorized(s, ctx, func(ctx context.Context, apiClient *client.Client, bearer string) (contract.DatabaseResponse, error) {
+func (s *PlatformService) GetDatabase(ctx context.Context, projectID string, databaseID string) (contract.DBInstanceResponse, error) {
+	return runAuthorized(s, ctx, func(ctx context.Context, apiClient *client.Client, bearer string) (contract.DBInstanceResponse, error) {
 		payload, err := client.GetDatabase(ctx, apiClient, bearer, projectID, databaseID)
 		if err != nil {
-			return contract.DatabaseResponse{}, fmt.Errorf("get database: %w", err)
+			return contract.DBInstanceResponse{}, fmt.Errorf("get database: %w", err)
 		}
 		return payload, nil
 	})
