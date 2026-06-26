@@ -41,7 +41,7 @@ export function AiQueryChatThinkingMessageView({
   return (
     <div className={cn(responseMessageRowClass, "w-full")}>
       <div
-        className={cn(responseMessageBubbleClass, "w-full max-w-[90%]")}
+        className={responseMessageBubbleClass}
         aria-live={isActive ? "polite" : undefined}
         aria-busy={isActive ? "true" : undefined}
       >
