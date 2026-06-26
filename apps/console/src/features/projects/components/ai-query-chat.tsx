@@ -33,8 +33,12 @@ export type AiQueryChatProps = {
   onApplySqlAndRun?: (sql: string) => void
   /** When true, disables apply-and-run (e.g. no DB selected or run already in flight). */
   applySqlAndRunDisabled?: boolean
+  isQueryRunning?: boolean
   onPromptFocus?: () => void
   onRegisterPromptInserter?: (fn: ((text: string) => void) | null) => void
+  inputDisabled?: boolean
+  draftInput?: string
+  onDraftInputChange?: (value: string) => void
   className?: string
 }
 
@@ -52,8 +56,12 @@ export function AiQueryChat({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
   onPromptFocus,
   onRegisterPromptInserter,
+  inputDisabled,
+  draftInput,
+  onDraftInputChange,
   className,
 }: AiQueryChatProps) {
   const { t } = useTranslation()
@@ -63,12 +71,24 @@ export function AiQueryChat({
     sendMessage,
     stop,
   } = chat
-  const [input, setInput] = useState("")
+  const isControlledDraft = draftInput !== undefined
+  const [uncontrolledInput, setUncontrolledInput] = useState("")
+  const input = isControlledDraft ? draftInput : uncontrolledInput
+  const setInput = useCallback(
+    (value: string) => {
+      if (isControlledDraft) {
+        onDraftInputChange?.(value)
+        return
+      }
+      setUncontrolledInput(value)
+    },
+    [isControlledDraft, onDraftInputChange],
+  )
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   function handleSend() {
     const trimmed = input.trim()
-    if (!trimmed || isPending) return
+    if (!trimmed || isPending || inputDisabled) return
     void sendMessage({
       type: "generate",
       message: trimmed,
@@ -82,18 +102,16 @@ export function AiQueryChat({
     if (!text) return
     const el = promptTextareaRef.current
     if (!el) {
-      setInput((prev) => `${prev}${text}`)
+      setInput(`${input}${text}`)
       return
     }
 
     const selectionStart = el.selectionStart ?? el.value.length
     const selectionEnd = el.selectionEnd ?? selectionStart
 
-    setInput((prev) => {
-      const start = Math.min(selectionStart, prev.length)
-      const end = Math.min(selectionEnd, prev.length)
-      return `${prev.slice(0, start)}${text}${prev.slice(end)}`
-    })
+    const start = Math.min(selectionStart, input.length)
+    const end = Math.min(selectionEnd, input.length)
+    setInput(`${input.slice(0, start)}${text}${input.slice(end)}`)
 
     const nextCaret = selectionStart + text.length
     requestAnimationFrame(() => {
@@ -102,7 +120,7 @@ export function AiQueryChat({
       next.focus()
       next.setSelectionRange(nextCaret, nextCaret)
     })
-  }, [])
+  }, [input, setInput])
 
   useEffect(() => {
     onRegisterPromptInserter?.(insertIntoPrompt)
@@ -115,7 +133,7 @@ export function AiQueryChat({
   )
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
+    <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
       <AiQueryChatMessageList
         messages={messages}
         isPending={isPending}
@@ -123,10 +141,11 @@ export function AiQueryChat({
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
+        isQueryRunning={isQueryRunning}
       />
 
-      <div className="shrink-0 space-y-2 pt-3">
-        <div className="relative">
+      <div className="w-full min-w-0 max-w-full shrink-0 space-y-2 pt-3">
+        <div className="relative w-full min-w-0 max-w-full">
           <Textarea
             ref={promptTextareaRef}
             value={input}
@@ -139,15 +158,15 @@ export function AiQueryChat({
               handleSend()
             }}
             placeholder={t("dataExplorer.aiChatInputPlaceholder")}
-            className="max-h-60 min-h-[140px] resize-y pr-10 shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            disabled={isPending}
+            className="max-h-60 min-h-[140px] w-full min-w-0 max-w-full resize-none pr-10 text-base shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:resize-y md:text-sm"
+            disabled={isPending || inputDisabled}
             spellCheck
           />
           <Button
             type="button"
             size="icon"
             className="absolute bottom-2 right-2 h-6 w-6 rounded-full shadow-sm"
-            disabled={!isPending && input.trim().length === 0}
+            disabled={!isPending && (input.trim().length === 0 || inputDisabled)}
             onClick={() => {
               if (isPending) {
                 stop()
@@ -164,7 +183,7 @@ export function AiQueryChat({
             )}
           </Button>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex w-full min-w-0 max-w-full flex-col gap-1.5">
           <AiQueryChatModelSelector
             availableModels={availableModels}
             selectedModel={selectedModel}

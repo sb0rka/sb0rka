@@ -15,6 +15,7 @@ export type AiQueryChatMessageListProps = {
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
+  isQueryRunning?: boolean
 }
 
 export function AiQueryChatMessageList({
@@ -24,6 +25,7 @@ export function AiQueryChatMessageList({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
 }: AiQueryChatMessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const scrollKey = useMemo(() => messagesAutoScrollKey(messages), [messages])
@@ -41,7 +43,7 @@ export function AiQueryChatMessageList({
   return (
     <div
       ref={listRef}
-      className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden pr-1 ${hideScrollbarClass}`}
+      className={`flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1 ${hideScrollbarClass}`}
     >
       {messages.map((message, index) => (
         <AiQueryChatMessageItem
@@ -59,6 +61,7 @@ export function AiQueryChatMessageList({
           onApplySql={onApplySql}
           onApplySqlAndRun={onApplySqlAndRun}
           applySqlAndRunDisabled={applySqlAndRunDisabled}
+          isQueryRunning={isQueryRunning}
         />
       ))}
     </div>

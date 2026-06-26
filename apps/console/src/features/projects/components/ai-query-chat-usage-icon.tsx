@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CircleDollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,25 @@ import {
   type OpenAiModelPricing,
   type OpenAiRequestUsage,
 } from "../api"
+
+const CLICK_TOOLTIP_MEDIA_QUERY = "(hover: none), (pointer: coarse)"
+
+function useClickTooltip(): boolean {
+  const [clickTooltip, setClickTooltip] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia(CLICK_TOOLTIP_MEDIA_QUERY).matches,
+  )
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(CLICK_TOOLTIP_MEDIA_QUERY)
+    const onChange = () => setClickTooltip(mediaQuery.matches)
+    mediaQuery.addEventListener("change", onChange)
+    return () => mediaQuery.removeEventListener("change", onChange)
+  }, [])
+
+  return clickTooltip
+}
 
 function formatCostUsd(cost: number): string {
   if (cost === 0) return "free"
@@ -87,13 +107,25 @@ export function AiQueryChatUsageIcon({
   compact = false,
 }: AiQueryChatUsageIconProps) {
   const { t } = useTranslation()
+  const clickTooltip = useClickTooltip()
+  const [open, setOpen] = useState(false)
 
   if (!usage) return null
 
   const tooltipText = formatAiChatUsageTooltip(usage, modelPricing)
 
   return (
-    <Tooltip>
+    <Tooltip
+      open={clickTooltip ? open : undefined}
+      onOpenChange={
+        clickTooltip
+          ? (next) => {
+              if (!next) setOpen(false)
+            }
+          : undefined
+      }
+      delayDuration={clickTooltip ? 0 : undefined}
+    >
       <TooltipTrigger asChild>
         <Button
           type="button"
@@ -105,6 +137,15 @@ export function AiQueryChatUsageIcon({
           )}
           disabled={disabled}
           aria-label={t("dataExplorer.aiChatUsageTitle")}
+          aria-expanded={clickTooltip ? open : undefined}
+          onClick={
+            clickTooltip
+              ? (event) => {
+                  event.preventDefault()
+                  setOpen((current) => !current)
+                }
+              : undefined
+          }
         >
           <CircleDollarSign className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
         </Button>

@@ -36,12 +36,12 @@ export function AiQueryChatThinkingMessageView({
     setIsThinkingExpanded(false)
   }, [isActive])
 
-  if (!isActive && !hasThinkingText) return null
+  if (!hasThinkingText) return null
 
   return (
     <div className={cn(responseMessageRowClass, "w-full")}>
       <div
-        className={cn(responseMessageBubbleClass, "w-full max-w-[90%]")}
+        className={responseMessageBubbleClass}
         aria-live={isActive ? "polite" : undefined}
         aria-busy={isActive ? "true" : undefined}
       >

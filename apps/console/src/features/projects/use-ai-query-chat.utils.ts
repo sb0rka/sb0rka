@@ -82,18 +82,36 @@ export function upsertFixExplanationInCurrentTurn(
   return next
 }
 
+function findThinkingInsertIndex(messages: AiQueryChatMessage[], occurrence: number): number {
+  const start = findLastUserIndex(messages) + 1
+  const hasFixInTurn = messages
+    .slice(start)
+    .some((message) => message.role === "assistant" && message.type === "fix")
+  if (!hasFixInTurn) return messages.length
+
+  if (occurrence === 1) {
+    const fixIndex = findAssistantIndexInCurrentTurn(messages, "fix")
+    return fixIndex >= 0 ? fixIndex : messages.length
+  }
+
+  const sqlIndex = findAssistantIndexInCurrentTurn(messages, "sql")
+  return sqlIndex >= 0 ? sqlIndex : messages.length
+}
+
 export function upsertThinkingInCurrentTurn(
   messages: AiQueryChatMessage[],
   output: string,
   occurrence = 1,
 ): AiQueryChatMessage[] {
+  if (!output.trim()) return messages
   const next = [...messages]
   const thinkingIndex = findAssistantIndexInCurrentTurn(next, "thinking", occurrence)
   if (thinkingIndex >= 0) {
     next[thinkingIndex] = { role: "assistant", type: "thinking", output }
     return next
   }
-  next.push({ role: "assistant", type: "thinking", output })
+  const insertIndex = findThinkingInsertIndex(next, occurrence)
+  next.splice(insertIndex, 0, { role: "assistant", type: "thinking", output })
   return next
 }
 

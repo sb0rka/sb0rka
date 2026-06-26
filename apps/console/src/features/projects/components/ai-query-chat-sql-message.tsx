@@ -17,6 +17,7 @@ export type AiQueryChatSqlMessageProps = {
   onApplySql?: (sql: string) => void
   onApplySqlAndRun?: (sql: string) => void
   applySqlAndRunDisabled?: boolean
+  isQueryRunning?: boolean
 }
 
 export function AiQueryChatSqlMessageView({
@@ -26,6 +27,7 @@ export function AiQueryChatSqlMessageView({
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
+  isQueryRunning,
 }: AiQueryChatSqlMessageProps) {
   const sqlTextRef = useRef<HTMLPreElement>(null)
   useAutoScrollOnContentChange(sqlTextRef, message.output, isPending)
@@ -40,6 +42,7 @@ export function AiQueryChatSqlMessageView({
           <AiQueryChatSqlActions
             sql={message.output}
             isPending={isPending}
+            isQueryRunning={isQueryRunning}
             onApplySql={onApplySql}
             onApplySqlAndRun={onApplySqlAndRun}
             applySqlAndRunDisabled={applySqlAndRunDisabled}
