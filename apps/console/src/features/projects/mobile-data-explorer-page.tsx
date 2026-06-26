@@ -15,7 +15,14 @@ import {
 } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -654,11 +661,11 @@ function MobileSqlPanel({
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.tabSql")}</h1>
       </div>
 
-      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 min-w-0 w-full max-w-full flex-1 overflow-hidden">
         <Textarea
           value={sql}
           onChange={(event) => onSqlChange(event.target.value)}
-          className="h-full min-h-full w-full max-w-full resize-none rounded-2xl p-4 pr-14 font-mono text-sm shadow-none focus-visible:ring-1"
+          className="h-full min-h-full w-full min-w-0 max-w-full resize-none rounded-2xl p-4 pr-14 font-mono text-base shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-sm"
           spellCheck={false}
           aria-label={t("databaseQuery.sqlLabel")}
         />
@@ -817,15 +824,30 @@ function MobileResultsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!fixed !inset-0 !left-0 !top-0 !flex !h-dvh !max-h-dvh !w-full !max-w-[100dvw] !translate-x-0 !translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 data-[state=closed]:animate-none data-[state=open]:animate-none [&>button]:top-[calc(0.75rem+env(safe-area-inset-top))]">
-        <DialogHeader className="relative z-20 shrink-0 border-b border-border bg-background px-4 pb-3 pr-14 pt-[calc(1rem+env(safe-area-inset-top))]">
-          <DialogTitle className="text-xl">{t("databaseQuery.fullscreenTitle")}</DialogTitle>
-          <DialogDescription>
-            {result
-              ? `${t("databaseQuery.rowCount", { count: result.row_count })} · ${t("databaseQuery.duration", { duration: result.duration_ms })}`
-              : t("common.loading")}
-            {result?.truncated ? ` · ${t("databaseQuery.truncated")}` : ""}
-          </DialogDescription>
+      <DialogContent className="!fixed !inset-0 !left-0 !top-0 !flex !h-dvh !max-h-dvh !w-full !max-w-[100dvw] !translate-x-0 !translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 data-[state=closed]:animate-none data-[state=open]:animate-none [&>button]:hidden">
+        <DialogHeader className="relative z-20 shrink-0 border-b border-border bg-background px-4 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-xl">{t("databaseQuery.fullscreenTitle")}</DialogTitle>
+              <DialogDescription>
+                {result
+                  ? `${t("databaseQuery.rowCount", { count: result.row_count })} · ${t("databaseQuery.duration", { duration: result.duration_ms })}`
+                  : t("common.loading")}
+                {result?.truncated ? ` · ${t("databaseQuery.truncated")}` : ""}
+              </DialogDescription>
+            </div>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-full"
+                aria-label={t("common.actions.cancel")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-auto bg-background">
