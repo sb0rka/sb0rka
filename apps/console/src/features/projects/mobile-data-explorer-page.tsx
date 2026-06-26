@@ -279,7 +279,7 @@ export function MobileDataExplorerPage() {
   }
 
   return (
-    <div className="flex h-dvh max-h-dvh w-full max-w-[100dvw] flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh max-h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden bg-background text-foreground">
       <MobileExplorerHeader
         nodes={nodes}
         selectedResourceId={selectedResourceId}
@@ -291,7 +291,7 @@ export function MobileDataExplorerPage() {
         onClose={handleClose}
       />
 
-      <main className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+      <main className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
         {databasesQuery.isLoading ? (
           <MobileExplorerStateMessage message={t("common.loading")} />
         ) : databasesQuery.isError ? (
