@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   fixSqlWithOpenAiStream,
   generateSqlWithOpenAiStream,
@@ -91,6 +91,9 @@ export type UseAiQueryChatOptions = {
   openaiUrl?: string
   openaiKey?: string
   selectedModel?: string
+  /** When this key changes, chat history is replaced with `initialMessages`. */
+  restoreKey?: string
+  initialMessages?: AiQueryChatMessage[]
 }
 
 export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
@@ -100,10 +103,21 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   const openaiKey = opts?.openaiKey?.trim() ?? ""
   const selectedModel = opts?.selectedModel?.trim() ?? ""
 
-  const [messages, setMessages] = useState<AiQueryChatMessage[]>([])
+  const [messages, setMessages] = useState<AiQueryChatMessage[]>(opts?.initialMessages ?? [])
   const [isPending, setIsPending] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const fixPhaseRef = useRef<"explanation" | "sql">("explanation")
+  const initialMessagesRef = useRef(opts?.initialMessages)
+  initialMessagesRef.current = opts?.initialMessages
+
+  useEffect(() => {
+    if (!opts?.restoreKey) return
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    fixPhaseRef.current = "explanation"
+    setIsPending(false)
+    setMessages(initialMessagesRef.current ?? [])
+  }, [opts?.restoreKey])
 
   const beginRequest = useCallback(() => {
     abortControllerRef.current?.abort()
