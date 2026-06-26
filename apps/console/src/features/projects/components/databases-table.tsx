@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { MobileDatabasesList } from "./mobile-databases-list"
 import type { DatabaseRow } from "./project-detail-tab-types"
 import { getDatabaseStatusLabel } from "./get-database-status-label"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 interface DatabasesTableProps {
   rows: DatabaseRow[]
@@ -39,7 +40,7 @@ export function DatabasesTable({
         />
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
+      <ScrollArea type="always" className="hidden md:block">
         <div className="min-w-[860px]">
           <div
             className={cn(
@@ -121,7 +122,8 @@ export function DatabasesTable({
             })
           )}
         </div>
-      </div>
+      <ScrollBar orientation="horizontal"/>
+      </ScrollArea>
     </>
   )
 }
