@@ -42,6 +42,13 @@ import {
 } from "./api"
 import { AiQueryChat } from "./components/ai-query-chat"
 import {
+  loadMobileDataExplorerState,
+  loadSelectedDatabaseId,
+  MOBILE_DATA_EXPLORER_DEFAULT_SQL,
+  saveMobileDataExplorerState,
+  saveSelectedDatabaseId,
+} from "./mobile-data-explorer-storage"
+import {
   useAiQueryChat,
   useDatabases,
   useDataExplorerSchema,
@@ -50,6 +57,7 @@ import {
   type DataExplorerDatabaseNode,
   type DataExplorerTableNode,
 } from "./hooks"
+import type { AiQueryChatMessage } from "./use-ai-query-chat"
 
 const MAX_SCHEMA_CHARS = 190_000
 const AI_SELECTED_MODEL_STORAGE_KEY = "sb0rka.console.aiSelectedModel"
@@ -122,11 +130,15 @@ export function MobileDataExplorerPage() {
 
   const [activePanel, setActivePanel] = useState<MobileExplorerPanel>("schema")
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
-  const [sql, setSql] = useState("select 1;")
+  const [sql, setSql] = useState(MOBILE_DATA_EXPLORER_DEFAULT_SQL)
   const [result, setResult] = useState<RunDatabaseQueryResponse | null>(null)
   const [isResultsOpen, setIsResultsOpen] = useState(false)
   const [selectedAiModel, setSelectedAiModel] = useState(() => getStoredAiSelectedModel())
+  const [chatRestoreKey, setChatRestoreKey] = useState("")
+  const [chatInitialMessages, setChatInitialMessages] = useState<AiQueryChatMessage[]>([])
+  const [aiDraftInput, setAiDraftInput] = useState("")
   const selectedResourceIdRef = useRef<string | null>(null)
+  const skipNextPersistRef = useRef(false)
 
   const nodes = useMemo(() => {
     const databases = databasesQuery.data?.databases ?? []
@@ -148,14 +160,32 @@ export function MobileDataExplorerPage() {
     if (nodes.length === 0) return
     setSelectedResourceId((current) => {
       const ids = new Set(nodes.map((node) => node.database.resource_id))
+      const stored = loadSelectedDatabaseId(id)
+      if (stored && ids.has(stored)) return stored
       if (!current || !ids.has(current)) return nodes[0].database.resource_id
       return current
     })
-  }, [nodes])
+  }, [id, nodes])
 
   useEffect(() => {
     selectedResourceIdRef.current = selectedResourceId
   }, [selectedResourceId])
+
+  useEffect(() => {
+    if (!selectedResourceId) return
+
+    skipNextPersistRef.current = true
+    const storageKey = `${id}:${selectedResourceId}`
+    const stored = loadMobileDataExplorerState(id, selectedResourceId)
+    setSql(stored.sql)
+    setResult(stored.result)
+    setChatInitialMessages(stored.messages)
+    setAiDraftInput(stored.aiDraftInput)
+    setChatRestoreKey(storageKey)
+    setIsResultsOpen(false)
+    runQuery.reset()
+    saveSelectedDatabaseId(id, selectedResourceId)
+  }, [id, selectedResourceId])
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.database.resource_id === selectedResourceId),
@@ -234,7 +264,24 @@ export function MobileDataExplorerPage() {
     openaiUrl: aiConfigQuery.data?.openaiUrl,
     openaiKey: aiConfigQuery.data?.openaiKey,
     selectedModel: selectedAiModel,
+    restoreKey: chatRestoreKey,
+    initialMessages: chatInitialMessages,
   })
+
+  useEffect(() => {
+    if (!selectedResourceId) return
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false
+      return
+    }
+
+    saveMobileDataExplorerState(id, selectedResourceId, {
+      sql,
+      messages: aiChat.messages,
+      result,
+      aiDraftInput,
+    })
+  }, [id, selectedResourceId, sql, aiChat.messages, result, aiDraftInput])
 
   function handleAiModelSelect(model: string) {
     setSelectedAiModel(model)
@@ -279,10 +326,6 @@ export function MobileDataExplorerPage() {
 
   function handleSelectDatabase(resourceId: string) {
     setSelectedResourceId(resourceId)
-    setResult(null)
-    setIsResultsOpen(false)
-    runQuery.reset()
-    aiChat.reset()
   }
 
   return (
@@ -322,6 +365,8 @@ export function MobileDataExplorerPage() {
             sql={sql}
             onSqlChange={setSql}
             isRunning={runQuery.isPending}
+            hasResult={result !== null}
+            onViewResults={() => setIsResultsOpen(true)}
             errorMessage={
               runQuery.isError
                 ? getErrorMessage(runQuery.error, t("databaseQuery.error"))
@@ -362,6 +407,10 @@ export function MobileDataExplorerPage() {
             onRefreshModels={() => void aiModelsQuery.refetch()}
             schema={nl2sqlSchema}
             dialect="postgresql"
+            hasResult={result !== null}
+            onViewResults={() => setIsResultsOpen(true)}
+            aiDraftInput={aiDraftInput}
+            onAiDraftInputChange={setAiDraftInput}
             onApplySql={(next) => {
               setSql(next)
               setActivePanel("sql")
@@ -637,6 +686,8 @@ function MobileSqlPanel({
   sql,
   onSqlChange,
   isRunning,
+  hasResult,
+  onViewResults,
   errorMessage,
   canFix,
   isFixing,
@@ -646,6 +697,8 @@ function MobileSqlPanel({
   sql: string
   onSqlChange: (sql: string) => void
   isRunning: boolean
+  hasResult: boolean
+  onViewResults: () => void
   errorMessage?: string
   canFix: boolean
   isFixing: boolean
@@ -657,15 +710,20 @@ function MobileSqlPanel({
 
   return (
     <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.tabSql")}</h1>
+        {hasResult ? (
+          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={onViewResults}>
+            {t("dataExplorer.viewLastResults")}
+          </Button>
+        ) : null}
       </div>
 
       <div className="relative min-h-0 min-w-0 w-full max-w-full flex-1 overflow-hidden">
         <Textarea
           value={sql}
           onChange={(event) => onSqlChange(event.target.value)}
-          className="h-full min-h-full w-full min-w-0 max-w-full resize-none rounded-2xl p-4 pr-14 font-mono text-base shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-sm"
+          className="h-full min-h-full w-full min-w-0 max-w-full resize-none rounded-2xl p-4 pr-14 font-mono text-sm shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
           spellCheck={false}
           aria-label={t("databaseQuery.sqlLabel")}
         />
@@ -727,6 +785,10 @@ function MobileAiPanel({
   onApplySqlAndRun,
   applySqlAndRunDisabled,
   isQueryRunning,
+  hasResult,
+  onViewResults,
+  aiDraftInput,
+  onAiDraftInputChange,
 }: {
   chat: ReturnType<typeof useAiQueryChat>
   configured: boolean
@@ -746,13 +808,22 @@ function MobileAiPanel({
   onApplySqlAndRun: (sql: string) => void
   applySqlAndRunDisabled: boolean
   isQueryRunning: boolean
+  hasResult: boolean
+  onViewResults: () => void
+  aiDraftInput: string
+  onAiDraftInputChange: (value: string) => void
 }) {
   const { t } = useTranslation()
 
   return (
     <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
-      <div className="shrink-0">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.aiChatTitle")}</h1>
+        {hasResult ? (
+          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={onViewResults}>
+            {t("dataExplorer.viewLastResults")}
+          </Button>
+        ) : null}
       </div>
 
       {missingConfig ? (
@@ -781,6 +852,8 @@ function MobileAiPanel({
         applySqlAndRunDisabled={applySqlAndRunDisabled}
         isQueryRunning={isQueryRunning}
         inputDisabled={!configured}
+        draftInput={aiDraftInput}
+        onDraftInputChange={onAiDraftInputChange}
         className="min-h-0 min-w-0 w-full flex-1 overflow-hidden"
       />
     </section>

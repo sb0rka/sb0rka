@@ -37,6 +37,8 @@ export type AiQueryChatProps = {
   onPromptFocus?: () => void
   onRegisterPromptInserter?: (fn: ((text: string) => void) | null) => void
   inputDisabled?: boolean
+  draftInput?: string
+  onDraftInputChange?: (value: string) => void
   className?: string
 }
 
@@ -58,6 +60,8 @@ export function AiQueryChat({
   onPromptFocus,
   onRegisterPromptInserter,
   inputDisabled,
+  draftInput,
+  onDraftInputChange,
   className,
 }: AiQueryChatProps) {
   const { t } = useTranslation()
@@ -67,7 +71,19 @@ export function AiQueryChat({
     sendMessage,
     stop,
   } = chat
-  const [input, setInput] = useState("")
+  const isControlledDraft = draftInput !== undefined
+  const [uncontrolledInput, setUncontrolledInput] = useState("")
+  const input = isControlledDraft ? draftInput : uncontrolledInput
+  const setInput = useCallback(
+    (value: string) => {
+      if (isControlledDraft) {
+        onDraftInputChange?.(value)
+        return
+      }
+      setUncontrolledInput(value)
+    },
+    [isControlledDraft, onDraftInputChange],
+  )
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   function handleSend() {
@@ -86,18 +102,16 @@ export function AiQueryChat({
     if (!text) return
     const el = promptTextareaRef.current
     if (!el) {
-      setInput((prev) => `${prev}${text}`)
+      setInput(`${input}${text}`)
       return
     }
 
     const selectionStart = el.selectionStart ?? el.value.length
     const selectionEnd = el.selectionEnd ?? selectionStart
 
-    setInput((prev) => {
-      const start = Math.min(selectionStart, prev.length)
-      const end = Math.min(selectionEnd, prev.length)
-      return `${prev.slice(0, start)}${text}${prev.slice(end)}`
-    })
+    const start = Math.min(selectionStart, input.length)
+    const end = Math.min(selectionEnd, input.length)
+    setInput(`${input.slice(0, start)}${text}${input.slice(end)}`)
 
     const nextCaret = selectionStart + text.length
     requestAnimationFrame(() => {
@@ -106,7 +120,7 @@ export function AiQueryChat({
       next.focus()
       next.setSelectionRange(nextCaret, nextCaret)
     })
-  }, [])
+  }, [input, setInput])
 
   useEffect(() => {
     onRegisterPromptInserter?.(insertIntoPrompt)
