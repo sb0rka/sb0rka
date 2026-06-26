@@ -642,7 +642,6 @@ function MobileSqlPanel({
     <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       <div>
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.tabSql")}</h1>
-        <p className="text-sm text-muted-foreground">{t("databaseQuery.sqlHint")}</p>
       </div>
 
       <div className="relative min-h-0 flex-1">
