@@ -279,7 +279,7 @@ export function MobileDataExplorerPage() {
   }
 
   return (
-    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh max-h-dvh w-full max-w-[100dvw] flex-col overflow-hidden bg-background text-foreground">
       <MobileExplorerHeader
         nodes={nodes}
         selectedResourceId={selectedResourceId}
@@ -291,7 +291,7 @@ export function MobileDataExplorerPage() {
         onClose={handleClose}
       />
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+      <main className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
         {databasesQuery.isLoading ? (
           <MobileExplorerStateMessage message={t("common.loading")} />
         ) : databasesQuery.isError ? (
@@ -404,7 +404,7 @@ function MobileExplorerHeader({
   const sqlTabLabel = isQueryRunning ? t("databaseQuery.running") : t("dataExplorer.tabSql")
 
   return (
-    <header className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <header className="flex w-full min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-card px-3 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -421,7 +421,7 @@ function MobileExplorerHeader({
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-h-[60vh] w-[calc(100vw-1.5rem)] overflow-y-auto">
+        <DropdownMenuContent align="start" className="max-h-[60vh] w-[calc(100dvw-1.5rem)] overflow-y-auto">
           {nodes.map((node) => (
             <DropdownMenuItem
               key={node.database.resource_id}
@@ -550,9 +550,9 @@ function MobileSchemaPanel({
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+    <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.schemaTitle")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("dataExplorer.mobileSchemaTables", { count: node.tables.length })}
@@ -561,7 +561,7 @@ function MobileSchemaPanel({
         {isFetching ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {node.tables.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             {t("dataExplorer.mobileSchemaEmpty")}
@@ -592,7 +592,7 @@ function MobileSchemaPanel({
                         isOpen && "rotate-90",
                       )}
                     />
-                    <span className="truncate font-mono text-xs font-medium">{displayName}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">{displayName}</span>
                   </button>
 
                   {isOpen ? (
@@ -649,16 +649,16 @@ function MobileSqlPanel({
   const isSqlEmpty = sql.trim().length === 0
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+    <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <div>
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.tabSql")}</h1>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <Textarea
           value={sql}
           onChange={(event) => onSqlChange(event.target.value)}
-          className="h-full min-h-full resize-none rounded-2xl p-4 pr-14 font-mono text-sm shadow-none focus-visible:ring-1"
+          className="h-full min-h-full w-full max-w-full resize-none rounded-2xl p-4 pr-14 font-mono text-sm shadow-none focus-visible:ring-1"
           spellCheck={false}
           aria-label={t("databaseQuery.sqlLabel")}
         />
@@ -684,7 +684,7 @@ function MobileSqlPanel({
       {errorMessage ? (
         <div className="shrink-0 rounded-2xl border border-destructive/30 bg-destructive/5 p-3">
           <p className="text-sm font-medium text-destructive">{t("dataExplorer.queryFailedTitle")}</p>
-          <p className="mt-1 text-sm text-destructive/90">{errorMessage}</p>
+          <p className="mt-1 break-words text-sm text-destructive/90">{errorMessage}</p>
           <Button
             type="button"
             variant="outline"
@@ -743,7 +743,7 @@ function MobileAiPanel({
   const { t } = useTranslation()
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+    <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <div className="shrink-0">
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.aiChatTitle")}</h1>
       </div>
@@ -774,7 +774,7 @@ function MobileAiPanel({
         applySqlAndRunDisabled={applySqlAndRunDisabled}
         isQueryRunning={isQueryRunning}
         inputDisabled={!configured}
-        className="min-h-0 flex-1 overflow-hidden"
+        className="min-h-0 min-w-0 w-full flex-1 overflow-hidden"
       />
     </section>
   )
@@ -817,8 +817,8 @@ function MobileResultsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-dvh w-screen max-w-none translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-none border-0 p-0">
-        <DialogHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(1rem+env(safe-area-inset-top))]">
+      <DialogContent className="!fixed !inset-0 !left-0 !top-0 !flex !h-dvh !max-h-dvh !w-full !max-w-[100dvw] !translate-x-0 !translate-y-0 flex-col overflow-hidden rounded-none border-0 p-0 data-[state=closed]:animate-none data-[state=open]:animate-none [&>button]:top-[calc(0.75rem+env(safe-area-inset-top))]">
+        <DialogHeader className="relative z-20 shrink-0 border-b border-border bg-background px-4 pb-3 pr-14 pt-[calc(1rem+env(safe-area-inset-top))]">
           <DialogTitle className="text-xl">{t("databaseQuery.fullscreenTitle")}</DialogTitle>
           <DialogDescription>
             {result
