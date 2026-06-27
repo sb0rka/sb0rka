@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/authz"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
 )
 
@@ -133,31 +133,6 @@ func (h *Handler) assertNotLastOwner(ctx context.Context, orgID, callerID uuid.U
 		return errLastOwner
 	}
 	return nil
-}
-
-func (h *Handler) ListOrganizations(w http.ResponseWriter, r *http.Request) {
-	cID, ok := extractCallerID(w, r)
-	if !ok {
-		return
-	}
-
-	orgs, err := h.deps.Database.ListOrganizations(r.Context(), cID)
-	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
-			writeForbidden(w)
-			return
-		}
-		h.deps.Log.Error("list_organizations_failed", "caller_id", cID, "error", err)
-		http.Error(w, "Failed to list organizations", http.StatusInternalServerError)
-		return
-	}
-
-	out := contract.OrganizationListResponse{Organizations: make([]contract.OrganizationResponse, 0, len(orgs))}
-	for _, o := range orgs {
-		out.Organizations = append(out.Organizations, ToOrganizationResponse(o))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
 }
 
 func (h *Handler) CreateOrganization(w http.ResponseWriter, r *http.Request) {

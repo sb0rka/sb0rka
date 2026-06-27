@@ -10,6 +10,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/authhttp"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
@@ -56,12 +57,21 @@ func (a *App) Run(ctx context.Context) error {
 		hook = a.opts.InviteHookFactory(repo)
 	}
 
+	var routes []authhttp.Route
+	for _, build := range a.opts.RouteFactories {
+		if build == nil {
+			continue
+		}
+		routes = append(routes, build(database)...)
+	}
+
 	newSrv := transport.NewServer(transport.Dependencies{
-		Database:         database,
-		Authorizer:       authz.NewRBACAuthorizer(database),
-		Cfg:              cfg.Server,
-		Log:              log,
-		InviteHook:       hook,
+		Database:   database,
+		Authorizer: authz.NewRBACAuthorizer(database),
+		Cfg:        cfg.Server,
+		Log:        log,
+		InviteHook: hook,
+		Routes:     routes,
 	})
 	handler := newSrv.BuildCommonHandler()
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)

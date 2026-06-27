@@ -98,32 +98,6 @@ func (p *PsqlDB) GetOrganizationByID(ctx context.Context, orgID uuid.UUID) (mode
 	return org, nil
 }
 
-func (p *PsqlDB) ListOrganizations(ctx context.Context, userID uuid.UUID) ([]model.Organization, error) {
-	const query = `
-		SELECT o.id, o.name, o.description, o.created_at, o.updated_at
-		FROM organizations o
-		JOIN organization_members m ON m.organization_id = o.id
-		JOIN users u ON u.id = m.user_id AND u.is_active = true
-		WHERE m.user_id = $1
-		ORDER BY o.created_at DESC
-	`
-	rows, err := p.pool.Query(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	orgs := make([]model.Organization, 0)
-	for rows.Next() {
-		var org model.Organization
-		if err := rows.Scan(&org.ID, &org.Name, &org.Description, &org.CreatedAt, &org.UpdatedAt); err != nil {
-			return nil, err
-		}
-		orgs = append(orgs, org)
-	}
-	return orgs, rows.Err()
-}
-
 func (p *PsqlDB) UpdateOrganization(ctx context.Context, orgID, memberUserID uuid.UUID, name *string, description *string) (model.Organization, error) {
 	const query = `
 		UPDATE organizations o

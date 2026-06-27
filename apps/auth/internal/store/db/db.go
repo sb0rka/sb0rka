@@ -46,7 +46,6 @@ type Database interface {
 	CreateOrganization(ctx context.Context, orgID uuid.UUID, name string, description *string, ownerUserID uuid.UUID) (model.Organization, error)
 	GetOrganization(ctx context.Context, orgID, memberUserID uuid.UUID) (model.Organization, error)
 	GetOrganizationByID(ctx context.Context, orgID uuid.UUID) (model.Organization, error)
-	ListOrganizations(ctx context.Context, userID uuid.UUID) ([]model.Organization, error)
 	UpdateOrganization(ctx context.Context, orgID, memberUserID uuid.UUID, name *string, description *string) (model.Organization, error)
 	DeleteOrganization(ctx context.Context, orgID, memberUserID uuid.UUID) error
 

@@ -7,6 +7,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/organizations"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/users"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/authhttp"
 )
 
 type Dependencies = runtime.Dependencies
@@ -51,7 +52,6 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("DELETE /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserDelete))))
 
 	// Organization endpoints
-	mux.Handle("GET /identity/organizations", s.authMiddleware(http.HandlerFunc(s.organizations.ListOrganizations)))
 	mux.Handle("POST /identity/organizations", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.CreateOrganization))))
 	mux.Handle("GET /identity/organizations/{organization_id}", s.authMiddleware(http.HandlerFunc(s.organizations.GetOrganization)))
 	mux.Handle("PATCH /identity/organizations/{organization_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.UpdateOrganization))))
@@ -64,9 +64,25 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("PATCH /identity/organizations/{organization_id}/memberships/{user_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.UpdateMemberRole))))
 	mux.Handle("DELETE /identity/organizations/{organization_id}/memberships/{user_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.RemoveMember))))
 
+	// Routes provided by internal-only features share the same middleware stack below.
+	for _, rt := range s.deps.Routes {
+		mux.Handle(rt.Pattern, s.wrap(rt.Access, rt.Handler))
+	}
+
 	commonHandler := s.loggerMiddleware(mux)
 	commonHandler = s.corsMiddleware(commonHandler)
 	commonHandler = s.panicMiddleware(commonHandler)
 
 	return &commonHandler
+}
+
+func (s *Server) wrap(access authhttp.Access, h http.HandlerFunc) http.Handler {
+	switch access {
+	case authhttp.LiveSession:
+		return s.authMiddleware(s.requireLiveSessionMiddleware(h))
+	case authhttp.Authenticated:
+		return s.authMiddleware(h)
+	default:
+		return h
+	}
 }

@@ -1,6 +1,9 @@
 package authapp
 
-import "github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+import (
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/authhttp"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+)
 
 type Options struct {
 	// InviteRepositoryFactory builds the invite repository from the auth database.
@@ -10,4 +13,6 @@ type Options struct {
 	// InviteHookFactory builds the invite hook from a repository.
 	// Nil → invite.Noop().
 	InviteHookFactory invite.HookFactory
+
+	RouteFactories []authhttp.RoutesFactory
 }
