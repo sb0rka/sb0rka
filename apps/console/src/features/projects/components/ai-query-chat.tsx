@@ -158,7 +158,7 @@ export function AiQueryChat({
               handleSend()
             }}
             placeholder={t("dataExplorer.aiChatInputPlaceholder")}
-            className="max-h-60 min-h-[140px] w-full min-w-0 max-w-full resize-none pr-10 text-base shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:resize-y md:text-sm"
+            className="max-h-60 min-h-[140px] w-full min-w-0 max-w-full resize-none pr-10 shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 md:resize-y"
             disabled={isPending || inputDisabled}
             spellCheck
           />
