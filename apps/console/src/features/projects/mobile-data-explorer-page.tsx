@@ -723,7 +723,7 @@ function MobileSqlPanel({
         <Textarea
           value={sql}
           onChange={(event) => onSqlChange(event.target.value)}
-          className="h-full min-h-full w-full min-w-0 max-w-full resize-none rounded-2xl p-4 pr-14 font-mono text-sm shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="h-full min-h-full w-full min-w-0 max-w-full resize-none rounded-2xl p-4 pr-14 font-mono shadow-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
           spellCheck={false}
           aria-label={t("databaseQuery.sqlLabel")}
         />
