@@ -42,18 +42,7 @@ type Database interface {
 	RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error
 
 	// --- Organizations ---
+	// Read-only lookup for auth subject resolution; management lives in internal.
 
-	CreateOrganization(ctx context.Context, orgID uuid.UUID, name string, description *string, ownerUserID uuid.UUID) (model.Organization, error)
-	GetOrganization(ctx context.Context, orgID, memberUserID uuid.UUID) (model.Organization, error)
 	GetOrganizationByID(ctx context.Context, orgID uuid.UUID) (model.Organization, error)
-	UpdateOrganization(ctx context.Context, orgID, memberUserID uuid.UUID, name *string, description *string) (model.Organization, error)
-	DeleteOrganization(ctx context.Context, orgID, memberUserID uuid.UUID) error
-
-	// --- Organization members ---
-
-	ListOrganizationMembers(ctx context.Context, orgID, memberUserID uuid.UUID) ([]model.OrganizationMember, error)
-	AddOrganizationMember(ctx context.Context, orgID, userID, memberUserID uuid.UUID, role string) (model.OrganizationMember, error)
-	GetOrganizationMember(ctx context.Context, orgID, userID, memberUserID uuid.UUID) (model.OrganizationMember, error)
-	UpdateOrganizationMemberRole(ctx context.Context, orgID, userID, memberUserID uuid.UUID, role string) (model.OrganizationMember, error)
-	RemoveOrganizationMember(ctx context.Context, orgID, userID, memberUserID uuid.UUID) error
 }
