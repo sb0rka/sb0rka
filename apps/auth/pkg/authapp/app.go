@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sb0rka/sb0rka/apps/auth/internal/authz"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -67,7 +66,6 @@ func (a *App) Run(ctx context.Context) error {
 
 	newSrv := transport.NewServer(transport.Dependencies{
 		Database:   database,
-		Authorizer: authz.NewRBACAuthorizer(database),
 		Cfg:        cfg.Server,
 		Log:        log,
 		InviteHook: hook,
