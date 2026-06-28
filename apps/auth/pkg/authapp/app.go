@@ -10,7 +10,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/authhttp"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
@@ -57,7 +57,7 @@ func (a *App) Run(ctx context.Context) error {
 		hook = a.opts.InviteHookFactory(repo)
 	}
 
-	var routes []authhttp.Route
+	var routes []route.Route
 	for _, build := range a.opts.RouteFactories {
 		if build == nil {
 			continue

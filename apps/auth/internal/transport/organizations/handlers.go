@@ -12,6 +12,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 type Handler struct {
@@ -57,7 +58,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 // extractCallerID extracts and parses the authenticated user's UUID from context.
 // Returns false and writes an error response on failure.
 func extractCallerID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	raw, ok := runtime.AuthUserIDFromContext(r.Context())
+	raw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		writeForbidden(w)
 		return uuid.UUID{}, false

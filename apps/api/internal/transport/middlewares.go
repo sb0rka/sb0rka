@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
-	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -94,7 +94,12 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		ctx := runtime.WithAuthIdentity(r.Context(), identity)
+		ctx := authctx.WithIdentity(r.Context(), authctx.Identity{
+			SubjectID:   identity.SubjectID,
+			SubjectKind: identity.SubjectKind,
+			SessionID:   identity.SessionID,
+			JTI:         identity.JTI,
+		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -108,7 +113,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 //     to the token subject. Platform never reads refresh token/session internals.
 func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionIDRaw, ok := runtime.AuthSessionIDFromContext(r.Context())
+		sessionIDRaw, ok := authctx.SessionIDFromContext(r.Context())
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -119,7 +124,7 @@ func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+		subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return

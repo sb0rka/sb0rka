@@ -12,6 +12,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -54,12 +55,12 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 }
 
 func extractSubjectIdentity(w http.ResponseWriter, r *http.Request) (uuid.UUID, string, bool) {
-	rawID, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	rawID, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return uuid.Nil, "", false
 	}
-	rawKind, ok := runtime.AuthSubjectKindFromContext(r.Context())
+	rawKind, ok := authctx.SubjectKindFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return uuid.Nil, "", false

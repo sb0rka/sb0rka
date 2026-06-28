@@ -7,7 +7,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/organizations"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/users"
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/authhttp"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 )
 
 type Dependencies = runtime.Dependencies
@@ -66,7 +66,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	// Routes provided by internal-only features share the same middleware stack below.
 	for _, rt := range s.deps.Routes {
-		mux.Handle(rt.Pattern, s.wrap(rt.Access, rt.Handler))
+		mux.Handle(rt.Pattern, s.authWrap(rt.Access, rt.Handler))
 	}
 
 	commonHandler := s.loggerMiddleware(mux)
@@ -76,11 +76,11 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	return &commonHandler
 }
 
-func (s *Server) wrap(access authhttp.Access, h http.HandlerFunc) http.Handler {
+func (s *Server) authWrap(access route.Access, h http.HandlerFunc) http.Handler {
 	switch access {
-	case authhttp.LiveSession:
+	case route.LiveSession:
 		return s.authMiddleware(s.requireLiveSessionMiddleware(h))
-	case authhttp.Authenticated:
+	case route.Authenticated:
 		return s.authMiddleware(h)
 	default:
 		return h

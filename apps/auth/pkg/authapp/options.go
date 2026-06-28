@@ -1,7 +1,7 @@
 package authapp
 
 import (
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/authhttp"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 )
 
@@ -14,5 +14,5 @@ type Options struct {
 	// Nil → invite.Noop().
 	InviteHookFactory invite.HookFactory
 
-	RouteFactories []authhttp.RoutesFactory
+	RouteFactories []route.RoutesFactory
 }
