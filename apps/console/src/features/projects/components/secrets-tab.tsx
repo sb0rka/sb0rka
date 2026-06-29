@@ -21,6 +21,7 @@ import type { SecretRow } from "./project-detail-tab-types"
 import { SecretDetails } from "./secret-details"
 import { SecretDetailsTable } from "./secret-details-table"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
+import { cn } from "@/lib/utils"
 
 interface SecretsTabProps {
   projectId: string
@@ -95,11 +96,25 @@ export function SecretsTab({
     }
   }
 
+  const isListView = !openedSecret
+
   return (
-    <TabsContent value="secrets" className="flex flex-col gap-6">
-      <PageStagger className="flex flex-col gap-6">
+    <TabsContent
+      value="secrets"
+      className={cn(
+        "flex flex-col gap-6",
+        isListView &&
+          "h-[calc(100dvh-12rem-env(safe-area-inset-top,0px))] min-h-0 overflow-hidden md:h-[calc(100dvh-9.5rem)]",
+      )}
+    >
+      <PageStagger
+        className={cn(
+          "flex flex-col gap-6",
+          isListView && "min-h-0 flex-1 overflow-hidden",
+        )}
+      >
         {openedSecret ? null : (
-          <SlideIn className="flex flex-col gap-1">
+          <SlideIn className="shrink-0 flex flex-col gap-1">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-2xl font-semibold tracking-tight">{t("secrets.title")}</h2>
               <Button
@@ -119,9 +134,15 @@ export function SecretsTab({
           </SlideIn>
         )}
 
-        <SlideIn>
-          <Card className={openedSecret ? "overflow-visible border-0 shadow-none" : "overflow-hidden"}>
-            <CardContent className="p-0">
+        <SlideIn className={cn(isListView && "flex h-0 min-h-0 flex-1 flex-col")}>
+          <Card
+            className={cn(
+              openedSecret
+                ? "overflow-visible border-0 shadow-none"
+                : "flex h-0 min-h-0 flex-1 flex-col overflow-hidden",
+            )}
+          >
+            <CardContent className={cn("p-0", isListView && "flex h-0 min-h-0 flex-1 flex-col")}>
               {openedSecret ? (
                 <SecretDetails
                   projectId={projectId}

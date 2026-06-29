@@ -8,6 +8,7 @@ interface MobileSecretsListProps {
   emptyMessage: string
   searchQuery?: string
   onRowClick?: (row: SecretRow) => void
+  showHeader?: boolean
 }
 
 const ROW_CELL_CLASS = "flex h-12 items-center border-b border-border px-4 py-3 last:border-b-0"
@@ -47,6 +48,7 @@ export function MobileSecretsList({
   emptyMessage,
   searchQuery = "",
   onRowClick,
+  showHeader = true,
 }: MobileSecretsListProps) {
   const { t } = useTranslation()
 
@@ -56,9 +58,11 @@ export function MobileSecretsList({
 
   return (
     <div className="flex w-full flex-col">
-      <div className="flex h-10 items-center border-b border-border px-4 text-xs font-medium text-muted-foreground">
-        {t("common.labels.name")}
-      </div>
+      {showHeader ? (
+        <div className="flex h-10 items-center border-b border-border px-4 text-xs font-medium text-muted-foreground">
+          {t("common.labels.name")}
+        </div>
+      ) : null}
       {rows.map((row) => {
         const isInteractive = Boolean(onRowClick)
 
