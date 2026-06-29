@@ -7,6 +7,7 @@ import { Header } from "./header"
 import { MobileRootNav } from "./mobile-root-nav"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
 type BreadcrumbItem = {
   label: string
   href?: string
@@ -116,8 +117,14 @@ export function AppLayout() {
         <div className="hidden md:block">
           <Header breadcrumbs={breadcrumbs} />
         </div>
-        <main className="flex flex-1 flex-col bg-background px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))] md:min-h-0 md:overflow-auto md:p-6">
-          <Outlet />
+        <main className="flex flex-1 flex-col bg-background md:min-h-0">
+          <ScrollArea type="always" 
+            className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!flex [&_[data-radix-scroll-area-viewport]>div]:min-h-full"
+          > 
+            <div className="flex min-h-full w-full flex-1 flex-col px-4 md:p-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))]">
+              <Outlet />
+            </div>
+          </ScrollArea>
         </main>
       </div>
     </div>
