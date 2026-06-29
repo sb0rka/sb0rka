@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
+import { ArrowDown, ArrowUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { buttonPressClass } from "@/components/ui/button"
@@ -13,6 +14,9 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
   "grid grid-cols-[400px_minmax(220px,1fr)_160px_160px] items-stretch"
+
+type SortColumn = "name" | "tags" | "createdAt" | "updatedAt"
+type SortDirection = "asc" | "desc"
 
 interface SecretDetailsTableProps {
   projectId: string
@@ -36,6 +40,70 @@ function formatLocalDateTime(value: string): string {
   if (Number.isNaN(date.getTime())) return "—"
 
   return date.toLocaleString()
+}
+
+function compareText(left: string, right: string, direction: SortDirection): number {
+  const result = left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  })
+  return direction === "asc" ? result : -result
+}
+
+function compareTimestamps(left: string, right: string, direction: SortDirection): number {
+  const leftTime = new Date(left).getTime()
+  const rightTime = new Date(right).getTime()
+  const leftValue = Number.isNaN(leftTime) ? 0 : leftTime
+  const rightValue = Number.isNaN(rightTime) ? 0 : rightTime
+  const result = leftValue - rightValue
+  return direction === "asc" ? result : -result
+}
+
+function buildTagsSortKey(tags: TagResponse[]): string {
+  return tags
+    .map(buildTagLabel)
+    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }))
+    .join("\0")
+}
+
+function SortableColumnHeader({
+  label,
+  column,
+  activeColumn,
+  direction,
+  align = "start",
+  onSort,
+}: {
+  label: string
+  column: SortColumn
+  activeColumn: SortColumn | null
+  direction: SortDirection
+  align?: "start" | "end"
+  onSort: (column: SortColumn) => void
+}) {
+  const isActive = activeColumn === column
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(column)}
+      aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
+      className={cn(
+        "flex h-12 items-center gap-1 px-4 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+        align === "end" && "justify-end text-right",
+        isActive && "text-foreground",
+      )}
+    >
+      <span>{label}</span>
+      {isActive ? (
+        direction === "asc" ? (
+          <ArrowUp className="size-3.5 shrink-0" aria-hidden />
+        ) : (
+          <ArrowDown className="size-3.5 shrink-0" aria-hidden />
+        )
+      ) : null}
+    </button>
+  )
 }
 
 function renderHighlightedText(value: string, query: string): React.ReactNode {
@@ -141,6 +209,10 @@ export function SecretDetailsTable({
 }: SecretDetailsTableProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
+  const [sort, setSort] = useState<{
+    column: SortColumn
+    direction: SortDirection
+  }>({ column: "updatedAt", direction: "desc" })
   const tagQueries = useQueries({
     queries: rows.map((row) => ({
       queryKey: ["projects", projectId, "resources", row.id, "tags"],
@@ -167,6 +239,44 @@ export function SecretDetailsTable({
     })
   }, [rows, search, tagsByRowId])
 
+  const sortedRows = useMemo(() => {
+    const nextRows = [...filteredRows]
+    nextRows.sort((left, right) => {
+      switch (sort.column) {
+        case "name":
+          return compareText(left.name, right.name, sort.direction)
+        case "tags": {
+          const leftTags = buildTagsSortKey(tagsByRowId.get(left.id) ?? [])
+          const rightTags = buildTagsSortKey(tagsByRowId.get(right.id) ?? [])
+          return compareText(leftTags, rightTags, sort.direction)
+        }
+        case "createdAt":
+          return compareTimestamps(left.createdAt, right.createdAt, sort.direction)
+        case "updatedAt":
+          return compareTimestamps(left.updatedAt, right.updatedAt, sort.direction)
+        default:
+          return 0
+      }
+    })
+    return nextRows
+  }, [filteredRows, sort, tagsByRowId])
+
+  function defaultDirectionForColumn(column: SortColumn): SortDirection {
+    return column === "createdAt" || column === "updatedAt" ? "desc" : "asc"
+  }
+
+  function handleSort(column: SortColumn) {
+    setSort((current) => {
+      if (current.column === column) {
+        return {
+          column,
+          direction: current.direction === "asc" ? "desc" : "asc",
+        }
+      }
+      return { column, direction: defaultDirectionForColumn(column) }
+    })
+  }
+
   return (
     <div className="flex h-0 min-h-0 flex-1 flex-col">
       <div className="shrink-0 p-6 pb-4">
@@ -185,7 +295,7 @@ export function SecretDetailsTable({
           </div>
           <ScrollArea className="h-0 min-h-0 flex-1">
             <MobileSecretsList
-              rows={filteredRows}
+              rows={sortedRows}
               emptyMessage={emptyMessage}
               searchQuery={search}
               onRowClick={onRowClick}
@@ -202,26 +312,48 @@ export function SecretDetailsTable({
                 "sticky top-0 z-10 border-b border-border bg-card text-sm font-medium text-muted-foreground",
               )}
             >
-              <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
-              <div className="flex h-12 items-center px-4">{t("common.labels.tags")}</div>
-              <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                {t("common.labels.createdAt")}
-              </div>
-              <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                {t("common.labels.updatedAt")}
-              </div>
+              <SortableColumnHeader
+                label={t("common.labels.name")}
+                column="name"
+                activeColumn={sort.column}
+                direction={sort.direction}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label={t("common.labels.tags")}
+                column="tags"
+                activeColumn={sort.column}
+                direction={sort.direction}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label={t("common.labels.createdAt")}
+                column="createdAt"
+                activeColumn={sort.column}
+                direction={sort.direction}
+                align="end"
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label={t("common.labels.updatedAt")}
+                column="updatedAt"
+                activeColumn={sort.column}
+                direction={sort.direction}
+                align="end"
+                onSort={handleSort}
+              />
             </div>
 
-            {filteredRows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
             ) : (
-              filteredRows.map((row, index) => (
+              sortedRows.map((row, index) => (
                 <SecretDetailsTableRow
                   key={row.id}
                   row={row}
                   tags={tagsByRowId.get(row.id) ?? []}
                   searchQuery={search}
-                  isLastRow={index === filteredRows.length - 1}
+                  isLastRow={index === sortedRows.length - 1}
                   onRowClick={onRowClick}
                 />
               ))
