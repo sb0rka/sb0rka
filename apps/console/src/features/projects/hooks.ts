@@ -103,6 +103,7 @@ export function useCreateDatabase(projectId: string) {
     mutationFn: (data: CreateDatabaseRequest) => createDatabase(projectId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
     },
   })
 }
@@ -135,6 +136,7 @@ export function useUpdateDatabase(projectId: string, resourceId?: string) {
         queryKey: ["projects", projectId, "resources", resourceId, "database"],
       })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
     },
   })
 }
@@ -309,6 +311,7 @@ export function useDeactivateResource(projectId: string, resourceId?: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
       qc.invalidateQueries({
         queryKey: ["projects", projectId, "resources", resourceId, "database"],
       })
@@ -459,6 +462,7 @@ export function useCreateSecret(projectId: string) {
     mutationFn: (data: CreateSecretRequest) => createSecret(projectId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
     },
   })
 }
@@ -474,6 +478,7 @@ export function useUpdateSecretValue(projectId: string) {
       updateSecretValue(projectId, resourceId, data),
     onSuccess: (_result, variables) => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
       qc.invalidateQueries({
         queryKey: [
           "projects",
