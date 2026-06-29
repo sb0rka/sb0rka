@@ -168,8 +168,8 @@ export function SecretDetailsTable({
   }, [rows, search, tagsByRowId])
 
   return (
-    <div className="flex flex-col">
-      <div className="p-6 pb-4">
+    <div className="flex h-0 min-h-0 flex-1 flex-col">
+      <div className="shrink-0 p-6 pb-4">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -178,53 +178,57 @@ export function SecretDetailsTable({
         />
       </div>
 
-      <div className="pb-6 md:px-6">
-        <div className="md:hidden">
-          <MobileSecretsList
-            rows={filteredRows}
-            emptyMessage={emptyMessage}
-            searchQuery={search}
-            onRowClick={onRowClick}
-          />
-        </div>
-
-        <div className="hidden md:block">
-          <ScrollArea type="always">
-            <div className="min-w-[820px]">
-              <div
-                className={cn(
-                  SECRET_DETAILS_TABLE_GRID_CLASS,
-                  "border-b border-border text-sm font-medium text-muted-foreground",
-                )}
-              >
-                <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
-                <div className="flex h-12 items-center px-4">{t("common.labels.tags")}</div>
-                <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                  {t("common.labels.createdAt")}
-                </div>
-                <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                  {t("common.labels.updatedAt")}
-                </div>
-              </div>
-
-              {filteredRows.length === 0 ? (
-                <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
-              ) : (
-                filteredRows.map((row, index) => (
-                  <SecretDetailsTableRow
-                    key={row.id}
-                    row={row}
-                    tags={tagsByRowId.get(row.id) ?? []}
-                    searchQuery={search}
-                    isLastRow={index === filteredRows.length - 1}
-                    onRowClick={onRowClick}
-                  />
-                ))
-              )}
-            </div>
-          <ScrollBar orientation="horizontal"/>
+      <div className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden pb-6 md:px-6">
+        <div className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden md:hidden">
+          <div className="flex h-10 shrink-0 items-center border-b border-border px-4 text-xs font-medium text-muted-foreground">
+            {t("common.labels.name")}
+          </div>
+          <ScrollArea className="h-0 min-h-0 flex-1">
+            <MobileSecretsList
+              rows={filteredRows}
+              emptyMessage={emptyMessage}
+              searchQuery={search}
+              onRowClick={onRowClick}
+              showHeader={true}
+            />
           </ScrollArea>
         </div>
+
+        <ScrollArea type="always" className="hidden h-0 min-h-0 flex-1 md:block">
+          <div className="min-w-[820px]">
+            <div
+              className={cn(
+                SECRET_DETAILS_TABLE_GRID_CLASS,
+                "sticky top-0 z-10 border-b border-border bg-card text-sm font-medium text-muted-foreground",
+              )}
+            >
+              <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
+              <div className="flex h-12 items-center px-4">{t("common.labels.tags")}</div>
+              <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
+                {t("common.labels.createdAt")}
+              </div>
+              <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
+                {t("common.labels.updatedAt")}
+              </div>
+            </div>
+
+            {filteredRows.length === 0 ? (
+              <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
+            ) : (
+              filteredRows.map((row, index) => (
+                <SecretDetailsTableRow
+                  key={row.id}
+                  row={row}
+                  tags={tagsByRowId.get(row.id) ?? []}
+                  searchQuery={search}
+                  isLastRow={index === filteredRows.length - 1}
+                  onRowClick={onRowClick}
+                />
+              ))
+            )}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </div>
   )
