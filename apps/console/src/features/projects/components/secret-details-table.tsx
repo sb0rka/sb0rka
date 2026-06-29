@@ -9,6 +9,7 @@ import { listResourceTags, type TagResponse } from "../api"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import { MobileSecretsList } from "./mobile-secrets-list"
 import type { SecretRow } from "./project-detail-tab-types"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
   "grid grid-cols-[400px_minmax(220px,1fr)_160px_160px] items-stretch"
@@ -187,39 +188,42 @@ export function SecretDetailsTable({
           />
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
-          <div className="min-w-[820px]">
-            <div
-              className={cn(
-                SECRET_DETAILS_TABLE_GRID_CLASS,
-                "border-b border-border text-sm font-medium text-muted-foreground",
-              )}
-            >
-              <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
-              <div className="flex h-12 items-center px-4">{t("common.labels.tags")}</div>
-              <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                {t("common.labels.createdAt")}
+        <div className="hidden md:block">
+          <ScrollArea type="always">
+            <div className="min-w-[820px]">
+              <div
+                className={cn(
+                  SECRET_DETAILS_TABLE_GRID_CLASS,
+                  "border-b border-border text-sm font-medium text-muted-foreground",
+                )}
+              >
+                <div className="flex h-12 items-center px-4">{t("common.labels.name")}</div>
+                <div className="flex h-12 items-center px-4">{t("common.labels.tags")}</div>
+                <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
+                  {t("common.labels.createdAt")}
+                </div>
+                <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
+                  {t("common.labels.updatedAt")}
+                </div>
               </div>
-              <div className="flex h-12 items-center justify-end whitespace-nowrap px-4">
-                {t("common.labels.updatedAt")}
-              </div>
-            </div>
 
-            {filteredRows.length === 0 ? (
-              <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
-            ) : (
-              filteredRows.map((row, index) => (
-                <SecretDetailsTableRow
-                  key={row.id}
-                  row={row}
-                  tags={tagsByRowId.get(row.id) ?? []}
-                  searchQuery={search}
-                  isLastRow={index === filteredRows.length - 1}
-                  onRowClick={onRowClick}
-                />
-              ))
-            )}
-          </div>
+              {filteredRows.length === 0 ? (
+                <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
+              ) : (
+                filteredRows.map((row, index) => (
+                  <SecretDetailsTableRow
+                    key={row.id}
+                    row={row}
+                    tags={tagsByRowId.get(row.id) ?? []}
+                    searchQuery={search}
+                    isLastRow={index === filteredRows.length - 1}
+                    onRowClick={onRowClick}
+                  />
+                ))
+              )}
+            </div>
+          <ScrollBar orientation="horizontal"/>
+          </ScrollArea>
         </div>
       </div>
     </div>

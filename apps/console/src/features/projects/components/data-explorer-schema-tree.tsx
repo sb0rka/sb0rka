@@ -4,6 +4,7 @@ import { ChevronRight, Loader2, Wifi, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DataExplorerDatabaseNode } from "../hooks"
 import { useDataExplorerDatabaseHealth } from "../hooks"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 
 export interface DataExplorerSchemaTreeProps {
@@ -166,137 +167,141 @@ export function DataExplorerSchemaTree({
           />
         ) : null}
       </div>
+      <ScrollArea
+        type="always"
+        className="min-h-0 flex-1 w-full"
+      >
+        <div className="px-3 pb-3">
+          <ul className="space-y-0.5">
+            {nodes.map(({ database, tables }) => {
+              const isSelected = selectedResourceId === database.resource_id
+              const dbOpen = databaseExpanded[database.resource_id] ?? false
+              const health = healthByResourceId.get(database.resource_id)
+              const { state: connectionState, isRefetching: isConnectionRefetching } =
+                getDatabaseConnectionState(database.resource_id)
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <ul className="space-y-0.5">
-          {nodes.map(({ database, tables }) => {
-            const isSelected = selectedResourceId === database.resource_id
-            const dbOpen = databaseExpanded[database.resource_id] ?? false
-            const health = healthByResourceId.get(database.resource_id)
-            const { state: connectionState, isRefetching: isConnectionRefetching } =
-              getDatabaseConnectionState(database.resource_id)
-
-            return (
-              <li key={database.resource_id}>
-                <div
-                  className={cn(
-                    "flex w-full items-center gap-0.5 rounded-sm py-1 pl-0.5 pr-1.5",
-                    isSelected ? "bg-muted" : "hover:bg-muted/60",
-                  )}
-                >
-                  <button
-                    type="button"
-                    aria-expanded={dbOpen}
-                    aria-label={t("dataExplorer.toggleDatabaseSchema", {
-                      name: database.name,
-                    })}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleDatabaseExpanded(database.resource_id)
-                    }}
-                    className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                  >
-                    <ChevronRight
-                      className={cn(
-                        "size-3.5 shrink-0 transition-transform",
-                        dbOpen && "rotate-90",
-                      )}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectDatabase(database.resource_id)}
+              return (
+                <li key={database.resource_id}>
+                  <div
                     className={cn(
-                      "min-w-0 flex-1 truncate rounded-sm py-0 text-left text-xs font-medium transition-colors",
-                      isSelected
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
+                      "flex w-full items-center gap-0.5 rounded-sm py-1 pl-0.5 pr-1.5",
+                      isSelected ? "bg-muted" : "hover:bg-muted/60",
                     )}
                   >
-                    {database.name}
-                  </button>
-                  {renderDatabaseConnectionIcon(
-                    connectionState,
-                    isConnectionRefetching,
-                    health?.errorMessage,
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      aria-expanded={dbOpen}
+                      aria-label={t("dataExplorer.toggleDatabaseSchema", {
+                        name: database.name,
+                      })}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleDatabaseExpanded(database.resource_id)
+                      }}
+                      className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          "size-3.5 shrink-0 transition-transform",
+                          dbOpen && "rotate-90",
+                        )}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectDatabase(database.resource_id)}
+                      className={cn(
+                        "min-w-0 flex-1 truncate rounded-sm py-0 text-left text-xs font-medium transition-colors",
+                        isSelected
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {database.name}
+                    </button>
+                    {renderDatabaseConnectionIcon(
+                      connectionState,
+                      isConnectionRefetching,
+                      health?.errorMessage,
+                    )}
+                  </div>
 
-                {dbOpen ? (
-                  <ul className="mt-0.5 space-y-0.5 border-l border-border/70 pl-2 ml-2.5">
-                    {tables.map((table) => {
-                      const tableKey = `${table.schema}.${table.name}`
-                      const displayName =
-                        table.schema === "public"
-                          ? table.name
-                          : `${table.schema}.${table.name}`
-                      const tableOpen = isTableExpanded(
-                        expandedTables,
-                        database.resource_id,
-                        tableKey,
-                      )
+                  {dbOpen ? (
+                    <ul className="mt-0.5 space-y-0.5 border-l border-border/70 pl-2 ml-2.5">
+                      {tables.map((table) => {
+                        const tableKey = `${table.schema}.${table.name}`
+                        const displayName =
+                          table.schema === "public"
+                            ? table.name
+                            : `${table.schema}.${table.name}`
+                        const tableOpen = isTableExpanded(
+                          expandedTables,
+                          database.resource_id,
+                          tableKey,
+                        )
 
-                      return (
-                        <li key={tableKey}>
-                          <div
-                            className={cn(
-                              "flex w-full items-center gap-0.5 rounded-sm py-0.5 pl-0 pr-1 text-left text-xs text-foreground",
-                              "hover:bg-muted/50",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              aria-expanded={tableOpen}
-                              aria-label={`Toggle ${displayName} columns`}
-                              onClick={() =>
-                                toggleTableExpanded(
-                                  database.resource_id,
-                                  tableKey,
-                                )
-                              }
-                              className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                        return (
+                          <li key={tableKey}>
+                            <div
+                              className={cn(
+                                "flex w-full items-center gap-0.5 rounded-sm py-0.5 pl-0 pr-1 text-left text-xs text-foreground",
+                                "hover:bg-muted/50",
+                              )}
                             >
-                              <ChevronRight
-                                className={cn(
-                                  "size-3.5 shrink-0 transition-transform",
-                                  tableOpen && "rotate-90",
-                                )}
-                              />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onInsertTableName?.(displayName)}
-                              className="min-w-0 flex-1 truncate rounded-sm py-0 text-left font-medium hover:bg-muted/80"
-                            >
-                              {displayName}
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                aria-expanded={tableOpen}
+                                aria-label={`Toggle ${displayName} columns`}
+                                onClick={() =>
+                                  toggleTableExpanded(
+                                    database.resource_id,
+                                    tableKey,
+                                  )
+                                }
+                                className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                              >
+                                <ChevronRight
+                                  className={cn(
+                                    "size-3.5 shrink-0 transition-transform",
+                                    tableOpen && "rotate-90",
+                                  )}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onInsertTableName?.(displayName)}
+                                className="min-w-0 flex-1 truncate rounded-sm py-0 text-left font-medium hover:bg-muted/80"
+                              >
+                                {displayName}
+                              </button>
+                            </div>
 
-                          {tableOpen ? (
-                            <ul className="ml-6 border-l border-border/60 pl-2 py-0.5">
-                              {table.columns.map((col) => (
-                                <li key={`${tableKey}:${col.name}`} className="py-0.5 text-xs">
-                                  <button
-                                    type="button"
-                                    onClick={() => onInsertColumnName?.(col.name)}
-                                    className="w-full rounded-sm px-1 py-0.5 text-left text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                                  >
-                                    {col.name} · {col.data_type}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
-      </div>
+                            {tableOpen ? (
+                              <ul className="ml-6 border-l border-border/60 pl-2 py-0.5">
+                                {table.columns.map((col) => (
+                                  <li key={`${tableKey}:${col.name}`} className="py-0.5 text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => onInsertColumnName?.(col.name)}
+                                      className="w-full rounded-sm px-1 py-0.5 text-left text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                    >
+                                      {col.name} · {col.data_type}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      </ScrollArea>
     </div>
   )
 }

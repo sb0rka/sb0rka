@@ -7,6 +7,7 @@ import {
   messagesAutoScrollKey,
   useAutoScrollOnContentChange,
 } from "./use-auto-scroll-on-content-change"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export type AiQueryChatMessageListProps = {
   messages: AiQueryChatMessage[]
@@ -41,29 +42,34 @@ export function AiQueryChatMessageList({
     resetWhen: isPending,
   })
   return (
-    <div
-      ref={listRef}
-      className={`flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-1 ${hideScrollbarClass}`}
+    <ScrollArea
+      viewportRef={listRef}
+      type="always"
+      className="min-h-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overscroll-y-contain"
     >
-      {messages.map((message, index) => (
-        <AiQueryChatMessageItem
-          key={index}
-          message={message}
-          index={index}
-          isPending={isPending}
-          isActiveThinking={
-            isPending &&
-            message.role === "assistant" &&
-            message.type === "thinking" &&
-            index === lastThinkingIndex
-          }
-          modelPricing={modelPricing}
-          onApplySql={onApplySql}
-          onApplySqlAndRun={onApplySqlAndRun}
-          applySqlAndRunDisabled={applySqlAndRunDisabled}
-          isQueryRunning={isQueryRunning}
-        />
-      ))}
-    </div>
+      <div
+        className={`flex flex-col gap-3 pr-1 ${hideScrollbarClass}`}
+      >
+        {messages.map((message, index) => (
+          <AiQueryChatMessageItem
+            key={index}
+            message={message}
+            index={index}
+            isPending={isPending}
+            isActiveThinking={
+              isPending &&
+              message.role === "assistant" &&
+              message.type === "thinking" &&
+              index === lastThinkingIndex
+            }
+            modelPricing={modelPricing}
+            onApplySql={onApplySql}
+            onApplySqlAndRun={onApplySqlAndRun}
+            applySqlAndRunDisabled={applySqlAndRunDisabled}
+            isQueryRunning={isQueryRunning}
+          />
+        ))}
+      </div>
+    </ScrollArea>
   )
 }
