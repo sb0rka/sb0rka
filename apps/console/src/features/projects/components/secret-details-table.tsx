@@ -189,7 +189,7 @@ export function SecretDetailsTable({
               emptyMessage={emptyMessage}
               searchQuery={search}
               onRowClick={onRowClick}
-              showHeader={true}
+              showHeader={false}
             />
           </ScrollArea>
         </div>
