@@ -38,8 +38,11 @@ import {
   revealSecretValue,
   type OpenAiModelInfo,
   type RunDatabaseQueryResponse,
-  type SecretResponse,
 } from "./api"
+import {
+  findLlmCredentialSecrets,
+  hasRequiredLlmCredentialSecrets,
+} from "./llm-credential-secrets"
 import { AiQueryChat } from "./components/ai-query-chat"
 import {
   loadMobileDataExplorerState,
@@ -196,33 +199,24 @@ export function MobileDataExplorerPage() {
     return buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)
   }, [nodes, selectedResourceId])
 
-  const hasRequiredAiSecretNames = useMemo(() => {
-    const required = new Set(["llm_base_url", "llm_api_key"])
-    const names = new Set(
-      (secretsQuery.data?.secrets ?? []).map((secret) => secret.name.trim().toLowerCase()),
-    )
-    return [...required].every((name) => names.has(name))
-  }, [secretsQuery.data?.secrets])
+  const hasRequiredAiSecretNames = useMemo(
+    () => hasRequiredLlmCredentialSecrets(secretsQuery.data?.secrets ?? []),
+    [secretsQuery.data?.secrets],
+  )
 
   const aiConfigQuery = useQuery({
     queryKey: ["projects", id, "mobileDataExplorer", "openaiConfig"],
     enabled: Boolean(id) && hasRequiredAiSecretNames,
     staleTime: 1000 * 60 * 30,
     queryFn: async (): Promise<{ openaiUrl: string; openaiKey: string }> => {
-      const byName = new Map<string, SecretResponse>()
-      for (const secret of secretsQuery.data?.secrets ?? []) {
-        byName.set(secret.name.trim().toLowerCase(), secret)
-      }
-
-      const openaiUrlSecret = byName.get("llm_base_url")
-      const openaiKeySecret = byName.get("llm_api_key")
-      if (!openaiUrlSecret || !openaiKeySecret) {
+      const llmSecrets = findLlmCredentialSecrets(secretsQuery.data?.secrets ?? [])
+      if (!llmSecrets) {
         throw new Error("Missing required secrets: LLM_BASE_URL/LLM_API_KEY")
       }
 
       const [openaiUrlResponse, openaiKeyResponse] = await Promise.all([
-        revealSecretValue(id, openaiUrlSecret.resource_id),
-        revealSecretValue(id, openaiKeySecret.resource_id),
+        revealSecretValue(id, llmSecrets.baseUrl.resource_id),
+        revealSecretValue(id, llmSecrets.apiKey.resource_id),
       ])
 
       const openaiUrl = openaiUrlResponse.secret_value.trim()

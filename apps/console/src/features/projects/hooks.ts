@@ -24,6 +24,10 @@ import {
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
 } from "./api"
+import {
+  invalidateLlmExplorerCredentialsIfResource,
+  invalidateLlmExplorerCredentialsIfSecret,
+} from "./llm-credential-secrets"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
 import type {
@@ -309,6 +313,9 @@ export function useDeactivateResource(projectId: string, resourceId?: string) {
   return useMutation({
     mutationFn: () => deactivateResource(projectId, resourceId as string),
     onSuccess: () => {
+      if (resourceId) {
+        invalidateLlmExplorerCredentialsIfResource(qc, projectId, resourceId)
+      }
       qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
@@ -460,7 +467,8 @@ export function useCreateSecret(projectId: string) {
 
   return useMutation({
     mutationFn: (data: CreateSecretRequest) => createSecret(projectId, data),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
+      invalidateLlmExplorerCredentialsIfSecret(qc, projectId, variables.name)
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
     },
@@ -477,6 +485,7 @@ export function useUpdateSecretValue(projectId: string) {
     }: UpdateSecretValueRequest & { resourceId: string }) =>
       updateSecretValue(projectId, resourceId, data),
     onSuccess: (_result, variables) => {
+      invalidateLlmExplorerCredentialsIfResource(qc, projectId, variables.resourceId)
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
       qc.invalidateQueries({
