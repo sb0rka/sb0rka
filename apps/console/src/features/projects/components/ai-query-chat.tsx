@@ -158,10 +158,12 @@ export function AiQueryChat({
 
   function applyHistorySql(sql: string, title: string) {
     onApplySql?.(sql, { source: "history", title })
+    setHistoryDialogOpen(false)
   }
 
   function applyAndRunHistorySql(sql: string, title: string) {
     onApplySqlAndRun?.(sql, { source: "history", title })
+    setHistoryDialogOpen(false)
   }
 
   return (
