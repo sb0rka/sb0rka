@@ -219,6 +219,9 @@ const resources = {
         tagExample: "Например: env:dev",
         createdPartial: "База данных создана, но часть тегов не добавлена",
         created: "База данных создана",
+        creatingToast: "База данных \"{{name}}\" создается...",
+        ongoingToast: "Синхронизация базы данных \"{{name}}\"...",
+        onlineToast: "База данных \"{{name}}\" готова к работе",
         createError: "Не удалось создать базу данных",
         invalidId: "Некорректный идентификатор базы данных",
         backToList: "Назад к списку баз",
@@ -654,6 +657,9 @@ const resources = {
         tagExample: "Example: env:dev",
         createdPartial: "Database created, but some tags were not added",
         created: "Database created",
+        creatingToast: "Database \"{{name}}\" is being created...",
+        ongoingToast: "Database \"{{name}}\" synchronization is ongoing...",
+        onlineToast: "Database \"{{name}}\" is online",
         createError: "Unable to create database",
         invalidId: "Invalid database identifier",
         backToList: "Back to databases",
@@ -854,7 +860,7 @@ const resources = {
         emailRequired: "Enter a new email",
         emailSame: "This email is already in use",
         emailSaveError: "Unable to save email",
-        
+
         passwordTitle: "Password",
         passwordDescription: "Update the password for your account",
         currentPassword: "Current password",

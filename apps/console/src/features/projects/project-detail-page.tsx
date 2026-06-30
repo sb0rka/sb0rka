@@ -16,6 +16,7 @@ import {
   useAttachResourceTag,
   useResources,
   useProjectMetricsTimeseries,
+  useDatabaseStatusToasts,
 } from "./hooks"
 import {
   DataExplorerTab,
@@ -32,6 +33,7 @@ import type { CreateSecretRequest, DatabaseResponse } from "./api"
 import { parseDraftTag } from "./parse-draft-tag"
 import { PageStagger } from "@/components/motion/page-entrance"
 import { isProjectTab, type ProjectTab } from "./project-tabs"
+import { useToast } from "@/components/toast-provider"
 
 function useMdUp() {
   return useSyncExternalStore(
@@ -73,6 +75,7 @@ export function ProjectDetailPage() {
   const [draftTags, setDraftTags] = useState<DraftTag[]>([])
   const [databaseError, setDatabaseError] = useState<string | null>(null)
   const [databaseSuccess, setDatabaseSuccess] = useState<string | null>(null)
+  const { showSuccess } = useToast()
 
   const dbCount = dbData?.databases.length ?? 0
   const secretCount = secretsData?.secrets.length ?? 0
@@ -104,6 +107,8 @@ export function ProjectDetailPage() {
       })),
     [resourceTimestampsById, secretsData?.secrets],
   )
+
+  useDatabaseStatusToasts(id, databases)
 
   function openDatabaseDetails(resourceId: string) {
     navigate(`/projects/${id}/databases/${resourceId}`)
@@ -164,6 +169,7 @@ export function ProjectDetailPage() {
       }
 
       setDatabaseSuccess(t("databases.created"))
+      showSuccess(t("databases.creatingToast", { name: newDatabaseName.trim() }))
       resetCreateDatabaseForm()
     } catch (error) {
       const message =
