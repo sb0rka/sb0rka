@@ -269,7 +269,7 @@ export function DataExplorerPage() {
   }, [activeInput, insertIntoSql, promptInserter])
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-4 overflow-hidden">
+    <div className="flex h-[calc(100dvh-10rem)] min-h-0 flex-col gap-4 overflow-hidden md:h-[calc(100dvh-7.25rem)]">
 
       <div className="flex min-h-0 min-w-0 flex-1 gap-0 overflow-hidden rounded-xl border border-border/70 bg-card">
         <DataExplorerSchemaTree
