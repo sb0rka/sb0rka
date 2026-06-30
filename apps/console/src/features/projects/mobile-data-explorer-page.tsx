@@ -49,6 +49,10 @@ import {
   saveSelectedDatabaseId,
 } from "./mobile-data-explorer-storage"
 import {
+  useSqlExplorerHistory,
+  type SqlExplorerHistoryItem,
+} from "./sql-explorer-history-storage"
+import {
   useAiQueryChat,
   useDatabases,
   useDataExplorerSchema,
@@ -57,12 +61,16 @@ import {
   type DataExplorerDatabaseNode,
   type DataExplorerTableNode,
 } from "./hooks"
-import type { AiQueryChatMessage } from "./use-ai-query-chat"
+import type {
+  AiQueryChatMessage,
+  AiQueryChatSqlApplyMeta,
+} from "./use-ai-query-chat"
 
 const MAX_SCHEMA_CHARS = 190_000
 const AI_SELECTED_MODEL_STORAGE_KEY = "sb0rka.console.aiSelectedModel"
 
 type MobileExplorerPanel = "schema" | "sql" | "ai"
+type AiSqlRunCandidate = { sql: string; title: string }
 
 function getStoredAiSelectedModel(): string {
   if (typeof window === "undefined") return OPENAI_DEFAULT_MODEL
@@ -137,6 +145,7 @@ export function MobileDataExplorerPage() {
   const [chatRestoreKey, setChatRestoreKey] = useState("")
   const [chatInitialMessages, setChatInitialMessages] = useState<AiQueryChatMessage[]>([])
   const [aiDraftInput, setAiDraftInput] = useState("")
+  const [aiSqlRunCandidate, setAiSqlRunCandidate] = useState<AiSqlRunCandidate | null>(null)
   const selectedResourceIdRef = useRef<string | null>(null)
   const skipNextPersistRef = useRef(false)
 
@@ -267,6 +276,7 @@ export function MobileDataExplorerPage() {
     restoreKey: chatRestoreKey,
     initialMessages: chatInitialMessages,
   })
+  const sqlHistory = useSqlExplorerHistory(id, selectedResourceId)
 
   useEffect(() => {
     if (!selectedResourceId) return
@@ -300,7 +310,29 @@ export function MobileDataExplorerPage() {
     setActivePanel("sql")
   }, [])
 
-  async function handleRunQuery(sqlOverride?: string) {
+  function aiCandidateFromApplyMeta(
+    nextSql: string,
+    meta?: AiQueryChatSqlApplyMeta,
+  ): AiSqlRunCandidate | null {
+    if (!meta) return null
+    const normalizedSql = nextSql.trim()
+    if (!normalizedSql) return null
+    return {
+      sql: normalizedSql,
+      title: meta.title?.trim() || "AI-generated SQL",
+    }
+  }
+
+  function handleApplyAiSql(next: string, meta?: AiQueryChatSqlApplyMeta) {
+    setSql(next)
+    setAiSqlRunCandidate(aiCandidateFromApplyMeta(next, meta))
+    setActivePanel("sql")
+  }
+
+  async function handleRunQuery(
+    sqlOverride?: string,
+    aiCandidateOverride?: AiSqlRunCandidate | null,
+  ) {
     const sqlToRun = (sqlOverride ?? sql).trim()
     const databaseId = selectedResourceId
     if (!databaseId || sqlToRun.length === 0 || runQuery.isPending) return
@@ -315,6 +347,13 @@ export function MobileDataExplorerPage() {
       if (selectedResourceIdRef.current !== databaseId) return
       setResult(response)
       setIsResultsOpen(true)
+      const candidate = aiCandidateOverride ?? aiSqlRunCandidate
+      if (candidate && candidate.sql.trim() === sqlToRun) {
+        await sqlHistory.saveSuccessfulAiRun({
+          title: candidate.title,
+          sql: sqlToRun,
+        })
+      }
     } catch {
       setActivePanel("sql")
     }
@@ -411,13 +450,18 @@ export function MobileDataExplorerPage() {
             onViewResults={() => setIsResultsOpen(true)}
             aiDraftInput={aiDraftInput}
             onAiDraftInputChange={setAiDraftInput}
-            onApplySql={(next) => {
-              setSql(next)
-              setActivePanel("sql")
+            historyItems={sqlHistory.history}
+            bookmarkItems={sqlHistory.bookmarks}
+            historyLoading={sqlHistory.isLoading}
+            onToggleHistoryItemBookmark={(item) => {
+              void sqlHistory.toggleBookmark(item)
             }}
-            onApplySqlAndRun={(next) => {
+            onApplySql={handleApplyAiSql}
+            onApplySqlAndRun={(next, meta) => {
+              const candidate = aiCandidateFromApplyMeta(next, meta)
               setSql(next)
-              void handleRunQuery(next)
+              setAiSqlRunCandidate(candidate)
+              void handleRunQuery(next, candidate)
             }}
             applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
             isQueryRunning={runQuery.isPending}
@@ -781,6 +825,10 @@ function MobileAiPanel({
   onRefreshModels,
   schema,
   dialect,
+  historyItems,
+  bookmarkItems,
+  historyLoading,
+  onToggleHistoryItemBookmark,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
@@ -804,8 +852,12 @@ function MobileAiPanel({
   onRefreshModels: () => void
   schema: string
   dialect: string
-  onApplySql: (sql: string) => void
-  onApplySqlAndRun: (sql: string) => void
+  historyItems: SqlExplorerHistoryItem[]
+  bookmarkItems: SqlExplorerHistoryItem[]
+  historyLoading: boolean
+  onToggleHistoryItemBookmark: (item: SqlExplorerHistoryItem) => void
+  onApplySql: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
+  onApplySqlAndRun: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
   applySqlAndRunDisabled: boolean
   isQueryRunning: boolean
   hasResult: boolean
@@ -847,6 +899,10 @@ function MobileAiPanel({
         onRefreshModels={onRefreshModels}
         schema={schema || undefined}
         dialect={dialect}
+        historyItems={historyItems}
+        bookmarkItems={bookmarkItems}
+        historyLoading={historyLoading}
+        onToggleHistoryItemBookmark={onToggleHistoryItemBookmark}
         onApplySql={onApplySql}
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}

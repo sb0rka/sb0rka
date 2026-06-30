@@ -34,7 +34,7 @@ describe("useAiQueryChat", () => {
       data.onReasoningText?.("Analyzing schema")
       data.onText?.("SELECT")
       data.onText?.("SELECT 1")
-      return { sql: "SELECT 1" }
+      return { title: "One row", sql: "SELECT 1" }
     })
 
     const { result } = renderHook(() =>
@@ -52,7 +52,7 @@ describe("useAiQueryChat", () => {
     expect(result.current.messages).toEqual([
       { role: "user", variant: "text", content: "show one row" },
       { role: "assistant", type: "thinking", output: "Analyzing schema" },
-      { role: "assistant", type: "sql", output: "SELECT 1" },
+      { role: "assistant", type: "sql", title: "One row", output: "SELECT 1" },
     ])
   })
 
@@ -101,7 +101,7 @@ describe("useAiQueryChat", () => {
   })
 
   it("stops a pending request without appending an error message", async () => {
-    const deferred = createDeferred<{ sql: string }>()
+    const deferred = createDeferred<{ title: string; sql: string }>()
     generateSqlWithOpenAiStreamMock.mockImplementation(async (data) => {
       data.signal?.addEventListener("abort", () => {
         deferred.reject(new DOMException("Aborted", "AbortError"))
@@ -133,7 +133,7 @@ describe("useAiQueryChat", () => {
   })
 
   it("reset aborts in-flight work and clears transcript", async () => {
-    const deferred = createDeferred<{ sql: string }>()
+    const deferred = createDeferred<{ title: string; sql: string }>()
     generateSqlWithOpenAiStreamMock.mockImplementation(async (data) => {
       data.signal?.addEventListener("abort", () => {
         deferred.reject(new DOMException("Aborted", "AbortError"))
