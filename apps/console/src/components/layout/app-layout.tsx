@@ -1,13 +1,31 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar } from "./project-sidebar"
 import { Header } from "./header"
 import { MobileRootNav } from "./mobile-root-nav"
+import { LayoutProvider, useLayoutContext } from "./layout-context"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
+const DATA_EXPLORER_NARROW_MAX_WIDTH = 1439
+
+function useDataExplorerNarrowViewport() {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      const mediaQueryList = window.matchMedia(
+        `(max-width: ${DATA_EXPLORER_NARROW_MAX_WIDTH}px)`,
+      )
+      mediaQueryList.addEventListener("change", onStoreChange)
+      return () => mediaQueryList.removeEventListener("change", onStoreChange)
+    },
+    () =>
+      window.matchMedia(`(max-width: ${DATA_EXPLORER_NARROW_MAX_WIDTH}px)`).matches,
+    () => false,
+  )
+}
 type BreadcrumbItem = {
   label: string
   href?: string
@@ -22,7 +40,17 @@ const projectTabLabelKeyById: Record<ProjectTab, string> = {
 }
 
 export function AppLayout() {
+  return (
+    <LayoutProvider>
+      <AppLayoutContent />
+    </LayoutProvider>
+  )
+}
+
+function AppLayoutContent() {
   const { t } = useTranslation()
+  const { dataExplorerAiPanelOpen } = useLayoutContext()
+  const isDataExplorerNarrowViewport = useDataExplorerNarrowViewport()
   const [searchParams] = useSearchParams()
   const isProjectRoot = useMatch("/projects/:id") !== null
   const isProjectNested = useMatch("/projects/:id/*") !== null
@@ -93,6 +121,10 @@ export function AppLayout() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectSidebarCollapsed, setProjectSidebarCollapsed] = useState(false)
+  const autoCollapseProjectSidebar =
+    activeTab === "data-explorer" &&
+    dataExplorerAiPanelOpen &&
+    isDataExplorerNarrowViewport
 
   useEffect(() => {
     setSidebarCollapsed(isProjectOpen)
@@ -109,7 +141,7 @@ export function AppLayout() {
       {isProjectOpen && (
         <div className="hidden h-full md:block">
           <ProjectSidebar
-            collapsed={projectSidebarCollapsed}
+            collapsed={projectSidebarCollapsed || autoCollapseProjectSidebar}
             onToggleCollapsed={() => setProjectSidebarCollapsed((c) => !c)}
           />
         </div>

@@ -19,6 +19,7 @@ import { AiQueryChat } from "./components/ai-query-chat"
 import { DataExplorerQueryError } from "./components/data-explorer-query-error"
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
+import { useLayoutContext } from "@/components/layout/layout-context"
 import {
   OPENAI_DEFAULT_MODEL,
   listAvailableOpenAiModels,
@@ -75,6 +76,7 @@ function buildNl2SqlSchemaSnapshot(
 
 export function DataExplorerPage() {
   const { t } = useTranslation()
+  const { setDataExplorerAiPanelOpen } = useLayoutContext()
   const { id = "" } = useParams<{ id: string }>()
   const databasesQuery = useDatabases(id)
   const schemaQuery = useDataExplorerSchema(id)
@@ -214,6 +216,11 @@ export function DataExplorerPage() {
     }
     wasAiAssistantAvailableRef.current = true
   }, [hasRequiredAiSecretNames, resetAiChat])
+
+  useEffect(() => {
+    setDataExplorerAiPanelOpen(aiPanelOpen)
+    return () => setDataExplorerAiPanelOpen(false)
+  }, [aiPanelOpen, setDataExplorerAiPanelOpen])
 
   const isSqlEmpty = sql.trim().length === 0
 
