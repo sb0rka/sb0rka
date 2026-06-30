@@ -92,6 +92,7 @@ export function AppLayout() {
     : [] // No breadcrumbs for non-project routes
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [projectSidebarCollapsed, setProjectSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     setSidebarCollapsed(isProjectOpen)
@@ -107,7 +108,10 @@ export function AppLayout() {
       </div>
       {isProjectOpen && (
         <div className="hidden h-full md:block">
-          <ProjectSidebar />
+          <ProjectSidebar
+            collapsed={projectSidebarCollapsed}
+            onToggleCollapsed={() => setProjectSidebarCollapsed((c) => !c)}
+          />
         </div>
       )}
       <div className="md:hidden">

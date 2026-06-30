@@ -1,10 +1,15 @@
 import type { ComponentType, ReactNode } from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { Link, useLocation } from "react-router-dom"
 import { entranceEase } from "@/lib/motion"
-import { buttonPressClass } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import {
+  itemLabelClass,
+  navIconClass,
+  rowChromeClass,
+  sidebarIconSlotClass,
+} from "@/components/layout/sidebar-rail"
 
 export type ProjectNavIconAnimation = "chart" | "database" | "key" | "settings"
 
@@ -32,10 +37,6 @@ const navIconVariants: Record<ProjectNavIconAnimation, Variants> = {
   },
 }
 
-const staticVariants: Variants = {
-  rest: {},
-  hover: {},
-}
 
 interface ProjectNavIconProps {
   icon: ComponentType<{ className?: string }>
@@ -45,16 +46,25 @@ interface ProjectNavIconProps {
 
 function ProjectNavIcon({ icon: Icon, animation, hovered }: ProjectNavIconProps) {
   const reduceMotion = useReducedMotion()
+  const MotionIcon = useMemo(() => motion.create(Icon), [Icon])
+
+  if (reduceMotion) {
+    return (
+      <span className={sidebarIconSlotClass}>
+        <Icon className={navIconClass} />
+      </span>
+    )
+  }
 
   return (
-    <motion.span
-      variants={reduceMotion ? staticVariants : navIconVariants[animation]}
-      initial={false}
-      animate={hovered ? "hover" : "rest"}
-      className="inline-flex shrink-0"
-    >
-      <Icon className="h-4 w-4" />
-    </motion.span>
+    <span className={sidebarIconSlotClass}>
+      <MotionIcon
+        className={navIconClass}
+        variants={navIconVariants[animation]}
+        initial={false}
+        animate={hovered ? "hover" : "rest"}
+      />
+    </span>
   )
 }
 
@@ -63,6 +73,7 @@ interface ProjectNavLinkProps {
   isActive: boolean
   icon: ComponentType<{ className?: string }>
   animation: ProjectNavIconAnimation
+  collapsed?: boolean
   children: ReactNode
 }
 
@@ -71,10 +82,12 @@ export function ProjectNavLink({
   isActive,
   icon,
   animation,
+  collapsed = false,
   children,
 }: ProjectNavLinkProps) {
   const location = useLocation()
   const [hovered, setHovered] = useState(false)
+  const label = typeof children === "string" ? children : undefined
 
   useEffect(() => {
     setHovered(false)
@@ -86,15 +99,27 @@ export function ProjectNavLink({
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-        buttonPressClass,
-        isActive
-          ? "bg-muted text-foreground"
-          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+        "group relative block h-9 w-full rounded-lg text-sm font-medium pressable",
+        isActive ? "text-foreground" : "text-muted-foreground",
       )}
+      title={collapsed ? label : undefined}
     >
+      <span
+        className={cn(
+          rowChromeClass(collapsed),
+          isActive ? "bg-muted" : "group-hover:bg-muted/50",
+        )}
+        aria-hidden
+      />
       <ProjectNavIcon icon={icon} animation={animation} hovered={hovered} />
-      {children}
+      <span
+        className={cn(
+          itemLabelClass(collapsed),
+          "absolute top-1/2 -translate-y-1/2",
+        )}
+      >
+        {children}
+      </span>
     </Link>
   )
 }
