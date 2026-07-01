@@ -18,7 +18,6 @@ import { SborkaLogoMark, SborkaLogo } from "@/components/logo"
 import {
   dividerClass,
   itemLabelClass,
-  labelSlotClass,
   navIconClass,
   rowChromeClass,
   sidebarIconSlotClass,
@@ -235,10 +234,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
               ) : (
                 <motion.span
                   key="text"
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 whitespace-nowrap",
-                    labelSlotClass,
-                  )}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
