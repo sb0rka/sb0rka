@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
@@ -71,6 +72,15 @@ func (a *App) Run(ctx context.Context) error {
 			continue
 		}
 		for kind, resolve := range build(database.PgxPool()) {
+			if resolve == nil {
+				return fmt.Errorf("subject resolver for kind %q is nil", kind)
+			}
+			if kind == model.SubjectKindUser {
+				return fmt.Errorf("subject resolver for kind %q conflicts with built-in user resolution", kind)
+			}
+			if _, dup := resolvers[kind]; dup {
+				return fmt.Errorf("duplicate subject resolver registration for kind %q", kind)
+			}
 			resolvers[kind] = resolve
 		}
 	}

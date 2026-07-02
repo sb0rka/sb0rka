@@ -438,7 +438,8 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
-		if err := resolve(r.Context(), subjectID, &resp); err != nil {
+		profile, err := resolve(r.Context(), subjectID)
+		if err != nil {
 			if errors.Is(err, subject.ErrProfileNotFound) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
@@ -447,6 +448,8 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to get subject profile", http.StatusInternalServerError)
 			return
 		}
+		resp.IsActive = profile.IsActive
+		resp.Organization = profile.Organization
 	}
 
 	w.Header().Set("Content-Type", "application/json")
