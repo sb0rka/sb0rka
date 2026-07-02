@@ -1,8 +1,9 @@
 package authapp
 
 import (
-	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 )
 
 type Options struct {
@@ -15,4 +16,8 @@ type Options struct {
 	InviteHookFactory invite.HookFactory
 
 	RouteFactories []route.RoutesFactory
+
+	// SubjectResolverFactories extend GET /auth/subject with profile
+	// resolvers for additional subject kinds.
+	SubjectResolverFactories []subject.ResolverFactory
 }

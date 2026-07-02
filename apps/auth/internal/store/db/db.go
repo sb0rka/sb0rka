@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func CreateDatabase(uri string, maxConns int, connMaxLifetime int64) (Database, error) {
@@ -18,6 +19,11 @@ type Database interface {
 	TestConnection(ctx context.Context) error
 
 	Close() error
+
+	// PgxPool exposes the underlying connection pool. It exists only to hand
+	// the pool to pluggable feature modules (route/invite/subject factories);
+	// queries must go through the interface methods.
+	PgxPool() *pgxpool.Pool
 
 	// --- Subjects ---
 
@@ -40,9 +46,4 @@ type Database interface {
 	ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error)
 	RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error
 	RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error
-
-	// --- Organizations ---
-	// Read-only lookup for auth subject resolution; management lives in internal.
-
-	GetOrganizationByID(ctx context.Context, orgID uuid.UUID) (model.Organization, error)
 }

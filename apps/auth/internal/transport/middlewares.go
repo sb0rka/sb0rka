@@ -11,8 +11,6 @@ import (
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
-type authContextKey string
-
 // responseWriter wraps http.ResponseWriter to capture status code and bytes written
 type responseWriter struct {
 	http.ResponseWriter

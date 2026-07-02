@@ -1,6 +1,10 @@
 package route
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
 type Access int
 
@@ -16,4 +20,5 @@ type Route struct {
 	Access  Access
 }
 
-type RoutesFactory func(database any) []Route
+// RoutesFactory builds feature routes on top of the auth database pool.
+type RoutesFactory func(pool *pgxpool.Pool) []Route

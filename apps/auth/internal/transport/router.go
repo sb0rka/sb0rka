@@ -48,7 +48,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("PUT /identity/users/current/password", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserPasswordUpdate))))
 	mux.Handle("DELETE /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserDelete))))
 
-	// Routes provided by internal-only features share the same middleware stack below.
+	// Routes provided by pluggable feature modules share the same middleware stack below.
 	for _, rt := range s.deps.Routes {
 		mux.Handle(rt.Pattern, s.authWrap(rt.Access, rt.Handler))
 	}

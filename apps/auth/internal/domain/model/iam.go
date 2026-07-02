@@ -7,10 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	SubjectKindUser         = "user"
-	SubjectKindOrganization = "organization"
-)
+const SubjectKindUser = "user"
 
 type Subject struct {
 	ID        uuid.UUID `json:"id"`
