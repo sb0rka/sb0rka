@@ -7,12 +7,15 @@ ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/contract
 
 WORKDIR /src
 
+COPY apps/api/go.mod apps/api/go.sum ./apps/api/
+COPY packages/contract ./packages/contract
 COPY packages/core ./packages/core
-COPY apps/api ./apps/api
 
 WORKDIR /src/apps/api
 
 RUN go mod download
+
+COPY apps/api /src/apps/api
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
