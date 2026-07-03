@@ -10,6 +10,7 @@ import (
 	tel "github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +24,7 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 }
 
 func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
-	raw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	raw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		return uuid.Nil, false
 	}

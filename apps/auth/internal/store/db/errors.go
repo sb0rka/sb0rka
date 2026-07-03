@@ -14,8 +14,4 @@ var (
 	ErrUserAlreadyExists = errors.New("user already exists")
 
 	ErrUserNotFound = errors.New("user not found")
-
-	ErrOrganizationNotFound            = errors.New("organization not found")
-	ErrOrganizationMemberNotFound      = errors.New("organization member not found")
-	ErrOrganizationMemberAlreadyExists = errors.New("organization member already exists")
 )

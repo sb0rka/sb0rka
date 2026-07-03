@@ -15,6 +15,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 type Handler struct {
@@ -112,7 +113,7 @@ func (h *Handler) writeHookError(w http.ResponseWriter, err error) {
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-	subjectID, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectID, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -139,7 +140,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -224,7 +225,7 @@ func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -306,7 +307,7 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 
 // UserDelete handles DELETE /identity/users/current — marks the user as inactive.
 func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

@@ -10,6 +10,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -33,13 +34,13 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 // @Security BearerAuth
 // @Router   /account/initialize [post]
 func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
-	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDStr, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	subjectKind, ok := runtime.AuthSubjectKindFromContext(r.Context())
+	subjectKind, ok := authctx.SubjectKindFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -75,7 +76,7 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 // @Router   /plan [get]
 // @Router   /account/plan [get]
 func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
-	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDStr, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

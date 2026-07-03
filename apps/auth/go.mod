@@ -11,7 +11,10 @@ require (
 	golang.org/x/crypto v0.49.0
 )
 
-replace github.com/sb0rka/sb0rka/packages/core => ../../packages/core
+replace (
+	github.com/sb0rka/sb0rka/packages/contract => ../../packages/contract
+	github.com/sb0rka/sb0rka/packages/core => ../../packages/core
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

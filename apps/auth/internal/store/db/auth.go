@@ -42,7 +42,6 @@ func (p *PsqlDB) CreateAuthSession(ctx context.Context, sessionID uuid.UUID, sub
 	return as, nil
 }
 
-
 func (p *PsqlDB) GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error) {
 	const query = `
 		SELECT a.id, a.subject_id, s.kind, a.family_id, a.refresh_token_hash, a.created_ip, a.created_user_agent, a.revoke_reason, a.revoked_at, a.created_at, a.expires_at, a.replaced_by

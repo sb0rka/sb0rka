@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sb0rka/sb0rka/apps/auth/internal/authz"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -52,16 +54,44 @@ func (a *App) Run(ctx context.Context) error {
 
 	hook := invite.Noop()
 	if a.opts.InviteRepositoryFactory != nil && a.opts.InviteHookFactory != nil {
-		repo := a.opts.InviteRepositoryFactory(database)
+		repo := a.opts.InviteRepositoryFactory(database.PgxPool())
 		hook = a.opts.InviteHookFactory(repo)
+	}
+
+	var routes []route.Route
+	for _, build := range a.opts.RouteFactories {
+		if build == nil {
+			continue
+		}
+		routes = append(routes, build(database.PgxPool())...)
+	}
+
+	resolvers := make(map[string]subject.ProfileResolver)
+	for _, build := range a.opts.SubjectResolverFactories {
+		if build == nil {
+			continue
+		}
+		for kind, resolve := range build(database.PgxPool()) {
+			if resolve == nil {
+				return fmt.Errorf("subject resolver for kind %q is nil", kind)
+			}
+			if kind == model.SubjectKindUser {
+				return fmt.Errorf("subject resolver for kind %q conflicts with built-in user resolution", kind)
+			}
+			if _, dup := resolvers[kind]; dup {
+				return fmt.Errorf("duplicate subject resolver registration for kind %q", kind)
+			}
+			resolvers[kind] = resolve
+		}
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
 		Database:         database,
-		Authorizer:       authz.NewRBACAuthorizer(database),
 		Cfg:              cfg.Server,
 		Log:              log,
 		InviteHook:       hook,
+		Routes:           routes,
+		SubjectResolvers: resolvers,
 	})
 	handler := newSrv.BuildCommonHandler()
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)

@@ -42,8 +42,8 @@ services:
 
   api:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
     command: ["/app/api", "server"]
     depends_on:
       postgres:
@@ -72,8 +72,8 @@ services:
 
   auth:
     build:
-      context: ./apps/auth
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/auth/Dockerfile
     command: ["/app/auth", "server"]
     depends_on:
       postgres:

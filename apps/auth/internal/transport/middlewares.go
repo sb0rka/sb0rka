@@ -7,11 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
-
-type authContextKey string
 
 // responseWriter wraps http.ResponseWriter to capture status code and bytes written
 type responseWriter struct {
@@ -106,7 +104,12 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := runtime.WithAuthIdentity(r.Context(), identity)
+		ctx := authctx.WithIdentity(r.Context(), authctx.Identity{
+			SubjectID:   identity.SubjectID,
+			SubjectKind: identity.SubjectKind,
+			SessionID:   identity.SessionID,
+			JTI:         identity.JTI,
+		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -119,7 +122,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 //   - (Implicit) authMiddleware has already run and populated identity in context.
 func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionIDRaw, ok := runtime.AuthSessionIDFromContext(r.Context())
+		sessionIDRaw, ok := authctx.SessionIDFromContext(r.Context())
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -130,7 +133,7 @@ func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+		subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return

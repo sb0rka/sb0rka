@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 type Handler struct {
@@ -231,13 +233,13 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthLogout(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	sessionIDRaw, ok := runtime.AuthSessionIDFromContext(r.Context())
+	sessionIDRaw, ok := authctx.SessionIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -271,20 +273,20 @@ func (h *Handler) AuthLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthSessionsList(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	// Sessions listing is currently restricted to user-backed subjects
-	_, isUser := runtime.AuthUserIDFromContext(r.Context())
+	_, isUser := authctx.RequireUserSubject(r.Context())
 	if !isUser {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	currentSessionID, ok := runtime.AuthSessionIDFromContext(r.Context())
+	currentSessionID, ok := authctx.SessionIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -309,7 +311,7 @@ func (h *Handler) AuthSessionsList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthSessionsRevokeAll(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -333,7 +335,7 @@ func (h *Handler) AuthSessionsRevokeAll(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) AuthSessionRevokeOne(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -372,7 +374,7 @@ func (h *Handler) AuthSessionRevokeOne(w http.ResponseWriter, r *http.Request) {
 
 // AuthGetSubject returns the current authenticated subject identity and typed profile.
 func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -385,7 +387,7 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject, err := h.deps.Database.GetSubject(r.Context(), subjectID)
+	sub, err := h.deps.Database.GetSubject(r.Context(), subjectID)
 	if err != nil {
 		if errors.Is(err, db.ErrSubjectNotFound) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -397,10 +399,10 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp contract.SubjectResponse
-	resp.SubjectID = subject.ID.String()
-	resp.Kind = subject.Kind
+	resp.SubjectID = sub.ID.String()
+	resp.Kind = sub.Kind
 
-	switch subject.Kind {
+	switch sub.Kind {
 	case model.SubjectKindUser:
 		user, err := h.deps.Database.GetUser(r.Context(), subjectIDRaw, "", "")
 		if err != nil {
@@ -428,27 +430,26 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 		}
 		resp.User = profile
 
-	case model.SubjectKindOrganization:
-		org, err := h.deps.Database.GetOrganizationByID(r.Context(), subjectID)
+	default:
+		// Other subject kinds are resolvable only when a profile resolver
+		// for that kind is registered via authapp options.
+		resolve, ok := h.deps.SubjectResolvers[sub.Kind]
+		if !ok {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		profile, err := resolve(r.Context(), subjectID)
 		if err != nil {
-			if errors.Is(err, db.ErrOrganizationNotFound) {
+			if errors.Is(err, subject.ErrProfileNotFound) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			h.deps.Log.Error("get_subject_org_failed", "subject_id", subjectIDRaw, "error", err)
+			h.deps.Log.Error("get_subject_profile_failed", "subject_id", subjectIDRaw, "kind", sub.Kind, "error", err)
 			http.Error(w, "Failed to get subject profile", http.StatusInternalServerError)
 			return
 		}
-		resp.IsActive = true
-		resp.Organization = &contract.SubjectOrganizationProfile{
-			OrganizationID: org.ID.String(),
-			Name:           org.Name,
-		}
-
-	default:
-		// service_account, system_actor, external_identity — not yet supported
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
+		resp.IsActive = profile.IsActive
+		resp.Organization = profile.Organization
 	}
 
 	w.Header().Set("Content-Type", "application/json")
