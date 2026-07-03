@@ -4,6 +4,7 @@ const DB_NAME = "sb0rka.console.sqlExplorer"
 const DB_VERSION = 2
 const STORE_NAME = "sqlHistory"
 const BOOKMARK_INDEX_NAME = "byDatabaseBookmarkCreatedV2"
+const SQL_EXPLORER_HISTORY_MAX_ITEMS = 100
 
 export type SqlExplorerHistoryItem = {
   id: string
@@ -80,6 +81,53 @@ function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   })
 }
 
+function transactionToPromise(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed"))
+    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"))
+  })
+}
+
+async function pruneExcessHistoryItems(
+  store: IDBObjectStore,
+  projectId: string,
+  databaseId: string,
+): Promise<void> {
+  const index = store.index("byDatabaseCreated")
+  const items = await requestToPromise<SqlExplorerHistoryItem[]>(
+    index.getAll(databaseKey(projectId, databaseId)),
+  )
+  if (items.length <= SQL_EXPLORER_HISTORY_MAX_ITEMS) return
+
+  const excess = items.length - SQL_EXPLORER_HISTORY_MAX_ITEMS
+  const oldestUnbookmarked = items
+    .filter((item) => !item.bookmarked)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .slice(0, excess)
+
+  for (const item of oldestUnbookmarked) {
+    await requestToPromise(store.delete(item.id))
+  }
+}
+
+async function pruneSqlExplorerHistory(
+  projectId: string,
+  databaseId: string,
+): Promise<void> {
+  const db = await openDatabase()
+  if (!db) return
+
+  try {
+    const tx = db.transaction(STORE_NAME, "readwrite")
+    const store = tx.objectStore(STORE_NAME)
+    await pruneExcessHistoryItems(store, projectId, databaseId)
+    await transactionToPromise(tx)
+  } finally {
+    db.close()
+  }
+}
+
 function openDatabase(): Promise<IDBDatabase | null> {
   if (!isIndexedDbAvailable()) return Promise.resolve(null)
 
@@ -151,6 +199,9 @@ export async function listSqlExplorerHistory(
   databaseId: string,
 ): Promise<SqlExplorerHistoryItem[]> {
   if (!projectId || !databaseId) return []
+  const items = await readDatabaseItems(projectId, databaseId, false)
+  if (items.length <= SQL_EXPLORER_HISTORY_MAX_ITEMS) return items
+  await pruneSqlExplorerHistory(projectId, databaseId)
   return readDatabaseItems(projectId, databaseId, false)
 }
 
@@ -201,6 +252,8 @@ export async function saveSqlExplorerHistoryItem(
     const tx = db.transaction(STORE_NAME, "readwrite")
     const store = tx.objectStore(STORE_NAME)
     await requestToPromise(store.put(item))
+    await pruneExcessHistoryItems(store, projectId, databaseId)
+    await transactionToPromise(tx)
     return item
   } finally {
     db.close()
