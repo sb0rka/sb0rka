@@ -1,7 +1,8 @@
-import { useMemo } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { Bookmark, ClipboardPaste, Clock3, Loader2, Play, Star } from "lucide-react"
+import { Bookmark, ClipboardPaste, Clock3, Loader2, Play, Star, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getResolvedLanguage } from "@/lib/i18n"
@@ -32,9 +33,55 @@ function formatHistoryDate(value: string): string {
   }).format(date)
 }
 
+function filterSqlHistoryItems(
+  items: SqlExplorerHistoryItem[],
+  query: string,
+): SqlExplorerHistoryItem[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return items
+  return items.filter(
+    (item) =>
+      item.title.toLowerCase().includes(q) ||
+      item.sql.toLowerCase().includes(q),
+  )
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function renderHighlightedText(value: string, query: string): ReactNode {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) return value
+
+  const regex = new RegExp(`(${escapeRegExp(normalizedQuery)})`, "gi")
+  const parts = value.split(regex)
+
+  return parts.map((part, index) => {
+    if (!part) return null
+    const isMatch = part.toLowerCase() === normalizedQuery.toLowerCase()
+
+    return (
+      <span
+        key={`${part}-${index}`}
+        className={
+          isMatch
+            ? "font-semibold text-[#2b9a66] underline decoration-[#2b9a66]/60"
+            : undefined
+        }
+      >
+        {part}
+      </span>
+    )
+  })
+}
+
 function SqlHistoryList({
   items,
+  sourceItemCount,
   emptyMessage,
+  noResultsMessage,
+  searchQuery = "",
   isLoading,
   applySqlAndRunDisabled,
   isQueryRunning,
@@ -43,7 +90,10 @@ function SqlHistoryList({
   onToggleBookmark,
 }: {
   items: SqlExplorerHistoryItem[]
+  sourceItemCount: number
   emptyMessage: string
+  noResultsMessage?: string
+  searchQuery?: string
   isLoading?: boolean
   applySqlAndRunDisabled?: boolean
   isQueryRunning?: boolean
@@ -62,10 +112,18 @@ function SqlHistoryList({
     )
   }
 
-  if (items.length === 0) {
+  if (sourceItemCount === 0) {
     return (
       <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-border px-4 text-center">
         <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-border px-4 text-center">
+        <p className="text-sm text-muted-foreground">{noResultsMessage}</p>
       </div>
     )
   }
@@ -80,7 +138,9 @@ function SqlHistoryList({
           >
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="truncate text-sm font-medium text-foreground">{item.title}</h3>
+                <h3 className="truncate text-sm font-medium text-foreground">
+                  {renderHighlightedText(item.title, searchQuery)}
+                </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {formatHistoryDate(item.createdAt)}
                 </p>
@@ -104,7 +164,7 @@ function SqlHistoryList({
               </Button>
             </div>
             <pre className="mt-3 max-h-24 overflow-hidden whitespace-pre-wrap rounded-md bg-background/70 p-2 font-mono text-xs text-muted-foreground">
-              {item.sql}
+              {renderHighlightedText(item.sql, searchQuery)}
             </pre>
             <div className="mt-3 flex justify-end gap-1">
               <Button
@@ -156,12 +216,25 @@ export function AiQueryChatHistoryDialog({
   onToggleBookmark,
 }: AiQueryChatHistoryDialogProps) {
   const { t } = useTranslation()
+  const [search, setSearch] = useState("")
   const description = useMemo(
     () =>
       view === "bookmarks"
         ? t("dataExplorer.aiChatBookmarksDescription")
         : t("dataExplorer.aiChatHistoryDescription"),
     [t, view],
+  )
+  const filteredHistory = useMemo(
+    () => filterSqlHistoryItems(historyItems, search),
+    [historyItems, search],
+  )
+  const filteredBookmarks = useMemo(
+    () => filterSqlHistoryItems(bookmarkItems, search),
+    [bookmarkItems, search],
+  )
+  const noResultsMessage = useMemo(
+    () => t("dataExplorer.aiChatHistoryNoResults", { query: search.trim() }),
+    [search, t],
   )
 
   return (
@@ -185,10 +258,36 @@ export function AiQueryChatHistoryDialog({
             {t("dataExplorer.aiChatBookmarks")}
           </TabsTrigger>
         </TabsList>
+        <div className="relative my-3 shrink-0">
+          <Input
+            autoFocus
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => event.stopPropagation()}
+            placeholder={t("dataExplorer.aiChatHistorySearchPlaceholder")}
+            className="h-8 w-full pr-8"
+          />
+          {search.length > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-8 w-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+              aria-label={t("dataExplorer.aiChatMenuClearFilter")}
+              title={t("dataExplorer.aiChatMenuClearFilter")}
+              onClick={() => setSearch("")}
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </Button>
+          ) : null}
+        </div>
         <TabsContent value="history" className="min-h-0 flex-1">
           <SqlHistoryList
-            items={historyItems}
+            items={filteredHistory}
+            sourceItemCount={historyItems.length}
             emptyMessage={t("dataExplorer.aiChatHistoryEmpty")}
+            noResultsMessage={noResultsMessage}
+            searchQuery={search}
             isLoading={isLoading}
             applySqlAndRunDisabled={applySqlAndRunDisabled}
             isQueryRunning={isQueryRunning}
@@ -199,8 +298,11 @@ export function AiQueryChatHistoryDialog({
         </TabsContent>
         <TabsContent value="bookmarks" className="min-h-0 flex-1">
           <SqlHistoryList
-            items={bookmarkItems}
+            items={filteredBookmarks}
+            sourceItemCount={bookmarkItems.length}
             emptyMessage={t("dataExplorer.aiChatBookmarksEmpty")}
+            noResultsMessage={noResultsMessage}
+            searchQuery={search}
             isLoading={isLoading}
             applySqlAndRunDisabled={applySqlAndRunDisabled}
             isQueryRunning={isQueryRunning}
