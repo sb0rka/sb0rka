@@ -2,13 +2,6 @@ import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Bookmark, ClipboardPaste, Clock3, Loader2, Play, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getResolvedLanguage } from "@/lib/i18n"
@@ -18,14 +11,12 @@ import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 export type AiQueryChatHistoryView = "history" | "bookmarks"
 
 export type AiQueryChatHistoryDialogProps = {
-  open: boolean
   view: AiQueryChatHistoryView
   historyItems: SqlExplorerHistoryItem[]
   bookmarkItems: SqlExplorerHistoryItem[]
   isLoading?: boolean
   applySqlAndRunDisabled?: boolean
   isQueryRunning?: boolean
-  onOpenChange: (open: boolean) => void
   onViewChange: (view: AiQueryChatHistoryView) => void
   onApplySql?: (sql: string, title: string) => void
   onApplySqlAndRun?: (sql: string, title: string) => void
@@ -80,7 +71,7 @@ function SqlHistoryList({
   }
 
   return (
-    <ScrollArea className="h-[min(28rem,60vh)] pr-3">
+    <ScrollArea className="h-full pr-3">
       <div className="flex flex-col gap-2">
         {items.map((item) => (
           <article
@@ -153,14 +144,12 @@ function SqlHistoryList({
 }
 
 export function AiQueryChatHistoryDialog({
-  open,
   view,
   historyItems,
   bookmarkItems,
   isLoading,
   applySqlAndRunDisabled,
   isQueryRunning,
-  onOpenChange,
   onViewChange,
   onApplySql,
   onApplySqlAndRun,
@@ -176,51 +165,51 @@ export function AiQueryChatHistoryDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0">
-        <DialogHeader className="pb-2">
-          <DialogTitle>{t("dataExplorer.aiChatHistoryDialogTitle")}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <div className="px-6 pb-6">
-          <Tabs value={view} onValueChange={(value) => onViewChange(value as AiQueryChatHistoryView)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="history" className="gap-1.5">
-                <Clock3 className="h-3.5 w-3.5" />
-                {t("dataExplorer.aiChatHistory")}
-              </TabsTrigger>
-              <TabsTrigger value="bookmarks" className="gap-1.5">
-                <Bookmark className="h-3.5 w-3.5" />
-                {t("dataExplorer.aiChatBookmarks")}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="history">
-              <SqlHistoryList
-                items={historyItems}
-                emptyMessage={t("dataExplorer.aiChatHistoryEmpty")}
-                isLoading={isLoading}
-                applySqlAndRunDisabled={applySqlAndRunDisabled}
-                isQueryRunning={isQueryRunning}
-                onApplySql={onApplySql}
-                onApplySqlAndRun={onApplySqlAndRun}
-                onToggleBookmark={onToggleBookmark}
-              />
-            </TabsContent>
-            <TabsContent value="bookmarks">
-              <SqlHistoryList
-                items={bookmarkItems}
-                emptyMessage={t("dataExplorer.aiChatBookmarksEmpty")}
-                isLoading={isLoading}
-                applySqlAndRunDisabled={applySqlAndRunDisabled}
-                isQueryRunning={isQueryRunning}
-                onApplySql={onApplySql}
-                onApplySqlAndRun={onApplySqlAndRun}
-                onToggleBookmark={onToggleBookmark}
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div className="flex h-full w-[min(42rem,calc(100vw-2rem))] min-h-0 flex-col rounded-xl border border-border bg-card pr-3 pl-6 py-2 shadow-lg">
+      <div className="mb-4 shrink-0">
+        <p className="text-sm font-medium">{t("dataExplorer.aiChatHistoryDialogTitle")}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Tabs
+        value={view}
+        onValueChange={(value) => onViewChange(value as AiQueryChatHistoryView)}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <TabsList className="grid w-full shrink-0 grid-cols-2">
+          <TabsTrigger value="history" className="gap-1.5">
+            <Clock3 className="h-3.5 w-3.5" />
+            {t("dataExplorer.aiChatHistory")}
+          </TabsTrigger>
+          <TabsTrigger value="bookmarks" className="gap-1.5">
+            <Bookmark className="h-3.5 w-3.5" />
+            {t("dataExplorer.aiChatBookmarks")}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="history" className="min-h-0 flex-1">
+          <SqlHistoryList
+            items={historyItems}
+            emptyMessage={t("dataExplorer.aiChatHistoryEmpty")}
+            isLoading={isLoading}
+            applySqlAndRunDisabled={applySqlAndRunDisabled}
+            isQueryRunning={isQueryRunning}
+            onApplySql={onApplySql}
+            onApplySqlAndRun={onApplySqlAndRun}
+            onToggleBookmark={onToggleBookmark}
+          />
+        </TabsContent>
+        <TabsContent value="bookmarks" className="min-h-0 flex-1">
+          <SqlHistoryList
+            items={bookmarkItems}
+            emptyMessage={t("dataExplorer.aiChatBookmarksEmpty")}
+            isLoading={isLoading}
+            applySqlAndRunDisabled={applySqlAndRunDisabled}
+            isQueryRunning={isQueryRunning}
+            onApplySql={onApplySql}
+            onApplySqlAndRun={onApplySqlAndRun}
+            onToggleBookmark={onToggleBookmark}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

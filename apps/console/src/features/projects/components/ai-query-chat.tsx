@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowUp, Bookmark, Clock3, Square } from "lucide-react"
+import { ArrowUp, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -12,10 +12,6 @@ import {
   type AiQueryChatSendPayload,
   type AiQueryChatSqlApplyMeta,
 } from "../use-ai-query-chat"
-import {
-  AiQueryChatHistoryDialog,
-  type AiQueryChatHistoryView,
-} from "./ai-query-chat-history-dialog"
 import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatController = {
@@ -67,8 +63,6 @@ export function AiQueryChat({
   schema,
   dialect,
   historyItems = [],
-  bookmarkItems = [],
-  historyLoading,
   onToggleHistoryItemBookmark,
   onApplySql,
   onApplySqlAndRun,
@@ -90,8 +84,6 @@ export function AiQueryChat({
   } = chat
   const isControlledDraft = draftInput !== undefined
   const [uncontrolledInput, setUncontrolledInput] = useState("")
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
-  const [historyView, setHistoryView] = useState<AiQueryChatHistoryView>("history")
   const input = isControlledDraft ? draftInput : uncontrolledInput
   const setInput = useCallback(
     (value: string) => {
@@ -151,21 +143,6 @@ export function AiQueryChat({
     [availableModels, selectedModel],
   )
 
-  function openHistoryDialog(view: AiQueryChatHistoryView) {
-    setHistoryView(view)
-    setHistoryDialogOpen(true)
-  }
-
-  function applyHistorySql(sql: string, title: string) {
-    onApplySql?.(sql, { source: "history", title })
-    setHistoryDialogOpen(false)
-  }
-
-  function applyAndRunHistorySql(sql: string, title: string) {
-    onApplySqlAndRun?.(sql, { source: "history", title })
-    setHistoryDialogOpen(false)
-  }
-
   return (
     <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden", className)}>
       <AiQueryChatMessageList
@@ -181,28 +158,6 @@ export function AiQueryChat({
       />
 
       <div className="w-full min-w-0 max-w-full shrink-0 space-y-2 pt-3">
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => openHistoryDialog("history")}
-          >
-            <Clock3 className="h-3.5 w-3.5" />
-            {t("dataExplorer.aiChatHistory")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => openHistoryDialog("bookmarks")}
-          >
-            <Bookmark className="h-3.5 w-3.5" />
-            {t("dataExplorer.aiChatBookmarks")}
-          </Button>
-        </div>
         <div className="relative w-full min-w-0 max-w-full">
           <Textarea
             ref={promptTextareaRef}
@@ -253,20 +208,6 @@ export function AiQueryChat({
           />
         </div>
       </div>
-      <AiQueryChatHistoryDialog
-        open={historyDialogOpen}
-        view={historyView}
-        historyItems={historyItems}
-        bookmarkItems={bookmarkItems}
-        isLoading={historyLoading}
-        applySqlAndRunDisabled={applySqlAndRunDisabled}
-        isQueryRunning={isQueryRunning}
-        onOpenChange={setHistoryDialogOpen}
-        onViewChange={setHistoryView}
-        onApplySql={applyHistorySql}
-        onApplySqlAndRun={applyAndRunHistorySql}
-        onToggleBookmark={onToggleHistoryItemBookmark}
-      />
     </div>
   )
 }

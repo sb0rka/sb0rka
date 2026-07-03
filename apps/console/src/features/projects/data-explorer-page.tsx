@@ -17,6 +17,7 @@ import {
 } from "./hooks"
 import { useSqlExplorerHistory } from "./sql-explorer-history-storage"
 import { AiQueryChat } from "./components/ai-query-chat"
+import { AiQueryChatHistoryDropdown } from "./components/ai-query-chat-history-dropdown"
 import { DataExplorerQueryError } from "./components/data-explorer-query-error"
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
@@ -414,16 +415,35 @@ export function DataExplorerPage() {
                 >
                   <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
                     <span className="truncate text-sm font-medium">{t("dataExplorer.aiChatTitle")}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => setAiPanelOpen(false)}
-                      aria-label={t("dataExplorer.collapseAiPanel")}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <AiQueryChatHistoryDropdown
+                        historyItems={sqlHistory.history}
+                        bookmarkItems={sqlHistory.bookmarks}
+                        historyLoading={sqlHistory.isLoading}
+                        applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
+                        isQueryRunning={runQuery.isPending}
+                        onToggleHistoryItemBookmark={(item) => {
+                          void sqlHistory.toggleBookmark(item)
+                        }}
+                        onApplySql={handleApplyAiSql}
+                        onApplySqlAndRun={(next, meta) => {
+                          const candidate = aiCandidateFromApplyMeta(next, meta)
+                          setSql(next)
+                          setAiSqlRunCandidate(candidate)
+                          void handleRunQuery(next, candidate)
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setAiPanelOpen(false)}
+                        aria-label={t("dataExplorer.collapseAiPanel")}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
                     {aiConfigQuery.isLoading ? (

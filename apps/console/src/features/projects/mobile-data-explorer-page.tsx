@@ -41,6 +41,7 @@ import {
   type SecretResponse,
 } from "./api"
 import { AiQueryChat } from "./components/ai-query-chat"
+import { AiQueryChatHistoryDropdown } from "./components/ai-query-chat-history-dropdown"
 import {
   loadMobileDataExplorerState,
   loadSelectedDatabaseId,
@@ -871,11 +872,23 @@ function MobileAiPanel({
     <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-3">
         <h1 className="text-lg font-semibold leading-6">{t("dataExplorer.aiChatTitle")}</h1>
-        {hasResult ? (
-          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={onViewResults}>
-            {t("dataExplorer.viewLastResults")}
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          <AiQueryChatHistoryDropdown
+            historyItems={historyItems}
+            bookmarkItems={bookmarkItems}
+            historyLoading={historyLoading}
+            applySqlAndRunDisabled={applySqlAndRunDisabled}
+            isQueryRunning={isQueryRunning}
+            onToggleHistoryItemBookmark={onToggleHistoryItemBookmark}
+            onApplySql={onApplySql}
+            onApplySqlAndRun={onApplySqlAndRun}
+          />
+          {hasResult ? (
+            <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={onViewResults}>
+              {t("dataExplorer.viewLastResults")}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {missingConfig ? (
