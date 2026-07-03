@@ -150,29 +150,36 @@ export function AiQueryChatHistoryDropdown({
       </TooltipProvider>
       {historyDropdownOpen && dropdownStyle
         ? createPortal(
-            <div
-              ref={historyDropdownRef}
-              className="fixed z-[80]"
-              style={{
-                left: dropdownStyle.left,
-                top: dropdownStyle.top,
-                width: dropdownStyle.width,
-                height: dropdownStyle.height,
-              }}
-            >
-              <AiQueryChatHistoryDialog
-                view={historyView}
-                historyItems={historyItems}
-                bookmarkItems={bookmarkItems}
-                isLoading={historyLoading}
-                applySqlAndRunDisabled={applySqlAndRunDisabled}
-                isQueryRunning={isQueryRunning}
-                onViewChange={setHistoryView}
-                onApplySql={applyHistorySql}
-                onApplySqlAndRun={applyAndRunHistorySql}
-                onToggleBookmark={onToggleHistoryItemBookmark}
+            <>
+              <div
+                className="fixed inset-0 z-[70] animate-in fade-in-0 bg-black/20 backdrop-brightness-[0.95] backdrop-saturate-[0.80] duration-200 dark:bg-black/40"
+                aria-hidden
+                onMouseDown={() => setHistoryDropdownOpen(false)}
               />
-            </div>,
+              <div
+                ref={historyDropdownRef}
+                className="fixed z-[80]"
+                style={{
+                  left: dropdownStyle.left,
+                  top: dropdownStyle.top,
+                  width: dropdownStyle.width,
+                  height: dropdownStyle.height,
+                }}
+              >
+                <AiQueryChatHistoryDialog
+                  view={historyView}
+                  historyItems={historyItems}
+                  bookmarkItems={bookmarkItems}
+                  isLoading={historyLoading}
+                  applySqlAndRunDisabled={applySqlAndRunDisabled}
+                  isQueryRunning={isQueryRunning}
+                  onViewChange={setHistoryView}
+                  onApplySql={applyHistorySql}
+                  onApplySqlAndRun={applyAndRunHistorySql}
+                  onToggleBookmark={onToggleHistoryItemBookmark}
+                />
+              </div>
+            </>,
             document.body,
           )
         : null}
