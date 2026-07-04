@@ -28,7 +28,7 @@ func GetIntEnv(key string, fallback int) int {
 	}
 }
 
-func GetDurationEnv(key string, fallback time.Duration) time.Duration {
+func GetDurationEnv(key string, fallback time.Duration, unit time.Duration) time.Duration {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
 		return fallback
@@ -37,7 +37,7 @@ func GetDurationEnv(key string, fallback time.Duration) time.Duration {
 	if val, err := strconv.Atoi(v); err != nil {
 		return fallback
 	} else {
-		return time.Duration(val) * time.Second
+		return time.Duration(val) * unit
 	}
 }
 

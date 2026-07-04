@@ -58,7 +58,7 @@ func Load() (*Config, error) {
 	databaseURIEnv := coreconfig.GetStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
 	databaseMaxConns := coreconfig.GetIntEnv("DATABASE_MAX_OPEN_CONNS", coreconfig.DefaultDatabaseMaxConns)
-	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime)
+	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime, time.Second)
 
 	serverAddr := coreconfig.GetStringEnv("SERVER_ADDR", DefaultServerAddr)
 	serverPort := coreconfig.GetIntEnv("SERVER_PORT", DefaultServerPort)
@@ -104,8 +104,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("access token private key is not ed25519")
 	}
 
-	accessSessionTTL := coreconfig.GetDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL)
-	accessTokenTTL := coreconfig.GetDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL)
+	accessSessionTTL := coreconfig.GetDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL, time.Second)
+	accessTokenTTL := coreconfig.GetDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL, time.Second)
 	accessTokenIssuer := coreconfig.GetStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
 	accessTokenAudience := coreconfig.GetStringEnv("ACCESS_TOKEN_AUDIENCE", DefaultAccessTokenAudience)
 	accessTokenKid := coreconfig.GetStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
