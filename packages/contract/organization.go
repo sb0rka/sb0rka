@@ -34,6 +34,12 @@ type OrganizationMemberUpdateRequest struct {
 	Role string `json:"role"`
 }
 
+type OrganizationMemberInviteCreateRequest struct {
+	Username *string `json:"username,omitempty"`
+	Email *string `json:"email,omitempty"`
+	Role  string `json:"role"`
+}
+
 type OrganizationMemberResponse struct {
 	UserID    string    `json:"user_id"`
 	Role      string    `json:"role"`
