@@ -46,7 +46,7 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
         type="always"
         className={`${heightClassName} ${borderClassName} border-border/80 bg-background`}
       >
-        <table className="w-full min-w-max border-separate border-spacing-0 text-left text-sm">
+        <table className="h-max w-max border-separate border-spacing-0 text-left text-sm">
           <thead className="sticky top-0 z-10 text-muted-foreground">
             <tr>
               {result.columns.map((column, columnIndex) => (
@@ -73,7 +73,7 @@ export function DatabaseQueryResults({ result }: { result: RunDatabaseQueryRespo
                     key={`${rowIndex}-${column}`}
                     className={cn(
                       queryTableCellBorderClass(columnIndex, result.columns.length),
-                      "max-w-[320px] truncate px-3 py-2.5 font-mono text-sm leading-6 text-foreground/95 tabular-nums",
+                      "max-w-[320px] truncate px-3 py-2.5 align-top font-mono text-sm leading-6 text-foreground/95 tabular-nums",
                     )}
                     title={formatQueryCellValue(row[columnIndex])}
                   >
