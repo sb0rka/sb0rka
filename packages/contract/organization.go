@@ -52,10 +52,8 @@ type OrganizationMemberListResponse struct {
 	Members []OrganizationMemberResponse `json:"members"`
 }
 
-// OrganizationInviteResponse describes a pending or resolved organization-member
-// invite. Status is derived server-side: pending, accepted, expired, or revoked.
-// Email/Username identify the invited user and may be absent if the target user
-// was removed.
+// Status is one of: pending, accepted, expired, revoked.
+// Email/Username may be absent if the invited user was removed.
 type OrganizationInviteResponse struct {
 	ID              string     `json:"id"`
 	OrganizationID  string     `json:"organization_id"`
