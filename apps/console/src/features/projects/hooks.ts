@@ -102,7 +102,7 @@ export function useDatabases(projectId: string) {
 export function useDatabaseStatusToasts(projectId: string, databases: DatabaseResponse[]) {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const prevSyncStateRef = useRef<Map<string, string | undefined>>(new Map())
 
   useEffect(() => {
@@ -141,11 +141,13 @@ export function useDatabaseStatusToasts(projectId: string, databases: DatabaseRe
           showSuccess(t("databases.ongoingToast", { name }))
         } else if (curr === "synced" && db.desired_state === "present") {
           showSuccess(t("databases.onlineToast", { name }))
+        } else if (curr === "failed") {
+          showError(t("databases.createError", { name }))
         }
         prevSyncStateRef.current.set(db.resource_id, curr)
       }
     }
-  }, [queries, t, showSuccess])
+  }, [queries, t, showSuccess, showError])
 }
 
 export function useCreateDatabase(projectId: string) {

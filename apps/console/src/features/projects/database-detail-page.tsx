@@ -244,7 +244,7 @@ export function DatabaseDetailPage() {
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
   const { id = "", resourceId = "" } = useParams<{
     id: string
     resourceId: string
@@ -299,7 +299,6 @@ export function DatabaseDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [copyHint, setCopyHint] = useState<string | null>(null)
   const [copyHintAnchor, setCopyHintAnchor] = useState<CopyHintAnchor | null>(null)
   const [isUserVisible, setIsUserVisible] = useState(false)
@@ -430,15 +429,12 @@ export function DatabaseDetailPage() {
 
     if (!strongConfirmed) return
 
-    setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
       showSuccess(t("databases.deleted"))
       navigate(`/projects/${id}?tab=databases`)
     } catch (error) {
-      setDeleteError(
-        getErrorMessage(error, t("databases.deleteError")),
-      )
+      showError(getErrorMessage(error, t("databases.deleteError")))
     }
   }
 
@@ -774,7 +770,6 @@ export function DatabaseDetailPage() {
                 ? t("common.deleting")
                 : t("databases.deleteButton")}
             </Button>
-            {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </CardFooter>
         </Card>
         </SlideIn>

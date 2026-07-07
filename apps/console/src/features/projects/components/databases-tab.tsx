@@ -257,12 +257,6 @@ export function DatabasesTab({
                   </Button>
                 </div>
               </div>
-              {createForm.databaseError ? (
-                <p className="text-sm text-destructive">{createForm.databaseError}</p>
-              ) : null}
-              {createForm.databaseSuccess ? (
-                <p className="text-sm text-emerald-600">{createForm.databaseSuccess}</p>
-              ) : null}
             </CardContent>
             <CardFooter className="flex flex-row items-center gap-4 px-6 pb-6 pt-6">
               <Button

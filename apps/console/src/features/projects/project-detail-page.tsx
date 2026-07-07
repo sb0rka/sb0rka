@@ -73,9 +73,7 @@ export function ProjectDetailPage() {
   const [newDatabaseDescription, setNewDatabaseDescription] = useState("")
   const [newTagInput, setNewTagInput] = useState("")
   const [draftTags, setDraftTags] = useState<DraftTag[]>([])
-  const [databaseError, setDatabaseError] = useState<string | null>(null)
-  const [databaseSuccess, setDatabaseSuccess] = useState<string | null>(null)
-  const { showSuccess } = useToast()
+  const { showSuccess, showError, showWarning } = useToast()
 
   const dbCount = dbData?.databases.length ?? 0
   const secretCount = secretsData?.secrets.length ?? 0
@@ -125,7 +123,7 @@ export function ProjectDetailPage() {
     const source = (raw ?? newTagInput).trim()
     const parsed = parseDraftTag(source)
     if (!parsed) {
-      setDatabaseError(t("common.messages.tagFormat"))
+      showError(t("common.messages.tagFormat"))
       return
     }
 
@@ -135,15 +133,11 @@ export function ProjectDetailPage() {
     if (!duplicate) {
       setDraftTags((prev) => [...prev, parsed])
     }
-    setDatabaseError(null)
     setNewTagInput("")
   }
 
   async function handleCreateDatabase() {
     if (!newDatabaseName.trim() || createDatabase.isPending) return
-
-    setDatabaseError(null)
-    setDatabaseSuccess(null)
 
     try {
       const created = await createDatabase.mutateAsync({
@@ -162,19 +156,18 @@ export function ProjectDetailPage() {
             ),
           )
         } catch {
-          setDatabaseSuccess(t("databases.createdPartial"))
+          showWarning(t("databases.createdPartial"))
           resetCreateDatabaseForm()
           return
         }
       }
 
-      setDatabaseSuccess(t("databases.created"))
       showSuccess(t("databases.creatingToast", { name: newDatabaseName.trim() }))
       resetCreateDatabaseForm()
     } catch (error) {
       const message =
-        error instanceof ApiError ? error.message : t("databases.createError")
-      setDatabaseError(message)
+        error instanceof ApiError ? error.message : t("databases.createError", { name: newDatabaseName.trim() })
+      showError(message)
     }
   }
 
@@ -187,8 +180,6 @@ export function ProjectDetailPage() {
     newDatabaseDescription,
     newTagInput,
     draftTags,
-    databaseError,
-    databaseSuccess,
     isCreatePending: createDatabase.isPending,
   }
 
