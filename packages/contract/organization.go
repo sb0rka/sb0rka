@@ -36,8 +36,8 @@ type OrganizationMemberUpdateRequest struct {
 
 type OrganizationMemberInviteCreateRequest struct {
 	Username *string `json:"username,omitempty"`
-	Email *string `json:"email,omitempty"`
-	Role  string `json:"role"`
+	Email    *string `json:"email,omitempty"`
+	Role     string  `json:"role"`
 }
 
 type OrganizationMemberResponse struct {
@@ -54,7 +54,7 @@ type OrganizationMemberListResponse struct {
 
 // Status is one of: pending, accepted, expired, revoked.
 // Email/Username may be absent if the invited user was removed.
-type OrganizationInviteResponse struct {
+type OrganizationMemberInviteResponse struct {
 	ID              string     `json:"id"`
 	OrganizationID  string     `json:"organization_id"`
 	Role            string     `json:"role"`
@@ -66,6 +66,6 @@ type OrganizationInviteResponse struct {
 	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
 }
 
-type OrganizationInviteListResponse struct {
-	Invites []OrganizationInviteResponse `json:"invites"`
+type OrganizationMemberInviteListResponse struct {
+	Invites []OrganizationMemberInviteResponse `json:"invites"`
 }
