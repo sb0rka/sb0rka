@@ -126,7 +126,7 @@ export function useDatabaseStatusToasts(projectId: string, databases: DatabaseRe
   useEffect(() => {
     for (const query of queries) {
       const db = query.data
-      if (!db) return
+      if (!db) continue
       const prev = prevSyncStateRef.current.get(db.resource_id)
       const curr = db.sync_state
       const name = db.name || db.resource_id
