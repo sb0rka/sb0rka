@@ -385,6 +385,7 @@ const resources = {
         updateValueTitle: "Новое значение секрета",
         updateValueDescription:
           "Новое значение будет сохранено в зашифрованном виде и станет текущим для этого секрета",
+        updateValueSuccess: "Значение секрета обновлено",
         updateValueError: "Не удалось обновить значение секрета",
       },
       tables: {
@@ -823,6 +824,7 @@ const resources = {
         updateValueTitle: "New secret value",
         updateValueDescription:
           "The new value is stored encrypted and becomes the current secret value.",
+        updateValueSuccess: "Secret value updated",
         updateValueError: "Unable to update secret value",
       },
       tables: {

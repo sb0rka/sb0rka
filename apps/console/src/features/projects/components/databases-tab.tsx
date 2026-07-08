@@ -33,6 +33,7 @@ import type {
   CreateDatabaseFormState,
   DatabaseRow,
 } from "./project-detail-tab-types"
+import { useToast } from "@/components/toast-provider"
 
 const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
 const DISK_USAGE_RATE_STALE_MS = 1000 * 60 * 5
@@ -63,6 +64,7 @@ export function DatabasesTab({
   const dbNameInputRef = useRef<HTMLInputElement>(null)
   const createDatabaseCardRef = useRef<HTMLDivElement>(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
+  const {showSuccess} = useToast()
 
   const databaseDetailsQueries = useQueries({
     queries: databases.map((database) => ({
@@ -284,6 +286,7 @@ export function DatabasesTab({
         }
         onSubmit={(parsed) => {
           createActions.onAddDraftTag(formatDraftTagLabel(parsed))
+          showSuccess(t("common.messages.tagAdded"))
         }}
       />
     </TabsContent>
