@@ -171,7 +171,7 @@ export function DataExplorerSchemaTree({
         type="always"
         className="min-h-0 flex-1 w-full"
       >
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 w-full">
           <ul className="space-y-0.5">
             {nodes.map(({ database, tables }) => {
               const isSelected = selectedResourceId === database.resource_id

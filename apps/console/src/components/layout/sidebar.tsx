@@ -15,6 +15,13 @@ import { cn } from "@/lib/utils"
 import { Button, buttonPressClass } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SborkaLogoMark, SborkaLogo } from "@/components/logo"
+import {
+  dividerClass,
+  itemLabelClass,
+  navIconClass,
+  rowChromeClass,
+  sidebarIconSlotClass,
+} from "@/components/layout/sidebar-rail"
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
@@ -42,18 +49,6 @@ const externalItems = [
 
 const logoTransition = { duration: 0.21, ease: "easeOut" as const }
 const upgradeTransition = { duration: 0.2, ease: "easeOut" as const }
-const railTransitionClass = "transition-[width] duration-[400ms] ease-out"
-
-/** Keeps label left edge at 56px from sidebar (matches expanded left-10 + nav pl-4). */
-const labelSlotClass =
-  "left-[calc(56px-var(--sidebar-nav-pl))]"
-
-const labelTransitionClass =
-  "transition-[max-width,opacity] duration-[400ms] ease-out"
-
-/** Shared horizontal anchor — 30px from the sidebar edge (row stays full-width). */
-const sidebarAnchorClass =
-  "absolute [left:calc(30px-var(--sidebar-nav-pl))] -translate-x-1/2"
 
 /** Logo mark center — 30px from sidebar edge (header is full-width, no nav padding). */
 const logoMarkCenterClass =
@@ -63,46 +58,12 @@ const logoMarkCenterClass =
 const logoExpandedClass =
   "absolute top-1/2 left-[calc(30px-12.5px)] -translate-y-1/2"
 
-const sidebarIconSlotClass = cn(
-  "pointer-events-none top-1/2 z-10 -translate-y-1/2",
-  sidebarAnchorClass,
-)
-
-const navIconClass =
-  "h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
-
-/** Left edge of selector / divider — matches collapsed w-9 pill (12px from sidebar). */
-const sidebarRailStartClass =
-  "left-[calc(30px-var(--sidebar-nav-pl)-1.125rem)]"
-
-const railWidthClass = (collapsed: boolean) =>
-  collapsed
-    ? "w-9"
-    : "w-[calc(100%-30px+var(--sidebar-nav-pl)+1.125rem)]"
-
-function rowChromeClass(collapsed: boolean) {
-  return cn(
-    "pointer-events-none absolute inset-y-0 z-0 rounded-lg",
-    sidebarRailStartClass,
-    railTransitionClass,
-    railWidthClass(collapsed),
-  )
-}
-
-function dividerClass(collapsed: boolean) {
-  return cn(
-    "absolute left-[calc(30px-var(--sidebar-nav-pl)-1.125rem)] h-px shrink-0",
-    railTransitionClass,
-    railWidthClass(collapsed),
-  )
-}
-
 function upgradeChromeClass(collapsed: boolean) {
   return cn(
     "pointer-events-none absolute inset-y-0 z-0 rounded-md border border-input bg-background",
     "transition-[width,left,right] duration-[400ms] ease-out",
     collapsed
-      ? cn(sidebarRailStartClass, "right-auto w-9")
+      ? cn("left-[calc(30px-var(--sidebar-nav-pl)-1.125rem)]", "right-auto w-9")
       : "inset-x-0 w-full",
   )
 }
@@ -116,16 +77,11 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
   const { t } = useTranslation()
   const location = useLocation()
 
-  const itemLabelClass = cn(
-    "pointer-events-none overflow-hidden whitespace-nowrap",
-    labelSlotClass,
-    labelTransitionClass,
-    collapsed ? "max-w-0 opacity-0" : "max-w-[12rem] opacity-100",
-  )
+  const itemLabel = itemLabelClass(collapsed)
 
   const externalIconWrapClass = cn(
     "pointer-events-none overflow-hidden",
-    labelTransitionClass,
+    "transition-[max-width,opacity] duration-[400ms] ease-out",
     collapsed ? "max-w-0 opacity-0" : "max-w-6 opacity-100",
   )
 
@@ -193,7 +149,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                 <item.icon className={cn(navIconClass, sidebarIconSlotClass)} />
                 <span
                   className={cn(
-                    itemLabelClass,
+                    itemLabel,
                     "absolute top-1/2 -translate-y-1/2",
                   )}
                 >
@@ -229,7 +185,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                 <item.icon className={cn(navIconClass, sidebarIconSlotClass)} />
                 <span
                   className={cn(
-                    itemLabelClass,
+                    itemLabel,
                     "absolute right-9 top-1/2 -translate-y-1/2",
                   )}
                 >
@@ -278,10 +234,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
               ) : (
                 <motion.span
                   key="text"
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 whitespace-nowrap",
-                    labelSlotClass,
-                  )}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}

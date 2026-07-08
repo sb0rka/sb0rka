@@ -7,7 +7,12 @@ import { cn } from "@/lib/utils"
 import { type OpenAiModelInfo } from "../api"
 import { AiQueryChatMessageList } from "./ai-query-chat-message-list"
 import { AiQueryChatModelSelector } from "./ai-query-chat-model-selector"
-import { type AiQueryChatMessage, type AiQueryChatSendPayload } from "../use-ai-query-chat"
+import {
+  type AiQueryChatMessage,
+  type AiQueryChatSendPayload,
+  type AiQueryChatSqlApplyMeta,
+} from "../use-ai-query-chat"
+import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatController = {
   messages: AiQueryChatMessage[]
@@ -28,9 +33,13 @@ export type AiQueryChatProps = {
   onRefreshModels?: () => void
   schema?: string
   dialect?: string
-  onApplySql?: (sql: string) => void
+  historyItems?: SqlExplorerHistoryItem[]
+  bookmarkItems?: SqlExplorerHistoryItem[]
+  historyLoading?: boolean
+  onToggleHistoryItemBookmark?: (item: SqlExplorerHistoryItem) => void
+  onApplySql?: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
   /** Apply generated SQL to the editor and run it (e.g. main query runner). */
-  onApplySqlAndRun?: (sql: string) => void
+  onApplySqlAndRun?: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
   /** When true, disables apply-and-run (e.g. no DB selected or run already in flight). */
   applySqlAndRunDisabled?: boolean
   isQueryRunning?: boolean
@@ -53,6 +62,8 @@ export function AiQueryChat({
   onRefreshModels,
   schema,
   dialect,
+  historyItems = [],
+  onToggleHistoryItemBookmark,
   onApplySql,
   onApplySqlAndRun,
   applySqlAndRunDisabled,
@@ -142,6 +153,8 @@ export function AiQueryChat({
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
         isQueryRunning={isQueryRunning}
+        historyItems={historyItems}
+        onToggleBookmark={onToggleHistoryItemBookmark}
       />
 
       <div className="w-full min-w-0 max-w-full shrink-0 space-y-2 pt-3">

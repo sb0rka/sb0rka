@@ -451,6 +451,7 @@ export interface OpenAiGenerateSqlRequest {
 }
 
 export interface OpenAiGenerateSqlResponse {
+  title: string
   sql: string
   usage?: OpenAiRequestUsage
 }
@@ -868,6 +869,69 @@ function extractSqlFromAssistantText(text: string): string {
   return ""
 }
 
+const GENERIC_GENERATED_SQL_TITLES = new Set([
+  "query",
+  "sql",
+  "sql query",
+  "generated query",
+  "generated sql",
+])
+
+function fallbackGeneratedSqlTitle(humanQuery: string): string {
+  const normalized = humanQuery
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[?.!,;:]+$/g, "")
+  if (!normalized) return "Generated SQL"
+  return normalized.length > 80 ? `${normalized.slice(0, 77).trim()}...` : normalized
+}
+
+function normalizeGeneratedSqlTitle(value: unknown, fallbackTitle: string): string {
+  if (typeof value !== "string") return fallbackTitle
+  const title = value.trim().replace(/\s+/g, " ")
+  if (!title || GENERIC_GENERATED_SQL_TITLES.has(title.toLowerCase())) {
+    return fallbackTitle
+  }
+  return title.length > 0 ? title.slice(0, 160) : fallbackTitle
+}
+
+function extractGeneratedSqlFromAssistantText(
+  text: string,
+  fallbackTitle: string,
+): { title: string; sql: string } {
+  try {
+    const parsed = parseJsonObjectFromAssistantText(text)
+    const sql = parseOptionalSql(parsed.sql)
+    if (!sql) {
+      throw new Error("OpenAI response missing `sql` string")
+    }
+    return {
+      title: normalizeGeneratedSqlTitle(parsed.title, fallbackTitle),
+      sql,
+    }
+  } catch {
+    const sql = extractSqlFromAssistantText(text)
+    if (!sql) {
+      throw new Error("OpenAI response missing `sql` string")
+    }
+    return { title: fallbackTitle, sql }
+  }
+}
+
+function extractGeneratedSqlPreview(text: string): string {
+  try {
+    return extractGeneratedSqlFromAssistantText(text, "Generated SQL").sql
+  } catch {
+    const match = text.match(/"sql"\s*:\s*"((?:\\.|[^"\\])*)/s)
+    if (!match?.[1]) return ""
+    try {
+      return JSON.parse(`"${match[1]}"`) as string
+    } catch {
+      return match[1].replace(/\\n/g, "\n").replace(/\\"/g, "\"")
+    }
+  }
+}
+
 function extractExplanationFromAssistantText(text: string): string {
   return text
     .replace(/```(?:\w+)?\s*([\s\S]*?)```/gi, "$1")
@@ -1127,9 +1191,11 @@ function buildGeneratePrompt(schema: string, humanQuery: string): string {
     `query: ${humanQuery}`,
     "Dialect: postgresql",
     "Create one SQL statement that answers the query.",
-    "Return ONLY the SQL text.",
-    "Do not return JSON.",
-    "Do not add explanations before or after SQL.",
+    "Also create a short human-readable title that summarizes the user's request.",
+    "Title requirements: 3-8 words, specific to requested data, not a generic label.",
+    "Do not use titles like `SQL query`, `Generated SQL`, `Query`, or `Result`.",
+    "Return ONLY a valid JSON object with no markdown or code fences.",
+    'Response shape: {"title":string,"sql":string}',
   ].join("\n")
 }
 
@@ -1278,12 +1344,11 @@ export async function generateSqlWithOpenAi(
     signal: data.signal,
   })
 
-  const sql = extractSqlFromAssistantText(assistantText)
-
-  if (!sql) {
-    throw new Error("OpenAI response missing `sql` string")
-  }
-  return { sql, usage }
+  const { title, sql } = extractGeneratedSqlFromAssistantText(
+    assistantText,
+    fallbackGeneratedSqlTitle(data.humanQuery),
+  )
+  return { title, sql, usage }
 }
 
 export async function generateSqlWithOpenAiStream(
@@ -1298,16 +1363,18 @@ export async function generateSqlWithOpenAiStream(
     model: data.model,
     prompt: buildGeneratePrompt(data.schema, data.humanQuery),
     signal: data.signal,
-    onText: data.onText,
+    onText: (text) => {
+      const preview = extractGeneratedSqlPreview(text)
+      if (preview) data.onText?.(preview)
+    },
     onReasoningText: data.onReasoningText,
   })
 
-  const sql = extractSqlFromAssistantText(assistantText)
-
-  if (!sql) {
-    throw new Error("OpenAI response missing `sql` string")
-  }
-  return { sql, usage }
+  const { title, sql } = extractGeneratedSqlFromAssistantText(
+    assistantText,
+    fallbackGeneratedSqlTitle(data.humanQuery),
+  )
+  return { title, sql, usage }
 }
 
 export async function explainSqlWithOpenAi(

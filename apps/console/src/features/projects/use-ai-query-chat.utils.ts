@@ -118,7 +118,7 @@ export function upsertThinkingInCurrentTurn(
 export function upsertSqlInCurrentTurn(
   messages: AiQueryChatMessage[],
   output: string,
-  options?: { usage?: OpenAiRequestUsage },
+  options?: { title?: string; usage?: OpenAiRequestUsage },
 ): AiQueryChatMessage[] {
   if (!output.trim() && !options?.usage) return messages
   const next = [...messages]
@@ -129,6 +129,7 @@ export function upsertSqlInCurrentTurn(
       next[sqlIndex] = {
         ...current,
         output,
+        ...(options?.title ? { title: options.title } : {}),
         ...(options?.usage ? { usage: options.usage } : {}),
       }
       return next
@@ -138,6 +139,7 @@ export function upsertSqlInCurrentTurn(
     role: "assistant",
     type: "sql",
     output,
+    ...(options?.title ? { title: options.title } : {}),
     ...(options?.usage ? { usage: options.usage } : {}),
   })
   return next
@@ -146,10 +148,15 @@ export function upsertSqlInCurrentTurn(
 export function finalizeSqlInCurrentTurn(
   messages: AiQueryChatMessage[],
   output: string,
-  options?: { removeIfEmpty?: boolean; usage?: OpenAiRequestUsage },
+  options?: { removeIfEmpty?: boolean; title?: string; usage?: OpenAiRequestUsage },
 ): AiQueryChatMessage[] {
   const sql = output.trim()
-  if (sql) return upsertSqlInCurrentTurn(messages, sql, { usage: options?.usage })
+  if (sql) {
+    return upsertSqlInCurrentTurn(messages, sql, {
+      title: options?.title,
+      usage: options?.usage,
+    })
+  }
 
   if (!options?.removeIfEmpty) return messages
   const sqlIndex = findAssistantIndexInCurrentTurn(messages, "sql")

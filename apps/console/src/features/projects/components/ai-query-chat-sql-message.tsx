@@ -7,17 +7,23 @@ import {
 import { type OpenAiModelPricing } from "../api"
 import { AiQueryChatSqlActions } from "./ai-query-chat-sql-actions"
 import { AiQueryChatUsageIcon } from "./ai-query-chat-usage-icon"
-import { type AiQueryChatSqlMessage } from "../use-ai-query-chat"
+import {
+  type AiQueryChatSqlApplyMeta,
+  type AiQueryChatSqlMessage,
+} from "../use-ai-query-chat"
 import { useAutoScrollOnContentChange } from "./use-auto-scroll-on-content-change"
+import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatSqlMessageProps = {
   message: AiQueryChatSqlMessage
   isPending: boolean
   modelPricing?: OpenAiModelPricing
-  onApplySql?: (sql: string) => void
-  onApplySqlAndRun?: (sql: string) => void
+  onApplySql?: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
+  onApplySqlAndRun?: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
   applySqlAndRunDisabled?: boolean
   isQueryRunning?: boolean
+  historyItem?: SqlExplorerHistoryItem
+  onToggleBookmark?: (item: SqlExplorerHistoryItem) => void
 }
 
 export function AiQueryChatSqlMessageView({
@@ -28,24 +34,35 @@ export function AiQueryChatSqlMessageView({
   onApplySqlAndRun,
   applySqlAndRunDisabled,
   isQueryRunning,
+  historyItem,
+  onToggleBookmark,
 }: AiQueryChatSqlMessageProps) {
   const sqlTextRef = useRef<HTMLPreElement>(null)
   useAutoScrollOnContentChange(sqlTextRef, message.output, isPending)
 
   if (!message.output.trim()) return null
+  const applyMeta: AiQueryChatSqlApplyMeta = {
+    title: message.title,
+    source: "ai",
+  }
 
   return (
     <div className={responseMessageRowClass}>
       <div className={responseMessageBubbleClass}>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium">SQL</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{message.title || "SQL"}</p>
+          </div>
           <AiQueryChatSqlActions
             sql={message.output}
             isPending={isPending}
             isQueryRunning={isQueryRunning}
+            historyItem={historyItem}
+            applyMeta={applyMeta}
             onApplySql={onApplySql}
             onApplySqlAndRun={onApplySqlAndRun}
             applySqlAndRunDisabled={applySqlAndRunDisabled}
+            onToggleBookmark={onToggleBookmark}
           />
         </div>
         <pre
