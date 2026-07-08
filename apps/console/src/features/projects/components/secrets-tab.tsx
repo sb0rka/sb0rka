@@ -43,7 +43,7 @@ export function SecretsTab({
   const [newSecretName, setNewSecretName] = useState("")
   const [newSecretDescription, setNewSecretDescription] = useState("")
   const [newSecretValue, setNewSecretValue] = useState("")
-  const {showError} = useToast()
+  const {showSuccess, showError} = useToast()
   const openedSecretId = searchParams.get("secret")
 
   const openedSecret =
@@ -89,6 +89,7 @@ export function SecretsTab({
         secret_value: newSecretValue.trim(),
       })
       handleCreateDialogOpenChange(false)
+      showSuccess(t("secrets.createSuccess"))
     } catch (error) {
       const message = error instanceof ApiError ? error.message : t("secrets.createError")
       showError(message)
