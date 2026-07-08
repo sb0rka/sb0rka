@@ -15,10 +15,13 @@ import {
   useSecrets,
   type DataExplorerDatabaseNode,
 } from "./hooks"
+import { useSqlExplorerHistory } from "./sql-explorer-history-storage"
 import { AiQueryChat } from "./components/ai-query-chat"
+import { AiQueryChatHistoryDropdown } from "./components/ai-query-chat-history-dropdown"
 import { DataExplorerQueryError } from "./components/data-explorer-query-error"
 import { DataExplorerSchemaTree } from "./components/data-explorer-schema-tree"
 import { DatabaseQueryResults } from "./components/database-query-results"
+import { useLayoutContext } from "@/components/layout/layout-context"
 import {
   OPENAI_DEFAULT_MODEL,
   listAvailableOpenAiModels,
@@ -26,10 +29,12 @@ import {
   type RunDatabaseQueryResponse,
   type SecretResponse,
 } from "./api"
+import type { AiQueryChatSqlApplyMeta } from "./use-ai-query-chat"
 
 const MAX_SCHEMA_CHARS = 190_000
 const AI_SELECTED_MODEL_STORAGE_KEY = "sb0rka.console.aiSelectedModel"
 type ActiveInput = "sql" | "prompt"
+type AiSqlRunCandidate = { sql: string; title: string }
 
 function getStoredAiSelectedModel(): string {
   if (typeof window === "undefined") return OPENAI_DEFAULT_MODEL
@@ -75,6 +80,7 @@ function buildNl2SqlSchemaSnapshot(
 
 export function DataExplorerPage() {
   const { t } = useTranslation()
+  const { setDataExplorerAiPanelOpen } = useLayoutContext()
   const { id = "" } = useParams<{ id: string }>()
   const databasesQuery = useDatabases(id)
   const schemaQuery = useDataExplorerSchema(id)
@@ -89,6 +95,7 @@ export function DataExplorerPage() {
   const [selectedAiModel, setSelectedAiModel] = useState(() => getStoredAiSelectedModel())
   const [activeInput, setActiveInput] = useState<ActiveInput>("sql")
   const [promptInserter, setPromptInserter] = useState<((text: string) => void) | null>(null)
+  const [aiSqlRunCandidate, setAiSqlRunCandidate] = useState<AiSqlRunCandidate | null>(null)
   const sqlTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const nodes = useMemo(() => {
@@ -190,6 +197,7 @@ export function DataExplorerPage() {
     openaiKey: aiConfigQuery.data?.openaiKey,
     selectedModel: selectedAiModel,
   })
+  const sqlHistory = useSqlExplorerHistory(id, selectedResourceId)
   const resetAiChat = aiChat.reset
   const wasAiAssistantAvailableRef = useRef(false)
 
@@ -215,9 +223,35 @@ export function DataExplorerPage() {
     wasAiAssistantAvailableRef.current = true
   }, [hasRequiredAiSecretNames, resetAiChat])
 
+  useEffect(() => {
+    setDataExplorerAiPanelOpen(aiPanelOpen)
+    return () => setDataExplorerAiPanelOpen(false)
+  }, [aiPanelOpen, setDataExplorerAiPanelOpen])
+
   const isSqlEmpty = sql.trim().length === 0
 
-  async function handleRunQuery(sqlOverride?: string) {
+  function aiCandidateFromApplyMeta(
+    nextSql: string,
+    meta?: AiQueryChatSqlApplyMeta,
+  ): AiSqlRunCandidate | null {
+    if (!meta) return null
+    const normalizedSql = nextSql.trim()
+    if (!normalizedSql) return null
+    return {
+      sql: normalizedSql,
+      title: meta.title?.trim() || "AI-generated SQL",
+    }
+  }
+
+  function handleApplyAiSql(next: string, meta?: AiQueryChatSqlApplyMeta) {
+    setSql(next)
+    setAiSqlRunCandidate(aiCandidateFromApplyMeta(next, meta))
+  }
+
+  async function handleRunQuery(
+    sqlOverride?: string,
+    aiCandidateOverride?: AiSqlRunCandidate | null,
+  ) {
     const sqlToRun = (sqlOverride ?? sql).trim()
     if (!selectedResourceId || sqlToRun.length === 0 || runQuery.isPending) return
     setResult(null)
@@ -228,6 +262,13 @@ export function DataExplorerPage() {
         query: sqlToRun,
       })
       setResult(response)
+      const candidate = aiCandidateOverride ?? aiSqlRunCandidate
+      if (candidate && candidate.sql.trim() === sqlToRun) {
+        await sqlHistory.saveSuccessfulAiRun({
+          title: candidate.title,
+          sql: sqlToRun,
+        })
+      }
     } catch {
       // Rejection from mutateAsync; failure is already on runQuery for the UI below.
     }
@@ -374,28 +415,47 @@ export function DataExplorerPage() {
                 >
                   <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
                     <span className="truncate text-sm font-medium">{t("dataExplorer.aiChatTitle")}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => setAiPanelOpen(false)}
-                      aria-label={t("dataExplorer.collapseAiPanel")}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <AiQueryChatHistoryDropdown
+                        historyItems={sqlHistory.history}
+                        bookmarkItems={sqlHistory.bookmarks}
+                        historyLoading={sqlHistory.isLoading}
+                        applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
+                        isQueryRunning={runQuery.isPending}
+                        onToggleHistoryItemBookmark={(item) => {
+                          void sqlHistory.toggleBookmark(item)
+                        }}
+                        onApplySql={handleApplyAiSql}
+                        onApplySqlAndRun={(next, meta) => {
+                          const candidate = aiCandidateFromApplyMeta(next, meta)
+                          setSql(next)
+                          setAiSqlRunCandidate(candidate)
+                          void handleRunQuery(next, candidate)
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setAiPanelOpen(false)}
+                        aria-label={t("dataExplorer.collapseAiPanel")}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
                     {aiConfigQuery.isLoading ? (
                       <p className="mb-2 text-sm text-muted-foreground">
-                        Loading OpenAI configuration from secrets...
+                        {t("dataExplorer.mobileAiConfigLoading")}
                       </p>
                     ) : null}
                     {aiConfigQuery.isError ? (
                       <p className="mb-2 text-sm text-destructive" role="alert">
                         {getErrorMessage(
                           aiConfigQuery.error,
-                          "Failed to load OpenAI configuration from secrets.",
+                          t("dataExplorer.mobileAiConfigError"),
                         )}
                       </p>
                     ) : null}
@@ -412,12 +472,18 @@ export function DataExplorerPage() {
                       }}
                       schema={nl2sqlSchema || undefined}
                       dialect="postgresql"
-                      onApplySql={(next) => {
-                        setSql(next)
+                      historyItems={sqlHistory.history}
+                      bookmarkItems={sqlHistory.bookmarks}
+                      historyLoading={sqlHistory.isLoading}
+                      onToggleHistoryItemBookmark={(item) => {
+                        void sqlHistory.toggleBookmark(item)
                       }}
-                      onApplySqlAndRun={(next) => {
+                      onApplySql={handleApplyAiSql}
+                      onApplySqlAndRun={(next, meta) => {
+                        const candidate = aiCandidateFromApplyMeta(next, meta)
                         setSql(next)
-                        void handleRunQuery(next)
+                        setAiSqlRunCandidate(candidate)
+                        void handleRunQuery(next, candidate)
                       }}
                       applySqlAndRunDisabled={!selectedResourceId || runQuery.isPending}
                       onPromptFocus={() => setActiveInput("prompt")}

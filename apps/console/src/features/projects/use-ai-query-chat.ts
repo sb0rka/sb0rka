@@ -32,6 +32,7 @@ type AiQueryChatUserMessage = AiQueryChatUserTextMessage | AiQueryChatUserFixMes
 export type AiQueryChatSqlMessage = {
   role: "assistant"
   type: "sql"
+  title?: string
   output: string
   usage?: OpenAiRequestUsage
 }
@@ -62,6 +63,11 @@ type AiQueryChatAssistantMessage =
   | AiQueryChatThinkingMessage
 
 export type AiQueryChatMessage = AiQueryChatUserMessage | AiQueryChatAssistantMessage
+
+export type AiQueryChatSqlApplyMeta = {
+  title?: string
+  source: "ai" | "history"
+}
 
 /** NL→SQL: `message` is the question; optional schema/dialect for `/generate`. */
 type AiQueryChatGeneratePayload = {
@@ -129,9 +135,8 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
   }, [])
 
   const finishRequest = useCallback((controller: AbortController) => {
-    if (abortControllerRef.current === controller) {
-      abortControllerRef.current = null
-    }
+    if (abortControllerRef.current !== controller) return
+    abortControllerRef.current = null
     fixPhaseRef.current = "explanation"
     setIsPending(false)
     setMessages((prev) => {
@@ -232,6 +237,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
             usage: res.explanationUsage,
           })
           return finalizeSqlInCurrentTurn(withExplanation, res.fixedSql, {
+            title: "Fixed SQL",
             usage: res.fixedSqlUsage,
           })
         })
@@ -266,6 +272,7 @@ export function useAiQueryChat(opts?: UseAiQueryChatOptions) {
       setMessages((prev) =>
         finalizeSqlInCurrentTurn(prev, sqlRes.sql, {
           removeIfEmpty: true,
+          title: sqlRes.title,
           usage: sqlRes.usage,
         }),
       )

@@ -1,11 +1,15 @@
 import { type OpenAiModelPricing } from "../api"
-import { type AiQueryChatMessage } from "../use-ai-query-chat"
+import {
+  type AiQueryChatMessage,
+  type AiQueryChatSqlApplyMeta,
+} from "../use-ai-query-chat"
 import { AiQueryChatAssistantFixMessageView } from "./ai-query-chat-assistant-fix-message"
 import { AiQueryChatErrorMessageView } from "./ai-query-chat-error-message"
 import { AiQueryChatSqlMessageView } from "./ai-query-chat-sql-message"
 import { AiQueryChatThinkingMessageView } from "./ai-query-chat-thinking-message"
 import { AiQueryChatUserFixMessageView } from "./ai-query-chat-user-fix-message"
 import { AiQueryChatUserTextMessageView } from "./ai-query-chat-user-text-message"
+import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatMessageItemProps = {
   message: AiQueryChatMessage
@@ -13,10 +17,12 @@ export type AiQueryChatMessageItemProps = {
   isPending: boolean
   isActiveThinking: boolean
   modelPricing?: OpenAiModelPricing
-  onApplySql?: (sql: string) => void
-  onApplySqlAndRun?: (sql: string) => void
+  onApplySql?: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
+  onApplySqlAndRun?: (sql: string, meta?: AiQueryChatSqlApplyMeta) => void
   applySqlAndRunDisabled?: boolean
   isQueryRunning?: boolean
+  historyItem?: SqlExplorerHistoryItem
+  onToggleBookmark?: (item: SqlExplorerHistoryItem) => void
 }
 
 export function AiQueryChatMessageItem({
@@ -29,6 +35,8 @@ export function AiQueryChatMessageItem({
   onApplySqlAndRun,
   applySqlAndRunDisabled,
   isQueryRunning,
+  historyItem,
+  onToggleBookmark,
 }: AiQueryChatMessageItemProps) {
   if (message.role === "user") {
     if (message.variant === "fix") {
@@ -51,6 +59,8 @@ export function AiQueryChatMessageItem({
         onApplySqlAndRun={onApplySqlAndRun}
         applySqlAndRunDisabled={applySqlAndRunDisabled}
         isQueryRunning={isQueryRunning}
+        historyItem={historyItem}
+        onToggleBookmark={onToggleBookmark}
       />
     )
   }
