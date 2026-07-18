@@ -113,6 +113,7 @@ func (h *Handler) encryptSecretValue(r *http.Request, projectID string, secretID
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
+// @Failure  409         {string}  string
 // @Failure  422         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/secret [post]
@@ -202,6 +203,10 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		EncryptedMessage:      encryptedMessage,
 	})
 	if err != nil {
+		if errors.Is(err, db.ErrSecretAlreadyExists) {
+			http.Error(w, "Secret with this name already exists", http.StatusConflict)
+			return
+		}
 		h.deps.Log.Error("create_secret_failed", "project_id", projectID, "secret_id", secretID, "error", err)
 		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
 		return
@@ -665,7 +670,7 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 		return
 	}
 	if !isDBPasswordSecret {
-		http.Error(w, "Secret is not a database password secret", http.StatusConflict)
+		http.Error(w, "Secret is not a database password secret", http.StatusUnprocessableEntity)
 		return
 	}
 	secret, version, material, err := h.deps.PlatformDatabase.GetSecretMaterialForReveal(r.Context(), projectID, secretID, versionNo)
@@ -689,7 +694,7 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 	plain, err := h.deps.SecretCrypto.Decrypt(r.Context(), material.EncryptedMessage, aad, material.EncryptionKeyRef)
 	if err != nil {
 		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", versionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
-		http.Error(w, "secret_decrypt_failed", http.StatusInternalServerError)
+		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
 	}
 	passwordVerifier, err := service.GeneratePostgresSCRAMSHA256Verifier(string(plain))
@@ -731,7 +736,7 @@ func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, pr
 	value, err := h.deps.SecretCrypto.Decrypt(r.Context(), material.EncryptedMessage, aad, material.EncryptionKeyRef)
 	if err != nil {
 		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", versionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
-		http.Error(w, "secret_decrypt_failed", http.StatusInternalServerError)
+		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -805,8 +810,10 @@ func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, pro
 			http.Error(w, "Cannot disable current secret version", http.StatusConflict)
 		case errors.Is(err, db.ErrSecretVersionReferencedByDBVerifier):
 			http.Error(w, "Secret version is referenced by a database password verifier", http.StatusConflict)
+		case errors.Is(err, db.ErrResourceInUse):
+			http.Error(w, "Secret is in use by a database", http.StatusConflict)
 		default:
-			http.Error(w, "Secret conflict", http.StatusConflict)
+			http.Error(w, "Secret version conflict", http.StatusConflict)
 		}
 	case errors.Is(err, db.ErrEncryptionKeyNotFound):
 		http.Error(w, "Encryption key not found", http.StatusInternalServerError)

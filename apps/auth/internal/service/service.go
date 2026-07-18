@@ -66,12 +66,14 @@ func ValidatePhone(phoneRaw string, isPhoneRequired bool) (int, error) {
 		phone = phone[1:]
 	}
 
-	phoneNumber, err := strconv.Atoi(phone)
+	// Колонка phone — INTEGER (макс 2147483647); парсим в те же 32 бита, чтобы
+	// слишком большой номер отсеялся валидацией (400), а не упал INSERT'ом (500).
+	phoneNumber, err := strconv.ParseInt(phone, 10, 32)
 	if err != nil {
-		return 0, fmt.Errorf("failed to convert phone to number: %w", err)
+		return 0, fmt.Errorf("phone must be a number within the allowed range")
 	}
 
-	return phoneNumber, nil
+	return int(phoneNumber), nil
 }
 
 // HashPassword securely hashes a password using Argon2 algorithm

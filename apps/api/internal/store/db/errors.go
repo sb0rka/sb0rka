@@ -25,6 +25,9 @@ var (
 	ErrResourceInUse        = errors.New("resource in use")
 	ErrInvalidSecretVersion = errors.New("invalid secret version")
 
+	ErrSecretAlreadyExists   = errors.New("secret already exists")
+	ErrDatabaseAlreadyExists = errors.New("database already exists")
+
 	ErrSecretVersionAlreadyDisabled        = errors.New("secret version already disabled")
 	ErrCannotDisableCurrentSecretVersion   = errors.New("cannot disable current secret version")
 	ErrSecretVersionReferencedByDBVerifier = errors.New("secret version referenced by db verifier")
