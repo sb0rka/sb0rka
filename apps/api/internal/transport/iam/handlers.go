@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sb0rka/sb0rka/apps/api/internal/authz"
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
@@ -23,6 +24,37 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 	return &Handler{deps: deps}
 }
 
+func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
+	raw, ok := authctx.SubjectIDFromContext(r.Context())
+	if !ok {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
+	decision, err := h.deps.Authorizer.Authorize(r.Context(), callerID, action, authz.ResourceRef{
+		Type: "project",
+		ID:   projectID,
+	})
+	if err != nil {
+		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return false
+	}
+	if !decision.Allowed {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
+		return false
+	}
+	return true
+}
+
 // InitializeAccount godoc
 // @Summary  Инициализировать аккаунт
 // @Tags     iam
@@ -34,7 +66,7 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 // @Security BearerAuth
 // @Router   /account/initialize [post]
 func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
-	subjectIDStr, ok := authctx.SubjectIDFromContext(r.Context())
+	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -47,12 +79,6 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(subjectKind) != "user" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	subjectID, err := uuid.Parse(strings.TrimSpace(subjectIDStr))
-	if err != nil {
-		http.Error(w, "invalid subject_id", http.StatusInternalServerError)
 		return
 	}
 
@@ -76,15 +102,9 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 // @Router   /plan [get]
 // @Router   /account/plan [get]
 func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
-	subjectIDStr, ok := authctx.SubjectIDFromContext(r.Context())
+	subjectID, ok := parseSubjectID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	subjectID, err := uuid.Parse(strings.TrimSpace(subjectIDStr))
-	if err != nil {
-		http.Error(w, "invalid subject_id", http.StatusInternalServerError)
 		return
 	}
 
@@ -137,14 +157,23 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 // @Param    project_id  path      string  true  "ID проекта"
 // @Success  200         {object}  contract.PlanResponse
 // @Failure  400         {string}  string
+// @Failure  403         {string}  string
 // @Failure  404         {string}  string
 // @Failure  500         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/plan [get]
 func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
+	subjectID, ok := parseSubjectID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	projectID := strings.TrimSpace(r.PathValue("project_id"))
 	if projectID == "" {
 		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
 		return
 	}
 
@@ -171,14 +200,23 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 // @Param    project_id  path      string  true  "ID проекта"
 // @Success  200         {object}  contract.ProjectQuotaListResponse
 // @Failure  400         {string}  string
+// @Failure  403         {string}  string
 // @Failure  404         {string}  string
 // @Failure  500         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/quotas [get]
 func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
+	subjectID, ok := parseSubjectID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	projectID := strings.TrimSpace(r.PathValue("project_id"))
 	if projectID == "" {
 		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
 		return
 	}
 	quotas, err := h.deps.PlatformDatabase.ListProjectQuotas(r.Context(), projectID)
@@ -223,14 +261,23 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 // @Param    project_id  path      string  true  "ID проекта"
 // @Success  200         {object}  map[string]interface{}
 // @Failure  400         {string}  string
+// @Failure  403         {string}  string
 // @Failure  404         {string}  string
 // @Failure  500         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/usage [get]
 func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
+	subjectID, ok := parseSubjectID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	projectID := strings.TrimSpace(r.PathValue("project_id"))
 	if projectID == "" {
 		http.Error(w, "project_id is required", http.StatusBadRequest)
+		return
+	}
+	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
 		return
 	}
 	usage, err := h.deps.PlatformDatabase.ListProjectUsage(r.Context(), projectID)

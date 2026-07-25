@@ -78,7 +78,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	user, err := h.deps.Database.GetUser(r.Context(), "", username, email)
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			http.Error(w, "User not found", http.StatusNotFound)
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
 		h.deps.Log.Error("login_get_user_failed", "error", err)
@@ -87,7 +87,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !user.IsActive {
-		http.Error(w, "User is not active", http.StatusUnauthorized)
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
@@ -165,7 +165,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(h.deps.Cfg.AuthConfig.RefreshTokenCookieName)
 	if err != nil {
-		http.Error(w, "missing refresh token", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -173,7 +173,7 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 	refreshToken, err := service.ValidateLengthOfRefreshToken(cookie.Value, h.deps.Cfg.AuthConfig)
 	if err != nil {
-		http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 

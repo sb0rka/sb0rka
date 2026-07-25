@@ -292,6 +292,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
+// @Failure  409         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id} [patch]
 func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
@@ -344,6 +345,10 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
 			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, db.ErrProjectAlreadyExists) {
+			http.Error(w, "Project with this name already exists", http.StatusConflict)
 			return
 		}
 		h.deps.Log.Error("update_project_failed", "error", err)
