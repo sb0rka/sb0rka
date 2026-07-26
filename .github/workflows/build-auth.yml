@@ -1,0 +1,50 @@
+name: Build auth
+
+on:
+  pull_request:
+    paths:
+      - "apps/auth/**"
+      - ".github/workflows/build-auth.yml"
+      - ".github/actions/go-build/**"
+  push:
+    branches: [main]
+    paths:
+      - "apps/auth/**"
+      - ".github/workflows/build-auth.yml"
+      - ".github/actions/go-build/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-auth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Vet and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build auth
+        uses: ./.github/actions/go-build
+        with:
+          module-dir: apps/auth
+          version-file: cmd/auth/version.txt
+
+      - name: Verify modules
+        working-directory: apps/auth
+        run: go mod verify
+
+      - name: Vet
+        working-directory: apps/auth
+        run: go vet ./...
+
+      - name: Test
+        working-directory: apps/auth
+        run: go test -race -count=1 ./...
