@@ -105,7 +105,7 @@ services:
     build:
       context: ./apps/drones
       dockerfile: Dockerfile
-    command: ["gc"]
+    command: ["/app/drone", "gc"]
     depends_on:
       postgres:
         condition: service_healthy

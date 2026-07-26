@@ -1,9 +1,9 @@
-## Build context = корень репозитория (apps/api зависит от packages/core через replace).
-## Сборка: docker build -f apps/api/Dockerfile <корень репо>
+## Build context = repository root.
+## Build: docker build -f apps/api/Dockerfile <repo root>
 FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git
-ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/contract
+ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/contract,github.com/sb0rka/sb0rka/packages/core
 
 WORKDIR /src
 
@@ -15,7 +15,8 @@ WORKDIR /src/apps/api
 
 RUN go mod download
 
-COPY apps/api /src/apps/api
+COPY apps/api/cmd ./cmd
+COPY apps/api/internal ./internal
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
