@@ -103,8 +103,8 @@ services:
 
   drones:
     build:
-      context: ./apps/drones
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/drones/Dockerfile
     command: ["/app/drone", "gc"]
     depends_on:
       postgres:

@@ -1,13 +1,16 @@
-## Build context = apps/drones (see docker-compose.dev.yml).
-## Build: docker build -f apps/drones/Dockerfile apps/drones
+## Build context = repository root.
+## Build: docker build -f apps/drones/Dockerfile <repo root>
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /src
 
-COPY go.mod go.sum ./
+COPY apps/drones/go.mod apps/drones/go.sum ./apps/drones/
+
+WORKDIR /src/apps/drones
+
 RUN go mod download
 
-COPY main.go version.txt ./
+COPY apps/drones/main.go apps/drones/version.txt ./
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/drone .
