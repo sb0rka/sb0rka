@@ -6,17 +6,12 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
-	github.com/sb0rka/sb0rka/packages/contract v0.0.7
-	github.com/sb0rka/sb0rka/packages/core v0.0.0
+	github.com/sb0rka/sb0rka/packages/contract v0.0.9
+	github.com/sb0rka/sb0rka/packages/core v0.0.1
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
 	github.com/tink-crypto/tink-go/v2 v2.6.0
 	golang.org/x/crypto v0.49.0
-)
-
-replace (
-	github.com/sb0rka/sb0rka/packages/contract => ../../packages/contract
-	github.com/sb0rka/sb0rka/packages/core => ../../packages/core
 )
 
 require (
