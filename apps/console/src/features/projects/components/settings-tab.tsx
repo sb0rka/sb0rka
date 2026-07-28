@@ -43,7 +43,7 @@ export function ProjectSettings({
 }: ProjectSettingsProps) {
   const { t } = useTranslation()
   const confirm = useConfirmDialog()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
   const navigate = useNavigate()
   const deactivateProject = useDeactivateProject()
   const updateProject = useUpdateProject()
@@ -51,19 +51,11 @@ export function ProjectSettings({
   const [name, setName] = useState(projectName)
   const [description, setDescription] = useState(projectDescription)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
   useEffect(() => {
     setName(projectName)
     setDescription(projectDescription)
   }, [projectName, projectDescription])
-
-  useEffect(() => {
-    if (!saveSuccess) return
-    const id = window.setTimeout(() => setSaveSuccess(false), 4000)
-    return () => window.clearTimeout(id)
-  }, [saveSuccess])
 
   const trimmedName = name.trim()
   const trimmedDesc = normalizeDescription(description)
@@ -76,18 +68,15 @@ export function ProjectSettings({
   async function handleSave() {
     if (!projectId || !canSave) return
 
-    setSaveError(null)
-    setSaveSuccess(false)
-
     const payload: { name?: string; description?: string } = {}
     if (trimmedName !== projectName.trim()) payload.name = trimmedName
     if (trimmedDesc !== baselineDesc) payload.description = trimmedDesc
 
     try {
       await updateProject.mutateAsync({ id: projectId, ...payload })
-      setSaveSuccess(true)
+      showSuccess(t("common.messages.changesSaved"))
     } catch (error) {
-      setSaveError(getErrorMessage(error, t("projects.settings.saveError")))
+      showError(getErrorMessage(error, t("projects.settings.saveError")))
     }
   }
 
@@ -165,16 +154,6 @@ export function ProjectSettings({
             >
               {updateProject.isPending ? t("common.saving") : t("common.actions.saveChanges")}
             </Button>
-            {saveSuccess ? (
-              <p className="text-sm text-muted-foreground" role="status">
-                {t("common.messages.changesSaved")}
-              </p>
-            ) : null}
-            {saveError ? (
-              <p className="text-sm text-destructive" role="alert">
-                {saveError}
-              </p>
-            ) : null}
           </CardFooter>
         </Card>
         </SlideIn>

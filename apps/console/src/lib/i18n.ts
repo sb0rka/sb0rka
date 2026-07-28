@@ -219,7 +219,10 @@ const resources = {
         tagExample: "Например: env:dev",
         createdPartial: "База данных создана, но часть тегов не добавлена",
         created: "База данных создана",
-        createError: "Не удалось создать базу данных",
+        creatingToast: "База данных \"{{name}}\" создается...",
+        ongoingToast: "Подготовка базы данных \"{{name}}\"...",
+        onlineToast: "База данных \"{{name}}\" готова к работе",
+        createError: "Не удалось создать базу данных \"{{name}}\"",
         invalidId: "Некорректный идентификатор базы данных",
         backToList: "Назад к списку баз",
         loading: "Загружаем базу данных…",
@@ -386,6 +389,7 @@ const resources = {
         deleteTitle: "Удалить секрет?",
         deleteDescription: "Секрет будет удален без возможности восстановления",
         typeNameToConfirm: "Введите название секрета для подтверждения",
+        createSuccess: "Секрет создан",
         deleted: "Секрет удален",
         deleteError: "Не удалось удалить секрет, попробуйте снова",
         deleteButton: "Удалить секрет",
@@ -395,6 +399,7 @@ const resources = {
         updateValueTitle: "Новое значение секрета",
         updateValueDescription:
           "Новое значение будет сохранено в зашифрованном виде и станет текущим для этого секрета",
+        updateValueSuccess: "Значение секрета обновлено",
         updateValueError: "Не удалось обновить значение секрета",
       },
       tables: {
@@ -667,6 +672,9 @@ const resources = {
         tagExample: "Example: env:dev",
         createdPartial: "Database created, but some tags were not added",
         created: "Database created",
+        creatingToast: "Database \"{{name}}\" is being created...",
+        ongoingToast: "Database \"{{name}}\" creation is ongoing...",
+        onlineToast: "Database \"{{name}}\" is online",
         createError: "Unable to create database",
         invalidId: "Invalid database identifier",
         backToList: "Back to databases",
@@ -834,6 +842,7 @@ const resources = {
         deleteTitle: "Delete secret?",
         deleteDescription: "This secret will be permanently deleted",
         typeNameToConfirm: "Type the secret name to confirm",
+        createSuccess: "Secret created",
         deleted: "Secret deleted",
         deleteError: "Unable to delete secret, please try again",
         deleteButton: "Delete secret",
@@ -843,6 +852,7 @@ const resources = {
         updateValueTitle: "New secret value",
         updateValueDescription:
           "The new value is stored encrypted and becomes the current secret value.",
+        updateValueSuccess: "Secret value updated",
         updateValueError: "Unable to update secret value",
       },
       tables: {
@@ -880,7 +890,7 @@ const resources = {
         emailRequired: "Enter a new email",
         emailSame: "This email is already in use",
         emailSaveError: "Unable to save email",
-        
+
         passwordTitle: "Password",
         passwordDescription: "Update the password for your account",
         currentPassword: "Current password",

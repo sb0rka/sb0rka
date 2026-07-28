@@ -33,6 +33,7 @@ import type {
   CreateDatabaseFormState,
   DatabaseRow,
 } from "./project-detail-tab-types"
+import { useToast } from "@/components/toast-provider"
 
 const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
 const DISK_USAGE_RATE_STALE_MS = 1000 * 60 * 5
@@ -63,6 +64,7 @@ export function DatabasesTab({
   const dbNameInputRef = useRef<HTMLInputElement>(null)
   const createDatabaseCardRef = useRef<HTMLDivElement>(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
+  const {showSuccess} = useToast()
 
   const databaseDetailsQueries = useQueries({
     queries: databases.map((database) => ({
@@ -257,12 +259,6 @@ export function DatabasesTab({
                   </Button>
                 </div>
               </div>
-              {createForm.databaseError ? (
-                <p className="text-sm text-destructive">{createForm.databaseError}</p>
-              ) : null}
-              {createForm.databaseSuccess ? (
-                <p className="text-sm text-emerald-600">{createForm.databaseSuccess}</p>
-              ) : null}
             </CardContent>
             <CardFooter className="flex flex-row items-center gap-4 px-6 pb-6 pt-6">
               <Button
@@ -290,6 +286,7 @@ export function DatabasesTab({
         }
         onSubmit={(parsed) => {
           createActions.onAddDraftTag(formatDraftTagLabel(parsed))
+          showSuccess(t("common.messages.tagAdded"))
         }}
       />
     </TabsContent>

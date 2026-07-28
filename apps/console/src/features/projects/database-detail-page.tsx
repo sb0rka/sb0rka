@@ -244,7 +244,7 @@ export function DatabaseDetailPage() {
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
   const { id = "", resourceId = "" } = useParams<{
     id: string
     resourceId: string
@@ -295,11 +295,7 @@ export function DatabaseDetailPage() {
   }, [parsedUri, uriSource])
 
   const [description, setDescription] = useState("")
-  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
-  const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [copyHint, setCopyHint] = useState<string | null>(null)
   const [copyHintAnchor, setCopyHintAnchor] = useState<CopyHintAnchor | null>(null)
   const [isUserVisible, setIsUserVisible] = useState(false)
@@ -317,7 +313,6 @@ export function DatabaseDetailPage() {
     setCopyHint(null)
     setCopyHintAnchor(null)
     setIsTagModalOpen(false)
-    setTagActionSuccess(null)
   }, [normalizedResourceId])
 
   useEffect(() => {
@@ -386,15 +381,13 @@ export function DatabaseDetailPage() {
   async function handleSave() {
     if (!hasDescriptionChange || updateDatabase.isPending) return
 
-    setSaveError(null)
-    setSaveSuccess(null)
     try {
       await updateDatabase.mutateAsync({
         description,
       })
-      setSaveSuccess(t("common.messages.changesSaved"))
+      showSuccess(t("common.messages.changesSaved"))
     } catch (error) {
-      setSaveError(getErrorMessage(error, t("profile.emailSaveError")))
+      showError(getErrorMessage(error, t("profile.emailSaveError")))
     }
   }
 
@@ -430,15 +423,12 @@ export function DatabaseDetailPage() {
 
     if (!strongConfirmed) return
 
-    setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
       showSuccess(t("databases.deleted"))
       navigate(`/projects/${id}?tab=databases`)
     } catch (error) {
-      setDeleteError(
-        getErrorMessage(error, t("databases.deleteError")),
-      )
+      showError(getErrorMessage(error, t("databases.deleteError")))
     }
   }
 
@@ -539,7 +529,6 @@ export function DatabaseDetailPage() {
               size="sm"
               className="h-7 rounded-full px-2.5 text-xs font-semibold"
               onClick={() => {
-                setTagActionSuccess(null)
                 setIsTagModalOpen(true)
               }}
             >
@@ -547,9 +536,6 @@ export function DatabaseDetailPage() {
             </Button>
           </div>
         </div>
-        {tagActionSuccess ? (
-          <p className="text-sm text-emerald-600">{tagActionSuccess}</p>
-        ) : null}
       </SlideIn>
 
       <div className="flex flex-col gap-6">
@@ -589,8 +575,6 @@ export function DatabaseDetailPage() {
               >
                 {updateDatabase.isPending ? t("common.saving") : t("common.actions.saveChanges")}
               </Button>
-              {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
-              {saveSuccess ? <p className="text-sm text-emerald-600">{saveSuccess}</p> : null}
             </div>
           </CardFooter>
         </Card>
@@ -774,7 +758,6 @@ export function DatabaseDetailPage() {
                 ? t("common.deleting")
                 : t("databases.deleteButton")}
             </Button>
-            {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </CardFooter>
         </Card>
         </SlideIn>
@@ -795,12 +778,11 @@ export function DatabaseDetailPage() {
         mapSubmitError={(err) => getErrorMessage(err, t("common.messages.tagAddError"))}
         onSubmit={async (parsed) => {
           if (!isValidResourceId) return false
-          setTagActionSuccess(null)
           await attachResourceTag.mutateAsync({
             resourceId: normalizedResourceId,
             data: parsed,
           })
-          setTagActionSuccess(t("common.messages.tagAdded"))
+          showSuccess(t("common.messages.tagAdded"))
         }}
       />
     </PageStagger>

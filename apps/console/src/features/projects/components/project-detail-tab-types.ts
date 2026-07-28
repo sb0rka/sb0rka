@@ -33,8 +33,6 @@ export interface CreateDatabaseFormState {
   newDatabaseDescription: string
   newTagInput: string
   draftTags: DraftTag[]
-  databaseError: string | null
-  databaseSuccess: string | null
   isCreatePending: boolean
 }
 

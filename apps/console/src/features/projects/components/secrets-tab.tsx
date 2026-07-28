@@ -22,6 +22,7 @@ import { SecretDetails } from "./secret-details"
 import { SecretDetailsTable } from "./secret-details-table"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/components/toast-provider"
 
 interface SecretsTabProps {
   projectId: string
@@ -42,7 +43,7 @@ export function SecretsTab({
   const [newSecretName, setNewSecretName] = useState("")
   const [newSecretDescription, setNewSecretDescription] = useState("")
   const [newSecretValue, setNewSecretValue] = useState("")
-  const [createSecretError, setCreateSecretError] = useState<string | null>(null)
+  const {showSuccess, showError} = useToast()
   const openedSecretId = searchParams.get("secret")
 
   const openedSecret =
@@ -65,7 +66,6 @@ export function SecretsTab({
     setNewSecretName("")
     setNewSecretDescription("")
     setNewSecretValue("")
-    setCreateSecretError(null)
   }
 
   function handleCreateDialogOpenChange(next: boolean) {
@@ -81,7 +81,6 @@ export function SecretsTab({
       return
     }
 
-    setCreateSecretError(null)
 
     try {
       await onCreateSecret({
@@ -90,9 +89,10 @@ export function SecretsTab({
         secret_value: newSecretValue.trim(),
       })
       handleCreateDialogOpenChange(false)
+      showSuccess(t("secrets.createSuccess"))
     } catch (error) {
       const message = error instanceof ApiError ? error.message : t("secrets.createError")
-      setCreateSecretError(message)
+      showError(message)
     }
   }
 
@@ -215,7 +215,6 @@ export function SecretsTab({
                   onChange={(e) => setNewSecretValue(e.target.value)}
                 />
               </div>
-              {createSecretError ? <p className="text-sm text-destructive">{createSecretError}</p> : null}
             </div>
 
             <DialogFooter>
