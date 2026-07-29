@@ -9,6 +9,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
 	"github.com/sb0rka/sb0rka/packages/contract"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
@@ -55,6 +56,10 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid subject_id", http.StatusInternalServerError)
 		return
 	}
+	if err := h.deps.AccountHook.BeforeInitialize(r.Context(), subjectID); err != nil {
+		h.writeHookError(w, err)
+		return
+	}
 
 	if err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, model.PlanCodeFreeAccount, model.PlanKindAccount); err != nil {
 		h.handleInitializePlanError(w, "account", err)
@@ -62,6 +67,24 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) writeHookError(w http.ResponseWriter, err error) {
+	var statusErr *account.StatusError
+	if errors.As(err, &statusErr) &&
+		statusErr.Status >= http.StatusBadRequest &&
+		statusErr.Status < http.StatusInternalServerError &&
+		strings.TrimSpace(statusErr.Code) != "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusErr.Status)
+		_ = json.NewEncoder(w).Encode(struct {
+			Code string `json:"code"`
+		}{Code: statusErr.Code})
+		return
+	}
+
+	h.deps.Log.Error("account_initialize_hook_failed", "error", err)
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
 // GetAccountPlan godoc

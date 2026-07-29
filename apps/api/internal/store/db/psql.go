@@ -2301,3 +2301,7 @@ func (p *PsqlDB) DetachResourceTag(ctx context.Context, projectID string, resour
 	}
 	return nil
 }
+
+func (p *PsqlDB) PgxPool() *pgxpool.Pool {
+	return p.pool
+}

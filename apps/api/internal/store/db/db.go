@@ -7,6 +7,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func CreateDatabase(uri string, maxConns int, connMaxLifetime int64) (Database, error) {
@@ -17,6 +18,10 @@ type Database interface {
 	TestConnection(ctx context.Context) error
 
 	Close() error
+
+	// PgxPool exposes the shared pool only for extension factories. Feature
+	// persistence contracts remain outside the community Database interface.
+	PgxPool() *pgxpool.Pool
 
 	// IDs
 	GenerateResourceID(ctx context.Context) (string, error)
