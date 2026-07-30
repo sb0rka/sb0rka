@@ -76,6 +76,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
+// @Failure  409         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/dbi [post]
 func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +188,10 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		EncryptedMessage:      encryptedSecretValue,
 	})
 	if err != nil {
+		if errors.Is(err, db.ErrDatabaseAlreadyExists) {
+			http.Error(w, "Database with this name already exists", http.StatusConflict)
+			return
+		}
 		h.deps.Log.Error("create_database_failed", "error", err)
 		http.Error(w, "Failed to create database", http.StatusInternalServerError)
 		return

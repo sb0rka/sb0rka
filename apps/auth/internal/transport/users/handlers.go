@@ -89,7 +89,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExists) {
-			http.Error(w, "Username or email already exists", http.StatusConflict)
+			http.Error(w, "Username, email or phone already exists", http.StatusConflict)
 			return
 		}
 		coretransport.WriteHookError(w, err, h.deps.Log, "invite_hook_failed")
@@ -197,7 +197,7 @@ func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
 	updatedUser, err := h.deps.Database.UpdateUser(r.Context(), currentUser.ID, username, email, phoneValue)
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExists) {
-			http.Error(w, "Username or email already exists", http.StatusConflict)
+			http.Error(w, "Username, email or phone already exists", http.StatusConflict)
 			return
 		}
 		if errors.Is(err, db.ErrUserNotFound) {

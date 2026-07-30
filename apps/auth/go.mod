@@ -6,14 +6,9 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
-	github.com/sb0rka/sb0rka/packages/contract v0.0.8
-	github.com/sb0rka/sb0rka/packages/core v0.0.0
+	github.com/sb0rka/sb0rka/packages/contract v0.0.9
+	github.com/sb0rka/sb0rka/packages/core v0.0.1
 	golang.org/x/crypto v0.49.0
-)
-
-replace (
-	github.com/sb0rka/sb0rka/packages/contract => ../../packages/contract
-	github.com/sb0rka/sb0rka/packages/core => ../../packages/core
 )
 
 require (

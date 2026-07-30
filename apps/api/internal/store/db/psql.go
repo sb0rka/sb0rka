@@ -173,6 +173,12 @@ func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, pla
 		VALUES ($1, $2)
 	`
 	if _, err := p.pool.Exec(ctx, insertQuery, subjectID, planID); err != nil {
+		// Конкурентный init мог вставить план между SELECT и INSERT — операция
+		// идемпотентна, гонка на pk_subject_plans не ошибка.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil
+		}
 		return err
 	}
 
@@ -663,6 +669,10 @@ func (p *PsqlDB) UpdateProject(ctx context.Context, id string, name *string, des
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Project{}, ErrProjectNotFound
 		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return model.Project{}, ErrProjectAlreadyExists
+		}
 		return model.Project{}, err
 	}
 	return project, nil
@@ -1028,6 +1038,10 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 		&dbRow.DesiredRuntimeState,
 		&dbRow.Description,
 	); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, ErrDatabaseAlreadyExists
+		}
 		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
 
@@ -1511,6 +1525,10 @@ func (p *PsqlDB) CreateSecretWithInitialVersion(ctx context.Context, params Crea
 		&secret.UpdatedAt,
 		&secret.ScheduledDestroyAt,
 	); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return model.Secret{}, model.SecretVersion{}, ErrSecretAlreadyExists
+		}
 		return model.Secret{}, model.SecretVersion{}, err
 	}
 
