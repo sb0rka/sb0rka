@@ -24,6 +24,10 @@ type StatusError struct {
 
 func (e *StatusError) Error() string { return e.Message }
 
+func (e *StatusError) StatusCode() int { return e.Status }
+
+func (e *StatusError) ClientMessage() string { return e.Message }
+
 type Hook interface {
 	BeforeCreate(ctx context.Context, req Request) error
 	// Provision runs inside the user-creation transaction; an error rolls the

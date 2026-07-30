@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
@@ -111,6 +113,54 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			JTI:         identity.JTI,
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// requireEmailVerificationMiddleware is chained after authMiddleware and,
+// when needed, requireLiveSessionMiddleware. Route registration remains
+// responsible for opting into this policy.
+func (s *Server) requireEmailVerificationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		subjectKind, ok := authctx.SubjectKindFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if subjectKind != model.SubjectKindUser {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		userID, err := uuid.Parse(subjectIDRaw)
+		if err != nil {
+			s.deps.Log.Error(
+				"email_verification_invalid_subject_id",
+				"path", r.URL.Path,
+				"subject_id", subjectIDRaw,
+				"error", err,
+			)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if err := s.deps.VerificationHook.BeforeAccess(r.Context(), userID); err != nil {
+			coretransport.WriteHookError(
+				w,
+				err,
+				s.deps.Log,
+				"verification_hook_failed",
+				"path", r.URL.Path,
+			)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 

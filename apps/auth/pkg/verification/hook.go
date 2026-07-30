@@ -1,4 +1,4 @@
-package account
+package verification
 
 import (
 	"context"
@@ -19,9 +19,9 @@ func (e *StatusError) StatusCode() int { return e.Status }
 
 func (e *StatusError) ClientMessage() string { return e.Message }
 
-// Hook runs before account resources are initialized.
+// Hook runs before a handler that requires a verified email.
 type Hook interface {
-	BeforeInitialize(ctx context.Context, userID uuid.UUID) error
+	BeforeAccess(ctx context.Context, userID uuid.UUID) error
 }
 
 // HookFactory builds a Hook from an opaque repository.
@@ -31,4 +31,4 @@ func Noop() Hook { return noop{} }
 
 type noop struct{}
 
-func (noop) BeforeInitialize(context.Context, uuid.UUID) error { return nil }
+func (noop) BeforeAccess(context.Context, uuid.UUID) error { return nil }

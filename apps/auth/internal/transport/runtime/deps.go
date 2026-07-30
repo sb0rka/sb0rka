@@ -8,6 +8,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/verification"
 )
 
 type Dependencies struct {
@@ -15,6 +16,7 @@ type Dependencies struct {
 	Cfg              config.ServerConfig
 	Log              *slog.Logger
 	InviteHook       invite.Hook
+	VerificationHook verification.Hook
 	Routes           []route.Route
 	SubjectResolvers map[string]subject.ProfileResolver
 }
