@@ -1,6 +1,9 @@
 package authctx
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Identity holds verified JWT identity claims propagated from auth middleware to handlers.
 type Identity struct {
@@ -15,6 +18,8 @@ type Identity struct {
 
 type identityKey struct{}
 
+type authenticationTimeKey struct{}
+
 func WithIdentity(ctx context.Context, identity Identity) context.Context {
 	return context.WithValue(ctx, identityKey{}, identity)
 }
@@ -28,6 +33,22 @@ func IdentityFromContext(ctx context.Context) (Identity, bool) {
 		return Identity{}, false
 	}
 	return identity, true
+}
+
+// WithAuthenticationTime adds the time of the original authentication event
+// without changing the shared identity shape.
+func WithAuthenticationTime(ctx context.Context, authenticationTime time.Time) context.Context {
+	return context.WithValue(ctx, authenticationTimeKey{}, authenticationTime)
+}
+
+// AuthenticationTimeFromContext returns the original authentication time
+// previously attached by an authentication middleware.
+func AuthenticationTimeFromContext(ctx context.Context) (time.Time, bool) {
+	authenticationTime, ok := ctx.Value(authenticationTimeKey{}).(time.Time)
+	if !ok || authenticationTime.IsZero() {
+		return time.Time{}, false
+	}
+	return authenticationTime, true
 }
 
 func SubjectIDFromContext(ctx context.Context) (string, bool) {

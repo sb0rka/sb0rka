@@ -101,7 +101,10 @@ func (a *App) Run(ctx context.Context) error {
 		Routes:           routes,
 		SubjectResolvers: resolvers,
 	})
-	handler := newSrv.BuildCommonHandler()
+	handler, err := newSrv.BuildCommonHandler()
+	if err != nil {
+		return fmt.Errorf("failed to build HTTP handler: %w", err)
+	}
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)
 
 	return coretransport.Run(ctx, addr, *handler, log, func() {

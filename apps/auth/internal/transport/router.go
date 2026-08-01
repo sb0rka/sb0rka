@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/auth"
@@ -26,7 +27,7 @@ func NewServer(deps Dependencies) *Server {
 	}
 }
 
-func (s *Server) BuildCommonHandler() *http.Handler {
+func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /ping", s.ping)
@@ -50,28 +51,36 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	// Routes provided by pluggable feature modules share the same middleware stack below.
 	for _, rt := range s.deps.Routes {
-		mux.Handle(rt.Pattern, s.authWrap(rt))
+		handler, err := s.authWrap(rt)
+		if err != nil {
+			return nil, fmt.Errorf("configure route %q: %w", rt.Pattern, err)
+		}
+		mux.Handle(rt.Pattern, handler)
 	}
 
 	commonHandler := s.loggerMiddleware(mux)
 	commonHandler = s.corsMiddleware(commonHandler)
 	commonHandler = s.panicMiddleware(commonHandler)
 
-	return &commonHandler
+	return &commonHandler, nil
 }
 
-func (s *Server) authWrap(rt route.Route) http.Handler {
+func (s *Server) authWrap(rt route.Route) (http.Handler, error) {
 	var handler http.Handler = rt.Handler
 	if rt.RequireEmailVerification {
 		handler = s.requireEmailVerificationMiddleware(handler)
 	}
 
 	switch rt.Access {
-	case route.LiveSession:
-		return s.authMiddleware(s.requireLiveSessionMiddleware(handler))
+	case route.Public:
+		return handler, nil
 	case route.Authenticated:
-		return s.authMiddleware(handler)
+		return s.authMiddleware(handler), nil
+	case route.LiveSession:
+		return s.authMiddleware(s.requireLiveSessionMiddleware(handler)), nil
+	case route.OptionalBrowserSession:
+		return s.optionalBrowserSessionMiddleware(handler), nil
 	default:
-		return handler
+		return nil, fmt.Errorf("unknown access mode %d", rt.Access)
 	}
 }

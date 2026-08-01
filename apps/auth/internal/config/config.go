@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
@@ -17,10 +18,10 @@ const (
 	DefaultLoggerLevel  = "info"
 	DefaultLoggerFormat = "text"
 
-	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/auth"
+	DefaultDatabasePsqlURI = "postgres://postgres:postgres@localhost:5432/auth"
 
-	DefaultServerAddr = "localhost"
-	DefaultServerPort = 8080
+	DefaultServerAddr                = "localhost"
+	DefaultServerPort                = 8080
 	DefaultCORSAllowedDefaultMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS"
 
 	DefaultIsPhoneRequired bool = false
@@ -44,7 +45,7 @@ const (
 	DefaultRefreshTokenCookieName          = "__Host-refresh_token"
 	DefaultRefreshTokenCookieSecure   bool = true
 	DefaultRefreshTokenCookiePath          = "/"
-	DefaultRefreshTokenCookieDomain        = "localhost"
+	DefaultRefreshTokenCookieDomain        = ""
 	DefaultRefreshTokenCookieHttpOnly bool = true
 	DefaultRefreshTokenCookieSameSite int  = 2 // 1 = http.SameSiteDefaultMode, 2 = http.SameSiteLaxMode, 3 = http.SameSiteStrictMode, 4 = http.SameSiteNoneMode
 )
@@ -118,6 +119,11 @@ func Load() (*Config, error) {
 	refreshTokenCookieDomain := coreconfig.GetStringEnv("REFRESH_TOKEN_COOKIE_DOMAIN", DefaultRefreshTokenCookieDomain)
 	refreshTokenCookieHttpOnly := coreconfig.GetBoolEnv("REFRESH_TOKEN_COOKIE_HTTP_ONLY", DefaultRefreshTokenCookieHttpOnly)
 	refreshTokenCookieSameSite := coreconfig.GetIntEnv("REFRESH_TOKEN_COOKIE_SAMESITE", DefaultRefreshTokenCookieSameSite)
+
+	if strings.HasPrefix(refreshTokenCookieName, "__Host-") &&
+		(!refreshTokenCookieSecure || refreshTokenCookiePath != "/" || refreshTokenCookieDomain != "") {
+		return nil, fmt.Errorf("refresh token cookie with __Host- prefix requires Secure, Path=/, and an empty Domain")
+	}
 
 	cfg = Config{
 		Logger: LoggerConfig{

@@ -32,6 +32,14 @@ type AuthSession struct {
 	ReplacedBy       *uuid.UUID `json:"replaced_by,omitempty"`
 }
 
+// BrowserSession is the read-only identity projection exposed to browser-cookie
+// authentication. Credential hashes and rotation-family details stay in the store.
+type BrowserSession struct {
+	SubjectID          uuid.UUID
+	SessionID          uuid.UUID
+	AuthenticationTime time.Time
+}
+
 type User struct {
 	ID           uuid.UUID `json:"id"`
 	IsActive     bool      `json:"is_active"`

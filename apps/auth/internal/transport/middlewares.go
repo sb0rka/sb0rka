@@ -116,6 +116,50 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// optionalBrowserSessionMiddleware resolves a browser cookie without rotating
+// it. Missing, malformed, revoked, and expired cookies deliberately continue as
+// anonymous requests so protocol handlers can choose their own fallback.
+func (s *Server) optionalBrowserSessionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Pragma", "no-cache")
+
+		cookie, err := r.Cookie(s.deps.Cfg.AuthConfig.RefreshTokenCookieName)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		refreshToken, err := service.ValidateLengthOfRefreshToken(cookie.Value, s.deps.Cfg.AuthConfig)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		session, err := s.deps.Database.ResolveBrowserSession(
+			r.Context(),
+			service.HashRefreshToken(refreshToken),
+		)
+		if err != nil {
+			if errors.Is(err, db.ErrTokenNotFound) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			s.deps.Log.Error("browser_session_resolution_failed", "path", r.URL.Path, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		ctx := authctx.WithIdentity(r.Context(), authctx.Identity{
+			SubjectID:   session.SubjectID.String(),
+			SubjectKind: model.SubjectKindUser,
+			SessionID:   session.SessionID.String(),
+		})
+		ctx = authctx.WithAuthenticationTime(ctx, session.AuthenticationTime.UTC())
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // requireEmailVerificationMiddleware is chained after authMiddleware and,
 // when needed, requireLiveSessionMiddleware. Route registration remains
 // responsible for opting into this policy.

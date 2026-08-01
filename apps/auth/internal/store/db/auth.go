@@ -64,26 +64,63 @@ func (p *PsqlDB) GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model
 	return as, nil
 }
 
-func (p *PsqlDB) GetAuthSessionByRefreshToken(ctx context.Context, refreshTokenHash string) (model.AuthSession, error) {
+// ResolveBrowserSession resolves a current refresh cookie without rotating or
+// otherwise mutating its session family. The recursive leg walks predecessor
+// rows so authentication time remains stable across refresh rotations.
+func (p *PsqlDB) ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error) {
+	// Each refresh inserts a new auth_sessions row and links the old one via
+	// replaced_by, so the live cookie's created_at is the last rotation, not
+	// the login. Walk predecessors in the same family and take MIN(created_at)
+	// for a stable OIDC auth_time; keep returning the current session id.
 	const query = `
-		SELECT a.id, a.subject_id, s.kind, a.family_id, a.refresh_token_hash, a.created_ip, a.created_user_agent, a.revoke_reason, a.revoked_at, a.created_at, a.expires_at, a.replaced_by
-		FROM auth_sessions a
-		JOIN subjects s ON s.id = a.subject_id
-		WHERE a.refresh_token_hash = $1
+		WITH RECURSIVE session_family AS (
+			SELECT
+				a.id AS current_session_id,
+				a.id,
+				a.subject_id,
+				a.family_id,
+				a.created_at
+			FROM auth_sessions a
+			JOIN subjects s ON s.id = a.subject_id
+			JOIN users u ON u.id = a.subject_id
+			WHERE a.refresh_token_hash = $1
+				AND a.revoked_at IS NULL
+				AND a.expires_at > NOW()
+				AND s.kind = 'user'
+				AND u.is_active = true
+
+			UNION
+
+			SELECT
+				family.current_session_id,
+				previous.id,
+				previous.subject_id,
+				previous.family_id,
+				previous.created_at
+			FROM auth_sessions previous
+			JOIN session_family family
+				ON previous.replaced_by = family.id
+				AND previous.family_id = family.family_id
+				AND previous.subject_id = family.subject_id
+		)
+		SELECT current_session_id, subject_id, MIN(created_at)
+		FROM session_family
+		GROUP BY current_session_id, subject_id
 	`
 
-	var as model.AuthSession
+	var session model.BrowserSession
 	err := p.pool.QueryRow(ctx, query, refreshTokenHash).Scan(
-		&as.ID, &as.SubjectID, &as.SubjectKind, &as.FamilyID, &as.RefreshTokenHash, &as.CreatedIP, &as.CreatedUserAgent,
-		&as.RevokeReason, &as.RevokedAt, &as.CreatedAt, &as.ExpiresAt, &as.ReplacedBy,
+		&session.SessionID,
+		&session.SubjectID,
+		&session.AuthenticationTime,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.AuthSession{}, ErrTokenNotFound
+			return model.BrowserSession{}, ErrTokenNotFound
 		}
-		return model.AuthSession{}, err
+		return model.BrowserSession{}, err
 	}
-	return as, nil
+	return session, nil
 }
 
 func (p *PsqlDB) RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error) {

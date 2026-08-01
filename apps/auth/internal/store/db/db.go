@@ -41,7 +41,7 @@ type Database interface {
 
 	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
 	GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error)
-	GetAuthSessionByRefreshToken(ctx context.Context, refreshTokenHash string) (model.AuthSession, error)
+	ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error)
 	RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
 	ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error)
 	RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error

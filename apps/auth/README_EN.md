@@ -44,5 +44,5 @@ Build: `go build -o bin/auth ./apps/auth/cmd/auth`. Local stack — `docker-comp
 | `ACCESS_TOKEN_PRIVATE_KEY` / `…_FILE_PATH` | — | Ed25519 signing key (shared with `api`) |
 | `ACCESS_TOKEN_ISSUER` / `…_AUDIENCE` / `…_KID` | `auth.local` / `api.local` / `ed25519-v1` | token claims |
 | `ACCESS_TOKEN_TTL_SEC` / `ACCESS_SESSION_TTL_SEC` | `300` / `604800` | access token and session TTL |
-| `REFRESH_TOKEN_COOKIE_*` | see `.env.sample` | refresh cookie name/secure/samesite |
+| `REFRESH_TOKEN_COOKIE_*` | `__Host-refresh_token`, secure, path `/`, host-only, httpOnly, lax | refresh-cookie settings; the `__Host-` contract is validated at startup |
 | `IS_PHONE_REQUIRED` | `false` | require phone on registration |
