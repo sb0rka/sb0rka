@@ -125,6 +125,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("refresh token cookie with __Host- prefix requires Secure, Path=/, and an empty Domain")
 	}
 
+	oidcConfig, err := loadOptionalOIDCConfig()
+	if err != nil {
+		return nil, fmt.Errorf("load OIDC configuration: %w", err)
+	}
+
 	cfg = Config{
 		Logger: LoggerConfig{
 			Level:  logLevelEnv,
@@ -138,6 +143,7 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Addr: serverAddr,
 			Port: fmt.Sprintf("%d", serverPort),
+			OIDC: oidcConfig,
 
 			IsPhoneRequired: isPhoneRequired,
 

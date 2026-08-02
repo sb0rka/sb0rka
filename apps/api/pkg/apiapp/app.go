@@ -91,7 +91,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	newSrv := transport.NewServer(transport.Dependencies{
 		PlatformDatabase: platformDatabase,
-		Authorizer:       authz.NewRBACAuthorizer(platformDatabase),
+		Authorizer:       authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log),
 		SecretCrypto:     secretCrypto,
 		Telemetry:        telemetryService,
 		AccountHook:      accountHook,

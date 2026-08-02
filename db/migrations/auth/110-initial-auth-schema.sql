@@ -37,8 +37,10 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT gen_random_uuid() NOT NULL, 
 
     username VARCHAR(128) NOT NULL, 
-    email VARCHAR(128) NOT NULL, 
+    email VARCHAR(128) NOT NULL,
+    email_verified_at TIMESTAMP WITH TIME ZONE,
     phone INTEGER, 
+    phone_verified_at TIMESTAMP WITH TIME ZONE,
     password_hash VARCHAR(512) NOT NULL, 
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 

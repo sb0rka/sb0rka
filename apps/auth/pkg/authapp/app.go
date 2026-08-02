@@ -66,6 +66,9 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	var routes []route.Route
+	if cfg.Server.OIDC != nil {
+		log.Info("OIDC provider enabled", "client_id", cfg.Server.OIDC.ClientID)
+	}
 	for _, build := range a.opts.RouteFactories {
 		if build == nil {
 			continue

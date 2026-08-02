@@ -43,7 +43,18 @@ type Database interface {
 	GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error)
 	ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error)
 	RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
+	RefreshOAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, oauthClientID string) (model.AuthSession, error)
+	RevokeOAuthSessionFamily(ctx context.Context, refreshTokenHash, oauthClientID string) error
 	ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error)
 	RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error
 	RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error
+
+	// --- OAuth/OIDC ---
+
+	CreateOIDCPending(ctx context.Context, request OIDCPendingRequest) error
+	AuthorizeOIDC(ctx context.Context, requestID, userID uuid.UUID, authTime time.Time, codeHash []byte, now time.Time) (OIDCClientRedirect, error)
+	CancelOIDC(ctx context.Context, requestID uuid.UUID, now time.Time) (OIDCClientRedirect, error)
+	GetOIDCSessionAuthenticationTime(ctx context.Context, sessionID, userID uuid.UUID) (time.Time, error)
+	ExchangeOIDCCode(ctx context.Context, request OIDCExchangeRequest, issue IssueOIDCTokensFunc) (OIDCTokenSet, error)
+	GetOIDCActiveUser(ctx context.Context, userID uuid.UUID) (OIDCUserClaims, error)
 }

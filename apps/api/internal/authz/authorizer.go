@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 // Action names a specific operation a subject wants to perform on a resource.
@@ -53,6 +54,19 @@ type ResourceRef struct {
 	ID   string
 }
 
+// Principal is API authorization context. ClientID is audit context only and
+// never participates in RBAC decisions.
+type Principal struct {
+	SubjectID uuid.UUID
+	SessionID string
+	ClientID  string
+}
+
+func PrincipalFromContext(ctx context.Context, subjectID uuid.UUID) Principal {
+	identity, _ := authctx.IdentityFromContext(ctx)
+	return Principal{SubjectID: subjectID, SessionID: identity.SessionID, ClientID: identity.ClientID}
+}
+
 // AuthorizationDecision is the result of an Authorize call.
 // ReasonCode is a stable, machine-readable string for logging; it must never be
 // forwarded verbatim to API clients.
@@ -67,5 +81,5 @@ type AuthorizationDecision struct {
 // Authorizer evaluates whether a subject may perform an action on a resource.
 // Implementations must be safe for concurrent use.
 type Authorizer interface {
-	Authorize(ctx context.Context, subjectID uuid.UUID, action Action, resource ResourceRef) (*AuthorizationDecision, error)
+	Authorize(ctx context.Context, principal Principal, action Action, resource ResourceRef) (*AuthorizationDecision, error)
 }
