@@ -51,3 +51,21 @@ tasks:
     desc: Остановить локальный стенд
     cmds:
       - docker compose -f docker-compose.dev.yml down
+
+  exec:api:
+    desc: Выполнить команду apiapp
+    dir: bin
+    cmds:
+      - ./api {{.CLI_ARGS}}
+
+  exec:auth:
+    desc: Выполнить команду authapp
+    dir: bin
+    cmds:
+      - ./auth {{.CLI_ARGS}}
+
+  exec:drones:
+    desc: Выполнить команду dronesapp
+    dir: bin
+    cmds:
+      - ./drones {{.CLI_ARGS}}
