@@ -8,6 +8,7 @@ type Identity struct {
 	SubjectKind string
 	SessionID   string
 	JTI         string
+	ClientID    string
 
 	ActorSubjectID   string
 	ActorSubjectKind string
@@ -71,7 +72,14 @@ func JTIFromContext(ctx context.Context) (string, bool) {
 	return identity.JTI, true
 }
 
-// RequireUserSubject returns the subject ID when the authenticated subject is a user.
+func ClientIDFromContext(ctx context.Context) (string, bool) {
+	identity, ok := IdentityFromContext(ctx)
+	if !ok || identity.ClientID == "" {
+		return "", false
+	}
+	return identity.ClientID, true
+}
+
 func RequireUserSubject(ctx context.Context) (string, bool) {
 	identity, ok := IdentityFromContext(ctx)
 	if !ok || identity.SubjectKind != "user" {
