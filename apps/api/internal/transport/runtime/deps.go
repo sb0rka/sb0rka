@@ -8,6 +8,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store"
 	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
 )
 
 type Dependencies struct {
@@ -15,6 +16,7 @@ type Dependencies struct {
 	Authorizer       authz.Authorizer
 	SecretCrypto     service.SecretCrypto
 	Telemetry        telemetry.Service
+	AccountHook      account.Hook
 	Cfg              config.ServerConfig
 	Log              *slog.Logger
 }

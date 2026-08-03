@@ -13,6 +13,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/verification"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -52,10 +53,16 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	log.Info("database connection established successfully")
 
-	hook := invite.Noop()
+	inviteHook := invite.Noop()
 	if a.opts.InviteRepositoryFactory != nil && a.opts.InviteHookFactory != nil {
 		repo := a.opts.InviteRepositoryFactory(database.PgxPool())
-		hook = a.opts.InviteHookFactory(repo)
+		inviteHook = a.opts.InviteHookFactory(repo)
+	}
+
+	verificationHook := verification.Noop()
+	if a.opts.VerificationRepositoryFactory != nil && a.opts.VerificationHookFactory != nil {
+		repo := a.opts.VerificationRepositoryFactory(database.PgxPool())
+		verificationHook = a.opts.VerificationHookFactory(repo)
 	}
 
 	var routes []route.Route
@@ -89,7 +96,8 @@ func (a *App) Run(ctx context.Context) error {
 		Database:         database,
 		Cfg:              cfg.Server,
 		Log:              log,
-		InviteHook:       hook,
+		InviteHook:       inviteHook,
+		VerificationHook: verificationHook,
 		Routes:           routes,
 		SubjectResolvers: resolvers,
 	})

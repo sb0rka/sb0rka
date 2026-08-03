@@ -1,12 +1,6 @@
 name: Release auth
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/auth/**"
-      - ".github/workflows/release-auth.yml"
-      - ".github/actions/go-build/**"
   workflow_dispatch:
 
 permissions:

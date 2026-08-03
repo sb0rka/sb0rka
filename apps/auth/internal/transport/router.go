@@ -44,13 +44,13 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	// User identity endpoints
 	mux.HandleFunc("POST /identity/users", s.users.RegisterUser)
 	mux.Handle("GET /identity/users/current", s.authMiddleware(http.HandlerFunc(s.users.GetUser)))
-	mux.Handle("PATCH /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserPatch))))
-	mux.Handle("PUT /identity/users/current/password", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserPasswordUpdate))))
-	mux.Handle("DELETE /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserDelete))))
+	mux.Handle("PATCH /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(s.requireEmailVerificationMiddleware(http.HandlerFunc(s.users.UserPatch)))))
+	mux.Handle("PUT /identity/users/current/password", s.authMiddleware(s.requireLiveSessionMiddleware(s.requireEmailVerificationMiddleware(http.HandlerFunc(s.users.UserPasswordUpdate)))))
+	mux.Handle("DELETE /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(s.requireEmailVerificationMiddleware(http.HandlerFunc(s.users.UserDelete)))))
 
 	// Routes provided by pluggable feature modules share the same middleware stack below.
 	for _, rt := range s.deps.Routes {
-		mux.Handle(rt.Pattern, s.authWrap(rt.Access, rt.Handler))
+		mux.Handle(rt.Pattern, s.authWrap(rt))
 	}
 
 	commonHandler := s.loggerMiddleware(mux)
@@ -60,13 +60,18 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	return &commonHandler
 }
 
-func (s *Server) authWrap(access route.Access, h http.HandlerFunc) http.Handler {
-	switch access {
+func (s *Server) authWrap(rt route.Route) http.Handler {
+	var handler http.Handler = rt.Handler
+	if rt.RequireEmailVerification {
+		handler = s.requireEmailVerificationMiddleware(handler)
+	}
+
+	switch rt.Access {
 	case route.LiveSession:
-		return s.authMiddleware(s.requireLiveSessionMiddleware(h))
+		return s.authMiddleware(s.requireLiveSessionMiddleware(handler))
 	case route.Authenticated:
-		return s.authMiddleware(h)
+		return s.authMiddleware(handler)
 	default:
-		return h
+		return handler
 	}
 }
