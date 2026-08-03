@@ -15,7 +15,7 @@ export interface PasswordChange {
 }
 
 export async function getUser(): Promise<User> {
-  return apiRequest<User>({ path: "/user" })
+  return apiRequest<User>({ path: "/identity/users/current" })
 }
 
 export async function updateProfile(fields: ProfileUpdate): Promise<User> {

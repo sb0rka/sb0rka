@@ -15,9 +15,9 @@ const COOKIE_PATHS = ["/auth/login", "/auth/refresh", "/auth/logout"]
 
 const FORM_PATHS = [
   "/auth/login",
-  "/auth/signup",
-  "/user",
-  "/user/password",
+  "/identity/users",
+  "/identity/users/current",
+  "/identity/users/current/password",
 ]
 const AUTH_DEBUG = false
 
