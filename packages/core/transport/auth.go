@@ -3,10 +3,8 @@ package transport
 import (
 	"crypto/ed25519"
 	"net/http"
-	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
-
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
@@ -24,71 +22,34 @@ type AuthConfig struct {
 	Typ       string
 }
 
-// accessTokenClaims — формат токена платформы.
-type accessTokenClaims struct {
-	SessionID   string `json:"sid"`
-	SubjectKind string `json:"sk"`
-	jwt.RegisteredClaims
-}
-
 // ParseAndVerifyAccessToken разбирает токен и возвращает личность.
 // Причина отказа наружу не уходит — она одинаковая для клиента и разная
 // только в логе.
 func ParseAndVerifyAccessToken(raw string, cfg AuthConfig) (authctx.Identity, bool) {
-	if len(cfg.PublicKey) == 0 {
-		return authctx.Identity{}, false
-	}
-
-	opts := []jwt.ParserOption{
-		jwt.WithValidMethods([]string{jwt.SigningMethodEdDSA.Alg()}),
-		jwt.WithExpirationRequired(),
-	}
-	if cfg.Issuer != "" {
-		opts = append(opts, jwt.WithIssuer(cfg.Issuer))
-	}
-	if cfg.Audience != "" {
-		opts = append(opts, jwt.WithAudience(cfg.Audience))
-	}
-
-	claims := &accessTokenClaims{}
-	_, err := jwt.ParseWithClaims(raw, claims, func(token *jwt.Token) (any, error) {
-		if cfg.Kid != "" {
-			kid, _ := token.Header["kid"].(string)
-			if kid != cfg.Kid {
-				return nil, jwt.ErrTokenUnverifiable
-			}
-		}
-		if cfg.Typ != "" {
-			typ, _ := token.Header["typ"].(string)
-			if typ != cfg.Typ {
-				return nil, jwt.ErrTokenUnverifiable
-			}
-		}
-		return ed25519.PublicKey(cfg.PublicKey), nil
-	}, opts...)
+	identity, err := coreauth.VerifyAccessToken(raw, coreauth.VerificationConfig{
+		PublicKey: cfg.PublicKey,
+		KeyID:     cfg.Kid,
+		TokenType: cfg.Typ,
+		Issuer:    cfg.Issuer,
+		Audience:  cfg.Audience,
+	})
 	if err != nil {
-		return authctx.Identity{}, false
-	}
-	if claims.Subject == "" || claims.SessionID == "" {
 		return authctx.Identity{}, false
 	}
 
 	return authctx.Identity{
-		SubjectID:   claims.Subject,
-		SubjectKind: claims.SubjectKind,
-		SessionID:   claims.SessionID,
-		JTI:         claims.ID,
+		SubjectID:   identity.SubjectID,
+		SubjectKind: identity.SubjectKind,
+		SessionID:   identity.SessionID,
+		JTI:         identity.JTI,
+		ClientID:    identity.ClientID,
 	}, true
 }
 
 // BearerToken достаёт токен из заголовка Authorization.
 func BearerToken(header string) (string, bool) {
-	const prefix = "Bearer "
-	if !strings.HasPrefix(header, prefix) {
-		return "", false
-	}
-	token := strings.TrimSpace(strings.TrimPrefix(header, prefix))
-	return token, token != ""
+	token, err := coreauth.ParseBearerToken(header)
+	return token, err == nil
 }
 
 // Auth проверяет токен и кладёт личность в контекст.
