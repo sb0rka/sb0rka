@@ -1,12 +1,6 @@
 name: Release api
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/api/**"
-      - ".github/workflows/release-api.yml"
-      - ".github/actions/go-build/**"
   workflow_dispatch:
 
 permissions:
