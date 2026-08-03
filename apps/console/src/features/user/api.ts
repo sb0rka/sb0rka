@@ -19,19 +19,19 @@ export async function getUser(): Promise<User> {
 }
 
 export async function updateProfile(fields: ProfileUpdate): Promise<User> {
-  const body: Record<string, string> = {}
-  if (fields.username) body.username = fields.username
-  if (fields.email) body.email = fields.email
-  if (fields.phone) body.phone = fields.phone
+  const json: Record<string, string> = {}
+  if (fields.username) json.username = fields.username
+  if (fields.email) json.email = fields.email
+  if (fields.phone) json.phone = fields.phone
 
-  return apiRequest<User>({ method: "PATCH", path: "/user", body })
+  return apiRequest<User>({ method: "PATCH", path: "/identity/users/current", json })
 }
 
 export async function changePassword(data: PasswordChange): Promise<void> {
   return apiRequest<void>({
     method: "PUT",
-    path: "/user/password",
-    body: {
+    path: "/identity/users/current/password",
+    json: {
       current_password: data.current_password,
       new_password: data.new_password,
     },
