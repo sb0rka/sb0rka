@@ -19,7 +19,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [inviteCode, setInviteCode] = useState("")
+  const [inviteToken, setInviteToken] = useState("")
   const [clientError, setClientError] = useState("")
   const signupMutation = useSignup()
 
@@ -36,7 +36,7 @@ export function RegisterPage() {
       username,
       email,
       password,
-      invite_code: inviteCode,
+      invite_token: inviteToken,
     })
   }
 
@@ -122,12 +122,12 @@ export function RegisterPage() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="invite-code">{t("auth.register.inviteCodeLabel")}</Label>
+                <Label htmlFor="invite-token">{t("auth.register.inviteTokenLabel")}</Label>
                 <Input
-                  id="invite-code"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder={t("auth.register.inviteCodePlaceholder")}
+                  id="invite-token"
+                  value={inviteToken}
+                  onChange={(e) => setInviteToken(e.target.value)}
+                  placeholder={t("auth.register.inviteTokenPlaceholder")}
                   required
                 />
               </div>
