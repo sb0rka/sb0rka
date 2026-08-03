@@ -8,12 +8,7 @@ import (
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
-// AuthConfig — то, чем проверяется access-токен платформы. Сервисы токены
-// только проверяют, поэтому здесь публичный ключ: приватный верификатору
-// не нужен.
-//
-// Issuer, Audience, Kid и Typ проверяются только если заданы: пустое значение
-// в jwt.WithIssuer требует пустого поля в токене, то есть отклоняет всё.
+// AuthConfig configures access-token verification.
 type AuthConfig struct {
 	PublicKey ed25519.PublicKey
 	Issuer    string
@@ -22,9 +17,7 @@ type AuthConfig struct {
 	Typ       string
 }
 
-// ParseAndVerifyAccessToken разбирает токен и возвращает личность.
-// Причина отказа наружу не уходит — она одинаковая для клиента и разная
-// только в логе.
+// ParseAndVerifyAccessToken returns a verified identity.
 func ParseAndVerifyAccessToken(raw string, cfg AuthConfig) (authctx.Identity, bool) {
 	identity, err := coreauth.VerifyAccessToken(raw, coreauth.VerificationConfig{
 		PublicKey: cfg.PublicKey,
@@ -46,21 +39,14 @@ func ParseAndVerifyAccessToken(raw string, cfg AuthConfig) (authctx.Identity, bo
 	}, true
 }
 
-// BearerToken достаёт токен из заголовка Authorization.
+// BearerToken parses an Authorization header.
 func BearerToken(header string) (string, bool) {
 	token, err := coreauth.ParseBearerToken(header)
 	return token, err == nil
 }
 
-// Auth проверяет токен и кладёт личность в контекст.
-//
-// Отказ отдаётся через onUnauthorized: формат ошибки у сервисов разный —
-// у api это http.Error, у ir конверт {"error":{"code","message"}}, — и
-// навязывать его отсюда нечем.
-//
-// Дополнительные проверки поверх личности (живая сессия, роли, тенант)
-// навешиваются своим middleware следом: они ходят в базу, а этот пакет
-// про базу не знает.
+// Auth verifies a token and stores its identity in the request context.
+// onUnauthorized writes the service-specific error response.
 func Auth(cfg AuthConfig, onUnauthorized func(http.ResponseWriter, *http.Request)) Middleware {
 	deny := onUnauthorized
 	if deny == nil {

@@ -80,7 +80,6 @@ func ClientIDFromContext(ctx context.Context) (string, bool) {
 	return identity.ClientID, true
 }
 
-// RequireUserSubject returns the subject ID when the authenticated subject is a user.
 func RequireUserSubject(ctx context.Context) (string, bool) {
 	identity, ok := IdentityFromContext(ctx)
 	if !ok || identity.SubjectKind != "user" {

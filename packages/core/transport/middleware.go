@@ -3,10 +3,11 @@ package transport
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 )
 
-// Middleware — обёртка обработчика. Отдельный тип, чтобы Chain читался.
+// Middleware wraps an HTTP handler.
 type Middleware func(http.Handler) http.Handler
 
 // Chain навешивает обёртки в порядке перечисления: первая оказывается внешней.
@@ -17,11 +18,7 @@ func Chain(h http.Handler, middlewares ...Middleware) http.Handler {
 	return h
 }
 
-// Recorder запоминает статус ответа и факт первой записи.
-//
-// Нужен двоим: логу — чтобы писать статус, а Recover — чтобы понимать, можно
-// ли ещё отдать тело ошибки. Поэтому Logger должен стоять снаружи Recover:
-// обёртку создаёт он.
+// Recorder tracks the response status and whether writing has started.
 type Recorder struct {
 	http.ResponseWriter
 	status  int
@@ -47,7 +44,7 @@ func (rec *Recorder) Write(b []byte) (int, error) {
 	return rec.ResponseWriter.Write(b)
 }
 
-// Logger пишет метод, путь, статус и длительность.
+// Logger records method, path, status and duration.
 func Logger(log *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -63,13 +60,8 @@ func Logger(log *slog.Logger) Middleware {
 	}
 }
 
-// Recover ловит панику и отдаёт ответ через onPanic — формат ошибки у каждого
-// сервиса свой, и навязывать его отсюда нечем.
-//
-// Если тело уже отправлено, корректный ответ дописать нельзя: второй
-// WriteHeader даёт «superfluous WriteHeader» в логе вместо самой паники.
-// В этом случае соединение рвётся — клиент увидит обрыв, а не притворно
-// успешный ответ.
+// Recover delegates a panic response to onPanic. After writing starts, it
+// aborts the connection because a valid error response can no longer be sent.
 func Recover(log *slog.Logger, onPanic func(http.ResponseWriter, *http.Request)) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,25 +84,17 @@ func Recover(log *slog.Logger, onPanic func(http.ResponseWriter, *http.Request))
 	}
 }
 
-// CORSConfig — то, что различается между сервисами. Пустой AllowedMethods
-// означает набор по умолчанию.
+// CORSConfig configures CORS response headers.
 type CORSConfig struct {
-	// Whitelist в формате config.ParseCORSWhitelist: "*" — обычный ключ.
 	Whitelist      map[string]bool
 	AllowedMethods string
-	// MaxAge в секундах. Ноль — заголовок не ставится, и префлайт полетит
-	// перед каждым запросом.
-	MaxAge int
+	MaxAge         int
 }
 
 const defaultAllowedMethods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 
-// CORS выставляет заголовки одинаково во всех сервисах платформы.
-//
-// Authorization и credentials идут только явно разрешённому источнику: вместе
-// с «*» браузер их всё равно отвергнет. Vary: Origin ставится и в отказе —
-// ответ зависит от Origin в обоих случаях, и без него кэш отдал бы чужому
-// источнику ответ, собранный для разрешённого.
+// CORS allows credentials only for explicit origins and varies cached responses
+// by Origin when a whitelist is used.
 func CORS(cfg CORSConfig) Middleware {
 	methods := cfg.AllowedMethods
 	if methods == "" {
@@ -142,7 +126,7 @@ func CORS(cfg CORSConfig) Middleware {
 				w.Header().Set("Access-Control-Allow-Methods", methods)
 				w.Header().Set("Access-Control-Allow-Headers", allowHeaders)
 				if cfg.MaxAge > 0 {
-					w.Header().Set("Access-Control-Max-Age", itoa(cfg.MaxAge))
+					w.Header().Set("Access-Control-Max-Age", strconv.Itoa(cfg.MaxAge))
 				}
 			}
 
@@ -153,18 +137,4 @@ func CORS(cfg CORSConfig) Middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
 }
