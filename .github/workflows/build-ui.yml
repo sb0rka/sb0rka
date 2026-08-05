@@ -1,0 +1,45 @@
+name: Build UI library
+
+on:
+  pull_request:
+    paths:
+      - "packages/ui/**"
+      - ".github/workflows/build-ui.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/ui/**"
+      - ".github/workflows/build-ui.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/ui
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/ui
+        run: npm run build
