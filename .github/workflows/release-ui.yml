@@ -1,4 +1,4 @@
-name: Build UI library
+name: Release UI library
 
 on:
   workflow_dispatch:
