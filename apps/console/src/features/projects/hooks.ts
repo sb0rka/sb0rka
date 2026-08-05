@@ -1,4 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query"
+import { useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "@/features/auth/auth-provider"
 import {
   listProjects,
@@ -47,6 +49,7 @@ import type {
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
 } from "./api"
+import { useToast } from "@/components/toast-provider"
 
 const PROJECTS_KEY = ["projects"] as const
 const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000
@@ -94,6 +97,57 @@ export function useDatabases(projectId: string) {
         : false
     },
   })
+}
+
+export function useDatabaseStatusToasts(projectId: string, databases: DatabaseResponse[]) {
+  const { t } = useTranslation();
+  const { isAuthenticated } = useAuth();
+  const { showSuccess, showError } = useToast();
+  const prevSyncStateRef = useRef<Map<string, string | undefined>>(new Map())
+
+  useEffect(() => {
+    prevSyncStateRef.current = new Map();
+  }, [projectId])
+
+  const queries = useQueries({
+    queries: databases.map((db) => ({
+      queryKey: ["projects", projectId, "resources", db.resource_id, "database"],
+      queryFn: () => getDatabase(projectId, db.resource_id),
+      enabled: isAuthenticated && !!projectId,
+      refetchInterval: (query: {
+        state: { data?: DatabaseResponse }
+      }) => {
+        const syncState = query.state.data?.sync_state
+        return syncState === "synced" || syncState === "failed" ? false : 3000
+      }
+    })),
+  })
+
+  useEffect(() => {
+    for (const query of queries) {
+      const db = query.data
+      if (!db) continue
+      const prev = prevSyncStateRef.current.get(db.resource_id)
+      const curr = db.sync_state
+      const name = db.name || db.resource_id
+
+      if (prev === undefined) {
+        prevSyncStateRef.current.set(db.resource_id, curr)
+        continue
+      }
+
+      if (prev !== curr) {
+        if (curr === "ongoing") {
+          showSuccess(t("databases.ongoingToast", { name }))
+        } else if (curr === "synced" && db.desired_state === "present") {
+          showSuccess(t("databases.onlineToast", { name }))
+        } else if (curr === "failed") {
+          showError(t("databases.createError", { name }))
+        }
+        prevSyncStateRef.current.set(db.resource_id, curr)
+      }
+    }
+  }, [queries, t, showSuccess, showError])
 }
 
 export function useCreateDatabase(projectId: string) {

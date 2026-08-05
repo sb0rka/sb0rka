@@ -64,7 +64,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
   const secretValueQuery = useSecretValue(projectId, secret.id)
@@ -74,20 +74,14 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const [isValueVisible, setIsValueVisible] = useState(false)
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
   const [updateValueDraft, setUpdateValueDraft] = useState("")
-  const [updateValueError, setUpdateValueError] = useState<string | null>(null)
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
-  const [tagActionSuccess, setTagActionSuccess] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [copySecretMessage, setCopySecretMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setIsValueVisible(false)
     setIsUpdateDialogOpen(false)
     setUpdateValueDraft("")
-    setUpdateValueError(null)
     setIsTagModalOpen(false)
-    setTagActionSuccess(null)
-    setDeleteError(null)
     setCopySecretMessage(null)
   }, [secret.id])
 
@@ -125,7 +119,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   function handleUpdateDialogOpenChange(next: boolean) {
     if (!next) {
       setUpdateValueDraft("")
-      setUpdateValueError(null)
     }
     setIsUpdateDialogOpen(next)
   }
@@ -137,7 +130,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       return
     }
 
-    setUpdateValueError(null)
     try {
       await updateSecretValue.mutateAsync({
         resourceId: secret.id,
@@ -146,8 +138,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       handleUpdateDialogOpenChange(false)
       setIsValueVisible(false)
       setCopySecretMessage(null)
+      showSuccess(t("secrets.updateValueSuccess"))
     } catch (error) {
-      setUpdateValueError(getErrorMessage(error, t("secrets.updateValueError")))
+      showError(getErrorMessage(error, t("secrets.updateValueError")))
     }
   }
 
@@ -173,13 +166,12 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     })
     if (!confirmed) return
 
-    setDeleteError(null)
     try {
       await deactivateResource.mutateAsync()
       showSuccess(t("secrets.deleted"))
       onClose()
     } catch (error) {
-      setDeleteError(getErrorMessage(error, t("secrets.deleteError")))
+      showError(getErrorMessage(error, t("secrets.deleteError")))
     }
   }
 
@@ -205,7 +197,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               size="sm"
               className="h-7 rounded-full px-2.5 text-xs font-semibold"
               onClick={() => {
-                setTagActionSuccess(null)
                 setIsTagModalOpen(true)
               }}
             >
@@ -213,7 +204,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
             </Button>
           </div>
         </div>
-        {tagActionSuccess ? <p className="text-sm text-emerald-600">{tagActionSuccess}</p> : null}
       </SlideIn>
 
       <SlideIn className="hidden md:block">
@@ -303,7 +293,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
             >
               {deactivateResource.isPending ? t("common.deleting") : t("secrets.deleteButton")}
             </Button>
-            {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
           </div>
         </CardFooter>
       </Card>
@@ -338,9 +327,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   autoFocus
                 />
               </div>
-              {updateValueError ? (
-                <p className="text-sm text-destructive">{updateValueError}</p>
-              ) : null}
             </div>
 
             <DialogFooter>
@@ -379,12 +365,11 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         }
         mapSubmitError={(err) => getErrorMessage(err, t("common.messages.tagAddError"))}
         onSubmit={async (parsed) => {
-          setTagActionSuccess(null)
           await attachResourceTag.mutateAsync({
             resourceId: secret.id,
             data: parsed,
           })
-          setTagActionSuccess(t("common.messages.tagAdded"))
+          showSuccess(t("common.messages.tagAdded"))
         }}
       />
     </PageStagger>
