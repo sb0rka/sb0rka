@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -55,4 +56,18 @@ func GetBoolEnv(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+// GetBoolEnvStrict returns the fallback for an unset variable and rejects an invalid value.
+func GetBoolEnvStrict(key string, fallback bool) (bool, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback, nil
+	}
+
+	value, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("%s must be true or false", key)
+	}
+	return value, nil
 }

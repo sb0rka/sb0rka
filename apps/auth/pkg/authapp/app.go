@@ -47,6 +47,12 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize database connection: %w", err)
 	}
+	// After Run returns (post http.Server.Shutdown) or on setup failure — not via
+	// Run's pre-Shutdown hooks, which would close the pool under in-flight requests.
+	defer func() {
+		log.Info("closing database connection")
+		_ = database.Close()
+	}()
 
 	if err := database.TestConnection(ctx); err != nil {
 		return fmt.Errorf("failed to test database connection: %w", err)
@@ -66,6 +72,9 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	var routes []route.Route
+	if cfg.Server.OIDC != nil {
+		log.Info("OIDC provider enabled", "client_id", cfg.Server.OIDC.ClientID)
+	}
 	for _, build := range a.opts.RouteFactories {
 		if build == nil {
 			continue
@@ -101,10 +110,11 @@ func (a *App) Run(ctx context.Context) error {
 		Routes:           routes,
 		SubjectResolvers: resolvers,
 	})
-	handler := newSrv.BuildCommonHandler()
+	handler, err := newSrv.BuildCommonHandler()
+	if err != nil {
+		return fmt.Errorf("failed to build HTTP handler: %w", err)
+	}
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)
 
-	return coretransport.Run(ctx, addr, *handler, log, func() {
-		_ = database.Close()
-	})
+	return coretransport.Run(ctx, addr, *handler, log)
 }

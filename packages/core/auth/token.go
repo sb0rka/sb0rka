@@ -12,7 +12,7 @@ import (
 
 var ErrUnauthorized = errors.New("unauthorized")
 
-// AccessTokenClaims is the identity contract shared by Auth and API services.
+// AccessTokenClaims is the signed identity shared by Auth and Platform API.
 type AccessTokenClaims struct {
 	SessionID   string `json:"sid"`
 	SubjectKind string `json:"sk"`

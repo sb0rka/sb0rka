@@ -99,6 +99,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			SubjectKind: identity.SubjectKind,
 			SessionID:   identity.SessionID,
 			JTI:         identity.JTI,
+			ClientID:    identity.ClientID,
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

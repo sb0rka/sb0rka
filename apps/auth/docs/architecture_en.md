@@ -23,7 +23,7 @@ domain/model/ (subjects, users, sessions, organizations)
 
 ## Request lifecycle
 
-Routing — `net/http.ServeMux` (`transport/router.go`). `authMiddleware` verifies `Authorization: Bearer <jwt>` via `service.ParseAndVerifyAccessTokenFromAuthHeader` and stores identity in `context` (`runtime.WithAuthIdentity`). Mutations additionally use `requireLiveSessionMiddleware` (live-session check). Organization RBAC — inside the handler via `Authorizer.Authorize` with an `authz.Action`.
+Routing — `net/http.ServeMux` (`transport/router.go`). `authMiddleware` verifies `Authorization: Bearer <jwt>` via `service.ParseAndVerifyAccessTokenFromAuthHeader` and stores identity in the standard `authctx`. Mutations additionally use `requireLiveSessionMiddleware` (live-session check). Private modules may explicitly select `route.OptionalBrowserSession`; only those routes attempt authentication with the existing refresh cookie, while a missing cookie continues anonymously. An unknown access mode aborts service startup.
 
 ## Key flows
 
@@ -32,6 +32,10 @@ Routing — `net/http.ServeMux` (`transport/router.go`). `authMiddleware` verifi
 **Login** (`POST /auth/login`). By `username`/`email` + password: hash check → an `auth_sessions` row is created (refresh token stored hashed), a short-lived access JWT (`ACCESS_TOKEN_TTL_SEC`) is issued, and a refresh token is set in a cookie (name/secure/samesite — env `REFRESH_TOKEN_COOKIE_*`).
 
 **Refresh** (`POST /auth/refresh`). Finds a live session by the refresh cookie, rotates the refresh token (`replaced_by`), issues a new access token. Session lifetime — `ACCESS_SESSION_TTL_SEC`.
+
+**Optional browser session (private opt-in).** The middleware validates and hashes the configured refresh cookie, then resolves a current live session for an active user in one read-only query. It takes no locks, changes no rows, performs no rotation, and does not accept a Bearer token in place of the cookie. `replaced_by` history must be retained for at least the family lifetime: walking it backwards supplies the stable `auth_time` of the family's first session, while the handler receives only `subject_id`, `subject_kind=user`, the current `session_id`, and that time. A missing, malformed, expired, or revoked cookie leaves the request anonymous so the protocol handler can choose its own redirect or rejection.
+
+The production cookie defaults to `__Host-refresh_token` with an empty `Domain`, `Secure=true`, `Path=/`, `HttpOnly=true`, and `SameSite=Lax`. Configuration incompatible with the `__Host-` prefix is rejected at startup; local HTTP development can use a cookie without that prefix.
 
 **Live session.** The `auth.is_live_session(sid, sub)` function (migrations in `db/migrations/auth/`) checks that the session exists, is not revoked and not expired. It is called by both `apps/auth` (for mutations) and `apps/api` (its `requireLiveSessionMiddleware`) — so the `auth` schema must live in the same DB as the platform.
 

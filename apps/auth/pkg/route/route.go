@@ -12,6 +12,7 @@ const (
 	Public Access = iota
 	Authenticated
 	LiveSession
+	OptionalBrowserSession
 )
 
 type Route struct {

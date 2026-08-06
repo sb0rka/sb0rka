@@ -137,12 +137,12 @@ func NewRBACAuthorizer(database projectMemberStore) *RBACAuthorizer {
 // authorization denials are expressed via AuthorizationDecision.Allowed == false.
 func (a *RBACAuthorizer) Authorize(
 	ctx context.Context,
-	subjectID uuid.UUID,
+	principal Principal,
 	action Action,
 	resource ResourceRef,
 ) (*AuthorizationDecision, error) {
 	dec := &AuthorizationDecision{
-		SubjectID: subjectID,
+		SubjectID: principal.SubjectID,
 		Action:    action,
 		Resource:  resource,
 	}
@@ -155,7 +155,7 @@ func (a *RBACAuthorizer) Authorize(
 		return dec, nil
 	}
 
-	membership, err := a.db.GetProjectMember(ctx, resource.ID, subjectID)
+	membership, err := a.db.GetProjectMember(ctx, resource.ID, principal.SubjectID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectMemberNotFound) {
 			// Non-member is a valid deny, not a server error.

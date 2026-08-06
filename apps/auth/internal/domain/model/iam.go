@@ -21,6 +21,7 @@ type AuthSession struct {
 	SubjectID        uuid.UUID  `json:"subject_id"`
 	SubjectKind      string     `json:"subject_kind"`
 	FamilyID         uuid.UUID  `json:"family_id"`
+	OAuthClientID    *string    `json:"oauth_client_id,omitempty"`
 	RefreshTokenHash string     `json:"refresh_token_hash"`
 	CreatedIP        net.IP     `json:"created_ip"`
 	CreatedUserAgent *string    `json:"created_user_agent,omitempty"`
@@ -30,6 +31,14 @@ type AuthSession struct {
 	RevokedAt        *time.Time `json:"revoked_at,omitempty"`
 	RevokeReason     *string    `json:"revoke_reason,omitempty"`
 	ReplacedBy       *uuid.UUID `json:"replaced_by,omitempty"`
+}
+
+// BrowserSession is the read-only identity projection exposed to browser-cookie
+// authentication. Credential hashes and rotation-family details stay in the store.
+type BrowserSession struct {
+	SubjectID          uuid.UUID
+	SessionID          uuid.UUID
+	AuthenticationTime time.Time
 }
 
 type User struct {
