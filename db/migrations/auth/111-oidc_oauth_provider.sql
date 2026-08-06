@@ -50,14 +50,6 @@ CREATE TRIGGER trg_oidc_auth_requests_set_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-WITH updated AS (
-    UPDATE version_auth
-    SET version_num = '7c1d9e4a6b20'
-    RETURNING version_num
-)
-INSERT INTO version_auth (version_num)
-SELECT '7c1d9e4a6b20'
-WHERE NOT EXISTS (SELECT 1 FROM updated)
-RETURNING version_num;
+UPDATE version_auth SET version_num = '7c1d9e4a6b20' RETURNING version_num;
 
 COMMIT;
