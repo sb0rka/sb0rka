@@ -29,12 +29,12 @@ export interface SignupData {
   username: string
   email: string
   password: string
-  invite_code: string
+  invite_token: string
 }
 
 export async function login(credentials: LoginCredentials): Promise<User> {
   const isEmail = credentials.login.includes("@")
-  const body: Record<string, string> = {
+  const json: Record<string, string> = {
     password: credentials.password,
     ...(isEmail
       ? { email: credentials.login }
@@ -44,24 +44,24 @@ export async function login(credentials: LoginCredentials): Promise<User> {
   const data = await apiRequest<{ access_token: string }>({
     method: "POST",
     path: "/auth/login",
-    body,
+    json,
     auth: false,
   })
   authLog("login success; received access token")
   setToken(data.access_token)
 
-  return apiRequest<User>({ path: "/user" })
+  return apiRequest<User>({ path: "/identity/users/current" })
 }
 
 export async function signup(data: SignupData): Promise<User> {
   return apiRequest<User>({
     method: "POST",
-    path: "/auth/signup",
-    body: {
+    path: "/identity/users",
+    json: {
       username: data.username,
       email: data.email,
       password: data.password,
-      invite_code: data.invite_code,
+      invite_token: data.invite_token,
     },
     auth: false,
   })
@@ -71,15 +71,15 @@ export async function bootstrapAuth(): Promise<User> {
   authLog("bootstrapAuth start", { hasToken: Boolean(getToken()) })
   if (getToken()) {
     try {
-      const user = await apiRequest<User>({ path: "/user" })
+      const user = await apiRequest<User>({ path: "/identity/users/current" })
       authLog("bootstrapAuth: token still valid")
       return user
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        authLog("bootstrapAuth: /user 401 with token; clearing token")
+        authLog("bootstrapAuth: /identity/users/current 401 with token; clearing token")
         clearToken()
       } else {
-        authLog("bootstrapAuth: /user failed with non-401 error", {
+        authLog("bootstrapAuth: /identity/users/current failed with non-401 error", {
           errorType: err instanceof Error ? err.name : "unknown",
         })
         throw err
@@ -88,8 +88,8 @@ export async function bootstrapAuth(): Promise<User> {
   }
   authLog("bootstrapAuth: trying refresh")
   await refresh()
-  authLog("bootstrapAuth: refresh success, requesting /user")
-  return apiRequest<User>({ path: "/user" })
+  authLog("bootstrapAuth: refresh success, requesting /identity/users/current")
+  return apiRequest<User>({ path: "/identity/users/current" })
 }
 
 export async function logout(): Promise<void> {

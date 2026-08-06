@@ -36,7 +36,7 @@ export function RegisterPage() {
       username,
       email,
       password,
-      invite_code: inviteCode,
+      invite_token: inviteCode,
     })
   }
 
