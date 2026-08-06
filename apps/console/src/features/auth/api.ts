@@ -32,6 +32,19 @@ export interface SignupData {
   invite_token: string
 }
 
+export async function initializeAccount(): Promise<void> {
+  try {
+    await apiRequest({
+      method: "POST",
+      path: "/account/initialize",
+      base: "resource"
+    })
+    authLog("account initialization success")
+  } catch (err) {
+    console.warn("Account initialization skipped or already initialized:", err)
+  }
+}
+
 export async function login(credentials: LoginCredentials): Promise<User> {
   const isEmail = credentials.login.includes("@")
   const json: Record<string, string> = {
@@ -49,6 +62,8 @@ export async function login(credentials: LoginCredentials): Promise<User> {
   })
   authLog("login success; received access token")
   setToken(data.access_token)
+
+  await initializeAccount()
 
   return apiRequest<User>({ path: "/identity/users/current" })
 }
