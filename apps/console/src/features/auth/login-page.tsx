@@ -15,14 +15,13 @@ import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 export function LoginPage() {
   const { t } = useTranslation()
-  const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
+  const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
   const loginMutation = useLogin()
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    loginMutation.mutate({ username, email, password })
+    loginMutation.mutate({ login, password })
   }
 
   return (
@@ -50,25 +49,13 @@ export function LoginPage() {
           <CardContent>
             <form id="login-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="username">{t("auth.login.usernameLabel")}</Label>
+                <Label htmlFor="login">{t("auth.login.loginLabel")}</Label>
                 <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={t("auth.login.usernamePlaceholder")}
+                  id="login"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  placeholder={t("auth.login.loginPlaceholder")}
                   autoComplete="username"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">{t("auth.login.emailLabel")}</Label>
-                <Input
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t("auth.login.emailPlaceholder")}
-                  autoComplete="email"
                   required
                 />
               </div>

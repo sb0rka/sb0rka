@@ -25,9 +25,9 @@ export function useSignup() {
     mutationFn: (data: SignupData & { password: string }) => signup(data),
     onSuccess: async (_user, variables) => {
       try {
+        const isEmail = variables.email.includes("@")
         const user = await login({
-          username: variables.username,
-          email: variables.email,
+          login: isEmail ? variables.email : variables.username,
           password: variables.password,
         })
         qc.setQueryData(["user"], user)

@@ -21,8 +21,7 @@ export interface User {
 }
 
 export interface LoginCredentials {
-  username: string
-  email: string
+  login: string
   password: string
 }
 
@@ -34,14 +33,18 @@ export interface SignupData {
 }
 
 export async function login(credentials: LoginCredentials): Promise<User> {
+  const isEmail = credentials.login.includes("@")
+  const json: Record<string, string> = {
+    password: credentials.password,
+    ...(isEmail
+      ? { email: credentials.login }
+      : { username: credentials.login }),
+  }
+
   const data = await apiRequest<{ access_token: string }>({
     method: "POST",
     path: "/auth/login",
-    json: {
-      username: credentials.username,
-      email: credentials.email,
-      password: credentials.password,
-    },
+    json,
     auth: false,
   })
   authLog("login success; received access token")
