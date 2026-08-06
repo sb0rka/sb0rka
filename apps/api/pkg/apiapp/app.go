@@ -52,6 +52,8 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize platform database connection: %w", err)
 	}
+	// After Run returns (post http.Server.Shutdown) or on setup failure — not via
+	// Run's pre-Shutdown hooks, which would close the pool under in-flight requests.
 	defer func() {
 		log.Info("closing database connections")
 		_ = platformDatabase.Close()

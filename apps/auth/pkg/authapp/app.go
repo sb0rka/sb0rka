@@ -47,6 +47,12 @@ func (a *App) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize database connection: %w", err)
 	}
+	// After Run returns (post http.Server.Shutdown) or on setup failure — not via
+	// Run's pre-Shutdown hooks, which would close the pool under in-flight requests.
+	defer func() {
+		log.Info("closing database connection")
+		_ = database.Close()
+	}()
 
 	if err := database.TestConnection(ctx); err != nil {
 		return fmt.Errorf("failed to test database connection: %w", err)
@@ -110,7 +116,5 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Addr, cfg.Server.Port)
 
-	return coretransport.Run(ctx, addr, *handler, log, func() {
-		_ = database.Close()
-	})
+	return coretransport.Run(ctx, addr, *handler, log)
 }

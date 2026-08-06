@@ -13,10 +13,10 @@ import (
 
 func Run(ctx context.Context, addr string, handler http.Handler, log *slog.Logger, shutdown ...func()) error {
 	if ctx == nil {
-		var stop context.CancelFunc
-		ctx, stop = signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-		defer stop()
+		ctx = context.Background()
 	}
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	srv := &http.Server{
 		Addr:    addr,
