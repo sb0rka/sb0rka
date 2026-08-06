@@ -28,9 +28,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # Secrets / env (примеры .env.sample НЕ игнорируются)
-.env
-.env.local
-.env.*.local
+*.env
+*.env.local
+*.env.*.local
 *.pem
 *.key
 .secrets/
