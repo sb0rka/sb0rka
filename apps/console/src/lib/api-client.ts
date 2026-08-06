@@ -161,3 +161,7 @@ async function performRequest(opts: RequestOptions): Promise<Response> {
 }
 
 export { deduplicatedRefresh as refresh }
+
+export function getAuthBaseUrl(): string {
+  return AUTH_BASE_URL || window.location.origin
+}

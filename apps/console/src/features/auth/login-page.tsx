@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react"
-import { Link } from "react-router-dom"
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { SborkaLogo } from "@/components/logo"
 import { Button, buttonPressClass } from "@/components/ui/button"
@@ -10,18 +10,95 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 import { useLogin } from "./hooks"
+import { continueOidcLogin, getOidcAuthRequestId } from "./api"
+import { useAuth } from "./auth-provider"
 import { ApiError } from "@/lib/api-client"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
 export function LoginPage() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
+  const { isAuthenticated, isLoading } = useAuth()
+  const authRequestId = getOidcAuthRequestId(searchParams.get("return_to"))
   const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
-  const loginMutation = useLogin()
+  const [continuationError, setContinuationError] = useState<unknown>(null)
+  const [isContinuing, setIsContinuing] = useState(false)
+  const automaticContinuationStarted = useRef(false)
+  const continuationInFlight = useRef(false)
+
+  const continueOidcAuthorization = useCallback(async () => {
+    if (!authRequestId || continuationInFlight.current) return
+
+    continuationInFlight.current = true
+    setContinuationError(null)
+    setIsContinuing(true)
+    try {
+      const redirectTo = await continueOidcLogin(authRequestId)
+      window.location.replace(redirectTo)
+    } catch (error) {
+      continuationInFlight.current = false
+      setContinuationError(error)
+      setIsContinuing(false)
+    }
+  }, [authRequestId])
+
+  const loginMutation = useLogin(authRequestId ? continueOidcAuthorization : undefined)
+
+  useEffect(() => {
+    if (
+      !authRequestId ||
+      isLoading ||
+      !isAuthenticated ||
+      automaticContinuationStarted.current
+    ) {
+      return
+    }
+
+    automaticContinuationStarted.current = true
+    void continueOidcAuthorization()
+  }, [authRequestId, continueOidcAuthorization, isAuthenticated, isLoading])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     loginMutation.mutate({ login, password })
+  }
+
+  if (authRequestId && (isLoading || isAuthenticated)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>
+              {continuationError
+                ? t("auth.login.continueError")
+                : t("auth.login.continuing")}
+            </CardTitle>
+            <CardDescription>
+              {continuationError
+                ? continuationError instanceof ApiError
+                  ? continuationError.message
+                  : t("auth.login.fallbackError")
+                : t("auth.login.continuingDescription")}
+            </CardDescription>
+          </CardHeader>
+          {Boolean(continuationError) && (
+            <CardFooter>
+              <Button
+                type="button"
+                className="w-full"
+                disabled={isContinuing}
+                onClick={() => void continueOidcAuthorization()}
+              >
+                {isContinuing
+                  ? t("auth.login.continuing")
+                  : t("auth.login.continueRetry")}
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -81,11 +158,13 @@ export function LoginPage() {
                 />
               </div>
 
-              {loginMutation.error && (
+              {Boolean(loginMutation.error || continuationError) && (
                 <p className="text-sm text-destructive">
                   {loginMutation.error instanceof ApiError
                     ? loginMutation.error.message
-                    : t("auth.login.fallbackError")}
+                    : continuationError instanceof ApiError
+                      ? continuationError.message
+                      : t("auth.login.fallbackError")}
                 </p>
               )}
             </form>

@@ -1,4 +1,4 @@
-import { apiRequest, ApiError, refresh } from "@/lib/api-client"
+import { apiRequest, ApiError, getAuthBaseUrl, refresh } from "@/lib/api-client"
 import { getToken, setToken, clearToken } from "@/lib/auth-store"
 const AUTH_DEBUG = false
 
@@ -30,6 +30,57 @@ export interface SignupData {
   email: string
   password: string
   invite_token: string
+}
+
+const OIDC_CONTINUE_PATH = "/oauth2/login/continue"
+
+/**
+ * Extracts the opaque auth_request_id from the auth service's `return_to`
+ * parameter. Returns null unless `return_to` points exactly at the auth
+ * service's OIDC continuation endpoint with a single auth_request_id param,
+ * so the id is never derived from (or sent to) any other origin.
+ */
+export function getOidcAuthRequestId(returnTo: string | null): string | null {
+  if (!returnTo || returnTo.length > 4096) return null
+
+  try {
+    const target = new URL(returnTo)
+    const authBase = new URL(getAuthBaseUrl())
+    const keys = [...target.searchParams.keys()]
+    const requestIds = target.searchParams.getAll("auth_request_id")
+
+    if (
+      target.origin !== authBase.origin ||
+      target.pathname !== OIDC_CONTINUE_PATH ||
+      target.hash !== "" ||
+      target.username !== "" ||
+      target.password !== "" ||
+      keys.length !== 1 ||
+      keys[0] !== "auth_request_id" ||
+      requestIds.length !== 1 ||
+      requestIds[0] === ""
+    ) {
+      return null
+    }
+
+    return requestIds[0]
+  } catch {
+    return null
+  }
+}
+
+export async function continueOidcLogin(authRequestId: string): Promise<string> {
+  const response = await apiRequest<{ redirect_to: string }>({
+    method: "POST",
+    path: OIDC_CONTINUE_PATH,
+    json: { auth_request_id: authRequestId },
+  })
+
+  const target = new URL(response.redirect_to)
+  if (target.protocol !== "https:" && target.protocol !== "http:") {
+    throw new Error("Invalid OIDC continuation redirect")
+  }
+  return target.toString()
 }
 
 export async function initializeAccount(): Promise<void> {
