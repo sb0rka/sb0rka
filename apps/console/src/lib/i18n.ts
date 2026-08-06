@@ -134,6 +134,10 @@ const resources = {
           fallbackError: "Не удалось войти, попробуйте снова",
           noAccount: "Нет аккаунта?",
           registerLink: "Создать",
+          continuing: "Возвращаем в приложение…",
+          continuingDescription: "Завершаем вход и перенаправляем обратно",
+          continueError: "Не удалось завершить вход",
+          continueRetry: "Повторить",
         },
         register: {
           title: "Регистрация",
@@ -591,6 +595,10 @@ const resources = {
           fallbackError: "Unable to log in, please try again",
           noAccount: "No account?",
           registerLink: "Create one",
+          continuing: "Returning to the application…",
+          continuingDescription: "Finishing sign-in and redirecting you back",
+          continueError: "Could not finish sign-in",
+          continueRetry: "Try again",
         },
         register: {
           title: "Create account",

@@ -2,17 +2,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { clearToken } from "@/lib/auth-store"
 import { login, signup, logout } from "./api"
-import type { LoginCredentials, SignupData } from "./api"
+import type { LoginCredentials, SignupData, User } from "./api"
 
-export function useLogin() {
+export function useLogin(onLoginSuccess?: (user: User) => void | Promise<void>) {
   const qc = useQueryClient()
   const navigate = useNavigate()
 
   return useMutation({
     mutationFn: (credentials: LoginCredentials) => login(credentials),
-    onSuccess: (user) => {
+    onSuccess: async (user) => {
       qc.setQueryData(["user"], user)
-      navigate("/projects", { replace: true })
+      if (onLoginSuccess) {
+        await onLoginSuccess(user)
+      } else {
+        navigate("/projects", { replace: true })
+      }
     },
   })
 }
