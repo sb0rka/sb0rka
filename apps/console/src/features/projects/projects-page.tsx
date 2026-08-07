@@ -13,6 +13,8 @@ import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
 import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-entrance"
 import { MobileProjectCard } from "./components/mobile-project-card"
+import { EmailVerificationDialog } from "./email-verification-dialog"
+import { initializeAccount, verifyEmailCheck } from "../auth/api"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
@@ -106,9 +108,19 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
 export function ProjectsPage() {
   const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
+  const [emailVerifiedOpen, setEmailVerifiedOpen] = useState(false)
   const [alphaToastOpen, setAlphaToastOpen] = useState(false)
   const { data, isLoading } = useProjects()
   const projects = data?.projects ?? []
+
+  async function handleEmailVerified() {
+    try {
+      await initializeAccount()
+      setEmailVerifiedOpen(false)
+    } catch (err) {
+      console.error("Account initialization failed", err)
+    }
+  }
 
   useEffect(() => {
     try {
@@ -116,6 +128,20 @@ export function ProjectsPage() {
     } catch {
       setAlphaToastOpen(true)
     }
+  }, [])
+
+  useEffect(() => {
+    async function checkEmailVerification() {
+      try {
+        const { verified } = await verifyEmailCheck()
+        setEmailVerifiedOpen(!verified)
+      } catch (err) {
+        console.error("Failed to check email verification status", err)
+        setEmailVerifiedOpen(false)
+      }
+    }
+
+    checkEmailVerification()
   }, [])
 
   return (
@@ -176,6 +202,7 @@ export function ProjectsPage() {
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <EmailVerificationDialog open={emailVerifiedOpen} onVerified={handleEmailVerified} />
 
       {alphaToastOpen ? (
         <div

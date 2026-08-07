@@ -159,6 +159,19 @@ const resources = {
           hasAccount: "Уже есть аккаунт?",
           loginLink: "Войти",
         },
+        emailVerification: {
+          title: "Подтверждение почты",
+          descriptionSending: "Отправляем код на вашу почту…",
+          descriptionWaiting: "Мы отправили код на вашу почту. Введите его ниже",
+          errorInvalidCode: "Неверный код",
+          errorGeneric: "Не удалось проверить код. Попробуйте ещё раз",
+          errorSendFailed: "Не удалось отправить код. Попробуйте ещё раз",
+          errorTooManyRequests: "Слишком много запросов. Подождите немного",
+          resendButton: "Отправить код повторно",
+          resendButtonCooldown: "Отправить повторно ({{seconds}}с)",
+          settingUpAccount: "Настраиваем ваш аккаунт…",
+          initFailed: "Не удалось завершить настройку аккаунта",
+        }
       },
       projects: {
         title: "Проекты",
@@ -620,6 +633,19 @@ const resources = {
           hasAccount: "Already have an account?",
           loginLink: "Log in",
         },
+        emailVerification: {
+          title: "Verify your email",
+          descriptionSending: "Sending the code to your email…",
+          descriptionWaiting: "We've sent a code to your email. Enter it below",
+          errorInvalidCode: "Invalid code",
+          errorGeneric: "Couldn't verify the code. Please try again",
+          errorSendFailed: "Couldn't send the code. Please try again",
+          errorTooManyRequests: "Too many requests. Please wait a moment",
+          resendButton: "Resend code",
+          resendButtonCooldown: "Resend ({{seconds}}s)",
+          settingUpAccount: "Setting up your account…",
+          initFailed: "Couldn't finish setting up your account",
+        }
       },
       projects: {
         title: "Projects",
