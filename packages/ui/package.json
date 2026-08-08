@@ -1,6 +1,6 @@
 {
   "name": "@sb0rka/ui",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "UI component library for Sb0rka projects: React components, Tailwind preset and theme CSS",
   "keywords": [
     "react",
