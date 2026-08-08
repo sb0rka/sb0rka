@@ -1,7 +1,13 @@
-name: Build UI library
+name: Release UI library
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to publish from
+        required: true
+        type: string
+        default: main
 
 permissions:
   contents: read
@@ -16,6 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch }}
           persist-credentials: false
 
       - name: Set up Node.js 22
