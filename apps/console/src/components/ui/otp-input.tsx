@@ -34,12 +34,20 @@ export function OtpInput({
     }
   }
 
+  function normilizeChars(raw: string): string {
+    return raw.toUpperCase().replace(/[^0-9A-Z]/g, "")
+  }
+
   function handleChange(index: number, raw: string) {
-    const char = raw.slice(-1)
-    if (!char) {
+    if (!raw) {
       setDigit(index, "")
       return
     }
+
+    const normalized = normilizeChars(raw.slice(-1))
+    if (!normalized) return
+
+    const char = normalized.slice(-1)
     setDigit(index, char)
     if (index < length - 1) {
       inputsRef.current[index + 1]?.focus()
@@ -70,10 +78,7 @@ export function OtpInput({
 
   function handlePaste(index: number, e: ClipboardEvent<HTMLInputElement>) {
     e.preventDefault()
-    const pasted = e.clipboardData
-      .getData("text")
-      .toUpperCase()
-      .replace(/[^0-9A-Z]/g, "")
+    const pasted = normilizeChars(e.clipboardData.getData("text"))
     if (!pasted) return
 
     const next = [...value]
@@ -109,7 +114,6 @@ export function OtpInput({
               inputsRef.current[index] = el
             }}
             type="text"
-            inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={1}
             value={value[index] ?? ""}
