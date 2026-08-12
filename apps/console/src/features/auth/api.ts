@@ -11,6 +11,17 @@ function authLog(message: string, meta?: Record<string, unknown>): void {
   console.log(`[auth-api] ${message}`)
 }
 
+interface VerifyEmailCheckResponse {
+  email: string
+  verified: boolean
+  verified_at: string | null
+}
+
+interface VerifyEmailSendResponse {
+  verification_id: string
+  expires_at: string
+}
+
 export interface User {
   id: string
   username: string
@@ -83,6 +94,33 @@ export async function continueOidcLogin(authRequestId: string): Promise<string> 
   return target.toString()
 }
 
+export async function verifyEmailCheck(): Promise<VerifyEmailCheckResponse> {
+  return apiRequest<VerifyEmailCheckResponse>({
+    path: "/identity/users/me/verifications/email",
+  })
+}
+
+export async function verifyEmailSend(): Promise<VerifyEmailSendResponse> {
+  return apiRequest<VerifyEmailSendResponse>({
+    method: "POST",
+    path: "/identity/users/me/verifications/email",
+  })
+}
+
+export async function verifyEmailConfirm(
+  verification_id: string,
+  code: string,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "POST",
+    path: "/identity/users/me/verifications/email/confirm",
+    json: {
+      verification_id,
+      code,
+    },
+  })
+}
+
 export async function initializeAccount(): Promise<void> {
   try {
     await apiRequest({
@@ -92,7 +130,8 @@ export async function initializeAccount(): Promise<void> {
     })
     authLog("account initialization success")
   } catch (err) {
-    console.warn("Account initialization skipped or already initialized:", err)
+    console.error("Account initialization failed:", err)
+    throw err
   }
 }
 
@@ -113,8 +152,6 @@ export async function login(credentials: LoginCredentials): Promise<User> {
   })
   authLog("login success; received access token")
   setToken(data.access_token)
-
-  await initializeAccount()
 
   return apiRequest<User>({ path: "/identity/users/current" })
 }

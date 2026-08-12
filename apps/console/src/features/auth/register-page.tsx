@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react"
-import { Link } from "react-router-dom"
+import { useEffect, useState, type FormEvent } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { SborkaLogo } from "@/components/logo"
 import { Button, buttonPressClass } from "@/components/ui/button"
@@ -21,6 +21,16 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [inviteCode, setInviteCode] = useState("")
   const [clientError, setClientError] = useState("")
+
+  const [searchParams] = useSearchParams()
+  const emailParam = searchParams.get("email")?.trim() || null
+  const inviteTokenParam = searchParams.get("invite_token")?.trim() || null
+
+  useEffect(() => {
+    setEmail(emailParam || "")
+    setInviteCode(inviteTokenParam || "")
+  }, [emailParam, inviteTokenParam])
+
   const signupMutation = useSignup()
 
   function handleSubmit(e: FormEvent) {
@@ -92,6 +102,7 @@ export function RegisterPage() {
                   placeholder={t("auth.register.emailPlaceholder")}
                   autoComplete="email"
                   required
+                  disabled={emailParam !== null}
                 />
               </div>
 
@@ -129,6 +140,7 @@ export function RegisterPage() {
                   onChange={(e) => setInviteCode(e.target.value)}
                   placeholder={t("auth.register.inviteCodePlaceholder")}
                   required
+                  disabled={inviteTokenParam !== null}
                 />
               </div>
 
