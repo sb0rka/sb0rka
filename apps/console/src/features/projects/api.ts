@@ -1608,6 +1608,18 @@ export interface SecretResponse {
   }
 }
 
+interface SecretVersionResponse {
+  project_id: string
+  secret_id: string
+  version_no: number
+  state: "active" | "disabled"
+  payload_kind: "text" | "json" | "binary"
+  created_by_subject_id: string
+  created_at: string
+  updated_at: string
+  disabled_at?: string
+}
+
 export interface SecretListResponse {
   project_id: string
   secrets: SecretResponse[]
@@ -1692,8 +1704,8 @@ export async function updateSecretValue(
   projectId: string,
   resourceId: string,
   data: UpdateSecretValueRequest,
-): Promise<SecretResponse> {
-  return apiRequest<SecretResponse>({
+): Promise<SecretVersionResponse> {
+  return apiRequest<SecretVersionResponse>({
     method: "POST",
     path: `/projects/${projectId}/resources/${resourceId}/secret/versions`,
     json: data,
