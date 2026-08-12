@@ -15,12 +15,65 @@ import { ApiError } from "@/lib/api-client"
 
 const RESEND_COOLDOWN_SECONDS = 60
 
+interface StoredVerification {
+  verification_id: string
+  timestamp: number
+  expires_at: string
+}
+
+function getStorageKey(userId: string) {
+  return `email-verification-${userId}`
+}
+
+function clearEmailVerificationStorage(userId: string) {
+  localStorage.removeItem(getStorageKey(userId))
+}
+
+function readStoredVerification(
+  userId: string,
+): { verificationId: string; timestamp: number; expiresAtMs: number } | null {
+  let raw: string | null
+  try {
+    raw = localStorage.getItem(getStorageKey(userId))
+  } catch {
+    return null
+  }
+
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredVerification>
+    if (
+      typeof parsed.verification_id !== "string" ||
+      typeof parsed.timestamp !== "number" ||
+      typeof parsed.expires_at !== "string"
+    )
+      return null
+
+    const expiresAtMs = new Date(parsed.expires_at).getTime()
+    if (Number.isNaN(expiresAtMs)) return null
+
+    return {
+      verificationId: parsed.verification_id,
+      timestamp: parsed.timestamp,
+      expiresAtMs,
+    }
+  } catch {
+    return null
+  }
+}
+
 interface ConfirmEmailDialogProps {
   open: boolean
+  userId: string
   onVerified: () => void | Promise<void>
 }
 
-export function EmailVerificationDialog({ open, onVerified }: ConfirmEmailDialogProps) {
+export function EmailVerificationDialog({
+  open,
+  userId,
+  onVerified,
+}: ConfirmEmailDialogProps) {
   const [verificationId, setVerificationId] = useState<string | null>(null)
   const [code, setCode] = useState<string[]>(Array(6).fill(""))
   const [error, setError] = useState<string | null>(null)
@@ -39,10 +92,14 @@ export function EmailVerificationDialog({ open, onVerified }: ConfirmEmailDialog
     setError(null)
 
     try {
-      const { verification_id: id } = await verifyEmailSend()
-      setVerificationId(id)
+      const { verification_id, expires_at } = await verifyEmailSend()
+      setVerificationId(verification_id)
       setCode(Array(6).fill(""))
       setCooldown(RESEND_COOLDOWN_SECONDS)
+      localStorage.setItem(
+        getStorageKey(userId),
+        JSON.stringify({ timestamp: Date.now(), verification_id, expires_at }),
+      )
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
         setError(t("auth.emailVerification.errorTooManyRequests"))
@@ -53,7 +110,7 @@ export function EmailVerificationDialog({ open, onVerified }: ConfirmEmailDialog
       setSending(false)
       sendInFlightRef.current = false
     }
-  }, [t])
+  }, [t, userId])
 
   async function handleVerify(fullCode: string) {
     if (!verificationId) return
@@ -61,6 +118,7 @@ export function EmailVerificationDialog({ open, onVerified }: ConfirmEmailDialog
     setError(null)
     try {
       await verifyEmailConfirm(verificationId, fullCode)
+      clearEmailVerificationStorage(userId)
       await onVerified()
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
@@ -76,12 +134,29 @@ export function EmailVerificationDialog({ open, onVerified }: ConfirmEmailDialog
 
   useEffect(() => {
     if (!open) return
+    setError(null)
+
+    const stored = readStoredVerification(userId)
+    const now = Date.now()
+
+    if (stored && new Date(stored.expiresAtMs).getTime() > now) {
+      setVerificationId(stored.verificationId)
+      setCode(Array(6).fill(""))
+      const elapsedSeconds = Math.floor((now - stored.timestamp) / 1000)
+      setCooldown(Math.max(0, RESEND_COOLDOWN_SECONDS - elapsedSeconds))
+      return
+    }
+
     setVerificationId(null)
     setCode(Array(6).fill(""))
-    setError(null)
-    setCooldown(0)
-    sendCode()
-  }, [open, sendCode])
+    if (stored) {
+      const elapsedSeconds = Math.floor((now - stored.timestamp) / 1000)
+      setCooldown(Math.max(0, RESEND_COOLDOWN_SECONDS - elapsedSeconds))
+    } else {
+      setCooldown(0)
+      sendCode()
+    }
+  }, [open, sendCode, userId])
 
   useEffect(() => {
     if (cooldown <= 0) return

@@ -15,6 +15,7 @@ import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-ent
 import { MobileProjectCard } from "./components/mobile-project-card"
 import { EmailVerificationDialog } from "./email-verification-dialog"
 import { initializeAccount, verifyEmailCheck } from "../auth/api"
+import { useAuth } from "../auth/auth-provider"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
@@ -107,6 +108,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
 
 export function ProjectsPage() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [createOpen, setCreateOpen] = useState(false)
   const [emailVerifiedOpen, setEmailVerifiedOpen] = useState(false)
   const [alphaToastOpen, setAlphaToastOpen] = useState(false)
@@ -202,7 +204,13 @@ export function ProjectsPage() {
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <EmailVerificationDialog open={emailVerifiedOpen} onVerified={handleEmailVerified} />
+      {user && (
+        <EmailVerificationDialog
+          open={emailVerifiedOpen}
+          userId={user.id}
+          onVerified={handleEmailVerified}
+        />
+      )}
 
       {alphaToastOpen ? (
         <div
