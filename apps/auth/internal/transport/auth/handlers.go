@@ -464,11 +464,13 @@ func ToAuthLoginResponse(accessToken, refreshToken string) contract.AuthLoginRes
 
 func ToUserResponse(u model.User) contract.UserResponse {
 	user := contract.UserResponse{
-		ID:        u.ID.String(),
-		Username:  u.Username,
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		ID:              u.ID.String(),
+		Username:        u.Username,
+		Email:           u.Email,
+		EmailVerifiedAt: u.EmailVerifiedAt,
+		PhoneVerifiedAt: u.PhoneVerifiedAt,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 	if u.Phone != nil {
 		p := strconv.Itoa(int(*u.Phone))

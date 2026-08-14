@@ -44,10 +44,12 @@ type UserPasswordUpdateRequest struct {
 }
 
 type UserResponse struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Phone     *string   `json:"phone,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID              string     `json:"id"`
+	Username        string     `json:"username"`
+	Email           string     `json:"email"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	Phone           *string    `json:"phone,omitempty"`
+	PhoneVerifiedAt *time.Time `json:"phone_verified_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }

@@ -15,10 +15,10 @@ github.com/jackc/puddle/v2 v2.2.2 h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo
 github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/sb0rka/sb0rka/packages/contract v0.0.9 h1:VvU3rwTitOtzFZ60zq1FRiHrVPsCaMHEnWWHLLffy18=
-github.com/sb0rka/sb0rka/packages/contract v0.0.9/go.mod h1:mRicMHPx5t59AVnV/kKuOmjuXX5IaCLPfYeLiufBxzs=
-github.com/sb0rka/sb0rka/packages/core v0.0.1 h1:BpeXgfbgk0mTiYH9KPat5kP789nQEYtynrHAYDvAjp0=
-github.com/sb0rka/sb0rka/packages/core v0.0.1/go.mod h1:HTNT89Roafw+jv5mh/fkUHWd+JGrmohzZhAoZjKtkc8=
+github.com/sb0rka/sb0rka/packages/contract v0.0.11 h1:MlO3rSdQNme0K1cWXBYbK4VRuoqfQWkhoJNpkWKURiI=
+github.com/sb0rka/sb0rka/packages/contract v0.0.11/go.mod h1:mRicMHPx5t59AVnV/kKuOmjuXX5IaCLPfYeLiufBxzs=
+github.com/sb0rka/sb0rka/packages/core v0.0.4 h1:BIpNIQtMcrowUo4f73BR8Z4jWGagAPLa9Z/X/WACxnc=
+github.com/sb0rka/sb0rka/packages/core v0.0.4/go.mod h1:Y+i4GHnhZzDZ7YJ+dHLbWvOsdw/vnUsE7NBsn1w6Qvk=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
