@@ -77,7 +77,7 @@ func (p *PsqlDB) CreateUser(ctx context.Context, userID uuid.UUID, isActive bool
 
 func (p *PsqlDB) GetUser(ctx context.Context, userID, username, email string) (model.User, error) {
 	const baseQuery = `
-		SELECT id, is_active, username, email, phone, password_hash, created_at, updated_at
+		SELECT id, is_active, username, email, email_verified_at, phone, phone_verified_at, password_hash, created_at, updated_at
 		FROM users
 	`
 
@@ -109,7 +109,9 @@ func (p *PsqlDB) GetUser(ctx context.Context, userID, username, email string) (m
 		&user.IsActive,
 		&user.Username,
 		&user.Email,
+		&user.EmailVerifiedAt,
 		&user.Phone,
+		&user.PhoneVerifiedAt,
 		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.UpdatedAt,

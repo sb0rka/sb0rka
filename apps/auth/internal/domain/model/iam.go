@@ -42,12 +42,14 @@ type BrowserSession struct {
 }
 
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	IsActive     bool      `json:"is_active"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	Phone        *int32    `json:"phone,omitempty"`
-	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	IsActive        bool       `json:"is_active"`
+	Username        string     `json:"username"`
+	Email           string     `json:"email"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	Phone           *int32     `json:"phone,omitempty"`
+	PhoneVerifiedAt *time.Time `json:"phone_verified_at,omitempty"`
+	PasswordHash    string     `json:"password_hash"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
