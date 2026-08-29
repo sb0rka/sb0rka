@@ -76,7 +76,7 @@ function AppLayoutContent() {
   const selectedSecretId = searchParams.get("secret")?.trim()
   const selectedSecret =
     selectedSecretId && activeTab === "secrets"
-      ? secretsData?.secrets.find((secret) => secret.resource_id === selectedSecretId)
+      ? secretsData?.secrets.find((secret) => secret.secret_id === selectedSecretId)
       : undefined
   const activeProjectTabHref = `/projects/${projectId}?tab=${activeTab}`
   const projectOverviewHref = `/projects/${projectId}?tab=overview`
