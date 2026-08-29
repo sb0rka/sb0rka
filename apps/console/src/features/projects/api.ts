@@ -86,6 +86,7 @@ export interface CreateSecretRequest {
   name: string
   description?: string
   secret_value: string
+  payload_kind: "text" | "json"
 }
 
 export interface UpdateDatabaseRequest {
@@ -1582,18 +1583,54 @@ export async function resolveOptimalSql(
 }
 
 export interface SecretResponse {
-  resource_id: string
+  project_id: string
+  secret_id: string
   name: string
   description?: string
-  revealed_at?: string
+  payload_kind: "text" | "json"
+  protection_class: "server_managed"
+  current_version_no: number
+  created_by_subject_id: string
+  created_at: string
+  updated_at: string
+  scheduled_destroy_at?: string
+  resource_state?: {
+    runtime_state: string
+    created_at: string
+    updated_at: string
+  }
+  tags?: TagResponse[]
+  password_verifier?: {
+    password_desired_version: number
+    password_desired_state: "present" | "absent"
+    created_at: string
+    updated_at: string
+  }
+}
+
+interface SecretVersionResponse {
+  project_id: string
+  secret_id: string
+  version_no: number
+  state: "active" | "disabled"
+  payload_kind: "text" | "json" | "binary"
+  created_by_subject_id: string
+  created_at: string
+  updated_at: string
+  disabled_at?: string
 }
 
 export interface SecretListResponse {
+  project_id: string
   secrets: SecretResponse[]
 }
 
 export interface RevealSecretValueResponse {
-  secret_value: string
+  project_id: string
+  secret_id: string
+  version_no: number
+  payload_kind: string
+  value: string
 }
 
 export interface AttachResourceTagRequest {
@@ -1667,10 +1704,10 @@ export async function updateSecretValue(
   projectId: string,
   resourceId: string,
   data: UpdateSecretValueRequest,
-): Promise<SecretResponse> {
-  return apiRequest<SecretResponse>({
-    method: "PATCH",
-    path: `/projects/${projectId}/resources/${resourceId}/secret`,
+): Promise<SecretVersionResponse> {
+  return apiRequest<SecretVersionResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${resourceId}/secret/versions`,
     json: data,
     base: "resource",
   })
@@ -1681,7 +1718,16 @@ export async function revealSecretValue(
   resourceId: string,
 ): Promise<RevealSecretValueResponse> {
   return apiRequest<RevealSecretValueResponse>({
-    path: `/projects/${projectId}/resources/${resourceId}/reveal`,
+    method: "POST",
+    path: `/projects/${projectId}/resources/${resourceId}/secret/reveal`,
+    base: "resource",
+  })
+}
+
+export async function deleteSecret(projectId: string, resourceId: string): Promise<void> {
+  return apiRequest<void>({
+    method: "DELETE",
+    path: `/projects/${projectId}/resources/${resourceId}/secret`,
     base: "resource",
   })
 }

@@ -25,6 +25,7 @@ import {
   listResources,
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
+  deleteSecret,
 } from "./api"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
@@ -564,6 +565,18 @@ export function useRevealSecretValue(projectId: string, resourceId?: string) {
     mutationFn: () => revealSecretValue(projectId, resourceId as string),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+    },
+  })
+}
+
+export function useDeleteSecret(projectId: string, resourceId?: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => deleteSecret(projectId, resourceId as string),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"]})
     },
   })
 }

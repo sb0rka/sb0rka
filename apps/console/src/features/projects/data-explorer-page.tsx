@@ -145,12 +145,12 @@ export function DataExplorerPage() {
       }
 
       const [openaiUrlResponse, openaiKeyResponse] = await Promise.all([
-        revealSecretValue(id, openaiUrlSecret.resource_id),
-        revealSecretValue(id, openaiKeySecret.resource_id),
+        revealSecretValue(id, openaiUrlSecret.secret_id),
+        revealSecretValue(id, openaiKeySecret.secret_id),
       ])
 
-      const openaiUrl = openaiUrlResponse.secret_value.trim()
-      const openaiKey = openaiKeyResponse.secret_value.trim()
+      const openaiUrl = openaiUrlResponse.value.trim()
+      const openaiKey = openaiKeyResponse.value.trim()
       if (!openaiUrl || !openaiKey) {
         throw new Error("Secrets LLM_BASE_URL/LLM_API_KEY must not be empty")
       }
