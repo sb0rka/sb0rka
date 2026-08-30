@@ -30,6 +30,7 @@ Build: `go build -o bin/auth ./apps/auth/cmd/auth`. Local stack — `docker-comp
 | `POST /auth/login` | Login → `access_token` + refresh cookie |
 | `POST /auth/refresh` | Refresh the access token via the refresh cookie |
 | `POST /auth/agent-tokens/investigation` | Issue an investigation-scoped JWT for remote MCP |
+| `POST /auth/agent-tokens/exchange` | Internal agent-to-access token exchange for `ir-api` |
 | `POST /auth/logout` | Log out (revoke the session) |
 | `GET /auth/subject` | Current subject from the token |
 | `GET /auth/sessions`, `DELETE /auth/sessions[/{id}]` | List/revoke sessions |
@@ -45,6 +46,7 @@ Build: `go build -o bin/auth ./apps/auth/cmd/auth`. Local stack — `docker-comp
 | `SERVER_ADDR` / `SERVER_PORT` | `localhost` / `8020` | address and port |
 | `DATABASE_URI` | `postgres://…/auth` | DB connection (schema `auth`) |
 | `PLATFORM_API_BASE_URL` | — | Platform API used to check project membership before issuing an agent JWT |
+| `INVESTIGATION_AGENT_EXCHANGE_CLIENT_ID` / `…_CLIENT_SECRET` | — | confidential `ir-api` client for the backend-only exchange; both are required together and the secret is at least 32 bytes |
 | `ACCESS_TOKEN_PRIVATE_KEY` / `…_FILE_PATH` | — | Ed25519 signing key (shared with `api`) |
 | `ACCESS_TOKEN_ISSUER` / `…_AUDIENCE` / `…_KID` | `auth.local` / `api.local` / `ed25519-v1` | token claims |
 | `ACCESS_TOKEN_TTL_SEC` / `ACCESS_SESSION_TTL_SEC` | `300` / `604800` | access token and session TTL |

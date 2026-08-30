@@ -87,6 +87,8 @@ services:
       SERVER_PORT: "8020"
       SERVER_CORS_WHITELIST: "*"
       PLATFORM_API_BASE_URL: "http://api:8080"
+      INVESTIGATION_AGENT_EXCHANGE_CLIENT_ID: "${INVESTIGATION_AGENT_EXCHANGE_CLIENT_ID:-ir-api}"
+      INVESTIGATION_AGENT_EXCHANGE_CLIENT_SECRET: "${INVESTIGATION_AGENT_EXCHANGE_CLIENT_SECRET:-local-investigation-agent-exchange-secret-2026}"
       # Та же БД, что у api: схема auth (search_path api,auth,public) — api зовёт auth.is_live_session.
       DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
       # Тот же ключ, что проверяет api: auth подписывает, api верифицирует.

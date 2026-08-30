@@ -30,6 +30,7 @@ go run ./apps/auth/cmd/auth server
 | `POST /auth/login` | Логин → `access_token` + refresh-cookie |
 | `POST /auth/refresh` | Обновить access-токен по refresh-cookie |
 | `POST /auth/agent-tokens/investigation` | Выпустить investigation-scoped JWT для удалённого MCP |
+| `POST /auth/agent-tokens/exchange` | Внутренний обмен agent JWT на короткий access JWT для `ir-api` |
 | `POST /auth/logout` | Выйти (отозвать сессию) |
 | `GET /auth/subject` | Текущий субъект из токена |
 | `GET /auth/sessions`, `DELETE /auth/sessions[/{id}]` | Список/отзыв сессий |
@@ -45,6 +46,7 @@ go run ./apps/auth/cmd/auth server
 | `SERVER_ADDR` / `SERVER_PORT` | `localhost` / `8020` | адрес и порт |
 | `DATABASE_URI` | `postgres://…/auth` | подключение к БД (схема `auth`) |
 | `PLATFORM_API_BASE_URL` | — | Platform API для проверки project membership перед выпуском agent JWT |
+| `INVESTIGATION_AGENT_EXCHANGE_CLIENT_ID` / `…_CLIENT_SECRET` | — | confidential client `ir-api` для backend-only exchange; обе переменные обязательны вместе, secret ≥32 bytes |
 | `ACCESS_TOKEN_PRIVATE_KEY` / `…_FILE_PATH` | — | Ed25519-ключ подписи (общий с `api`) |
 | `ACCESS_TOKEN_ISSUER` / `…_AUDIENCE` / `…_KID` | `auth.local` / `api.local` / `ed25519-v1` | claims токена |
 | `ACCESS_TOKEN_TTL_SEC` / `ACCESS_SESSION_TTL_SEC` | `300` / `604800` | TTL access-токена и сессии |

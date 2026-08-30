@@ -131,6 +131,10 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load OIDC configuration: %w", err)
 	}
+	agentExchangeConfig, err := loadOptionalInvestigationAgentExchangeConfig()
+	if err != nil {
+		return nil, fmt.Errorf("load investigation agent exchange configuration: %w", err)
+	}
 
 	cfg = Config{
 		Logger: LoggerConfig{
@@ -143,10 +147,11 @@ func Load() (*Config, error) {
 			ConnMaxLifetime: databaseConnMaxLifetime,
 		},
 		Server: ServerConfig{
-			Addr:               serverAddr,
-			Port:               fmt.Sprintf("%d", serverPort),
-			OIDC:               oidcConfig,
-			PlatformAPIBaseURL: platformAPIBaseURL,
+			Addr:                       serverAddr,
+			Port:                       fmt.Sprintf("%d", serverPort),
+			OIDC:                       oidcConfig,
+			InvestigationAgentExchange: agentExchangeConfig,
+			PlatformAPIBaseURL:         platformAPIBaseURL,
 
 			IsPhoneRequired: isPhoneRequired,
 

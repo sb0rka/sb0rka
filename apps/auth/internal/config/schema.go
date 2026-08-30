@@ -40,9 +40,10 @@ type AuthConfig struct {
 }
 
 type ServerConfig struct {
-	Addr string
-	Port string
-	OIDC *OIDCConfig
+	Addr                       string
+	Port                       string
+	OIDC                       *OIDCConfig
+	InvestigationAgentExchange *InvestigationAgentExchangeConfig
 
 	PlatformAPIBaseURL string
 
@@ -52,6 +53,11 @@ type ServerConfig struct {
 	CORSAllowedDefaultMethods string
 
 	AuthConfig AuthConfig
+}
+
+type InvestigationAgentExchangeConfig struct {
+	ClientID     string
+	ClientSecret []byte
 }
 
 type Config struct {
