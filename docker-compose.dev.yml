@@ -86,6 +86,7 @@ services:
       SERVER_ADDR: "0.0.0.0"
       SERVER_PORT: "8020"
       SERVER_CORS_WHITELIST: "*"
+      PLATFORM_API_BASE_URL: "http://api:8080"
       # Та же БД, что у api: схема auth (search_path api,auth,public) — api зовёт auth.is_live_session.
       DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
       # Тот же ключ, что проверяет api: auth подписывает, api верифицирует.
@@ -94,6 +95,7 @@ services:
       ACCESS_TOKEN_AUDIENCE: "api.local"
       ACCESS_TOKEN_KID: "ed25519-v1"
       # refresh-cookie для локального http (не secure)
+      REFRESH_TOKEN_COOKIE_NAME: "dev-refresh-token"
       REFRESH_TOKEN_COOKIE_SECURE: "false"
       REFRESH_TOKEN_COOKIE_SAMESITE: "0"
     volumes:

@@ -13,10 +13,14 @@ COPY packages/core ./packages/core
 
 WORKDIR /src/apps/api
 
-RUN go mod download
+RUN go mod edit \
+    -replace github.com/sb0rka/sb0rka/packages/contract=/src/packages/contract \
+    -replace github.com/sb0rka/sb0rka/packages/core=/src/packages/core && \
+    go mod download
 
 COPY apps/api/cmd ./cmd
 COPY apps/api/internal ./internal
+COPY apps/api/pkg ./pkg
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api

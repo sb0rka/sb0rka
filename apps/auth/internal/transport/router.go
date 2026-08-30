@@ -37,6 +37,7 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 	// Auth endpoints
 	mux.HandleFunc("POST /auth/login", s.auth.AuthLogin)
 	mux.HandleFunc("POST /auth/refresh", s.auth.AuthRefresh)
+	mux.Handle("POST /auth/agent-tokens/investigation", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.issueInvestigationAgentToken))))
 	mux.Handle("POST /auth/logout", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.AuthLogout))))
 	mux.Handle("GET /auth/subject", s.authMiddleware(http.HandlerFunc(s.auth.AuthGetSubject)))
 	mux.Handle("GET /auth/sessions", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.AuthSessionsList))))

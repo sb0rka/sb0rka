@@ -23,6 +23,7 @@ const (
 	DefaultServerAddr                = "localhost"
 	DefaultServerPort                = 8080
 	DefaultCORSAllowedDefaultMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS"
+	DefaultPlatformAPIBaseURL        = ""
 
 	DefaultIsPhoneRequired bool = false
 
@@ -63,6 +64,7 @@ func Load() (*Config, error) {
 
 	serverAddr := coreconfig.GetStringEnv("SERVER_ADDR", DefaultServerAddr)
 	serverPort := coreconfig.GetIntEnv("SERVER_PORT", DefaultServerPort)
+	platformAPIBaseURL := strings.TrimRight(coreconfig.GetStringEnv("PLATFORM_API_BASE_URL", DefaultPlatformAPIBaseURL), "/")
 	isPhoneRequired := coreconfig.GetBoolEnv("IS_PHONE_REQUIRED", DefaultIsPhoneRequired)
 
 	corsWhitelist := coreconfig.ParseCORSWhitelist(os.Getenv("SERVER_CORS_WHITELIST"))
@@ -141,9 +143,10 @@ func Load() (*Config, error) {
 			ConnMaxLifetime: databaseConnMaxLifetime,
 		},
 		Server: ServerConfig{
-			Addr: serverAddr,
-			Port: fmt.Sprintf("%d", serverPort),
-			OIDC: oidcConfig,
+			Addr:               serverAddr,
+			Port:               fmt.Sprintf("%d", serverPort),
+			OIDC:               oidcConfig,
+			PlatformAPIBaseURL: platformAPIBaseURL,
 
 			IsPhoneRequired: isPhoneRequired,
 

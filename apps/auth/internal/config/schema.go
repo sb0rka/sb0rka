@@ -44,6 +44,8 @@ type ServerConfig struct {
 	Port string
 	OIDC *OIDCConfig
 
+	PlatformAPIBaseURL string
+
 	IsPhoneRequired bool
 
 	CORSWhitelist             map[string]bool

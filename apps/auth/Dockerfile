@@ -13,7 +13,10 @@ COPY packages/core ./packages/core
 
 WORKDIR /src/apps/auth
 
-RUN go mod download
+RUN go mod edit \
+    -replace github.com/sb0rka/sb0rka/packages/contract=/src/packages/contract \
+    -replace github.com/sb0rka/sb0rka/packages/core=/src/packages/core && \
+    go mod download
 
 COPY apps/auth/cmd ./cmd
 COPY apps/auth/internal ./internal
