@@ -134,6 +134,10 @@ const resources = {
           fallbackError: "Не удалось войти, попробуйте снова",
           noAccount: "Нет аккаунта?",
           registerLink: "Создать",
+          continuing: "Возвращаем в приложение…",
+          continuingDescription: "Завершаем вход и перенаправляем обратно",
+          continueError: "Не удалось завершить вход",
+          continueRetry: "Повторить",
         },
         register: {
           title: "Регистрация",
@@ -155,6 +159,19 @@ const resources = {
           hasAccount: "Уже есть аккаунт?",
           loginLink: "Войти",
         },
+        emailVerification: {
+          title: "Подтверждение почты",
+          descriptionSending: "Отправляем код на вашу почту…",
+          descriptionWaiting: "Мы отправили код на вашу почту. Введите его ниже",
+          errorInvalidCode: "Неверный код",
+          errorGeneric: "Не удалось проверить код. Попробуйте ещё раз",
+          errorSendFailed: "Не удалось отправить код. Попробуйте ещё раз",
+          errorTooManyRequests: "Слишком много запросов. Подождите немного",
+          resendButton: "Отправить код",
+          resendButtonCooldown: "Отправить повторно ({{seconds}}с)",
+          settingUpAccount: "Настраиваем ваш аккаунт…",
+          initFailed: "Не удалось завершить настройку аккаунта",
+        }
       },
       projects: {
         title: "Проекты",
@@ -591,6 +608,10 @@ const resources = {
           fallbackError: "Unable to log in, please try again",
           noAccount: "No account?",
           registerLink: "Create one",
+          continuing: "Returning to the application…",
+          continuingDescription: "Finishing sign-in and redirecting you back",
+          continueError: "Could not finish sign-in",
+          continueRetry: "Try again",
         },
         register: {
           title: "Create account",
@@ -612,6 +633,19 @@ const resources = {
           hasAccount: "Already have an account?",
           loginLink: "Log in",
         },
+        emailVerification: {
+          title: "Verify your email",
+          descriptionSending: "Sending the code to your email…",
+          descriptionWaiting: "We've sent a code to your email. Enter it below",
+          errorInvalidCode: "Invalid code",
+          errorGeneric: "Couldn't verify the code. Please try again",
+          errorSendFailed: "Couldn't send the code. Please try again",
+          errorTooManyRequests: "Too many requests. Please wait a moment",
+          resendButton: "Send code",
+          resendButtonCooldown: "Resend ({{seconds}}s)",
+          settingUpAccount: "Setting up your account…",
+          initFailed: "Couldn't finish setting up your account",
+        }
       },
       projects: {
         title: "Projects",

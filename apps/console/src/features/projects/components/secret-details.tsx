@@ -28,7 +28,7 @@ import { Label } from "@/components/ui/label"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
   useAttachResourceTag,
-  useDeactivateResource,
+  useDeleteSecret,
   useResourceTags,
   useSecretValue,
   useUpdateSecretValue,
@@ -68,7 +68,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
   const secretValueQuery = useSecretValue(projectId, secret.id)
-  const deactivateResource = useDeactivateResource(projectId, secret.id)
+  const deleteSecret = useDeleteSecret(projectId, secret.id)
   const updateSecretValue = useUpdateSecretValue(projectId)
 
   const [isValueVisible, setIsValueVisible] = useState(false)
@@ -92,19 +92,19 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       return
     }
 
-    const value = secretValueQuery.data?.secret_value
+    const value = secretValueQuery.data?.value
     if (value) {
       setIsValueVisible(true)
       return
     }
 
     void secretValueQuery.refetch().then((result) => {
-      if (result.data?.secret_value) setIsValueVisible(true)
+      if (result.data?.value) setIsValueVisible(true)
     })
   }
 
   async function handleCopySecretValue() {
-    const value = secretValueQuery.data?.secret_value
+    const value = secretValueQuery.data?.value
     if (!value || secretValueQuery.isFetching) return
     try {
       await navigator.clipboard.writeText(value)
@@ -145,7 +145,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   }
 
   async function handleDeleteSecret() {
-    if (deactivateResource.isPending) return
+    if (deleteSecret.isPending) return
 
     const infoNode = (
       <div className="flex flex-col items-center gap-3 px-6">
@@ -167,7 +167,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     if (!confirmed) return
 
     try {
-      await deactivateResource.mutateAsync()
+      await deleteSecret.mutateAsync()
       showSuccess(t("secrets.deleted"))
       onClose()
     } catch (error) {
@@ -176,7 +176,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   }
 
   const maskedValue = "•••••••••••••••••••••••"
-  const plaintext = secretValueQuery.data?.secret_value
+  const plaintext = secretValueQuery.data?.value
   const displayedValue = isValueVisible && plaintext ? plaintext : maskedValue
   const revealErrorMessage = secretValueQuery.isError
     ? getErrorMessage(secretValueQuery.error, t("secrets.revealError"))
@@ -289,9 +289,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               className="self-start"
               variant="delete"
               onClick={() => void handleDeleteSecret()}
-              disabled={deactivateResource.isPending}
+              disabled={deleteSecret.isPending}
             >
-              {deactivateResource.isPending ? t("common.deleting") : t("secrets.deleteButton")}
+              {deleteSecret.isPending ? t("common.deleting") : t("secrets.deleteButton")}
             </Button>
           </div>
         </CardFooter>
