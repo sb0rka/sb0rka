@@ -87,6 +87,7 @@ export function SecretsTab({
         name: newSecretName.trim(),
         description: newSecretDescription.trim() || undefined,
         secret_value: newSecretValue.trim(),
+        payload_kind: "text"
       })
       handleCreateDialogOpenChange(false)
       showSuccess(t("secrets.createSuccess"))

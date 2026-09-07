@@ -25,7 +25,6 @@ export interface SecretRow {
   columnsCount: string
   createdAt: string
   updatedAt: string
-  revealedAt?: string
 }
 
 export interface CreateDatabaseFormState {
