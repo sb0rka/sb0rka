@@ -8,12 +8,11 @@ import {
   type ReactNode,
 } from "react"
 import { useTranslation } from "react-i18next"
-import { CheckCircle2, CircleAlert, CircleX, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { CheckCircle2, CircleAlert, CircleX } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CloseButton } from "./ui/close-button"
 
 const TOAST_DURATION_MS = 4500
-const ERROR_TOAST_DURATION_MS = 6000
 
 type ToastType = "success" | "error" | "warning"
 
@@ -47,16 +46,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const show = useCallback(
-    (type: ToastType, message: string) => {
+    (type: ToastType, message: string, isPersistent = false) => {
       const id = idRef.current++
       setToasts(prev => [...prev, { id, type, message }])
-      const duration = type === "error" ? ERROR_TOAST_DURATION_MS : TOAST_DURATION_MS
-      const timeout = setTimeout(() => dismiss(id), duration)
+      if (isPersistent) return
+      const timeout = setTimeout(() => dismiss(id), TOAST_DURATION_MS)
       timeoutsRef.current.set(id, timeout)
     }, [dismiss])
 
   const showSuccess = useCallback((message: string) => show("success", message), [show])
-  const showError = useCallback((message: string) => show("error", message), [show])
+  const showError = useCallback((message: string) => show("error", message, true), [show])
   const showWarning = useCallback((message: string) => show("warning", message), [show])
 
   const value = useMemo(() => ({ showSuccess, showError, showWarning }), [showSuccess, showError, showWarning])
@@ -92,16 +91,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 aria-hidden
               />}
             <p className="min-w-0 flex-1 text-[13px] font-medium leading-5">{toast.message}</p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+            <CloseButton
               onClick={() => dismiss(toast.id)}
               aria-label={t("common.a11y.dismissToast")}
-            >
-              <X className="size-4" />
-            </Button>
+            />
           </div>
         )}
       </div>

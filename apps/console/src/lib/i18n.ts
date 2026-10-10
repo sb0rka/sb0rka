@@ -78,6 +78,7 @@ const resources = {
             "Тег в формате ключ:значение или одно значение без ключа",
         },
         a11y: {
+          close: "Закрыть",
           dismissToast: "Закрыть уведомление",
         },
       },
@@ -552,6 +553,7 @@ const resources = {
           tagFormat: "Use key:value or a single value without a key",
         },
         a11y: {
+          close: "Close",
           dismissToast: "Dismiss notification",
         },
       },
