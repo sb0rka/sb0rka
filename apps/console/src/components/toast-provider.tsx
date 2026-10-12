@@ -192,7 +192,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 "overflow-y-auto overscroll-contain [scrollbar-width:none]",
               )}
             >
-              {toasts.map((toast, index) => (
+              {toasts.map(toast => (
                 <div
                   key={toast.id}
                   role="status"
@@ -218,7 +218,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
                       aria-hidden
                     />}
-                  <p className="min-w-0 flex-1 text-[13px] font-medium leading-5">{toast.message} {index}</p>
+                  <p className="min-w-0 flex-1 text-[13px] font-medium leading-5">{toast.message}</p>
                   <CloseButton
                     onClick={() => dismiss(toast.id)}
                     aria-label={t("common.a11y.dismissToast")}
