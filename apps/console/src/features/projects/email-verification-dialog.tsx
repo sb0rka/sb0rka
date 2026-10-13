@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { verifyEmailConfirm, verifyEmailSend } from "../auth/api"
 import { OtpInput } from "@/components/ui/otp-input"
 import { ApiError } from "@/lib/api-client"

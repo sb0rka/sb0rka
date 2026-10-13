@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useRunDatabaseQuery } from "../hooks"

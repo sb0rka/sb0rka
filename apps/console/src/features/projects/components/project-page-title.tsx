@@ -2,7 +2,7 @@ import { useCallback, useState } from "react"
 import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import type { ProjectResponse } from "../api"
 
 interface ProjectPageTitleProps {

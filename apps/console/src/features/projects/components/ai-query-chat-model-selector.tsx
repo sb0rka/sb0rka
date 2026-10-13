@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import { ArrowUpDown, Check, ChevronDown, RefreshCw, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,

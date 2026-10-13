@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { useAutoScrollOnContentChange } from "./use-auto-scroll-on-content-change"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { cn } from "@/lib/utils"
 import { type AiQueryChatThinkingMessage } from "../use-ai-query-chat"
 import {

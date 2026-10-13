@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CircleDollarSign } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import {

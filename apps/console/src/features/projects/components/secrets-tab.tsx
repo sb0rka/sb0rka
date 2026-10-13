@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,

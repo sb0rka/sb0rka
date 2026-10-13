@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ArrowUp, ChevronRight, Loader2, MessagesSquare } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Textarea } from "@/components/ui/textarea"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {

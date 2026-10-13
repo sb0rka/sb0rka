@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Sun, Moon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useTheme } from "@/components/theme-provider"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 
 const iconTransition = {
   duration: 0.45,

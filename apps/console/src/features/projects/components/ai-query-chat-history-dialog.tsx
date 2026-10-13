@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Bookmark, ClipboardPaste, Clock3, Loader2, Play, Star, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"

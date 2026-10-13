@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { useToast } from "@/components/toast-provider"
 import { useTranslation } from "react-i18next"

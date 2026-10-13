@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ArrowUp, Square } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { type OpenAiModelInfo } from "../api"

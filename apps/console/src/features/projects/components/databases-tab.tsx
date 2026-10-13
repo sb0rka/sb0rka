@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { LayoutGrid, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import {
   Card,
   CardContent,
