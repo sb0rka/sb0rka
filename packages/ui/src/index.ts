@@ -13,6 +13,7 @@ export * from "./components/ui/tabs"
 export * from "./components/ui/textarea"
 export * from "./components/ui/tooltip"
 
+export * from "./components/a11y-labels"
 export * from "./components/language-switcher"
 export * from "./components/theme-provider"
 export * from "./components/toast-provider"
