@@ -2,10 +2,12 @@ import { createContext, useContext, useMemo, type ReactNode } from "react"
 
 export interface A11yLabels {
   close: string
+  dismissToast: string
 }
 
 const defaultA11yLabels: A11yLabels = {
   close: "Close",
+  dismissToast: "Dismiss Toast",
 }
 
 const A11yLabelsContext = createContext<A11yLabels>(defaultA11yLabels)
@@ -20,7 +22,9 @@ export function A11yLabelsProvider({
   labels,
 }: A11yLabelsProviderProps) {
   const close = labels?.close ?? defaultA11yLabels.close
-  const value = useMemo(() => ({ close }), [close])
+  const dismissToast = labels?.dismissToast ?? defaultA11yLabels.dismissToast
+
+  const value = useMemo(() => ({ close, dismissToast }), [close, dismissToast])
 
   return (
     <A11yLabelsContext.Provider value={value}>
