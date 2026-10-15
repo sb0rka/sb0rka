@@ -11,22 +11,23 @@ import {
   PanelLeft,
   Settings,
 } from "lucide-react"
-import { Button, buttonPressClass } from "@/components/ui/button"
 import {
+  Button,
+  buttonPressClass,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
+  Separator,
+} from "@sb0rka/ui"
 import { useProject, useProjects } from "@/features/projects/hooks"
 import {
   ProjectNavLink,
   type ProjectNavIconAnimation,
 } from "@/components/layout/project-nav-icon"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
-import { cn } from "@/lib/utils"
 import {
   dividerClass,
   navIconClass,

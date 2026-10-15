@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { CheckCircle2, CircleAlert, CircleX } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 import { CloseButton } from "./ui/close-button"
 
 const TOAST_DURATION_MS = 4500

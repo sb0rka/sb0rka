@@ -7,7 +7,7 @@ import {
   slideInItemVariants,
   usageBarTransition,
 } from "@/lib/motion"
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 
 interface PageStaggerProps {
   children: ReactNode

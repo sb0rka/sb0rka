@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@sb0rka/ui"
 import { UsageProgressBar } from "@/components/motion/page-entrance"
 import type { PlanResponse } from "@/features/subscription/api"
 

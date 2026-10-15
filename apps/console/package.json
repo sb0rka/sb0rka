@@ -21,6 +21,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@sb0rka/ui": "^0.0.4",
     "@tanstack/react-query": "^5.99.0",
     "autoprefixer": "^10.5.0",
     "class-variance-authority": "^0.7.1",

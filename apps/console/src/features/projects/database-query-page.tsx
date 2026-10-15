@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
-import { Button } from "@/components/ui/button"
+import { Button } from "@sb0rka/ui"
 import { DatabaseQueryPanel } from "./components/database-query-panel"
 import { useDatabase } from "./hooks"
 

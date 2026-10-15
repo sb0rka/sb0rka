@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
+  OtpInput,
+} from "@sb0rka/ui"
 import { verifyEmailConfirm, verifyEmailSend } from "../auth/api"
-import { OtpInput } from "@/components/ui/otp-input"
 import { ApiError } from "@/lib/api-client"
 
 const RESEND_COOLDOWN_SECONDS = 60

@@ -10,7 +10,7 @@ import {
   messagesAutoScrollKey,
   useAutoScrollOnContentChange,
 } from "./use-auto-scroll-on-content-change"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@sb0rka/ui"
 import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatMessageListProps = {

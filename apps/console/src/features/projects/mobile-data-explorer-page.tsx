@@ -14,23 +14,21 @@ import {
   X,
 } from "lucide-react"
 import { ApiError } from "@/lib/api-client"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
+  cn,
   Dialog,
   DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+  Textarea,
+} from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
   OPENAI_DEFAULT_MODEL,

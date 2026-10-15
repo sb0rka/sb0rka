@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { SborkaLogo } from "@/components/logo"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {
+  Button,
+  buttonPressClass,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  cn,
+  Input,
+  Label,
+  SborkaLogo,
+} from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { cn } from "@/lib/utils"
+import { ThemeToggle } from "@sb0rka/ui"
 import { useLogin } from "./hooks"
 import { continueOidcLogin, getOidcAuthRequestId } from "./api"
 import { useAuth } from "./auth-provider"

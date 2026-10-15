@@ -1,7 +1,9 @@
 import { useId } from "react"
 import { AlertCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import {
+  Button,
+  cn,
+} from "@sb0rka/ui"
 
 export type DataExplorerQueryErrorProps = {
   title: string

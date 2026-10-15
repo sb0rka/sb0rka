@@ -1,4 +1,4 @@
-import { TabsContent } from "@/components/ui/tabs"
+import { TabsContent } from "@sb0rka/ui"
 import { DataExplorerPage } from "../data-explorer-page"
 
 export function DataExplorerTab() {

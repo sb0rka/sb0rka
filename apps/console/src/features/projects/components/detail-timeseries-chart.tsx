@@ -11,8 +11,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { buttonPressClass } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import {
+  buttonPressClass,
+  cn,
+} from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 

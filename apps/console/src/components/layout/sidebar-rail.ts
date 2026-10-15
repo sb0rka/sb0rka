@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 
 export const railTransitionClass = "transition-[width] duration-[400ms] ease-out"
 

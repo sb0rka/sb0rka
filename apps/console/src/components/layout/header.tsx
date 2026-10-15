@@ -1,21 +1,22 @@
 import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { LanguageSwitcher } from "@/components/language-switcher"
 import {
+  Badge,
+  Button,
+  buttonPressClass,
+  cn,
+  ThemeToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Separator,
+} from "@sb0rka/ui"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 interface BreadcrumbItem {
   label: string
