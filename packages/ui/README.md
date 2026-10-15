@@ -39,12 +39,16 @@ For monorepo development against the workspace sources, use `contentWorkspace` f
 
 ### 2. Theme CSS
 
-Import the CSS variables and base styles once, e.g. in your entry point. `base.css` uses `@apply`, so it must go through your Tailwind/PostCSS pipeline (this is the default in a Vite app):
+Import the CSS variables and base styles once, at the top of the stylesheet that contains the `@tailwind` directives. `base.css` uses `@layer` and `@apply`, so Tailwind has to see it in the same PostCSS root as `@tailwind base`. A JavaScript `import` compiles that file on its own and fails with `` `@layer base` is used but no matching `@tailwind base` directive is present ``.
 
-```ts
-// main.tsx
-import "@sb0rka/ui/variables.css"
-import "@sb0rka/ui/base.css"
+```css
+/* index.css */
+@import "@sb0rka/ui/variables.css";
+@import "@sb0rka/ui/base.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 ```
 
 ## Usage
