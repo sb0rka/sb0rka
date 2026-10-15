@@ -5,10 +5,10 @@ import { queryClient } from "@/lib/query-client"
 import {
   A11yLabelsProvider,
   ThemeProvider,
+  ToastProvider,
   TooltipProvider,
 } from "@sb0rka/ui"
 import { ConfirmDialogProvider } from "@/components/confirm-dialog-provider"
-import { ToastProvider } from "@/components/toast-provider"
 import { AuthProvider, RequireAuth } from "@/features/auth/auth-provider"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProjectsPage } from "@/features/projects/projects-page"
@@ -34,6 +34,7 @@ export default function App() {
             labels={{
               close: t("common.a11y.close"),
               dismissToast: t("common.a11y.dismissToast"),
+              toggleTheme: t("header.toggleTheme"),
             }}
           >
             <TooltipProvider delayDuration={300}>

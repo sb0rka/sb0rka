@@ -22,7 +22,7 @@ import {
   Label,
 } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
   useAttachResourceTag,

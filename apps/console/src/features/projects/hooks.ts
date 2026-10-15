@@ -50,7 +50,7 @@ import type {
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
 } from "./api"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 
 const PROJECTS_KEY = ["projects"] as const
 const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000

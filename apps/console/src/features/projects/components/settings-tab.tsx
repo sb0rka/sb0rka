@@ -13,7 +13,7 @@ import {
   TabsContent,
 } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import { useDeactivateProject, useUpdateProject } from "../hooks"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"

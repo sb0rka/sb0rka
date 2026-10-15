@@ -33,7 +33,7 @@ import type { CreateSecretRequest, DatabaseResponse } from "./api"
 import { parseDraftTag } from "./parse-draft-tag"
 import { PageStagger } from "@/components/motion/page-entrance"
 import { isProjectTab, type ProjectTab } from "./project-tabs"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 
 function useMdUp() {
   return useSyncExternalStore(

@@ -8,9 +8,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  OtpInput,
 } from "@sb0rka/ui"
 import { verifyEmailConfirm, verifyEmailSend } from "../auth/api"
-import { OtpInput } from "@/components/ui/otp-input"
 import { ApiError } from "@/lib/api-client"
 
 const RESEND_COOLDOWN_SECONDS = 60

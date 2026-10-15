@@ -23,7 +23,7 @@ import type { SecretRow } from "./project-detail-tab-types"
 import { SecretDetails } from "./secret-details"
 import { SecretDetailsTable } from "./secret-details-table"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 
 interface SecretsTabProps {
   projectId: string

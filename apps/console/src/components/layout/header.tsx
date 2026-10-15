@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import {
@@ -9,6 +8,7 @@ import {
   Button,
   buttonPressClass,
   cn,
+  ThemeToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,

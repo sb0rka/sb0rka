@@ -33,7 +33,7 @@ import type {
   CreateDatabaseFormState,
   DatabaseRow,
 } from "./project-detail-tab-types"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 
 const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
 const DISK_USAGE_RATE_STALE_MS = 1000 * 60 * 5

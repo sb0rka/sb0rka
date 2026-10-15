@@ -18,7 +18,7 @@ import {
 } from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 import { AddTagDialog } from "./components/add-tag-dialog"
 import {
   useDatabase,
