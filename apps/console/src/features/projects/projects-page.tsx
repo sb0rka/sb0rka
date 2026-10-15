@@ -14,7 +14,7 @@ import {
   cn,
   FloatingHint,
 } from "@sb0rka/ui"
-import { ToastPinned } from "@/components/toast-provider"
+import { ToastPinned } from "@sb0rka/ui"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"

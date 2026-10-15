@@ -16,7 +16,7 @@ import {
   SborkaLogo,
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemeToggle } from "@sb0rka/ui"
 import { useSignup } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"

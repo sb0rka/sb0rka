@@ -16,7 +16,7 @@ import {
   SborkaLogo,
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemeToggle } from "@sb0rka/ui"
 import { useLogin } from "./hooks"
 import { continueOidcLogin, getOidcAuthRequestId } from "./api"
 import { useAuth } from "./auth-provider"
