@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@sb0rka/ui"
 import { useTranslation } from "react-i18next"
 import {
   Card,

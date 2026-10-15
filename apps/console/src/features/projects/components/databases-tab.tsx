@@ -3,7 +3,7 @@ import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { LayoutGrid, Plus } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@sb0rka/ui"
 import { Button } from "@sb0rka/ui"
 import {
   Card,

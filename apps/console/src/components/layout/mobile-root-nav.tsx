@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { SborkaLogoMark, SborkaLogoWordmarkText } from "@/components/logo"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@sb0rka/ui"
 import { Button, buttonPressClass } from "@/components/ui/button"
 import {
   DropdownMenu,
