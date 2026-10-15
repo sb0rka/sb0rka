@@ -15,7 +15,7 @@ import {
   SborkaLogoMark,
   SborkaLogoWordmarkText,
 } from "@sb0rka/ui"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemeToggle } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
