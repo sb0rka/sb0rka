@@ -1,20 +1,20 @@
-import { Button } from "@sb0rka/ui"
-import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
+  Button,
   Card,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription,
-} from "@/components/ui/card"
-import { TabsContent } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  Input,
+  Label,
+  TabsContent,
+} from "@sb0rka/ui"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@/components/toast-provider"
 import { ApiError } from "@/lib/api-client"
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { useDeactivateProject, useUpdateProject } from "../hooks"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 

@@ -1,8 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClientProvider } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { queryClient } from "@/lib/query-client"
-import { ThemeProvider } from "@/components/theme-provider"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import {
+  A11yLabelsProvider,
+  ThemeProvider,
+  TooltipProvider,
+} from "@sb0rka/ui"
 import { ConfirmDialogProvider } from "@/components/confirm-dialog-provider"
 import { ToastProvider } from "@/components/toast-provider"
 import { AuthProvider, RequireAuth } from "@/features/auth/auth-provider"
@@ -20,44 +24,53 @@ import { MobileDataExplorerPage } from "./features/projects/mobile-data-explorer
 import "@/lib/i18n"
 
 export default function App() {
+  const { t } = useTranslation()
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider defaultTheme="system">
-          <TooltipProvider delayDuration={300}>
-            <ToastProvider>
-              <ConfirmDialogProvider>
-                <BrowserRouter>
-                  <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
-                    <Route element={<RequireAuth />}>
-                      <Route
-                        path="/projects/:id/mobile-data-explorer"
-                        element={<MobileDataExplorerPage />}
-                      />
-                      <Route element={<AppLayout />}>
-                        <Route path="/projects" element={<ProjectsPage />} />
-                        <Route path="/subscription" element={<SubscriptionPage />} />
-                        <Route path="/profile" element={<ProfilePage />} />
-                        <Route path="/projects/:id" element={<ProjectDetailPage />} />
+          <A11yLabelsProvider
+            labels={{
+              close: t("common.a11y.close"),
+              dismissToast: t("common.a11y.dismissToast"),
+            }}
+          >
+            <TooltipProvider delayDuration={300}>
+              <ToastProvider>
+                <ConfirmDialogProvider>
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/register" element={<RegisterPage />} />
+                      <Route element={<RequireAuth />}>
                         <Route
-                          path="/projects/:id/databases/:resourceId/query"
-                          element={<DatabaseQueryPage />}
+                          path="/projects/:id/mobile-data-explorer"
+                          element={<MobileDataExplorerPage />}
                         />
-                        <Route
-                          path="/projects/:id/databases/:resourceId"
-                          element={<DatabaseDetailPage />}
-                        />
-                        <Route path="/projects/:id/metrics/:metric" element={<MetricDetailPage />} />
-                        <Route path="*" element={<Navigate to="/projects" replace />} />
+                        <Route element={<AppLayout />}>
+                          <Route path="/projects" element={<ProjectsPage />} />
+                          <Route path="/subscription" element={<SubscriptionPage />} />
+                          <Route path="/profile" element={<ProfilePage />} />
+                          <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                          <Route
+                            path="/projects/:id/databases/:resourceId/query"
+                            element={<DatabaseQueryPage />}
+                          />
+                          <Route
+                            path="/projects/:id/databases/:resourceId"
+                            element={<DatabaseDetailPage />}
+                          />
+                          <Route path="/projects/:id/metrics/:metric" element={<MetricDetailPage />} />
+                          <Route path="*" element={<Navigate to="/projects" replace />} />
+                        </Route>
                       </Route>
-                    </Route>
-                  </Routes>
-                </BrowserRouter>
-              </ConfirmDialogProvider>
-            </ToastProvider>
-          </TooltipProvider>
+                    </Routes>
+                  </BrowserRouter>
+                </ConfirmDialogProvider>
+              </ToastProvider>
+            </TooltipProvider>
+          </A11yLabelsProvider>
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

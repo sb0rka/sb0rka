@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ArrowUp, Square } from "lucide-react"
-import { Button } from "@sb0rka/ui"
-import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+import {
+  Button,
+  cn,
+  Textarea,
+} from "@sb0rka/ui"
 import { type OpenAiModelInfo } from "../api"
 import { AiQueryChatMessageList } from "./ai-query-chat-message-list"
 import { AiQueryChatModelSelector } from "./ai-query-chat-model-selector"

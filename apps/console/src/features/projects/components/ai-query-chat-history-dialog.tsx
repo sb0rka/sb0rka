@@ -1,12 +1,17 @@
 import { useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Bookmark, ClipboardPaste, Clock3, Loader2, Play, Star, X } from "lucide-react"
-import { Button } from "@sb0rka/ui"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Button,
+  cn,
+  Input,
+  ScrollArea,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
-import { cn } from "@/lib/utils"
 import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatHistoryView = "history" | "bookmarks"

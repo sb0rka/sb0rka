@@ -1,6 +1,8 @@
 import type { ReactNode } from "react"
-import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+import {
+  Card,
+  cn,
+} from "@sb0rka/ui"
 
 interface MobileProfileSectionProps {
   children: ReactNode

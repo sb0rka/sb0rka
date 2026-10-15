@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { useAutoScrollOnContentChange } from "./use-auto-scroll-on-content-change"
 import { useTranslation } from "react-i18next"
-import { Button } from "@sb0rka/ui"
-import { cn } from "@/lib/utils"
+import {
+  Button,
+  cn,
+} from "@sb0rka/ui"
 import { type AiQueryChatThinkingMessage } from "../use-ai-query-chat"
 import {
   hideScrollbarClass,

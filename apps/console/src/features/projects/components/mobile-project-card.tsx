@@ -2,11 +2,14 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Badge } from "@sb0rka/ui"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { FloatingHint } from "@/components/ui/floating-hint"
+import {
+  Badge,
+  Button,
+  buttonPressClass,
+  cn,
+  FloatingHint,
+} from "@sb0rka/ui"
 import type { ProjectResponse } from "@/features/projects/api"
-import { cn } from "@/lib/utils"
 
 export function MobileProjectCard({ project }: { project: ProjectResponse }) {
   const { t } = useTranslation()

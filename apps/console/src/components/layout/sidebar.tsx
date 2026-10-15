@@ -11,10 +11,14 @@ import {
   ChevronsUp,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { cn } from "@/lib/utils"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { SborkaLogoMark, SborkaLogo } from "@/components/logo"
+import {
+  Button,
+  buttonPressClass,
+  cn,
+  SborkaLogo,
+  SborkaLogoMark,
+  Separator,
+} from "@sb0rka/ui"
 import {
   dividerClass,
   itemLabelClass,

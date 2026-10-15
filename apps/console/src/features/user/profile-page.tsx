@@ -1,23 +1,21 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  Button,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Button } from "@sb0rka/ui"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+  Input,
+  Label,
+} from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import { useUser, useUpdateProfile, useChangePassword } from "./hooks"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"

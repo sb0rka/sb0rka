@@ -5,7 +5,7 @@ import {
 } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Tabs } from "@/components/ui/tabs"
+import { Tabs } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import {
   useProject,

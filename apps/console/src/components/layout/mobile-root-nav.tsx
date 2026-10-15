@@ -2,23 +2,25 @@ import type { ComponentType } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
 import { BarChart3, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { SborkaLogoMark, SborkaLogoWordmarkText } from "@/components/logo"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { LanguageSwitcher } from "@/components/language-switcher"
-import { Badge } from "@sb0rka/ui"
-import { Button, buttonPressClass } from "@/components/ui/button"
 import {
+  Badge,
+  Button,
+  buttonPressClass,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  SborkaLogoMark,
+  SborkaLogoWordmarkText,
+} from "@sb0rka/ui"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
-import { cn } from "@/lib/utils"
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",

@@ -1,15 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@sb0rka/ui"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "./ui/input"
+  Input,
+} from "@sb0rka/ui"
 
 export interface ConfirmDialogOptions {
   title: string

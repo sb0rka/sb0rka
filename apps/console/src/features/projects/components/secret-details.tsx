@@ -2,29 +2,27 @@ import { useEffect, useState, type FormEvent } from "react"
 import { Copy, KeyRound } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
-import { FloatingHint } from "@/components/ui/floating-hint"
-import { Badge } from "@sb0rka/ui"
-import { Button } from "@sb0rka/ui"
-import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  FloatingHint,
+  Input,
+  Label,
+} from "@sb0rka/ui"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@/components/toast-provider"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
   useAttachResourceTag,

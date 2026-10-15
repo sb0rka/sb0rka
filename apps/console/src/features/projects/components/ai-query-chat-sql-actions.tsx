@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next"
 import { ClipboardPaste, Copy, Loader2, Play, Star } from "lucide-react"
-import { Button } from "@sb0rka/ui"
-import { cn } from "@/lib/utils"
+import {
+  Button,
+  cn,
+} from "@sb0rka/ui"
 import type { AiQueryChatSqlApplyMeta } from "../use-ai-query-chat"
 import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 

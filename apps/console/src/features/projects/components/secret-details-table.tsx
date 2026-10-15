@@ -2,15 +2,18 @@ import { useMemo, useState } from "react"
 import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { ArrowDown, ArrowUp } from "lucide-react"
-import { Badge } from "@sb0rka/ui"
-import { Input } from "@/components/ui/input"
-import { buttonPressClass } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import {
+  Badge,
+  buttonPressClass,
+  cn,
+  Input,
+  ScrollArea,
+  ScrollBar,
+} from "@sb0rka/ui"
 import { listResourceTags, type TagResponse } from "../api"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import { MobileSecretsList } from "./mobile-secrets-list"
 import type { SecretRow } from "./project-detail-tab-types"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
   "grid grid-cols-[400px_minmax(220px,1fr)_160px_160px] items-stretch"

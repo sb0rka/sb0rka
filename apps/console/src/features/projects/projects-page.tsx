@@ -2,13 +2,19 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { AlphaToast } from "@sb0rka/ui"
+import {
+  AlphaToast,
+  Badge,
+  Button,
+  buttonPressClass,
+  Card,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  cn,
+  FloatingHint,
+} from "@sb0rka/ui"
 import { ToastPinned } from "@/components/toast-provider"
-import { FloatingHint } from "@/components/ui/floating-hint"
-import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Badge } from "@sb0rka/ui"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"

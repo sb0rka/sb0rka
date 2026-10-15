@@ -1,17 +1,17 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  Button,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog"
-import { Button } from "@sb0rka/ui"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Textarea,
+} from "@sb0rka/ui"
 import { useCreateProject } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 

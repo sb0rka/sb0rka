@@ -2,26 +2,27 @@ import { useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus } from "lucide-react"
-import { Button } from "@sb0rka/ui"
-import { Card, CardContent } from "@/components/ui/card"
 import {
+  Button,
+  Card,
+  CardContent,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { TabsContent } from "@/components/ui/tabs"
+  Input,
+  Label,
+  TabsContent,
+} from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import type { CreateSecretRequest } from "../api"
 import type { SecretRow } from "./project-detail-tab-types"
 import { SecretDetails } from "./secret-details"
 import { SecretDetailsTable } from "./secret-details-table"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-import { cn } from "@/lib/utils"
 import { useToast } from "@/components/toast-provider"
 
 interface SecretsTabProps {
