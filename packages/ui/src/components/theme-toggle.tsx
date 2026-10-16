@@ -1,19 +1,18 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Sun, Moon } from "lucide-react"
 import { Button } from "./ui/button"
-
-interface ThemeToggleProps {
-  isDark: boolean
-  onToggle: () => void
-  ariaLabel: string
-}
+import { useTheme } from "./theme-provider"
+import { useA11yLabels } from "./a11y-labels"
 
 const iconTransition = {
   duration: 0.45,
   ease: [0.4, 0, 0.2, 1] as const,
 }
 
-export function ThemeToggle({ isDark, onToggle, ariaLabel }: ThemeToggleProps) {
+export function ThemeToggle() {
+  const { toggleTheme } = useA11yLabels()
+  const { setTheme, resolvedAppearance } = useTheme()
+  const isDark = resolvedAppearance === "dark"
   const reduceMotion = useReducedMotion()
 
   return (
@@ -22,8 +21,8 @@ export function ThemeToggle({ isDark, onToggle, ariaLabel }: ThemeToggleProps) {
       variant="outline"
       size="icon"
       className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full"
-      onClick={onToggle}
-      aria-label={ariaLabel}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={toggleTheme}
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
