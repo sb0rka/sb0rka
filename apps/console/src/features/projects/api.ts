@@ -1646,6 +1646,7 @@ export interface TagResponse {
   tag_value: string
   color?: string
   is_system: boolean
+  is_readonly: boolean
 }
 
 export interface ProjectTagListResponse {
@@ -1671,6 +1672,18 @@ export async function attachResourceTag(
     method: "POST",
     path: `/projects/${projectId}/resources/${resourceId}/tag`,
     json: data,
+    base: "resource",
+  })
+}
+
+export async function detachResourceTag(
+  projectId: string,
+  resourceId: string,
+  tagId: number,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "DELETE",
+    path: `/projects/${projectId}/resources/${resourceId}/tags/${tagId}/detach`,
     base: "resource",
   })
 }
