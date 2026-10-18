@@ -20,6 +20,7 @@ import {
   FloatingHint,
   Input,
   Label,
+  cn,
 } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { useToast } from "@sb0rka/ui"
@@ -194,14 +195,14 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               const isDetaching =
                 detachResourceTag.isPending && detachResourceTag.variables?.tagId === tag.id
               return (
-                <Badge key={tag.id} className={canDetach ? "gap-0.5 pr-0.5" : undefined}>
-                  {formatDraftTagLabel(tag)}
+                <Badge key={tag.id} className={cn("h-7", canDetach ? "gap-0.5 pr-1" : undefined)}>
+                  <span className="flex h-5 items-center leading-5">{formatDraftTagLabel(tag)}</span>
                   {canDetach ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-4 w-4 shrink-0 rounded-full p-0"
+                      className="h-5 w-5 shrink-0 rounded-full p-0 leading-none"
                       disabled={isDetaching}
                       aria-label={t("common.messages.tagDetach")}
                       onClick={async () => {
@@ -216,7 +217,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                         }
                       }}
                     >
-                      <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                     </Button>
                   ) : null}
                 </Badge>
