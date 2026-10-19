@@ -1,10 +1,8 @@
 import type { ComponentType } from "react"
-import { Link, useMatch, useParams, useSearchParams } from "react-router-dom"
+import { useMatch, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   BarChart3,
-  Check,
-  ChevronsUpDown,
   Database,
   KeyRound,
   LayoutGrid,
@@ -12,17 +10,10 @@ import {
   Settings,
 } from "lucide-react"
 import {
-  Button,
   buttonPressClass,
   cn,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Separator,
 } from "@sb0rka/ui"
-import { useProject, useProjects } from "@/features/projects/hooks"
 import {
   ProjectNavLink,
   type ProjectNavIconAnimation,
@@ -57,14 +48,6 @@ const settingsNavItem = {
   iconAnimation: "settings" as const,
 }
 
-/** Centered in collapsed header — same anchor as main sidebar logo mark. */
-const projectSwitcherCollapsedClass =
-  "absolute top-1/2 left-[30px] h-9 w-9 -translate-x-1/2 -translate-y-1/2"
-
-/** Expanded trigger — vertically centered in header, aligned with nav rail. */
-const projectSwitcherExpandedClass =
-  "absolute top-1/2 right-4 left-[calc(30px-12.5px)] h-10 -translate-y-1/2 justify-between gap-2 px-3 font-medium"
-
 interface ProjectSidebarProps {
   collapsed?: boolean
   onToggleCollapsed?: () => void
@@ -80,49 +63,14 @@ export function ProjectSidebar({
   const isDatabaseDetailsRoute =
     useMatch({ path: "/projects/:id/databases/:resourceId", end: false }) !== null
   const isMetricDetailsRoute = useMatch("/projects/:id/metrics/:metric") !== null
-  const { data: project } = useProject(id)
-  const { data: projectsData } = useProjects()
   const tabParam = searchParams.get("tab")
   const activeTab: ProjectTab = isDatabaseDetailsRoute
     ? "databases"
     : isMetricDetailsRoute ? "overview"
     : isProjectTab(tabParam) ? tabParam
     : "overview"
-  const projects = projectsData?.projects ?? []
 
   const getTabHref = (tab: ProjectTab) => `/projects/${id}?tab=${tab}`
-  const getProjectHref = (projectId: string) => `/projects/${projectId}?tab=${activeTab}`
-
-  const projectSwitcherMenu = (
-  <>
-    <DropdownMenuItem asChild>
-      <Link to="/projects" className="w-full">
-        {t("projects.allProjects")}
-      </Link>
-    </DropdownMenuItem>
-    <DropdownMenuSeparator />
-    {projects.length === 0 ? (
-      <DropdownMenuItem disabled>{t("projects.noProjects")}</DropdownMenuItem>
-    ) : (
-      projects.map((projectItem) => {
-        const isCurrentProject = projectItem.id === id
-        return (
-          <DropdownMenuItem key={projectItem.id} asChild>
-            <Link
-              to={getProjectHref(projectItem.id)}
-              className="flex w-full items-center justify-between gap-2"
-            >
-              <span className="truncate">{projectItem.name}</span>
-              {isCurrentProject ? (
-                <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
-              ) : null}
-            </Link>
-          </DropdownMenuItem>
-        )
-      })
-    )}
-  </>
-  )
 
   return (
     <aside
@@ -131,63 +79,34 @@ export function ProjectSidebar({
         collapsed ? "w-[60px] [--sidebar-nav-pl:0.5rem]" : "w-[200px] [--sidebar-nav-pl:1rem]",
       )}
     >
-      <div className="flex flex-col gap-2">
-        <div className="relative h-[60px] overflow-hidden border-b border-border">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size={collapsed ? "icon" : "default"}
-                className={cn(
-                  collapsed ? projectSwitcherCollapsedClass : projectSwitcherExpandedClass,
-                )}
-                title={collapsed ? (project?.name ?? t("projects.fallbackProject")) : undefined}
-              >
-                {collapsed ? (
-                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <>
-                    <span className="truncate">{project?.name ?? t("projects.fallbackProject")}</span>
-                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[220px]">
-              {projectSwitcherMenu}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">
-          {projectNavItems.map((item) => (
-            <ProjectNavLink
-              key={item.tab}
-              to={getTabHref(item.tab)}
-              isActive={activeTab === item.tab}
-              icon={item.icon}
-              animation={item.iconAnimation}
-              collapsed={collapsed}
-            >
-              {t(item.labelKey)}
-            </ProjectNavLink>
-          ))}
-
-          <div className="relative h-px w-full">
-            <Separator className={dividerClass(collapsed)} />
-          </div>
-
+      <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)] pt-2">
+        {projectNavItems.map((item) => (
           <ProjectNavLink
-            to={getTabHref(settingsNavItem.tab)}
-            isActive={activeTab === settingsNavItem.tab}
-            icon={settingsNavItem.icon}
-            animation={settingsNavItem.iconAnimation}
+            key={item.tab}
+            to={getTabHref(item.tab)}
+            isActive={activeTab === item.tab}
+            icon={item.icon}
+            animation={item.iconAnimation}
             collapsed={collapsed}
           >
-            {t(settingsNavItem.labelKey)}
+            {t(item.labelKey)}
           </ProjectNavLink>
-        </nav>
-      </div>
+        ))}
+
+        <div className="relative h-px w-full">
+          <Separator className={dividerClass(collapsed)} />
+        </div>
+
+        <ProjectNavLink
+          to={getTabHref(settingsNavItem.tab)}
+          isActive={activeTab === settingsNavItem.tab}
+          icon={settingsNavItem.icon}
+          animation={settingsNavItem.iconAnimation}
+          collapsed={collapsed}
+        >
+          {t(settingsNavItem.labelKey)}
+        </ProjectNavLink>
+      </nav>
 
       <div className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)] py-4">
         <div className="relative h-px w-full">

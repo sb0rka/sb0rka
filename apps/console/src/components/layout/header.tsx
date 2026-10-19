@@ -17,9 +17,10 @@ import {
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
 
-interface BreadcrumbItem {
+export interface BreadcrumbItem {
   label: string
   href?: string
+  icon?: React.ReactNode
 }
 
 interface HeaderProps {
@@ -60,20 +61,25 @@ export function Header({ breadcrumbs }: HeaderProps) {
                 <Link
                   to={item.href as string}
                   className={cn(
-                    "text-sm text-muted-foreground hover:text-foreground",
+                    "text-sm text-muted-foreground hover:text-foreground flex items-center gap-2",
                     buttonPressClass,
                   )}
                 >
+                  {item.icon}
                   {item.label}
                 </Link>
               ) : (
                 <span
                   className={
-                    isLast
-                      ? "text-sm text-foreground"
-                      : "text-sm text-muted-foreground"
+                    cn(
+                      "flex items-center gap-2",
+                      isLast
+                        ? "text-sm text-foreground"
+                        : "text-sm text-muted-foreground"
+                    )
                   }
                 >
+                  {item.icon}
                   {item.label}
                 </span>
               )}
