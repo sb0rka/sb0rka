@@ -14,7 +14,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Separator,
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
 
@@ -105,13 +104,9 @@ export function Header({ breadcrumbs }: HeaderProps) {
           alpha
         </Badge>
 
-        <Separator orientation="vertical" className="h-2 shrink-0" />
-
         <ThemeToggle />
 
         <LanguageSwitcher />
-
-        <Separator orientation="vertical" className="h-2 shrink-0" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -126,7 +121,6 @@ export function Header({ breadcrumbs }: HeaderProps) {
                     <span className="truncate text-xs font-medium text-foreground">
                       {user.username}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                   </div>
                   <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background">
                     <span className="text-xs font-medium text-muted-foreground">
@@ -143,7 +137,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
             className="w-56 rounded-md border border-border bg-popover p-1 shadow-md"
           >
             <div className="rounded-sm px-2 py-1.5 text-sm font-semibold text-popover-foreground">
-              {t("header.account")}
+                <span className="truncate">{user?.email ?? t("header.account")}</span>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="px-2 py-1.5">
