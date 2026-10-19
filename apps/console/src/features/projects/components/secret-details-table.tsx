@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import {
   Badge,
-  buttonPressClass,
   cn,
   Input,
   ScrollArea,
@@ -168,11 +167,7 @@ function SecretDetailsTableRow({
       className={cn(
         SECRET_DETAILS_TABLE_GRID_CLASS,
         !isLastRow && "border-b border-border",
-        isInteractive &&
-          cn(
-            "cursor-pointer hover:bg-muted focus-visible:outline-none",
-            buttonPressClass,
-          ),
+        isInteractive && "cursor-pointer hover:bg-muted focus-visible:outline-none active:!scale-100"
       )}
     >
       <div className="flex min-h-14 items-center px-4 py-4">
