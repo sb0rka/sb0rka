@@ -1,7 +1,11 @@
 {
   "name": "console",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "author": {
+    "name": "Sb0rka",
+    "url": "https://sb0rka.ru"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
