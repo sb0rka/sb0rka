@@ -43,6 +43,8 @@
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
+    "@emnapi/core": "1.11.3",
+    "@emnapi/runtime": "1.11.3",
     "@eslint/js": "^9.9.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.15.0",
