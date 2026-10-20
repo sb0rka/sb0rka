@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -20,7 +21,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 export interface BreadcrumbItem {
   label: string
   href?: string
-  icon?: React.ReactNode
+  icon?: ComponentType<{ className?: string }>
 }
 
 interface HeaderProps {
@@ -52,6 +53,17 @@ export function Header({ breadcrumbs }: HeaderProps) {
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
           const isLink = !!item.href && !isLast
+          const Icon = item.icon
+          const content = (
+            <>
+              {Icon ? (
+                <span className="inline-flex shrink-0" aria-hidden>
+                  <Icon className="h-4 w-4" />
+                </span>
+              ) : null}
+              {item.label}
+            </>
+          )
           return (
             <div key={`${item.label}-${index}`} className="flex items-center gap-2.5">
               {index > 0 && (
@@ -65,8 +77,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
                     buttonPressClass,
                   )}
                 >
-                  {item.icon}
-                  {item.label}
+                  {content}
                 </Link>
               ) : (
                 <span
@@ -79,8 +90,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
                     )
                   }
                 >
-                  {item.icon}
-                  {item.label}
+                  {content}
                 </span>
               )}
             </div>

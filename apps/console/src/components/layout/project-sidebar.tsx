@@ -26,24 +26,34 @@ import {
   sidebarIconSlotClass,
 } from "@/components/layout/sidebar-rail"
 
+type ProjectTabIcon = ComponentType<{ className?: string }>
+
+export const projectTabIcon = {
+  overview: BarChart3,
+  databases: Database,
+  "data-explorer": LayoutGrid,
+  secrets: KeyRound,
+  settings: Settings,
+} as const satisfies Record<ProjectTab, ProjectTabIcon>
+
 type ProjectNavItem = {
   key: string
   tab: ProjectTab
   labelKey: string
-  icon: ComponentType<{ className?: string }>
+  icon: ProjectTabIcon
   iconAnimation: ProjectNavIconAnimation
 }
 
 const projectNavItems: ProjectNavItem[] = [
-  { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: BarChart3, iconAnimation: "chart" as const },
-  { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: Database, iconAnimation: "database" as const },
-  { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: LayoutGrid, iconAnimation: "database" as const },
-  { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: KeyRound, iconAnimation: "key" as const },
+  { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: projectTabIcon.overview, iconAnimation: "chart" as const },
+  { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: projectTabIcon.databases, iconAnimation: "database" as const },
+  { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: projectTabIcon["data-explorer"], iconAnimation: "database" as const },
+  { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: projectTabIcon.secrets, iconAnimation: "key" as const },
 ]
 
 const settingsNavItem = {
   labelKey: "tabs.settings",
-  icon: Settings,
+  icon: projectTabIcon.settings,
   tab: "settings" as const,
   iconAnimation: "settings" as const,
 }

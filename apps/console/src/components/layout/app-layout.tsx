@@ -1,9 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Home } from "lucide-react"
+import { Folder, Home } from "lucide-react"
 import { Sidebar } from "./sidebar"
-import { ProjectSidebar } from "./project-sidebar"
+import { ProjectSidebar, projectTabIcon } from "./project-sidebar"
 import { Header, type BreadcrumbItem } from "./header"
 import { MobileRootNav } from "./mobile-root-nav"
 import { LayoutProvider, useLayoutContext } from "./layout-context"
@@ -86,33 +86,55 @@ function AppLayoutContent() {
   }
   const breadcrumbs: BreadcrumbItem[] = isProjectOpen
     ? [
-        { label: t("nav.projects"), href: "/projects", icon: <Home className="h-4 w-4" /> },
-        { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
+        { label: t("nav.projects"), href: "/projects", icon: Home },
+        {
+          label: project?.name ?? t("projects.fallbackProject"),
+          href: projectOverviewHref,
+          icon: Folder,
+        },
         ...(activeTab === "data-explorer"
           ? [
               {
                 label: tabLabelById.databases,
                 href: `/projects/${projectId}?tab=databases`,
+                icon: projectTabIcon.databases,
               },
-              { label: tabLabelById["data-explorer"] },
+              {
+                label: tabLabelById["data-explorer"],
+                icon: projectTabIcon["data-explorer"],
+              },
             ]
           : databaseDetailsMatch
             ? [
                 {
                   label: tabLabelById.databases,
                   href: `/projects/${projectId}?tab=databases`,
+                  icon: projectTabIcon.databases,
                 },
-                { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
+                {
+                  label: database?.name ?? resourceId ?? t("projects.fallbackResource"),
+                  icon: projectTabIcon.databases,
+                },
               ]
             : activeTab === "secrets" && selectedSecretId
               ? [
                   {
                     label: tabLabelById.secrets,
                     href: `/projects/${projectId}?tab=secrets`,
+                    icon: projectTabIcon.secrets,
                   },
-                  { label: selectedSecret?.name ?? selectedSecretId },
+                  {
+                    label: selectedSecret?.name ?? selectedSecretId,
+                    icon: projectTabIcon.secrets,
+                  },
                 ]
-              : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
+              : [
+                  {
+                    label: tabLabelById[activeTab],
+                    href: activeProjectTabHref,
+                    icon: projectTabIcon[activeTab],
+                  },
+                ]),
       ]
     : [] // No breadcrumbs for non-project routes
 
@@ -154,7 +176,7 @@ function AppLayoutContent() {
           <main className="flex flex-1 flex-col bg-background md:min-h-0">
             <ScrollArea type="always" 
               className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!flex [&_[data-radix-scroll-area-viewport]>div]:min-h-full"
-            > 
+            >
               <div className="flex min-h-full w-full flex-1 flex-col px-4 md:p-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))]">
                 <Outlet />
               </div>
