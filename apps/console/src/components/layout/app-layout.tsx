@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Folder, Home } from "lucide-react"
+import { Home } from "lucide-react"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar, projectTabIcon } from "./project-sidebar"
 import { Header, type BreadcrumbItem } from "./header"
@@ -90,7 +90,6 @@ function AppLayoutContent() {
         {
           label: project?.name ?? t("projects.fallbackProject"),
           href: projectOverviewHref,
-          icon: Folder,
         },
         ...(activeTab === "data-explorer"
           ? [
@@ -113,7 +112,6 @@ function AppLayoutContent() {
                 },
                 {
                   label: database?.name ?? resourceId ?? t("projects.fallbackResource"),
-                  icon: projectTabIcon.databases,
                 },
               ]
             : activeTab === "secrets" && selectedSecretId
@@ -125,7 +123,6 @@ function AppLayoutContent() {
                   },
                   {
                     label: selectedSecret?.name ?? selectedSecretId,
-                    icon: projectTabIcon.secrets,
                   },
                 ]
               : [
