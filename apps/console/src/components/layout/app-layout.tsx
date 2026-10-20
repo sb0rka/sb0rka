@@ -1,14 +1,15 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { Home } from "lucide-react"
 import { Sidebar } from "./sidebar"
-import { ProjectSidebar } from "./project-sidebar"
-import { Header } from "./header"
+import { ProjectSidebar, projectTabIcon } from "./project-sidebar"
+import { Header, type BreadcrumbItem } from "./header"
 import { MobileRootNav } from "./mobile-root-nav"
 import { LayoutProvider, useLayoutContext } from "./layout-context"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@sb0rka/ui"
 
 const DATA_EXPLORER_NARROW_MAX_WIDTH = 1439
 
@@ -25,10 +26,6 @@ function useDataExplorerNarrowViewport() {
       window.matchMedia(`(max-width: ${DATA_EXPLORER_NARROW_MAX_WIDTH}px)`).matches,
     () => false,
   )
-}
-type BreadcrumbItem = {
-  label: string
-  href?: string
 }
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
@@ -89,33 +86,52 @@ function AppLayoutContent() {
   }
   const breadcrumbs: BreadcrumbItem[] = isProjectOpen
     ? [
-        { label: t("nav.projects"), href: "/projects" },
-        { label: project?.name ?? t("projects.fallbackProject"), href: projectOverviewHref },
+        { label: t("nav.projects"), href: "/projects", icon: Home },
+        {
+          label: project?.name ?? t("projects.fallbackProject"),
+          href: projectOverviewHref,
+        },
         ...(activeTab === "data-explorer"
           ? [
               {
                 label: tabLabelById.databases,
                 href: `/projects/${projectId}?tab=databases`,
+                icon: projectTabIcon.databases,
               },
-              { label: tabLabelById["data-explorer"] },
+              {
+                label: tabLabelById["data-explorer"],
+                icon: projectTabIcon["data-explorer"],
+              },
             ]
           : databaseDetailsMatch
             ? [
                 {
                   label: tabLabelById.databases,
                   href: `/projects/${projectId}?tab=databases`,
+                  icon: projectTabIcon.databases,
                 },
-                { label: database?.name ?? resourceId ?? t("projects.fallbackResource") },
+                {
+                  label: database?.name ?? resourceId ?? t("projects.fallbackResource"),
+                },
               ]
             : activeTab === "secrets" && selectedSecretId
               ? [
                   {
                     label: tabLabelById.secrets,
                     href: `/projects/${projectId}?tab=secrets`,
+                    icon: projectTabIcon.secrets,
                   },
-                  { label: selectedSecret?.name ?? selectedSecretId },
+                  {
+                    label: selectedSecret?.name ?? selectedSecretId,
+                  },
                 ]
-              : [{ label: tabLabelById[activeTab], href: activeProjectTabHref }]),
+              : [
+                  {
+                    label: tabLabelById[activeTab],
+                    href: activeProjectTabHref,
+                    icon: projectTabIcon[activeTab],
+                  },
+                ]),
       ]
     : [] // No breadcrumbs for non-project routes
 
@@ -138,14 +154,6 @@ function AppLayoutContent() {
           onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
         />
       </div>
-      {isProjectOpen && (
-        <div className="hidden h-full md:block">
-          <ProjectSidebar
-            collapsed={projectSidebarCollapsed || autoCollapseProjectSidebar}
-            onToggleCollapsed={() => setProjectSidebarCollapsed((c) => !c)}
-          />
-        </div>
-      )}
       <div className="md:hidden">
         <MobileRootNav />
       </div>
@@ -153,15 +161,25 @@ function AppLayoutContent() {
         <div className="hidden md:block">
           <Header breadcrumbs={breadcrumbs} />
         </div>
-        <main className="flex flex-1 flex-col bg-background md:min-h-0">
-          <ScrollArea type="always" 
-            className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!flex [&_[data-radix-scroll-area-viewport]>div]:min-h-full"
-          > 
-            <div className="flex min-h-full w-full flex-1 flex-col px-4 md:p-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))]">
-              <Outlet />
+        <div className="flex min-h-0 flex-1">
+          {isProjectOpen && (
+            <div className="hidden h-full min-h-0 md:block">
+              <ProjectSidebar
+                collapsed={projectSidebarCollapsed || autoCollapseProjectSidebar}
+                onToggleCollapsed={() => setProjectSidebarCollapsed((c) => !c)}
+              />
             </div>
-          </ScrollArea>
-        </main>
+          )}
+          <main className="flex flex-1 flex-col bg-background md:min-h-0">
+            <ScrollArea type="always" 
+              className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!flex [&_[data-radix-scroll-area-viewport]>div]:min-h-full"
+            >
+              <div className="flex min-h-full w-full flex-1 flex-col px-4 md:p-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[calc(4.75rem+env(safe-area-inset-top))]">
+                <Outlet />
+              </div>
+            </ScrollArea>
+          </main>
+        </div>
       </div>
     </div>
   )

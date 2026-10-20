@@ -1,7 +1,11 @@
 {
   "name": "console",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "author": {
+    "name": "Sb0rka",
+    "url": "https://sb0rka.ru"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,6 +25,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@sb0rka/ui": "^0.0.5",
     "@tanstack/react-query": "^5.99.0",
     "autoprefixer": "^10.5.0",
     "class-variance-authority": "^0.7.1",
@@ -38,6 +43,8 @@
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
+    "@emnapi/core": "1.11.3",
+    "@emnapi/runtime": "1.11.3",
     "@eslint/js": "^9.9.0",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.15.0",

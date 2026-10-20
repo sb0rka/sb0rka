@@ -1,7 +1,7 @@
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useAutoScrollOnContentChange } from "./use-auto-scroll-on-content-change"
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 import {
   hideScrollbarClass,
   responseMessageBubbleClass,

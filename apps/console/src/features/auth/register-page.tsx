@@ -1,14 +1,22 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { SborkaLogo } from "@/components/logo"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {
+  Button,
+  buttonPressClass,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  cn,
+  Input,
+  Label,
+  SborkaLogo,
+} from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemeToggle } from "@sb0rka/ui"
 import { useSignup } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"

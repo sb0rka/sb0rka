@@ -2,12 +2,19 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
-import { Button, buttonPressClass } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { AlphaToast } from "@/components/ui/alpha-toast"
-import { FloatingHint } from "@/components/ui/floating-hint"
-import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import {
+  AlphaToast,
+  Badge,
+  Button,
+  buttonPressClass,
+  Card,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  cn,
+  FloatingHint,
+} from "@sb0rka/ui"
+import { ToastPinned } from "@sb0rka/ui"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
@@ -213,10 +220,7 @@ export function ProjectsPage() {
       )}
 
       {alphaToastOpen ? (
-        <div
-          className="fixed inset-x-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-50 md:inset-x-auto md:bottom-[10px] md:right-[10px] md:max-w-[400px]"
-          aria-live="polite"
-        >
+        <ToastPinned>
           <AlphaToast
             className="w-full"
             title={t("app.alphaToastTitle")}
@@ -231,7 +235,7 @@ export function ProjectsPage() {
               setAlphaToastOpen(false)
             }}
           />
-        </div>
+        </ToastPinned>
       ) : null}
     </div>
   )

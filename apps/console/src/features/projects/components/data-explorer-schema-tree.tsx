@@ -1,10 +1,12 @@
 import { useCallback, useLayoutEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronRight, Loader2, Wifi, WifiOff } from "lucide-react"
-import { cn } from "@/lib/utils"
+import {
+  cn,
+  ScrollArea,
+} from "@sb0rka/ui"
 import type { DataExplorerDatabaseNode } from "../hooks"
 import { useDataExplorerDatabaseHealth } from "../hooks"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 
 export interface DataExplorerSchemaTreeProps {

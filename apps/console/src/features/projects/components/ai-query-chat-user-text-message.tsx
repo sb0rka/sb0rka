@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 import { type AiQueryChatUserTextMessage } from "../use-ai-query-chat"
 import { userMessageBubbleClass } from "./ai-query-chat-message-styles"
 

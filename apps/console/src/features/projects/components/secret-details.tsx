@@ -1,33 +1,33 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { Copy, KeyRound } from "lucide-react"
+import { Copy, KeyRound, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
-import { FloatingHint } from "@/components/ui/floating-hint"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  FloatingHint,
+  Input,
+  Label,
+  cn,
+} from "@sb0rka/ui"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
 import {
   useAttachResourceTag,
+  useDetachResourceTag,
   useDeleteSecret,
   useResourceTags,
   useSecretValue,
@@ -37,6 +37,7 @@ import { formatDraftTagLabel } from "../parse-draft-tag"
 import { AddTagDialog } from "./add-tag-dialog"
 import type { SecretRow } from "./project-detail-tab-types"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
+import type { TagResponse } from "../api"
 
 interface SecretDetailsProps {
   projectId: string
@@ -67,6 +68,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const { showSuccess, showError } = useToast()
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
+  const detachResourceTag = useDetachResourceTag(projectId)
   const secretValueQuery = useSecretValue(projectId, secret.id)
   const deleteSecret = useDeleteSecret(projectId, secret.id)
   const updateSecretValue = useUpdateSecretValue(projectId)
@@ -188,14 +190,46 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         <h3 className="text-base font-semibold tracking-tight md:text-2xl">{secret.name}</h3>
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            {tagsQuery.data?.tags.map((tag) => (
-              <Badge key={tag.id}>{formatDraftTagLabel(tag)}</Badge>
-            ))}
+            {tagsQuery.data?.tags.map((tag: TagResponse) => {
+              const canDetach = !tag.is_system && !tag.is_readonly
+              const isDetaching =
+                detachResourceTag.isPending && detachResourceTag.variables?.tagId === tag.id
+              return (
+                <Badge key={tag.id} className={cn("h-7", canDetach ? "gap-0.5 pr-1" : undefined)}>
+                  <span className="flex h-5 items-center leading-none [text-box:trim-both_ex_alphabetic]">
+                    {formatDraftTagLabel(tag)}
+                  </span>
+                  {canDetach ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 shrink-0 rounded-full p-0 leading-none"
+                      disabled={isDetaching}
+                      aria-label={t("common.messages.tagDetach")}
+                      onClick={async () => {
+                        try {
+                          await detachResourceTag.mutateAsync({
+                            resourceId: secret.id,
+                            tagId: tag.id,
+                          })
+                          showSuccess(t("common.messages.tagDetached"))
+                        } catch (err) {
+                          showError(getErrorMessage(err, t("common.messages.tagDetachError")))
+                        }
+                      }}
+                    >
+                      <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </Button>
+                  ) : null}
+                </Badge>
+              )
+            })}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 rounded-full px-2.5 text-xs font-semibold"
+              className="h-7 rounded-full px-2.5 text-xs font-semibold leading-none [text-box:trim-both_ex_alphabetic]"
               onClick={() => {
                 setIsTagModalOpen(true)
               }}
@@ -358,7 +392,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         isSubmitting={attachResourceTag.isPending}
         checkDuplicate={(parsed) =>
           tagsQuery.data?.tags.some(
-            (tag) => tag.tag_key === parsed.tag_key && tag.tag_value === parsed.tag_value,
+            (tag: TagResponse) => tag.tag_key === parsed.tag_key && tag.tag_value === parsed.tag_value,
           )
             ? t("common.messages.tagDuplicate")
             : null

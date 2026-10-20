@@ -1,6 +1,8 @@
-import { buttonPressClass } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { useTranslation } from "react-i18next"
+import {
+  buttonPressClass,
+  cn,
+} from "@sb0rka/ui"
 import type { SecretRow } from "./project-detail-tab-types"
 
 interface MobileSecretsListProps {

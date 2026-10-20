@@ -76,8 +76,12 @@ const resources = {
           tagDuplicate: "Такой тег уже добавлен",
           tagFormat:
             "Тег в формате ключ:значение или одно значение без ключа",
+          tagDetach: "Удалить тег",
+          tagDetached: "Тег удалён",
+          tagDetachError: "Не удалось удалить тег",
         },
         a11y: {
+          close: "Закрыть",
           dismissToast: "Закрыть уведомление",
         },
       },
@@ -550,8 +554,12 @@ const resources = {
           tagAddError: "Could not add tag",
           tagDuplicate: "This tag has already been added",
           tagFormat: "Use key:value or a single value without a key",
+          tagDetach: "Detach tag",
+          tagDetached: "Tag detached",
+          tagDetachError: "Unable to detach tag",
         },
         a11y: {
+          close: "Close",
           dismissToast: "Dismiss notification",
         },
       },

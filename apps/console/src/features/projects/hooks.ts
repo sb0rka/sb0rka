@@ -14,6 +14,7 @@ import {
   listSecrets,
   listResourceTags,
   attachResourceTag,
+  detachResourceTag,
   getDatabase,
   updateDatabase,
   getDatabaseUri,
@@ -50,7 +51,7 @@ import type {
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
 } from "./api"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 
 const PROJECTS_KEY = ["projects"] as const
 const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000
@@ -396,6 +397,25 @@ export function useAttachResourceTag(projectId: string) {
       data: AttachResourceTagRequest
     }) => attachResourceTag(projectId, resourceId, data),
     onSuccess: (_tag, variables) => {
+      qc.invalidateQueries({
+        queryKey: ["projects", projectId, "resources", variables.resourceId, "tags"],
+      })
+    },
+  })
+}
+
+export function useDetachResourceTag(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      resourceId,
+      tagId,
+    }: {
+      resourceId: string
+      tagId: number
+    }) => detachResourceTag(projectId, resourceId, tagId),
+    onSuccess: (_result, variables) => {
       qc.invalidateQueries({
         queryKey: ["projects", projectId, "resources", variables.resourceId, "tags"],
       })
