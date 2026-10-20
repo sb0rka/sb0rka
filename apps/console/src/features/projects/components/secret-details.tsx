@@ -196,7 +196,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                 detachResourceTag.isPending && detachResourceTag.variables?.tagId === tag.id
               return (
                 <Badge key={tag.id} className={cn("h-7", canDetach ? "gap-0.5 pr-1" : undefined)}>
-                  <span className="flex h-5 items-center leading-5">{formatDraftTagLabel(tag)}</span>
+                  <span className="flex h-5 items-center leading-none [text-box:trim-both_ex_alphabetic]">
+                    {formatDraftTagLabel(tag)}
+                  </span>
                   {canDetach ? (
                     <Button
                       type="button"
@@ -227,7 +229,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 rounded-full px-2.5 text-xs font-semibold"
+              className="h-7 rounded-full px-2.5 text-xs font-semibold leading-none [text-box:trim-both_ex_alphabetic]"
               onClick={() => {
                 setIsTagModalOpen(true)
               }}
