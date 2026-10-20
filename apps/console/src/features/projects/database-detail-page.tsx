@@ -3,23 +3,23 @@ import { Copy, Database } from "lucide-react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
-import { FloatingHint } from "@/components/ui/floating-hint"
-import { getResolvedLanguage } from "@/lib/i18n"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { useConfirmDialog } from "@/components/confirm-dialog-provider"
-import { useToast } from "@/components/toast-provider"
 import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+  FloatingHint,
+  Input,
+  Label,
+} from "@sb0rka/ui"
+import { getResolvedLanguage } from "@/lib/i18n"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
+import { useToast } from "@sb0rka/ui"
 import { AddTagDialog } from "./components/add-tag-dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   useDatabase,
   useDatabaseUri,

@@ -3,20 +3,20 @@ import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { LayoutGrid, Plus } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { TabsContent } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
+  Input,
+  Label,
+  TabsContent,
+  Textarea,
+} from "@sb0rka/ui"
 import { useAuth } from "@/features/auth/auth-provider"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import {
@@ -33,7 +33,7 @@ import type {
   CreateDatabaseFormState,
   DatabaseRow,
 } from "./project-detail-tab-types"
-import { useToast } from "@/components/toast-provider"
+import { useToast } from "@sb0rka/ui"
 
 const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
 const DISK_USAGE_RATE_STALE_MS = 1000 * 60 * 5

@@ -2,15 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { Bookmark, Clock3 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Button,
+  cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@sb0rka/ui"
 import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 import type { AiQueryChatSqlApplyMeta } from "../use-ai-query-chat"
 import {
   AiQueryChatHistoryDialog,
   type AiQueryChatHistoryView,
 } from "./ai-query-chat-history-dialog"
-import { cn } from "@/lib/utils"
 
 export type AiQueryChatHistoryDropdownProps = {
   historyItems: SqlExplorerHistoryItem[]

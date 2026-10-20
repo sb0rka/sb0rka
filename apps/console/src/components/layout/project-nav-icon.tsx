@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { Link, useLocation } from "react-router-dom"
 import { entranceEase } from "@/lib/motion"
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 import {
   itemLabelClass,
   navIconClass,

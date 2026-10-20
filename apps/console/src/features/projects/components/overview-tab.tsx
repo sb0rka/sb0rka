@@ -1,10 +1,15 @@
 import { useCallback, useMemo, type KeyboardEvent, type ReactNode } from "react"
 import { Database, HardDrive, KeyRound } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { buttonPressClass } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
-import { TabsContent } from "@/components/ui/tabs"
+import {
+  buttonPressClass,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  cn,
+  TabsContent,
+} from "@sb0rka/ui"
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 import type { ProjectMetricsTimeseries } from "../hooks"

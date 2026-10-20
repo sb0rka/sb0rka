@@ -8,7 +8,7 @@ import { MobileRootNav } from "./mobile-root-nav"
 import { LayoutProvider, useLayoutContext } from "./layout-context"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@sb0rka/ui"
 
 const DATA_EXPLORER_NARROW_MAX_WIDTH = 1439
 

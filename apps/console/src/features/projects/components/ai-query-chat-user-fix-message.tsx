@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { cn } from "@/lib/utils"
+import { cn } from "@sb0rka/ui"
 import { type AiQueryChatUserFixMessage } from "../use-ai-query-chat"
 import { hideScrollbarClass, userMessageBubbleClass } from "./ai-query-chat-message-styles"
 

@@ -1,12 +1,12 @@
-import { Badge } from "@/components/ui/badge"
 import { useTranslation } from "react-i18next"
 import {
+  Badge,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import { useCurrentPlan, usePlans, useSubscriptionUsage } from "./hooks"
 import type { SubscriptionUsage } from "./hooks"

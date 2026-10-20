@@ -1,16 +1,17 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
+  ScrollArea,
+  ScrollBar,
+} from "@sb0rka/ui"
 import type { RunDatabaseQueryResponse } from "../api"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const queryTableCellBottomBorderClass = "border-b border-border/70"
 

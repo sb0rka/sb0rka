@@ -1,16 +1,16 @@
 import { useEffect, useState, type FormEventHandler } from "react"
 import { useTranslation } from "react-i18next"
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  Input,
+  Label,
+} from "@sb0rka/ui"
 import { parseDraftTag } from "../parse-draft-tag"
 import type { DraftTag } from "./project-detail-tab-types"
 
