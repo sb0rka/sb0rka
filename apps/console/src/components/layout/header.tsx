@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -14,13 +15,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Separator,
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
 
-interface BreadcrumbItem {
+export interface BreadcrumbItem {
   label: string
   href?: string
+  icon?: ComponentType<{ className?: string }>
 }
 
 interface HeaderProps {
@@ -52,6 +53,17 @@ export function Header({ breadcrumbs }: HeaderProps) {
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
           const isLink = !!item.href && !isLast
+          const Icon = item.icon
+          const content = (
+            <>
+              {Icon ? (
+                <span className="inline-flex shrink-0" aria-hidden>
+                  <Icon className="h-4 w-4" />
+                </span>
+              ) : null}
+              {item.label}
+            </>
+          )
           return (
             <div key={`${item.label}-${index}`} className="flex items-center gap-2.5">
               {index > 0 && (
@@ -61,21 +73,24 @@ export function Header({ breadcrumbs }: HeaderProps) {
                 <Link
                   to={item.href as string}
                   className={cn(
-                    "text-sm text-muted-foreground hover:text-foreground",
+                    "text-sm text-muted-foreground hover:text-foreground flex items-center gap-2",
                     buttonPressClass,
                   )}
                 >
-                  {item.label}
+                  {content}
                 </Link>
               ) : (
                 <span
                   className={
-                    isLast
-                      ? "text-sm text-foreground"
-                      : "text-sm text-muted-foreground"
+                    cn(
+                      "flex items-center gap-2",
+                      isLast
+                        ? "text-sm text-foreground"
+                        : "text-sm text-muted-foreground"
+                    )
                   }
                 >
-                  {item.label}
+                  {content}
                 </span>
               )}
             </div>
@@ -105,13 +120,9 @@ export function Header({ breadcrumbs }: HeaderProps) {
           alpha
         </Badge>
 
-        <Separator orientation="vertical" className="h-2 shrink-0" />
-
         <ThemeToggle />
 
         <LanguageSwitcher />
-
-        <Separator orientation="vertical" className="h-2 shrink-0" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -126,7 +137,6 @@ export function Header({ breadcrumbs }: HeaderProps) {
                     <span className="truncate text-xs font-medium text-foreground">
                       {user.username}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                   </div>
                   <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background">
                     <span className="text-xs font-medium text-muted-foreground">
@@ -143,7 +153,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
             className="w-56 rounded-md border border-border bg-popover p-1 shadow-md"
           >
             <div className="rounded-sm px-2 py-1.5 text-sm font-semibold text-popover-foreground">
-              {t("header.account")}
+                <span className="truncate">{user?.email ?? t("header.account")}</span>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="px-2 py-1.5">
