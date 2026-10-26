@@ -1,7 +1,0 @@
-name: sb0rka-dev
-
-include:
-  - path:
-      - ./docker-compose.base.yml
-      - ./deploy/dev/docker-compose.community.yml
-    project_directory: .

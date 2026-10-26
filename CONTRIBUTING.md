@@ -42,7 +42,7 @@ task dev-down    # погасить стенд
 Полный прод-сценарий локально невозможен (нет оркестратора инстансов). Стенд из репо (Postgres + auth + api + drones + proxy):
 
 ```bash
-task dev    # или: docker compose -f docker-compose.dev.yml up -d --build
+task dev    # или: docker compose up -d --build
 ```
 
 Доступ к API — по Bearer-JWT. Токен получают через `auth` (:8020): регистрация `POST /identity/users`, затем логин `POST /auth/login` → `access_token`.

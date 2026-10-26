@@ -45,12 +45,12 @@ tasks:
   dev:
     desc: Поднять локальный стенд (Postgres + api + drones + proxy)
     cmds:
-      - docker compose -f docker-compose.dev.yml up -d --build
+      - docker compose up -d --build
 
   dev-down:
     desc: Остановить локальный стенд
     cmds:
-      - docker compose -f docker-compose.dev.yml down
+      - docker compose down
 
   exec:api:
     desc: Выполнить команду apiapp
