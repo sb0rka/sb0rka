@@ -30,7 +30,7 @@ erDiagram
 
     PLANS {
         uuid id PK
-        varchar code UK "free_account / free_project"
+        varchar code UK "community_account / community_project"
         varchar kind "account | project"
         bool is_public
         bool is_available

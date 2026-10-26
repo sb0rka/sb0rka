@@ -22,6 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Назначает план аккаунта по умолчанию. Повторный вызов сохраняет существующий план; перед созданием проекта инициализация обязательна.",
                 "tags": [
                     "iam"
                 ],
@@ -201,6 +202,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Требует предварительного POST /account/initialize. Проект получает план по умолчанию.",
                 "consumes": [
                     "application/json"
                 ],
@@ -860,6 +862,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Возвращает список квот проекта.",
                 "produces": [
                     "application/json"
                 ],

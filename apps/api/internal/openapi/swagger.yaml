@@ -510,6 +510,8 @@ info:
 paths:
   /account/initialize:
     post:
+      description: Назначает план аккаунта по умолчанию. Повторный вызов сохраняет
+        существующий план; перед созданием проекта инициализация обязательна.
       responses:
         "204":
           description: No Content
@@ -623,6 +625,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: Требует предварительного POST /account/initialize. Проект получает
+        план по умолчанию.
       parameters:
       - description: Параметры проекта
         in: body
@@ -1039,6 +1043,7 @@ paths:
       - iam
   /projects/{project_id}/quotas:
     get:
+      description: Возвращает список квот проекта.
       parameters:
       - description: ID проекта
         in: path

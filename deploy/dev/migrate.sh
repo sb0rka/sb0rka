@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Готовит общую БД platform: схемы api+auth, search_path, миграции, dev-инициализация.
+# Prepare the common platform schema: api+auth, search_path and migrations.
 set -euo pipefail
 
 export PGPASSWORD=postgres
@@ -23,8 +23,5 @@ for f in $(ls /migrations-auth/*.sql | sort); do
   echo "[migrate]   -> $(basename "$f")"
   "${PSQL[@]}" -v DB_AUTH_SCHEMA_NAME=auth -f "$f"
 done
-
-echo "[migrate] applying dev setup (plans, encryption key)..."
-"${PSQL[@]}" -f /dev-setup.sql
 
 echo "[migrate] done"

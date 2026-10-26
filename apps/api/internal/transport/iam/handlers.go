@@ -58,6 +58,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 
 // InitializeAccount godoc
 // @Summary  Инициализировать аккаунт
+// @Description Назначает план аккаунта по умолчанию. Повторный вызов сохраняет существующий план; перед созданием проекта инициализация обязательна.
 // @Tags     iam
 // @Success  204
 // @Failure  401  {string}  string
@@ -88,7 +89,7 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, model.PlanCodeFreeAccount, model.PlanKindAccount); err != nil {
+	if err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, h.deps.DefaultPlans.AccountCode, model.PlanKindAccount); err != nil {
 		h.handleInitializePlanError(w, "account", err)
 		return
 	}
@@ -201,6 +202,7 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 
 // GetProjectQuotas godoc
 // @Summary  Получить квоты проекта
+// @Description Возвращает список квот проекта.
 // @Tags     iam
 // @Produce  json
 // @Param    project_id  path      string  true  "ID проекта"
@@ -225,38 +227,19 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
 		return
 	}
-	quotas, err := h.deps.PlatformDatabase.ListProjectQuotas(r.Context(), projectID)
+	quotas, err := h.deps.QuotaHook.ListProjectQuotas(r.Context(), projectID)
 	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("get_project_quotas_failed", "project_id", projectID, "error", err)
-		http.Error(w, "Failed to get project quotas", http.StatusInternalServerError)
+		coretransport.WriteHookError(w, err, h.deps.Log, "get_project_quotas_failed", "project_id", projectID)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	items := make([]contract.ProjectQuotaItemResponse, 0, len(quotas))
-	for _, q := range quotas {
-		items = append(items, contract.ProjectQuotaItemResponse{
-			PlanID: q.PlanID.String(),
-			QuotaDefinition: contract.QuotaDefinitionSnippet{
-				ID:          q.Definition.ID.String(),
-				Name:        q.Definition.Name,
-				Description: q.Definition.Description,
-				Code:        q.Definition.Code,
-				Unit:        q.Definition.Unit,
-				Scope:       q.Definition.Scope,
-			},
-			LimitValue: q.LimitValue,
-			CreatedAt:  q.CreatedAt,
-			UpdatedAt:  q.UpdatedAt,
-		})
+	if quotas == nil {
+		quotas = []contract.ProjectQuotaItemResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(contract.ProjectQuotaListResponse{
 		ProjectID: projectID,
-		Quotas:    items,
+		Quotas:    quotas,
 	})
 }
 

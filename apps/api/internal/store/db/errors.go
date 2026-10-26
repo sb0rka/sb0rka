@@ -10,13 +10,11 @@ var (
 	ErrInvalidPlanKind         = errors.New("invalid plan kind")
 
 	ErrProjectAlreadyExists  = errors.New("project already exists")
-	ErrProjectLimitReached   = errors.New("project limit reached")
 	ErrProjectNotFound       = errors.New("project not found")
 	ErrProjectMemberNotFound = errors.New("project member not found")
 	ErrProjectMemberExists   = errors.New("project member already exists")
 	ErrLastOwner             = errors.New("last owner")
 
-	ErrResourceLimitReached = errors.New("resource limit reached")
 	ErrResourceNotFound     = errors.New("resource not found")
 	ErrResourceTagNotFound  = errors.New("resource tag not found")
 	ErrResourceTagImmutable = errors.New("resource tag is immutable")

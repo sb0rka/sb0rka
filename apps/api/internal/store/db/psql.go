@@ -249,61 +249,6 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 	return out, nil
 }
 
-func (p *PsqlDB) ListProjectQuotas(ctx context.Context, projectID string) ([]model.ProjectQuota, error) {
-	const query = `
-		SELECT
-			pq.plan_id,
-			pq.limit_value,
-			pq.created_at,
-			pq.updated_at,
-			qd.id,
-			qd.name,
-			qd.description,
-			qd.code,
-			qd.scope,
-			qd.unit,
-			qd.created_at,
-			qd.updated_at
-		FROM projects pr
-		INNER JOIN plan_quotas pq ON pq.plan_id = pr.plan_id
-		INNER JOIN quota_definitions qd ON qd.id = pq.quota_definition_id
-		WHERE pr.id = $1
-		  AND qd.scope = 'project'
-		ORDER BY qd.code
-	`
-	rows, err := p.pool.Query(ctx, query, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := make([]model.ProjectQuota, 0)
-	for rows.Next() {
-		var row model.ProjectQuota
-		if err := rows.Scan(
-			&row.PlanID,
-			&row.LimitValue,
-			&row.CreatedAt,
-			&row.UpdatedAt,
-			&row.Definition.ID,
-			&row.Definition.Name,
-			&row.Definition.Description,
-			&row.Definition.Code,
-			&row.Definition.Scope,
-			&row.Definition.Unit,
-			&row.Definition.CreatedAt,
-			&row.Definition.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		out = append(out, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (p *PsqlDB) ListProjectUsage(ctx context.Context, projectID string) (map[string]int64, error) {
 	const query = `
 		SELECT kind, COUNT(*)
@@ -340,64 +285,6 @@ func (p *PsqlDB) ListProjectUsage(ctx context.Context, projectID string) (map[st
 	return out, nil
 }
 
-func (p *PsqlDB) AssertCanCreateProject(ctx context.Context, billingSubjectID uuid.UUID, planID *uuid.UUID) error {
-	// Subject must have account plan.
-	if _, err := p.GetSubjectPlanByKind(ctx, billingSubjectID, model.PlanKindAccount); err != nil {
-		if errors.Is(err, ErrSubjectPlanNotFound) {
-			return ErrSubjectPlanNotFound
-		}
-		return err
-	}
-
-	projectPlanID := planID
-	if projectPlanID == nil {
-		// Default project plan for newly created projects.
-		id, err := p.getProjectPlanIDByCode(ctx, model.PlanCodeFreeProject)
-		if err != nil {
-			return err
-		}
-		projectPlanID = &id
-	}
-
-	const projectPlanCheck = `
-		SELECT kind, is_available
-		FROM plans
-		WHERE id = $1
-	`
-	var kind string
-	var isAvailable bool
-	if err := p.pool.QueryRow(ctx, projectPlanCheck, *projectPlanID).Scan(&kind, &isAvailable); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrPlanNotFound
-		}
-		return err
-	}
-	if kind != model.PlanKindProject {
-		return ErrInvalidPlanKind
-	}
-	if !isAvailable {
-		return ErrPlanUnavailable
-	}
-
-	limit, err := p.getSubjectQuotaLimit(ctx, billingSubjectID, "projects.count")
-	if err != nil {
-		return err
-	}
-	if limit <= 0 {
-		return nil
-	}
-
-	const countQuery = `SELECT COUNT(*) FROM projects WHERE billing_subject_id = $1`
-	var count int64
-	if err := p.pool.QueryRow(ctx, countQuery, billingSubjectID).Scan(&count); err != nil {
-		return err
-	}
-	if count >= limit {
-		return ErrProjectLimitReached
-	}
-	return nil
-}
-
 func (p *PsqlDB) getPlanIDByCodeAndKind(ctx context.Context, code string, kind string) (uuid.UUID, error) {
 	const query = `
 		SELECT id
@@ -416,131 +303,16 @@ func (p *PsqlDB) getPlanIDByCodeAndKind(ctx context.Context, code string, kind s
 	return id, nil
 }
 
-func (p *PsqlDB) getProjectPlanIDByCode(ctx context.Context, code string) (uuid.UUID, error) {
-	return p.getPlanIDByCodeAndKind(ctx, code, model.PlanKindProject)
+func (p *PsqlDB) ResolvePlanID(ctx context.Context, code, kind string) (uuid.UUID, error) {
+	return p.getPlanIDByCodeAndKind(ctx, code, kind)
 }
 
-func (p *PsqlDB) AssertCanCreateResourceWithType(ctx context.Context, billingSubjectID uuid.UUID, projectID string, kind string) error {
-	var projectKindQuotaCode string
-	var accountQuotaCode string
-	switch kind {
-	case model.ResourceKindDatabase:
-		projectKindQuotaCode = "databases.count"
-		accountQuotaCode = "total.databases.count"
-	case model.ResourceKindSecret:
-		projectKindQuotaCode = "secrets.count"
-		accountQuotaCode = "total.secrets.count"
-	default:
-		return ErrInvalidResourceKind
-	}
-
-	projectLimit, err := p.getProjectQuotaLimit(ctx, projectID, projectKindQuotaCode)
-	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			return ErrProjectNotFound
-		}
-		return err
-	}
-	if projectLimit > 0 {
-		const projectCountQuery = `SELECT COUNT(*) FROM resources WHERE project_id = $1 AND kind = $2`
-		var count int64
-		if err := p.pool.QueryRow(ctx, projectCountQuery, projectID, kind).Scan(&count); err != nil {
-			return err
-		}
-		if count >= projectLimit {
-			return ErrResourceLimitReached
-		}
-	}
-
-	accountLimit, err := p.getSubjectQuotaLimit(ctx, billingSubjectID, accountQuotaCode)
-	if err != nil {
-		return err
-	}
-	if accountLimit > 0 {
-		const accountCountQuery = `
-			SELECT COUNT(*)
-			FROM resources r
-			INNER JOIN projects p ON p.id = r.project_id
-			WHERE p.billing_subject_id = $1
-			  AND r.kind = $2
-		`
-		var count int64
-		if err := p.pool.QueryRow(ctx, accountCountQuery, billingSubjectID, kind).Scan(&count); err != nil {
-			return err
-		}
-		if count >= accountLimit {
-			return ErrResourceLimitReached
-		}
-	}
-
-	return nil
-}
-
-func (p *PsqlDB) getSubjectQuotaLimit(ctx context.Context, subjectID uuid.UUID, code string) (int64, error) {
-	const query = `
-		SELECT pq.limit_value
-		FROM subject_plans sp
-		INNER JOIN plan_quotas pq ON pq.plan_id = sp.plan_id
-		INNER JOIN quota_definitions qd ON qd.id = pq.quota_definition_id
-		WHERE sp.subject_id = $1
-		  AND qd.code = $2
-		ORDER BY pq.limit_value DESC
-		LIMIT 1
-	`
-	var limit int64
-	err := p.pool.QueryRow(ctx, query, subjectID, code).Scan(&limit)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, nil
-		}
-		return 0, err
-	}
-	return limit, nil
-}
-
-func (p *PsqlDB) getProjectQuotaLimit(ctx context.Context, projectID string, code string) (int64, error) {
-	const query = `
-		SELECT pq.limit_value
-		FROM projects pr
-		INNER JOIN plan_quotas pq ON pq.plan_id = pr.plan_id
-		INNER JOIN quota_definitions qd ON qd.id = pq.quota_definition_id
-		WHERE pr.id = $1
-		  AND qd.code = $2
-		ORDER BY pq.limit_value DESC
-		LIMIT 1
-	`
-	var limit int64
-	err := p.pool.QueryRow(ctx, query, projectID, code).Scan(&limit)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			// Differentiate between project missing and quota absent.
-			const projectExistsQuery = `SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1)`
-			var exists bool
-			if err := p.pool.QueryRow(ctx, projectExistsQuery, projectID).Scan(&exists); err != nil {
-				return 0, err
-			}
-			if !exists {
-				return 0, ErrProjectNotFound
-			}
-			return 0, nil
-		}
-		return 0, err
-	}
-	return limit, nil
-}
-
-func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, name string, description *string) (model.Project, error) {
+func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, planID uuid.UUID, name string, description *string) (model.Project, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return model.Project{}, err
 	}
 	defer tx.Rollback(ctx)
-
-	// Default project plan for newly created projects.
-	resolvedPlanID, err := p.getProjectPlanIDByCode(ctx, model.PlanCodeFreeProject)
-	if err != nil {
-		return model.Project{}, err
-	}
 
 	const insertProjectQuery = `
 		INSERT INTO projects (plan_id, owner_subject_id, billing_subject_id, name, description, is_active)
@@ -548,7 +320,7 @@ func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, bi
 		RETURNING id, owner_subject_id, billing_subject_id, plan_id, name, description, is_active, created_at, updated_at
 	`
 	var project model.Project
-	if err := tx.QueryRow(ctx, insertProjectQuery, resolvedPlanID, ownerSubjectID, billingSubjectID, name, description, true).Scan(
+	if err := tx.QueryRow(ctx, insertProjectQuery, planID, ownerSubjectID, billingSubjectID, name, description, true).Scan(
 		&project.ID,
 		&project.OwnerSubjectID,
 		&project.BillingSubjectID,

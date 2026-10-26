@@ -13,6 +13,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
@@ -117,17 +118,8 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.AssertCanCreateResourceWithType(r.Context(), subjectID, projectID, model.ResourceKindDatabase); err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		if errors.Is(err, db.ErrResourceLimitReached) {
-			http.Error(w, "Resource limit reached", http.StatusForbidden)
-			return
-		}
-		h.deps.Log.Error("assert_resource_quota_failed", "error", err)
-		http.Error(w, "Failed to create database", http.StatusInternalServerError)
+	if err := h.deps.QuotaHook.BeforeCreateResource(r.Context(), subjectID, projectID, model.ResourceKindDatabase); err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "assert_resource_quota_failed")
 		return
 	}
 

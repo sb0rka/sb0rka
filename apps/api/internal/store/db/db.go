@@ -31,20 +31,16 @@ type Database interface {
 	IsLiveSession(ctx context.Context, sessionID uuid.UUID, subjectID uuid.UUID) (bool, error)
 
 	// Plans
+	ResolvePlanID(ctx context.Context, code, kind string) (uuid.UUID, error)
 	GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model.Plan, error)
 	GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error)
 	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error
 	GetProjectPlan(ctx context.Context, projectID string) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)
-	ListProjectQuotas(ctx context.Context, projectID string) ([]model.ProjectQuota, error)
 	ListProjectUsage(ctx context.Context, projectID string) (map[string]int64, error)
 
-	// Assertions
-	AssertCanCreateProject(ctx context.Context, billingSubjectID uuid.UUID, planID *uuid.UUID) error
-	AssertCanCreateResourceWithType(ctx context.Context, billingSubjectID uuid.UUID, projectID string, kind string) error
-
 	// Projects
-	CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, name string, description *string) (model.Project, error)
+	CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, planID uuid.UUID, name string, description *string) (model.Project, error)
 	GetProject(ctx context.Context, id string) (model.Project, error)
 	ListProjectsBySubject(ctx context.Context, subjectID uuid.UUID) ([]model.Project, error)
 	UpdateProject(ctx context.Context, id string, name, description *string) (model.Project, error)

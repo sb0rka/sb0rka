@@ -12,6 +12,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
@@ -130,6 +131,7 @@ func (h *Handler) countProjectOwners(ctx *http.Request, projectID string) (int, 
 
 // CreateProject godoc
 // @Summary  Создать проект
+// @Description Требует предварительного POST /account/initialize. Проект получает план по умолчанию.
 // @Tags     projects
 // @Accept   json
 // @Produce  json
@@ -170,26 +172,37 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 	// v0.1.0: billing subject is always current subject.
 	billingSubjectID := subjectID
-	if err := h.deps.PlatformDatabase.AssertCanCreateProject(r.Context(), billingSubjectID, nil); err != nil {
-		switch {
-		case errors.Is(err, db.ErrSubjectPlanNotFound):
+	if _, err := h.deps.PlatformDatabase.GetSubjectPlanByKind(r.Context(), billingSubjectID, model.PlanKindAccount); err != nil {
+		if errors.Is(err, db.ErrSubjectPlanNotFound) {
 			http.Error(w, "Subject plan not found", http.StatusNotFound)
+		} else {
+			h.deps.Log.Error("get_account_plan_failed", "error", err)
+			http.Error(w, "Failed to create project", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	planID, err := h.deps.PlatformDatabase.ResolvePlanID(r.Context(), h.deps.DefaultPlans.ProjectCode, model.PlanKindProject)
+	if err != nil {
+		switch {
 		case errors.Is(err, db.ErrPlanNotFound):
 			http.Error(w, "Plan not found", http.StatusNotFound)
 		case errors.Is(err, db.ErrPlanUnavailable):
 			http.Error(w, "Plan unavailable", http.StatusForbidden)
 		case errors.Is(err, db.ErrInvalidPlanKind):
 			http.Error(w, "Invalid plan kind", http.StatusBadRequest)
-		case errors.Is(err, db.ErrProjectLimitReached):
-			http.Error(w, "Project limit reached", http.StatusForbidden)
 		default:
-			h.deps.Log.Error("assert_project_quota_failed", "error", err)
+			h.deps.Log.Error("resolve_project_plan_failed", "error", err)
 			http.Error(w, "Failed to create project", http.StatusInternalServerError)
 		}
 		return
 	}
+	if err := h.deps.QuotaHook.BeforeCreateProject(r.Context(), billingSubjectID); err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "assert_project_quota_failed")
+		return
+	}
 
-	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), subjectID, billingSubjectID, name, description)
+	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), subjectID, billingSubjectID, planID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectAlreadyExists) {
 			http.Error(w, "Project already exists", http.StatusConflict)
