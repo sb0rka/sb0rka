@@ -44,7 +44,7 @@ curl -s -X POST http://localhost:8020/auth/login \
 
 ```bash
 TOKEN=<JWT>
-# привязать account-план (планы засеяны dev-setup.sql)
+# привязать account-план (планы засеяны seed/010-initial_api_data_feed.sql)
 curl -X POST http://localhost:8080/account/initialize -H "Authorization: Bearer $TOKEN"
 # создать проект
 curl -X POST http://localhost:8080/projects -H "Authorization: Bearer $TOKEN" \
