@@ -4,6 +4,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/plan"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 )
 
 type Options struct {
@@ -22,4 +23,6 @@ type Options struct {
 	// Nil, or an incomplete pair, leaves quota.Noop() active.
 	QuotaRepositoryFactory quota.RepositoryFactory
 	QuotaHookFactory       quota.HookFactory
+
+	RouteFactories []route.RoutesFactory
 }

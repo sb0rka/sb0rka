@@ -15,6 +15,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -98,6 +99,14 @@ func (a *App) Run(ctx context.Context) error {
 		quotaHook = a.opts.QuotaHookFactory(repo)
 	}
 
+	var additionalRoutes []route.Route
+	for _, factory := range a.opts.RouteFactories {
+		if factory == nil {
+			return fmt.Errorf("nil API route factory")
+		}
+		additionalRoutes = append(additionalRoutes, factory(platformDatabase.PgxPool())...)
+	}
+
 	newSrv := transport.NewServer(transport.Dependencies{
 		PlatformDatabase: platformDatabase,
 		Authorizer:       authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log),
@@ -105,6 +114,7 @@ func (a *App) Run(ctx context.Context) error {
 		Telemetry:        telemetryService,
 		AccountHook:      accountHook,
 		QuotaHook:        quotaHook,
+		AdditionalRoutes: additionalRoutes,
 		DefaultPlans:     a.opts.DefaultPlans.WithDefaults(),
 		Cfg:              cfg.Server,
 		Log:              log,

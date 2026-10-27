@@ -2928,6 +2928,9 @@
                 },
                 "unit": {
                     "type": "string"
+                },
+                "window": {
+                    "type": "string"
                 }
             }
         },

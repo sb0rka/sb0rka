@@ -238,6 +238,8 @@ definitions:
         type: string
       unit:
         type: string
+      window:
+        type: string
     type: object
   contract.ResourceListItem:
     properties:

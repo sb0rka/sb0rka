@@ -52,7 +52,7 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 
 	// OIDC is a native auth transport and uses the same middleware composition
 	// as optional feature routes.
-	routes := make([]route.Route, 0, len(s.deps.Routes)+7)
+	routes := make([]route.Route, 0, len(s.deps.AdditionalRoutes)+7)
 	if s.deps.Cfg.OIDC != nil {
 		oidcHandler := transportoidc.NewHandler(
 			s.deps.Database,
@@ -70,7 +70,7 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 			route.Route{Pattern: "POST /oauth2/login/continue", Handler: oidcHandler.ContinueConsole, Access: route.LiveSession},
 		)
 	}
-	routes = append(routes, s.deps.Routes...)
+	routes = append(routes, s.deps.AdditionalRoutes...)
 	for _, rt := range routes {
 		handler, err := s.authWrap(rt)
 		if err != nil {

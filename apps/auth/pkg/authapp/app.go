@@ -71,23 +71,23 @@ func (a *App) Run(ctx context.Context) error {
 		verificationHook = a.opts.VerificationHookFactory(repo)
 	}
 
-	var routes []route.Route
+	var additionalRoutes []route.Route
 	if cfg.Server.OIDC != nil {
 		log.Info("OIDC provider enabled", "client_id", cfg.Server.OIDC.ClientID)
 	}
-	for _, build := range a.opts.RouteFactories {
-		if build == nil {
-			continue
+	for _, factory := range a.opts.RouteFactories {
+		if factory == nil {
+			return fmt.Errorf("nil auth route factory")
 		}
-		routes = append(routes, build(database.PgxPool())...)
+		additionalRoutes = append(additionalRoutes, factory(database.PgxPool())...)
 	}
 
 	resolvers := make(map[string]subject.ProfileResolver)
-	for _, build := range a.opts.SubjectResolverFactories {
-		if build == nil {
-			continue
+	for _, factory := range a.opts.SubjectResolverFactories {
+		if factory == nil {
+			return fmt.Errorf("nil subject resolver factory")
 		}
-		for kind, resolve := range build(database.PgxPool()) {
+		for kind, resolve := range factory(database.PgxPool()) {
 			if resolve == nil {
 				return fmt.Errorf("subject resolver for kind %q is nil", kind)
 			}
@@ -107,7 +107,7 @@ func (a *App) Run(ctx context.Context) error {
 		Log:              log,
 		InviteHook:       inviteHook,
 		VerificationHook: verificationHook,
-		Routes:           routes,
+		AdditionalRoutes: additionalRoutes,
 		SubjectResolvers: resolvers,
 	})
 	handler, err := newSrv.BuildCommonHandler()

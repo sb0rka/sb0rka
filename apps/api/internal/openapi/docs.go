@@ -2935,6 +2935,9 @@ const docTemplate = `{
                 },
                 "unit": {
                     "type": "string"
+                },
+                "window": {
+                    "type": "string"
                 }
             }
         },
