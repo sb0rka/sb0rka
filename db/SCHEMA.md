@@ -11,8 +11,6 @@
 ```mermaid
 erDiagram
     PLANS ||--o{ SUBJECT_PLANS : "тариф аккаунта"
-    PLANS ||--o{ PLAN_QUOTAS : "лимиты плана"
-    QUOTA_DEFINITIONS ||--o{ PLAN_QUOTAS : "вид лимита"
     PLANS ||--o{ PROJECTS : "тариф проекта"
     PROJECTS ||--o{ PROJECT_MEMBERS : "участники"
     PROJECTS ||--o{ RESOURCES : "содержит"
@@ -38,17 +36,6 @@ erDiagram
     SUBJECT_PLANS {
         uuid subject_id PK "пользователь = 1 account-план"
         uuid plan_id FK "только kind=account"
-    }
-    QUOTA_DEFINITIONS {
-        uuid id PK
-        varchar code UK "projects.count, databases.count..."
-        varchar scope "account | project"
-        varchar unit "count | bytes | bps"
-    }
-    PLAN_QUOTAS {
-        uuid plan_id PK,FK
-        uuid quota_definition_id PK,FK
-        bigint limit_value "лимит (>=0)"
     }
     PROJECTS {
         varchar id PK "hex"
@@ -136,12 +123,10 @@ erDiagram
 
 - **`version_platform`** — версия применённых миграций (одна строка `version_num`).
 
-### Планы и квоты (биллинг)
+### Планы
 
 - **`plans`** — каталог тарифов. `code` уникален; `kind` = `account` | `project`.
 - **`subject_plans`** — account-план пользователя. PK = `subject_id` (один план на пользователя), триггер требует `kind='account'`.
-- **`quota_definitions`** — справочник видов лимитов (`code`, `scope`, `unit`).
-- **`plan_quotas`** — значения лимитов плана. PK = (`plan_id`, `quota_definition_id`); триггер требует совпадения scope квоты и kind плана. Отсутствие строки = безлимит.
 
 ### Проекты
 
@@ -173,7 +158,7 @@ erDiagram
 2. **Desired vs runtime.** Намерение пишет API (`dbis.desired_runtime_state`, `dbi_verifiers.password_desired_state`), факт отражает реконсилятор (`resource_states.runtime_state`). Расхождение — сигнал фоновым процессам, данные поля редактируются только API, а состояние инфраструктуры отражено в `resource_states` - таблице состояний запрещенной для изменения из API.
 3. **Секрет нигде не лежит открыто.** Только зашифрованный материал + SCRAM-verifier; AAD привязывает шифртекст к `project/secret/version/class`.
 4. **Связка база↔секрет тройная.** `dbis` ↔ `dbi_verifiers` ↔ `secrets` + системный тег `db_secret`. Эту тройку зачищает GC-дрон при удалении базы (`cleanup_one_deleted_dbi()`).
-5. **Биллинг отделён.** Аккаунт-квоты — по `subject_plans`, проектные — по `projects.plan_id`.
+5. **Lifecycle планов общий.** Account-план — по `subject_plans`, проектный — по `projects.plan_id`. Политика ограничений подключается через `quota.Hook`; community использует `Noop()` и не требует таблиц квот.
 
 У всех таблиц `created_at`/`updated_at` с триггером `set_updated_at` для трекинга изменений.
 
