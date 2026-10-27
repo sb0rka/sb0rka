@@ -9,9 +9,14 @@ const (
 	QuotaScopeAccount = "account"
 	QuotaScopeProject = "project"
 
-	QuotaUnitCount = "count"
-	QuotaUnitBytes = "bytes"
-	QuotaUnitBps   = "bps"
+	QuotaUnitCount  = "count"
+	QuotaUnitBytes  = "bytes"
+	QuotaUnitBps    = "bps"
+	QuotaUnitMicros = "micros"
+
+	QuotaWindowMinute = "minute"
+	QuotaWindowMonth  = "month"
+	QuotaWindowYear   = "year"
 )
 
 type PlanResponse struct {
@@ -33,6 +38,7 @@ type QuotaDefinitionResponse struct {
 	Code        string    `json:"code"`
 	Scope       string    `json:"scope"`
 	Unit        string    `json:"unit"`
+	Window      *string   `json:"window"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -44,6 +50,7 @@ type QuotaDefinitionSnippet struct {
 	Code        string  `json:"code"`
 	Unit        string  `json:"unit"`
 	Scope       string  `json:"scope"`
+	Window      *string `json:"window"`
 }
 
 type ProjectQuotaItemResponse struct {
