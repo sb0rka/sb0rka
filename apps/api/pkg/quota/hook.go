@@ -19,8 +19,8 @@ func (e *StatusError) ClientMessage() string { return e.Message }
 
 type Hook interface {
 	BeforeCreateProject(ctx context.Context, billingSubjectID uuid.UUID) error
-	BeforeCreateResource(ctx context.Context, billingSubjectID uuid.UUID, projectID, kind string) error
-	ListProjectQuotas(ctx context.Context, projectID string) ([]contract.ProjectQuotaItemResponse, error)
+	BeforeCreateResource(ctx context.Context, billingSubjectID uuid.UUID, projectID uuid.UUID, kind string) error
+	ListProjectQuotas(ctx context.Context, projectID uuid.UUID) ([]contract.ProjectQuotaItemResponse, error)
 }
 
 type HookFactory func(repo Repository) Hook
@@ -31,8 +31,8 @@ type noop struct{}
 
 func (noop) BeforeCreateProject(context.Context, uuid.UUID) error { return nil }
 
-func (noop) BeforeCreateResource(context.Context, uuid.UUID, string, string) error { return nil }
+func (noop) BeforeCreateResource(context.Context, uuid.UUID, uuid.UUID, string) error { return nil }
 
-func (noop) ListProjectQuotas(context.Context, string) ([]contract.ProjectQuotaItemResponse, error) {
+func (noop) ListProjectQuotas(context.Context, uuid.UUID) ([]contract.ProjectQuotaItemResponse, error) {
 	return []contract.ProjectQuotaItemResponse{}, nil
 }

@@ -50,8 +50,9 @@ const (
 
 // ResourceRef identifies the target resource of an authorization check.
 type ResourceRef struct {
-	Type string
-	ID   string
+	Type     string
+	ID       uuid.UUID
+	PublicID string
 }
 
 // Principal is API authorization context. ClientID is audit context only and

@@ -13,12 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
-	defaultDatabaseURI     = "postgres://postgres:postgres@localhost:5432/platform"
+	defaultDatabaseURI             = "postgres://postgres:postgres@localhost:5432/platform"
 	defaultDatabaseMaxConns        = 10
 	defaultDatabaseConnMaxLifetime = 30 * time.Second
 	defaultGCInterval              = 5 * time.Second
@@ -88,7 +89,7 @@ type Database interface {
 
 	Close() error
 
-	CleanTerminatedDatabases(ctx context.Context, log *slog.Logger) (string, error)
+	CleanTerminatedDatabases(ctx context.Context, log *slog.Logger) (uuid.UUID, error)
 }
 
 type PsqlDB struct {
@@ -124,20 +125,19 @@ func (p *PsqlDB) TestConnection(ctx context.Context) error {
 }
 
 type cleanupTarget struct {
-	ProjectID  string
-	DatabaseID string
-	SecretID   string
-	TagID      int64
+	ProjectID  uuid.UUID
+	DatabaseID uuid.UUID
+	SecretID   uuid.UUID
 }
 
 func (p *PsqlDB) cleanupOneDeletedDBI(ctx context.Context) (cleanupTarget, bool, error) {
 	const query = `
-		SELECT project_id, database_id, secret_id, tag_id
+		SELECT project_id, database_id, secret_id
 		FROM api.cleanup_one_deleted_dbi()
 	`
 
 	var target cleanupTarget
-	err := p.pool.QueryRow(ctx, query).Scan(&target.ProjectID, &target.DatabaseID, &target.SecretID, &target.TagID)
+	err := p.pool.QueryRow(ctx, query).Scan(&target.ProjectID, &target.DatabaseID, &target.SecretID)
 	if err == pgx.ErrNoRows {
 		return cleanupTarget{}, false, nil
 	}
@@ -147,19 +147,19 @@ func (p *PsqlDB) cleanupOneDeletedDBI(ctx context.Context) (cleanupTarget, bool,
 	return target, true, nil
 }
 
-func (p *PsqlDB) CleanTerminatedDatabases(ctx context.Context, log *slog.Logger) (string, error) {
+func (p *PsqlDB) CleanTerminatedDatabases(ctx context.Context, log *slog.Logger) (uuid.UUID, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	target, found, err := p.cleanupOneDeletedDBI(ctx)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 	if !found {
-		return "", nil
+		return uuid.Nil, nil
 	}
 
-	log.Info("cleaned_resources", "project_id", target.ProjectID, "database_id", target.DatabaseID, "secret_id", target.SecretID, "tag_id", target.TagID)
+	log.Info("cleaned_resources", "project_id", target.ProjectID, "database_id", target.DatabaseID, "secret_id", target.SecretID)
 	return target.ProjectID, nil
 }
 
@@ -176,7 +176,7 @@ func runGC(ctx context.Context, log *slog.Logger, db Database) error {
 		return err
 	}
 
-	if projectID == "" {
+	if projectID == uuid.Nil {
 		log.Debug("nothing_to_clean")
 		return nil
 	}

@@ -261,8 +261,10 @@
                 "summary": "Получить проект",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -302,8 +304,10 @@
                 "summary": "Удалить проект",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -345,8 +349,10 @@
                 "summary": "Обновить метаданные проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -414,8 +420,10 @@
                 "summary": "Создать инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -480,8 +488,10 @@
                 "summary": "Список инстансов БД проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -525,8 +535,10 @@
                 "summary": "Список участников проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -565,8 +577,10 @@
                 "summary": "Добавить участника проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -631,14 +645,17 @@
                 "summary": "Получить участника проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "UUID участника",
                         "name": "subject_id",
                         "in": "path",
@@ -678,14 +695,17 @@
                 "summary": "Удалить участника проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "UUID участника",
                         "name": "subject_id",
                         "in": "path",
@@ -734,14 +754,17 @@
                 "summary": "Изменить роль участника",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "UUID участника",
                         "name": "subject_id",
                         "in": "path",
@@ -807,8 +830,10 @@
                 "summary": "Получить тариф проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -865,8 +890,10 @@
                 "summary": "Получить квоты проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -922,8 +949,10 @@
                 "summary": "Список ресурсов проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -973,15 +1002,19 @@
                 "summary": "Получить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1026,15 +1059,19 @@
                 "summary": "Удалить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1082,15 +1119,19 @@
                 "summary": "Обновить метаданные инстанса БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1149,15 +1190,19 @@
                 "summary": "Параметры прямого подключения к инстансу БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1213,15 +1258,19 @@
                 "summary": "Запустить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1271,15 +1320,19 @@
                 "summary": "Остановить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1329,15 +1382,19 @@
                 "summary": "Раскрыть строку подключения (URI) инстанса БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1393,15 +1450,19 @@
                 "summary": "Временной ряд метрики ресурса",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1470,15 +1531,19 @@
                 "summary": "Получить метаданные секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1523,15 +1588,19 @@
                 "summary": "Удалить секрет",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1585,15 +1654,19 @@
                 "summary": "Обновить метаданные секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1652,15 +1725,19 @@
                 "summary": "Раскрыть значение текущей версии секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1716,15 +1793,19 @@
                 "summary": "Список версий секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1775,21 +1856,25 @@
                 "summary": "Создать новую версию секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Значение и тип payload",
+                        "description": "Значение секрета",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1854,21 +1939,26 @@
                 "summary": "Получить версию секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -1919,21 +2009,26 @@
                 "summary": "Отключить версию секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -1993,21 +2088,26 @@
                 "summary": "Раскрыть значение версии секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -2064,21 +2164,26 @@
                 "summary": "Применить SCRAM-verifier пароля БД для версии секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -2144,15 +2249,19 @@
                 "summary": "Прикрепить тег к ресурсу",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -2217,15 +2326,19 @@
                 "summary": "Список тегов ресурса",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -2278,15 +2391,19 @@
                 "summary": "Открепить тег от ресурса",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -2349,8 +2466,10 @@
                 "summary": "Создать секрет",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2422,8 +2541,10 @@
                 "summary": "Список секретов проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2467,8 +2588,10 @@
                 "summary": "Список тегов проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2518,8 +2641,10 @@
                 "summary": "Получить потребление проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2566,16 +2691,20 @@
             "type": "object",
             "properties": {
                 "dbi_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },
@@ -2628,7 +2757,8 @@
                     "type": "string"
                 },
                 "plan_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },
@@ -2652,9 +2782,6 @@
         "contract.CreateSecretVersionRequest": {
             "type": "object",
             "properties": {
-                "payload_kind": {
-                    "type": "string"
-                },
                 "secret_value": {
                     "type": "string"
                 }
@@ -2670,6 +2797,10 @@
                     "type": "string"
                 },
                 "password_secret_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "password_secret_public_id": {
                     "type": "string"
                 },
                 "port": {
@@ -2690,7 +2821,8 @@
                     }
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },
@@ -2698,7 +2830,8 @@
             "type": "object",
             "properties": {
                 "dbi_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "description": {
                     "type": "string"
@@ -2710,6 +2843,9 @@
                     "type": "string"
                 },
                 "normalized_name": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "resource_state": {
@@ -2804,7 +2940,8 @@
                     }
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },
@@ -2815,7 +2952,8 @@
                     "type": "string"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "role": {
                     "type": "string"
@@ -2863,7 +3001,8 @@
             "type": "object",
             "properties": {
                 "billing_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "created_at": {
                     "type": "string"
@@ -2872,7 +3011,8 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "is_active": {
                     "type": "boolean"
@@ -2881,9 +3021,14 @@
                     "type": "string"
                 },
                 "owner_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "plan_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2946,9 +3091,13 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "kind": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2960,7 +3109,8 @@
             "type": "object",
             "properties": {
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "resources": {
                     "type": "array",
@@ -3008,16 +3158,19 @@
                     "type": "string"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "value": {
                     "type": "string"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },
@@ -3028,10 +3181,12 @@
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "current_version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "description": {
                     "type": "string"
@@ -3045,8 +3200,12 @@
                 "protection_class": {
                     "type": "string"
                 },
-                "secret_id": {
+                "public_id": {
                     "type": "string"
+                },
+                "secret_id": {
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "updated_at": {
                     "type": "string"
@@ -3057,7 +3216,8 @@
             "type": "object",
             "properties": {
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secrets": {
                     "type": "array",
@@ -3077,7 +3237,8 @@
                     "type": "string"
                 },
                 "password_desired_version": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "updated_at": {
                     "type": "string"
@@ -3091,10 +3252,12 @@
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "current_version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "description": {
                     "type": "string"
@@ -3109,9 +3272,13 @@
                     "type": "string"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "protection_class": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "resource_state": {
@@ -3121,7 +3288,8 @@
                     "type": "string"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "tags": {
                     "type": "array",
@@ -3141,10 +3309,8 @@
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
-                },
-                "payload_kind": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "state": {
                     "type": "string"
@@ -3153,7 +3319,8 @@
                     "type": "string"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },
@@ -3161,10 +3328,12 @@
             "type": "object",
             "properties": {
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "versions": {
                     "type": "array",
@@ -3181,19 +3350,19 @@
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "disabled_at": {
                     "type": "string"
                 },
-                "payload_kind": {
-                    "type": "string"
-                },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "state": {
                     "type": "string"
@@ -3202,7 +3371,8 @@
                     "type": "string"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },

@@ -24,7 +24,7 @@ type Database interface {
 	PgxPool() *pgxpool.Pool
 
 	// IDs
-	GenerateResourceID(ctx context.Context) (string, error)
+	GenerateResourceID(ctx context.Context) (uuid.UUID, error)
 
 	// Auth/session
 	GetSubjectKind(ctx context.Context, subjectID uuid.UUID) (string, error)
@@ -35,61 +35,67 @@ type Database interface {
 	GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model.Plan, error)
 	GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error)
 	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error
-	GetProjectPlan(ctx context.Context, projectID string) (model.Plan, error)
+	GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)
-	ListProjectUsage(ctx context.Context, projectID string) (map[string]int64, error)
+	ListProjectUsage(ctx context.Context, projectID uuid.UUID) (map[string]int64, error)
 
 	// Projects
 	CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, planID uuid.UUID, name string, description *string) (model.Project, error)
-	GetProject(ctx context.Context, id string) (model.Project, error)
+	GetProject(ctx context.Context, id uuid.UUID) (model.Project, error)
 	ListProjectsBySubject(ctx context.Context, subjectID uuid.UUID) ([]model.Project, error)
-	UpdateProject(ctx context.Context, id string, name, description *string) (model.Project, error)
-	DeleteProject(ctx context.Context, id string) error
-	GetProjectMember(ctx context.Context, projectID string, subjectID uuid.UUID) (model.ProjectMember, error)
-	ListProjectMembers(ctx context.Context, projectID string) ([]model.ProjectMember, error)
-	AddProjectMember(ctx context.Context, projectID string, subjectID uuid.UUID, role string) (model.ProjectMember, error)
-	UpdateProjectMemberRole(ctx context.Context, projectID string, subjectID uuid.UUID, role string) (model.ProjectMember, error)
-	RemoveProjectMember(ctx context.Context, projectID string, subjectID uuid.UUID) error
+	UpdateProject(ctx context.Context, id uuid.UUID, name, description *string) (model.Project, error)
+	DeleteProject(ctx context.Context, id uuid.UUID) error
+	GetProjectMemberByPublicID(ctx context.Context, projectPublicID string, subjectID uuid.UUID) (model.ProjectMember, error)
+	GetProjectMember(ctx context.Context, projectID uuid.UUID, subjectID uuid.UUID) (model.ProjectMember, error)
+	ListProjectMembers(ctx context.Context, projectID uuid.UUID) ([]model.ProjectMember, error)
+	AddProjectMember(ctx context.Context, projectID uuid.UUID, subjectID uuid.UUID, role string) (model.ProjectMember, error)
+	UpdateProjectMemberRole(ctx context.Context, projectID uuid.UUID, subjectID uuid.UUID, role string) (model.ProjectMember, error)
+	RemoveProjectMember(ctx context.Context, projectID uuid.UUID, subjectID uuid.UUID) error
 
 	// Resources
-	ListResources(ctx context.Context, projectID string) ([]model.Resource, error)
-	GetResource(ctx context.Context, projectID string, resourceID string) (model.Resource, error)
+	ListResources(ctx context.Context, projectID uuid.UUID) ([]model.Resource, error)
+	GetResource(ctx context.Context, projectID uuid.UUID, resourceID uuid.UUID) (model.Resource, error)
 
 	// Databases
 	CreateDatabase(ctx context.Context, params CreateDatabaseParams) (model.DBInstance, model.Secret, model.SecretVersion, error)
-	ListDatabases(ctx context.Context, projectID string) ([]model.DBInstance, error)
-	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID string, resourceID string) (model.DBInstance, error)
-	UpdateDatabase(ctx context.Context, projectID string, resourceID string, name *string, description *string) (model.DBInstance, error)
-	SetDatabaseDesiredRuntimeState(ctx context.Context, projectID string, resourceID string, desiredRuntimeState string) (model.DBInstance, error)
-	GetDatabaseConnParams(ctx context.Context, projectID string, resourceID string) (model.DBInstance, model.Secret, error)
-	ClaimDatabaseTermination(ctx context.Context, projectID string, resourceID string) (model.DBInstance, model.DBInstanceVerifier, error)
+	ListDatabases(ctx context.Context, projectID uuid.UUID) ([]model.DBInstance, error)
+	GetDatabase(ctx context.Context, subjectID uuid.UUID, projectID uuid.UUID, resourceID uuid.UUID) (model.DBInstance, error)
+	GetDatabaseByPublicID(ctx context.Context, subjectID uuid.UUID, projectID uuid.UUID, resourcePublicID string) (model.DBInstance, error)
+	UpdateDatabase(ctx context.Context, projectID uuid.UUID, resourcePublicID string, name *string, description *string) (model.DBInstance, error)
+	SetDatabaseDesiredRuntimeState(ctx context.Context, projectID uuid.UUID, resourcePublicID string, desiredRuntimeState string) (model.DBInstance, error)
+	GetDatabaseConnParams(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (model.DBInstance, model.Secret, error)
+	ClaimDatabaseTermination(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (model.DBInstance, model.DBInstanceVerifier, error)
 
 	// Secrets
 	CreateSecretWithInitialVersion(ctx context.Context, params CreateSecretWithInitialVersionParams) (model.Secret, model.SecretVersion, error)
-	ListSecrets(ctx context.Context, projectID string) ([]model.Secret, error)
-	GetSecret(ctx context.Context, projectID string, resourceID string) (model.Secret, error)
-	UpdateSecretMeta(ctx context.Context, projectID string, resourceID string, description *string) (model.Secret, error)
-	DeleteSecret(ctx context.Context, projectID string, resourceID string) error
-	ListSecretVersions(ctx context.Context, projectID string, secretID string) ([]model.SecretVersion, error)
-	GetSecretVersion(ctx context.Context, projectID string, secretID string, versionNo int) (model.SecretVersion, error)
+	ListSecrets(ctx context.Context, projectID uuid.UUID) ([]model.Secret, error)
+	GetSecret(ctx context.Context, projectID uuid.UUID, resourceID uuid.UUID) (model.Secret, error)
+	GetSecretByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (model.Secret, error)
+	UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, resourcePublicID string, description *string) (model.Secret, error)
+	DeleteSecret(ctx context.Context, projectID uuid.UUID, resourcePublicID string) error
+	ListSecretVersions(ctx context.Context, projectID uuid.UUID, secretPublicID string) ([]model.SecretVersion, error)
+	GetSecretVersion(ctx context.Context, projectID uuid.UUID, secretPublicID string, versionNo int32) (model.SecretVersion, error)
 	CreateSecretVersion(ctx context.Context, params CreateSecretVersionParams) (model.SecretVersion, error)
-	DisableSecretVersion(ctx context.Context, projectID string, secretID string, versionNo int) (model.SecretVersion, error)
-	GetSecretMaterialForReveal(ctx context.Context, projectID string, secretID string, versionNo int) (model.Secret, model.SecretVersion, model.SecretMaterial, error)
+	DisableSecretVersion(ctx context.Context, projectID uuid.UUID, secretPublicID string, versionNo int32) (model.SecretVersion, error)
+	GetSecretMaterialForReveal(ctx context.Context, projectID uuid.UUID, secretID uuid.UUID, versionNo int32) (model.Secret, model.SecretVersion, model.SecretMaterial, error)
+	GetSecretMaterialForRevealByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string, versionNo int32) (model.Secret, model.SecretVersion, model.SecretMaterial, error)
 	GetActiveEncryptionKey(ctx context.Context) (model.EncryptionKey, error)
-	GetDatabasePasswordSecretMaterial(ctx context.Context, projectID string, dbID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error)
-	IsDatabasePasswordSecret(ctx context.Context, projectID string, secretID string) (bool, error)
-	SetDatabasePasswordSecretVerifier(ctx context.Context, projectID string, secretID string, versionNo int, passwordVerifier string) (model.DBInstanceVerifier, error)
+	GetDatabasePasswordSecretMaterial(ctx context.Context, projectID uuid.UUID, dbPublicID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error)
+	IsDatabasePasswordSecretByPublicID(ctx context.Context, projectID uuid.UUID, secretPublicID string) (uuid.UUID, bool, error)
+	IsDatabasePasswordSecret(ctx context.Context, projectID uuid.UUID, secretID uuid.UUID) (bool, error)
+	SetDatabasePasswordSecretVerifier(ctx context.Context, projectID uuid.UUID, secretID uuid.UUID, versionNo int32, passwordVerifier string) (model.DBInstanceVerifier, error)
 
 	// Tags
-	ListProjectTags(ctx context.Context, projectID string) ([]model.Tag, error)
-	ListResourceTags(ctx context.Context, projectID string, resourceID string) ([]model.Tag, error)
-	AttachResourceTag(ctx context.Context, projectID string, resourceID string, tagKey string, tagValue string, color *string) (model.Tag, error)
-	DetachResourceTag(ctx context.Context, projectID string, resourceID string, tagID int64) error
+	ListProjectTags(ctx context.Context, projectID uuid.UUID) ([]model.Tag, error)
+	ListResourceTagsByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (uuid.UUID, []model.Tag, error)
+	ListResourceTags(ctx context.Context, projectID uuid.UUID, resourceID uuid.UUID) ([]model.Tag, error)
+	AttachResourceTag(ctx context.Context, projectID uuid.UUID, resourcePublicID string, tagKey string, tagValue string, color *string) (model.Tag, error)
+	DetachResourceTag(ctx context.Context, projectID uuid.UUID, resourcePublicID string, tagID int64) error
 }
 
 type CreateSecretWithInitialVersionParams struct {
-	ProjectID             string
-	SecretID              string
+	ProjectID             uuid.UUID
+	SecretID              uuid.UUID
 	Name                  string
 	Description           *string
 	PayloadKind           string
@@ -104,9 +110,9 @@ type CreateSecretWithInitialVersionParams struct {
 }
 
 type CreateDatabaseParams struct {
-	ProjectID             string
-	DBID                  string
-	SecretID              string
+	ProjectID             uuid.UUID
+	DBID                  uuid.UUID
+	SecretID              uuid.UUID
 	Name                  string
 	NormalizedName        string
 	Description           *string
@@ -121,10 +127,9 @@ type CreateDatabaseParams struct {
 }
 
 type CreateSecretVersionParams struct {
-	ProjectID             string
-	SecretID              string
-	VersionNo             int
-	PayloadKind           string
+	ProjectID             uuid.UUID
+	SecretID              uuid.UUID
+	VersionNo             int32
 	CreatedBySubjectID    uuid.UUID
 	EncryptionKeyID       uuid.UUID
 	CryptoProvider        string

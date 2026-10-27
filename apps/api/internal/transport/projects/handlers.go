@@ -26,33 +26,33 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 	return &Handler{deps: deps}
 }
 
-func projectResource(id string) authz.ResourceRef {
-	return authz.ResourceRef{Type: "project", ID: id}
+func projectResource(publicID string) authz.ResourceRef {
+	return authz.ResourceRef{Type: "project", PublicID: publicID}
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, resource authz.ResourceRef) bool {
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, resource authz.ResourceRef) (uuid.UUID, bool) {
 	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, resource)
 	if err != nil {
 		h.deps.Log.Error("authorize_failed",
 			"action", action,
 			"resource_type", resource.Type,
-			"resource_id", resource.ID,
+			"resource_public_id", resource.PublicID,
 			"error", err,
 		)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		h.deps.Log.Debug("authorize_denied",
 			"caller_id", callerID,
 			"action", action,
-			"resource_id", resource.ID,
+			"resource_id", decision.Resource.ID,
 			"reason_code", decision.ReasonCode,
 		)
 		writeForbidden(w)
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 func extractSubjectIdentity(w http.ResponseWriter, r *http.Request) (uuid.UUID, string, bool) {
@@ -111,11 +111,11 @@ func roleRank(role string) (int, bool) {
 	return 0, false
 }
 
-func (h *Handler) getCallerProjectMember(ctx *http.Request, projectID string, callerID uuid.UUID) (model.ProjectMember, error) {
+func (h *Handler) getCallerProjectMember(ctx *http.Request, projectID uuid.UUID, callerID uuid.UUID) (model.ProjectMember, error) {
 	return h.deps.PlatformDatabase.GetProjectMember(ctx.Context(), projectID, callerID)
 }
 
-func (h *Handler) countProjectOwners(ctx *http.Request, projectID string) (int, error) {
+func (h *Handler) countProjectOwners(ctx *http.Request, projectID uuid.UUID) (int, error) {
 	members, err := h.deps.PlatformDatabase.ListProjectMembers(ctx.Context(), projectID)
 	if err != nil {
 		return 0, err
@@ -222,7 +222,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить проект
 // @Tags     projects
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.ProjectResponse
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
@@ -236,12 +236,13 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 
@@ -299,7 +300,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 // @Tags     projects
 // @Accept   json
 // @Produce  json
-// @Param    project_id  path      string                         true  "ID проекта"
+// @Param    project_id  path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Param    body        body      contract.UpdateProjectRequest  true  "Новые имя/описание"
 // @Success  200         {object}  contract.ProjectResponse
 // @Failure  400         {string}  string
@@ -316,12 +317,13 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectUpdateMeta, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectUpdateMeta, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 
@@ -378,7 +380,7 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 // @Summary  Удалить проект
 // @Description Проект можно удалить только если в нём нет баз данных.
 // @Tags     projects
-// @Param    project_id  path  string  true  "ID проекта"
+// @Param    project_id  path  string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  204  "No Content"
 // @Failure  403  {string}  string
 // @Failure  404  {string}  string
@@ -392,12 +394,13 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectDelete, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectDelete, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 
@@ -433,7 +436,7 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 // @Summary  Список участников проекта
 // @Tags     project-members
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.ProjectMemberListResponse
 // @Failure  403         {string}  string
 // @Security BearerAuth
@@ -446,12 +449,13 @@ func (h *Handler) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectMemberList, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectMemberList, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 
@@ -468,15 +472,15 @@ func (h *Handler) ListProjectMembers(w http.ResponseWriter, r *http.Request) {
 	for _, m := range members {
 		items = append(items, toProjectMemberItem(m))
 	}
-	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{ProjectID: projectID, Members: items})
+	_ = json.NewEncoder(w).Encode(contract.ProjectMemberListResponse{ProjectID: projectID.String(), Members: items})
 }
 
 // GetProjectMember godoc
 // @Summary  Получить участника проекта
 // @Tags     project-members
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
-// @Param    subject_id  path      string  true  "UUID участника"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    subject_id  path      string  true  "UUID участника" format(uuid)
 // @Success  200         {object}  contract.ProjectMemberResponse
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
@@ -490,12 +494,13 @@ func (h *Handler) GetProjectMember(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectMemberRead, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectMemberRead, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 
@@ -525,7 +530,7 @@ func (h *Handler) GetProjectMember(w http.ResponseWriter, r *http.Request) {
 // @Tags     project-members
 // @Accept   json
 // @Produce  json
-// @Param    project_id  path      string                                true  "ID проекта"
+// @Param    project_id  path      string                                true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Param    body        body      contract.CreateProjectMemberRequest   true  "Subject и роль"
 // @Success  201         {object}  contract.ProjectMemberResponse
 // @Failure  400         {string}  string
@@ -542,12 +547,13 @@ func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, callerID, authz.ActionProjectMemberAdd, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, callerID, authz.ActionProjectMemberAdd, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 
@@ -611,8 +617,8 @@ func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 // @Tags     project-members
 // @Accept   json
 // @Produce  json
-// @Param    project_id  path      string                                   true  "ID проекта"
-// @Param    subject_id  path      string                                   true  "UUID участника"
+// @Param    project_id  path      string                                   true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    subject_id  path      string                                   true  "UUID участника" format(uuid)
 // @Param    body        body      contract.UpdateProjectMemberRoleRequest  true  "Новая роль"
 // @Success  200         {object}  contract.ProjectMemberResponse
 // @Failure  400         {string}  string
@@ -629,12 +635,13 @@ func (h *Handler) UpdateProjectMemberRole(w http.ResponseWriter, r *http.Request
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, callerID, authz.ActionProjectMemberUpdate, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, callerID, authz.ActionProjectMemberUpdate, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 	targetSubjectID, err := uuid.Parse(strings.TrimSpace(r.PathValue("subject_id")))
@@ -723,8 +730,8 @@ func (h *Handler) UpdateProjectMemberRole(w http.ResponseWriter, r *http.Request
 // RemoveProjectMember godoc
 // @Summary  Удалить участника проекта
 // @Tags     project-members
-// @Param    project_id  path  string  true  "ID проекта"
-// @Param    subject_id  path  string  true  "UUID участника"
+// @Param    project_id  path  string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    subject_id  path  string  true  "UUID участника" format(uuid)
 // @Success  204  "No Content"
 // @Failure  403  {string}  string
 // @Failure  404  {string}  string
@@ -739,12 +746,13 @@ func (h *Handler) RemoveProjectMember(w http.ResponseWriter, r *http.Request) {
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, callerID, authz.ActionProjectMemberRemove, projectResource(projectID)) {
+	projectID, ok := h.authorize(w, r, callerID, authz.ActionProjectMemberRemove, projectResource(projectPublicID))
+	if !ok {
 		return
 	}
 	targetSubjectID, err := uuid.Parse(strings.TrimSpace(r.PathValue("subject_id")))
@@ -804,16 +812,13 @@ func (h *Handler) RemoveProjectMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
+	return runtime.ParsePublicID(raw, name)
 }
 
 func toProject(p model.Project) contract.ProjectResponse {
 	return contract.ProjectResponse{
-		ID:               p.ID,
+		PublicID:         p.PublicID,
+		ID:               p.ID.String(),
 		OwnerSubjectID:   p.OwnerSubjectID.String(),
 		BillingSubjectID: p.BillingSubjectID.String(),
 		PlanID:           p.PlanID.String(),
@@ -827,7 +832,7 @@ func toProject(p model.Project) contract.ProjectResponse {
 
 func toProjectMember(m model.ProjectMember) contract.ProjectMemberResponse {
 	return contract.ProjectMemberResponse{
-		ProjectID: m.ProjectID,
+		ProjectID: m.ProjectID.String(),
 		SubjectID: m.SubjectID.String(),
 		Role:      m.Role,
 		CreatedAt: m.CreatedAt,

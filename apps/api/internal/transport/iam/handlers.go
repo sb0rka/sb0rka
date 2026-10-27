@@ -37,23 +37,23 @@ func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
 	return id, true
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectPublicID string) (uuid.UUID, bool) {
 	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
+		Type:     "project",
+		PublicID: projectPublicID,
 	})
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_public_id", projectPublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 // InitializeAccount godoc
@@ -161,7 +161,7 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить тариф проекта
 // @Tags     iam
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.PlanResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -175,12 +175,13 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID := strings.TrimSpace(r.PathValue("project_id"))
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
+	projectPublicID, err := runtime.ParsePublicID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
+	if !ok {
 		return
 	}
 
@@ -205,7 +206,7 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 // @Description Возвращает список квот проекта.
 // @Tags     iam
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.ProjectQuotaListResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -219,12 +220,13 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID := strings.TrimSpace(r.PathValue("project_id"))
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
+	projectPublicID, err := runtime.ParsePublicID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
+	if !ok {
 		return
 	}
 	quotas, err := h.deps.QuotaHook.ListProjectQuotas(r.Context(), projectID)
@@ -238,7 +240,7 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 		quotas = []contract.ProjectQuotaItemResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(contract.ProjectQuotaListResponse{
-		ProjectID: projectID,
+		ProjectID: projectID.String(),
 		Quotas:    quotas,
 	})
 }
@@ -247,7 +249,7 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить потребление проекта
 // @Tags     iam
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  map[string]interface{}
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -261,12 +263,13 @@ func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID := strings.TrimSpace(r.PathValue("project_id"))
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
+	projectPublicID, err := runtime.ParsePublicID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
+	if !ok {
 		return
 	}
 	usage, err := h.deps.PlatformDatabase.ListProjectUsage(r.Context(), projectID)
