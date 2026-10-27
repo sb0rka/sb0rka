@@ -94,8 +94,6 @@ func (p *PsqlDB) GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model
 		FROM subject_plans sp
 		INNER JOIN plans p ON p.id = sp.plan_id
 		WHERE sp.subject_id = $1
-		ORDER BY sp.updated_at DESC
-		LIMIT 1
 	`
 	var out model.Plan
 	if err := p.pool.QueryRow(ctx, query, subjectID).Scan(
@@ -124,8 +122,6 @@ func (p *PsqlDB) GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, 
 		INNER JOIN plans p ON p.id = sp.plan_id
 		WHERE sp.subject_id = $1
 		  AND p.kind = $2
-		ORDER BY sp.updated_at DESC
-		LIMIT 1
 	`
 	var out model.Plan
 	if err := p.pool.QueryRow(ctx, query, subjectID, kind).Scan(

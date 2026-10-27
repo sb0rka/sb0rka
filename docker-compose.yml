@@ -16,11 +16,6 @@ services:
       file: docker-compose.base.yml
       service: migrate
 
-  dev-setup:
-    extends:
-      file: docker-compose.base.yml
-      service: dev-setup
-
   seed-community:
     image: postgres:18
     depends_on:
@@ -28,9 +23,10 @@ services:
         condition: service_completed_successfully
     environment:
       PGPASSWORD: postgres
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-v", "DB_API_SCHEMA_NAME=api", "-h", "postgres", "-U", "postgres", "-d", "platform", "-f", "/community-api-data-feed.sql"]
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-v", "DB_API_SCHEMA_NAME=api", "-h", "postgres", "-U", "postgres", "-d", "platform", "-f", "/community-encryption-keys.sql", "-f", "/community-api-data-feed.sql"]
     volumes:
-      - ./db/migrations/seed/610-initial_api_data_feed.sql:/community-api-data-feed.sql:ro
+      - ./db/migrations/seed/009-initial_encryption_keys.sql:/community-encryption-keys.sql:ro
+      - ./db/migrations/seed/010-initial_api_data_feed.sql:/community-api-data-feed.sql:ro
     restart: "no"
 
   api:
@@ -41,8 +37,6 @@ services:
       postgres:
         condition: service_healthy
       migrate:
-        condition: service_completed_successfully
-      dev-setup:
         condition: service_completed_successfully
       keygen:
         condition: service_completed_successfully

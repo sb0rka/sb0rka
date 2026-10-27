@@ -2849,9 +2849,6 @@ const docTemplate = `{
                 },
                 "quota_definition": {
                     "$ref": "#/definitions/contract.QuotaDefinitionSnippet"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
@@ -2926,6 +2923,14 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "snapshot",
+                        "periodic",
+                        "balance"
+                    ]
                 },
                 "name": {
                     "type": "string"

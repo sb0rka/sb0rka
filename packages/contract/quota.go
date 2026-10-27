@@ -9,14 +9,18 @@ const (
 	QuotaScopeAccount = "account"
 	QuotaScopeProject = "project"
 
+	QuotaKindSnapshot = "snapshot"
+	QuotaKindPeriodic = "periodic"
+	QuotaKindBalance  = "balance"
+
 	QuotaUnitCount  = "count"
 	QuotaUnitBytes  = "bytes"
 	QuotaUnitBps    = "bps"
 	QuotaUnitMicros = "micros"
 
 	QuotaWindowMinute = "minute"
+	QuotaWindowHour   = "hour"
 	QuotaWindowMonth  = "month"
-	QuotaWindowYear   = "year"
 )
 
 type PlanResponse struct {
@@ -37,6 +41,7 @@ type QuotaDefinitionResponse struct {
 	Description *string   `json:"description,omitempty"`
 	Code        string    `json:"code"`
 	Scope       string    `json:"scope"`
+	Kind        string    `json:"kind" enums:"snapshot,periodic,balance"`
 	Unit        string    `json:"unit"`
 	Window      *string   `json:"window"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -50,6 +55,7 @@ type QuotaDefinitionSnippet struct {
 	Code        string  `json:"code"`
 	Unit        string  `json:"unit"`
 	Scope       string  `json:"scope"`
+	Kind        string  `json:"kind" enums:"snapshot,periodic,balance"`
 	Window      *string `json:"window"`
 }
 
@@ -58,7 +64,6 @@ type ProjectQuotaItemResponse struct {
 	QuotaDefinition QuotaDefinitionSnippet `json:"quota_definition"`
 	LimitValue      int64                  `json:"limit_value"`
 	CreatedAt       time.Time              `json:"created_at"`
-	UpdatedAt       time.Time              `json:"updated_at"`
 }
 
 type ProjectQuotaListResponse struct {

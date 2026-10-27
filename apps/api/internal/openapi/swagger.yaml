@@ -182,8 +182,6 @@ definitions:
         type: string
       quota_definition:
         $ref: '#/definitions/contract.QuotaDefinitionSnippet'
-      updated_at:
-        type: string
     type: object
   contract.ProjectQuotaListResponse:
     properties:
@@ -231,6 +229,12 @@ definitions:
       description:
         type: string
       id:
+        type: string
+      kind:
+        enum:
+        - snapshot
+        - periodic
+        - balance
         type: string
       name:
         type: string

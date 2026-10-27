@@ -58,13 +58,9 @@ CREATE TABLE IF NOT EXISTS plans (
 );
 
 DROP TRIGGER IF EXISTS trg_plans_set_updated_at ON plans;
-CREATE TRIGGER trg_plans_set_updated_at
-BEFORE UPDATE ON plans
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_plans_set_updated_at BEFORE UPDATE ON plans FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE INDEX IF NOT EXISTS ix_plans_kind
-    ON plans (kind);
+CREATE INDEX IF NOT EXISTS ix_plans_kind ON plans (kind);
 
 CREATE OR REPLACE FUNCTION enforce_subject_plan_kind()
 RETURNS trigger
@@ -94,17 +90,10 @@ CREATE TABLE IF NOT EXISTS subject_plans (
     plan_id UUID NOT NULL,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 
     CONSTRAINT pk_subject_plans PRIMARY KEY (subject_id),
     CONSTRAINT fk_subject_plans_plan_id_plans FOREIGN KEY (plan_id) REFERENCES plans (id)
 );
-
-DROP TRIGGER IF EXISTS trg_subject_plans_set_updated_at ON subject_plans;
-CREATE TRIGGER trg_subject_plans_set_updated_at
-BEFORE UPDATE ON subject_plans
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
 
 DROP TRIGGER IF EXISTS trg_subject_plans_plan_kind ON subject_plans;
 CREATE TRIGGER trg_subject_plans_plan_kind
@@ -232,6 +221,24 @@ CREATE INDEX IF NOT EXISTS ix_resources_project_kind
 
 CREATE INDEX IF NOT EXISTS ix_resources_project_created_at
     ON resources (project_id, created_at);
+
+CREATE TABLE IF NOT EXISTS resource_usage_records (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    project_id VARCHAR(12) NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    resource_id VARCHAR(16),
+    data JSONB DEFAULT '{}'::jsonb NOT NULL,
+    started_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    finished_at TIMESTAMPTZ,
+
+    CHECK (finished_at IS NULL OR finished_at >= started_at),
+    FOREIGN KEY (resource_id, project_id) REFERENCES resources (id, project_id)
+        ON DELETE SET NULL (resource_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_resource_usage_records_project_started_at
+    ON resource_usage_records (project_id, started_at);
+CREATE INDEX IF NOT EXISTS ix_resource_usage_records_resource_started_at
+    ON resource_usage_records (resource_id, started_at);
 
 CREATE TABLE IF NOT EXISTS resource_states (
     project_id VARCHAR(12) NOT NULL,

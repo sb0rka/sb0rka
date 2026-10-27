@@ -37,18 +37,6 @@ services:
       - ./deploy/dev/migrate.sh:/migrate.sh:ro
     restart: "no"
 
-  dev-setup:
-    image: postgres:18
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      PGPASSWORD: postgres
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-h", "postgres", "-U", "postgres", "-d", "platform", "-f", "/dev-setup.sql"]
-    volumes:
-      - ./deploy/dev/dev-setup.sql:/dev-setup.sql:ro
-    restart: "no"
-
   api:
     build:
       context: .
@@ -58,8 +46,6 @@ services:
       postgres:
         condition: service_healthy
       migrate:
-        condition: service_completed_successfully
-      dev-setup:
         condition: service_completed_successfully
       keygen:
         condition: service_completed_successfully
