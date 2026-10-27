@@ -14,7 +14,7 @@ services:
       timeout: 3s
       retries: 30
 
-  # Generate Ed25519 + Tink keys
+  # Key generator: Ed25519, Tink and OIDC.
   keygen:
     image: golang:1.25
     working_dir: /src
@@ -49,19 +49,8 @@ services:
         condition: service_completed_successfully
       keygen:
         condition: service_completed_successfully
-    environment:
-      SERVER_ADDR: "0.0.0.0"
-      SERVER_PORT: "8080"
-      SERVER_CORS_WHITELIST: "*"
-      DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
-      SECRET_KEY_REF: "default"
-      ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH: "/keys/access_token_private_key.pem"
-      SECRET_TINK_KEYSET_JSON_FILE_PATH: "/keys/secret_tink_keyset.json"
-      ACCESS_TOKEN_ISSUER: "auth.local"
-      ACCESS_TOKEN_AUDIENCE: "api.local"
-      ACCESS_TOKEN_KID: "ed25519-v1"
-      TENANTS_DATABASE_PUBLIC_BASE_HOST: "localhost.sslip.io"
-      TENANTS_DATABASE_PUBLIC_PORT: "5432"
+    env_file:
+      - ./apps/api/.env
     volumes:
       - keys:/keys:ro
     ports:
@@ -79,17 +68,8 @@ services:
         condition: service_completed_successfully
       keygen:
         condition: service_completed_successfully
-    environment:
-      SERVER_ADDR: "0.0.0.0"
-      SERVER_PORT: "8020"
-      SERVER_CORS_WHITELIST: "*"
-      DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
-      ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH: "/keys/access_token_private_key.pem"
-      ACCESS_TOKEN_ISSUER: "auth.local"
-      ACCESS_TOKEN_AUDIENCE: "api.local"
-      ACCESS_TOKEN_KID: "ed25519-v1"
-      REFRESH_TOKEN_COOKIE_SECURE: "false"
-      REFRESH_TOKEN_COOKIE_SAMESITE: "0"
+    env_file:
+      - ./apps/auth/.env
     volumes:
       - keys:/keys:ro
     ports:
@@ -110,6 +90,7 @@ services:
       GC_INTERVAL_SEC: "10"
 
   proxy:
+    profiles: ["proxy"]
     build:
       context: ./apps/proxy-ql-executor
       dockerfile: Dockerfile
