@@ -294,42 +294,6 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 	return out, nil
 }
 
-func (p *PsqlDB) ListProjectUsage(ctx context.Context, projectID uuid.UUID) (map[string]int64, error) {
-	const query = `
-		SELECT kind, COUNT(*)
-		FROM resources
-		WHERE project_id = $1
-		GROUP BY kind
-	`
-	rows, err := p.pool.Query(ctx, query, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := map[string]int64{
-		"databases.count": 0,
-		"secrets.count":   0,
-	}
-	for rows.Next() {
-		var kind string
-		var count int64
-		if err := rows.Scan(&kind, &count); err != nil {
-			return nil, err
-		}
-		switch kind {
-		case model.ResourceKindDatabase:
-			out["databases.count"] = count
-		case model.ResourceKindSecret:
-			out["secrets.count"] = count
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (p *PsqlDB) getPlanIDByCodeAndKind(ctx context.Context, code string, kind string) (uuid.UUID, error) {
 	const query = `
 		SELECT id

@@ -31,5 +31,7 @@ type Options struct {
 	MembershipRepositoryFactory membership.RepositoryFactory
 	MembershipHookFactory       membership.HookFactory
 
+	// RouteFactories register routes implemented outside this module.
+	// Each factory receives the pool and AuthorizeProjectRead.
 	RouteFactories []route.RoutesFactory
 }

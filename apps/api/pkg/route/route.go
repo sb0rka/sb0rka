@@ -1,8 +1,10 @@
 package route
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,6 +21,23 @@ type Route struct {
 	Access  Access
 }
 
-// RoutesFactory builds extension routes using the shared platform pool.
-// The server applies authentication, logging, CORS and panic recovery.
-type RoutesFactory func(pool *pgxpool.Pool) []Route
+type Dependencies struct {
+	Pool *pgxpool.Pool
+	// AuthorizeProjectRead is the only platform permission an extension can ask for.
+	// Every project role passes it, including viewer.
+	AuthorizeProjectRead func(ctx context.Context, projectPublicID string) (uuid.UUID, error)
+}
+
+// StatusError exposes controlled access errors through coretransport.WriteHookError.
+type StatusError struct {
+	Status  int
+	Message string
+}
+
+func (e *StatusError) Error() string         { return e.Message }
+func (e *StatusError) StatusCode() int       { return e.Status }
+func (e *StatusError) ClientMessage() string { return e.Message }
+
+// RoutesFactory builds extension routes. The server applies JWT or a live-session
+// check, logging, CORS, and panic recovery. It does not run RBAC.
+type RoutesFactory func(deps Dependencies) []Route

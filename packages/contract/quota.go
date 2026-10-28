@@ -21,6 +21,10 @@ const (
 	QuotaWindowMinute = "minute"
 	QuotaWindowHour   = "hour"
 	QuotaWindowMonth  = "month"
+
+	UsageStatusAvailable   = "available"
+	UsageStatusUnavailable = "unavailable"
+	UsageStatusUnsupported = "unsupported"
 )
 
 type PlanResponse struct {
@@ -79,7 +83,24 @@ type ProjectQuotaListResponse struct {
 }
 
 type ProjectUsageResponse struct {
-	PublicID string           `json:"public_id"`
-	ID       string           `json:"id" format:"uuid"`
-	Usage    map[string]int64 `json:"usage"`
+	ID       string                        `json:"id" format:"uuid"`
+	PublicID string                        `json:"public_id"`
+	Usage    map[string]QuotaUsageResponse `json:"usage"`
+}
+
+type QuotaUsageResponse struct {
+	Used        *int64                   `json:"used" format:"int64" extensions:"x-nullable"`
+	Status      string                   `json:"status" enums:"available,unavailable,unsupported"`
+	Unit        string                   `json:"unit"`
+	ObservedAt  *time.Time               `json:"observed_at" format:"date-time" extensions:"x-nullable"`
+	Aggregation string                   `json:"aggregation,omitempty" enums:"max"`
+	Resources   *[]ResourceUsageResponse `json:"resources,omitempty"`
+}
+
+type ResourceUsageResponse struct {
+	ID         string     `json:"id" format:"uuid"`
+	PublicID   string     `json:"public_id"`
+	Used       *int64     `json:"used" format:"int64" extensions:"x-nullable"`
+	Status     string     `json:"status" enums:"available,unavailable,unsupported"`
+	ObservedAt *time.Time `json:"observed_at" format:"date-time" extensions:"x-nullable"`
 }

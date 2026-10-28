@@ -2654,65 +2654,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/projects/{project_id}/usage": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "iam"
-                ],
-                "summary": "Получить потребление проекта",
-                "parameters": [
-                    {
-                        "maxLength": 10,
-                        "minLength": 10,
-                        "type": "string",
-                        "description": "Public ID проекта (10 строчных hex-символов)",
-                        "name": "project_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/contract.ProjectUsageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -3089,25 +3030,6 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/contract.TagListEntry"
-                    }
-                }
-            }
-        },
-        "contract.ProjectUsageResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "format": "uuid"
-                },
-                "public_id": {
-                    "type": "string"
-                },
-                "usage": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer",
-                        "format": "int64"
                     }
                 }
             }

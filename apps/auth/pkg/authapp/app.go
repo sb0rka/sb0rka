@@ -75,6 +75,8 @@ func (a *App) Run(ctx context.Context) error {
 	if cfg.Server.OIDC != nil {
 		log.Info("OIDC provider enabled", "client_id", cfg.Server.OIDC.ClientID)
 	}
+	// Extension handlers only need the pool. Public, JWT, live-session, and
+	// email-verification policy is applied by the router before they run.
 	for _, factory := range a.opts.RouteFactories {
 		if factory == nil {
 			return fmt.Errorf("nil auth route factory")

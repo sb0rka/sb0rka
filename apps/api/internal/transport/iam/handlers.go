@@ -287,52 +287,6 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetProjectUsage godoc
-// @Summary  Получить потребление проекта
-// @Tags     iam
-// @Produce  json
-// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
-// @Success  200         {object}  contract.ProjectUsageResponse
-// @Failure  400         {string}  string
-// @Failure  403         {string}  string
-// @Failure  404         {string}  string
-// @Failure  500         {string}  string
-// @Security BearerAuth
-// @Router   /projects/{project_id}/usage [get]
-func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
-	subjectID, ok := parseSubjectID(r)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	projectPublicID, err := runtime.ParsePublicID(r.PathValue("project_id"), "project_id")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
-	if !ok {
-		return
-	}
-	usage, err := h.deps.PlatformDatabase.ListProjectUsage(r.Context(), projectID)
-	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("get_project_usage_failed", "project_id", projectID, "error", err)
-		http.Error(w, "Failed to get project usage", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(contract.ProjectUsageResponse{
-		PublicID: projectPublicID,
-		ID:       projectID.String(),
-		Usage:    usage,
-	})
-}
-
 func toPlanResponse(p model.Plan) contract.PlanResponse {
 	return contract.PlanResponse{
 		ID:            p.ID.String(),

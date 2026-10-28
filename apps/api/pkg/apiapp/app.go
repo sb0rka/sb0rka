@@ -107,16 +107,23 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	var additionalRoutes []route.Route
+	// Extension handlers live outside this module and cannot import internal/authz.
+	// They share this audited authorizer, but only through AuthorizeProjectRead.
+	authorizer := authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log)
+	routeDeps := route.Dependencies{
+		Pool:                 platformDatabase.PgxPool(),
+		AuthorizeProjectRead: projectReadAuthorizer(authorizer),
+	}
 	for _, factory := range a.opts.RouteFactories {
 		if factory == nil {
 			return fmt.Errorf("nil API route factory")
 		}
-		additionalRoutes = append(additionalRoutes, factory(platformDatabase.PgxPool())...)
+		additionalRoutes = append(additionalRoutes, factory(routeDeps)...)
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
 		PlatformDatabase: platformDatabase,
-		Authorizer:       authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log),
+		Authorizer:       authorizer,
 		SecretCrypto:     secretCrypto,
 		Telemetry:        telemetryService,
 		AccountHook:      accountHook,

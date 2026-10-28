@@ -250,19 +250,6 @@ definitions:
           $ref: '#/definitions/contract.TagListEntry'
         type: array
     type: object
-  contract.ProjectUsageResponse:
-    properties:
-      id:
-        format: uuid
-        type: string
-      public_id:
-        type: string
-      usage:
-        additionalProperties:
-          format: int64
-          type: integer
-        type: object
-    type: object
   contract.QuotaDefinitionSnippet:
     properties:
       code:
@@ -2320,44 +2307,6 @@ paths:
       summary: Список тегов проекта
       tags:
       - tags
-  /projects/{project_id}/usage:
-    get:
-      parameters:
-      - description: Public ID проекта (10 строчных hex-символов)
-        in: path
-        maxLength: 10
-        minLength: 10
-        name: project_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/contract.ProjectUsageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "404":
-          description: Not Found
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получить потребление проекта
-      tags:
-      - iam
 securityDefinitions:
   BearerAuth:
     in: header

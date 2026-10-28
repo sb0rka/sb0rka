@@ -38,7 +38,6 @@ type Database interface {
 	GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model.Plan, error)
 	GetPlan(ctx context.Context, planID uuid.UUID, subjectID uuid.UUID) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)
-	ListProjectUsage(ctx context.Context, projectID uuid.UUID) (map[string]int64, error)
 
 	// Projects
 	CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, billingSubjectID uuid.UUID, planID uuid.UUID, name string, description *string) (model.Project, error)

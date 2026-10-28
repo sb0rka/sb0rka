@@ -66,7 +66,6 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /account/plan", authOnly(s.iam.GetAccountPlan))
 	mux.Handle("GET /projects/{project_id}/plan", authOnly(s.iam.GetProjectPlan))
 	mux.Handle("GET /projects/{project_id}/quotas", authOnly(s.iam.GetProjectQuotas))
-	mux.Handle("GET /projects/{project_id}/usage", authOnly(s.iam.GetProjectUsage))
 
 	// Projects
 	mux.Handle("POST /projects", authLive(s.projects.CreateProject))
