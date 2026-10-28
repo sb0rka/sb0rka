@@ -106,7 +106,6 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 // @Failure  404  {string}  string
 // @Failure  500  {string}  string
 // @Security BearerAuth
-// @Router   /plan [get]
 // @Router   /account/plan [get]
 func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
@@ -130,6 +129,48 @@ func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// GetPlan godoc
+// @Summary  Получить тариф по ID
+// @Description Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.
+// @Tags     iam
+// @Produce  json
+// @Param    plan_id  path  string  true  "UUID тарифа" format(uuid)
+// @Success  200  {object}  contract.PlanResponse
+// @Failure  400  {string}  string
+// @Failure  401  {string}  string
+// @Failure  404  {string}  string
+// @Failure  500  {string}  string
+// @Security BearerAuth
+// @Router   /plan/{plan_id} [get]
+func (h *Handler) GetPlan(w http.ResponseWriter, r *http.Request) {
+	subjectID, ok := parseSubjectID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	planID, err := uuid.Parse(strings.TrimSpace(r.PathValue("plan_id")))
+	if err != nil {
+		http.Error(w, "Invalid plan_id", http.StatusBadRequest)
+		return
+	}
+
+	plan, err := h.deps.PlatformDatabase.GetPlan(r.Context(), planID, subjectID)
+	if err != nil {
+		if errors.Is(err, db.ErrPlanNotFound) {
+			http.Error(w, "Plan not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_plan_failed", "plan_id", planID, "error", err)
+		http.Error(w, "Failed to get plan", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(toPlanResponse(plan))
 }
 
 // ListPublicPlans godoc
@@ -240,8 +281,9 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 		quotas = []contract.ProjectQuotaItemResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(contract.ProjectQuotaListResponse{
-		ProjectID: projectID.String(),
-		Quotas:    quotas,
+		PublicID: projectPublicID,
+		ID:       projectID.String(),
+		Quotas:   quotas,
 	})
 }
 
@@ -250,7 +292,7 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 // @Tags     iam
 // @Produce  json
 // @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
-// @Success  200         {object}  map[string]interface{}
+// @Success  200         {object}  contract.ProjectUsageResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
@@ -284,20 +326,26 @@ func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{"project_id": projectID, "usage": usage})
+	_ = json.NewEncoder(w).Encode(contract.ProjectUsageResponse{
+		PublicID: projectPublicID,
+		ID:       projectID.String(),
+		Usage:    usage,
+	})
 }
 
 func toPlanResponse(p model.Plan) contract.PlanResponse {
 	return contract.PlanResponse{
-		ID:          p.ID.String(),
-		Name:        p.Name,
-		Description: p.Description,
-		Code:        p.Code,
-		Kind:        p.Kind,
-		IsPublic:    p.IsPublic,
-		IsAvailable: p.IsAvailable,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		ID:            p.ID.String(),
+		NameEN:        p.NameEN,
+		NameRU:        p.NameRU,
+		DescriptionEN: p.DescriptionEN,
+		DescriptionRU: p.DescriptionRU,
+		Code:          p.Code,
+		Kind:          p.Kind,
+		IsPublic:      p.IsPublic,
+		IsAvailable:   p.IsAvailable,
+		CreatedAt:     p.CreatedAt,
+		UpdatedAt:     p.UpdatedAt,
 	}
 }
 func (h *Handler) handleInitializePlanError(w http.ResponseWriter, kind string, err error) {

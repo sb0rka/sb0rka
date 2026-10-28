@@ -36,6 +36,7 @@ type Database interface {
 	GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error)
 	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error
 	GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model.Plan, error)
+	GetPlan(ctx context.Context, planID uuid.UUID, subjectID uuid.UUID) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)
 	ListProjectUsage(ctx context.Context, projectID uuid.UUID) (map[string]int64, error)
 

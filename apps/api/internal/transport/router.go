@@ -54,14 +54,14 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	mux.HandleFunc("GET /ping", s.ping)
 	mux.HandleFunc("GET /health", s.health)
-	mux.HandleFunc("GET /plans", s.iam.ListPublicPlans)
 
 	// Swagger UI (публичный)
 	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 
 	// Plans & quotas
 
-	mux.Handle("GET /plan", authOnly(s.iam.GetAccountPlan))
+	mux.HandleFunc("GET /plans", s.iam.ListPublicPlans)
+	mux.Handle("GET /plan/{plan_id}", authOnly(s.iam.GetPlan))
 	mux.Handle("POST /account/initialize", authLive(s.iam.InitializeAccount))
 	mux.Handle("GET /account/plan", authOnly(s.iam.GetAccountPlan))
 	mux.Handle("GET /projects/{project_id}/plan", authOnly(s.iam.GetProjectPlan))

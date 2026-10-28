@@ -46,6 +46,9 @@ definitions:
         type: string
       name:
         type: string
+      owner_subject_id:
+        format: uuid
+        type: string
       plan_id:
         format: uuid
         type: string
@@ -127,7 +130,9 @@ definitions:
         type: string
       created_at:
         type: string
-      description:
+      description_en:
+        type: string
+      description_ru:
         type: string
       id:
         type: string
@@ -137,7 +142,9 @@ definitions:
         type: boolean
       kind:
         type: string
-      name:
+      name_en:
+        type: string
+      name_ru:
         type: string
       updated_at:
         type: string
@@ -197,7 +204,10 @@ definitions:
     type: object
   contract.ProjectQuotaListResponse:
     properties:
-      project_id:
+      id:
+        format: uuid
+        type: string
+      public_id:
         type: string
       quotas:
         items:
@@ -240,11 +250,26 @@ definitions:
           $ref: '#/definitions/contract.TagListEntry'
         type: array
     type: object
+  contract.ProjectUsageResponse:
+    properties:
+      id:
+        format: uuid
+        type: string
+      public_id:
+        type: string
+      usage:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+    type: object
   contract.QuotaDefinitionSnippet:
     properties:
       code:
         type: string
-      description:
+      description_en:
+        type: string
+      description_ru:
         type: string
       id:
         type: string
@@ -254,7 +279,9 @@ definitions:
         - periodic
         - balance
         type: string
-      name:
+      name_en:
+        type: string
+      name_ru:
         type: string
       scope:
         type: string
@@ -610,8 +637,18 @@ paths:
       summary: Получить тариф аккаунта
       tags:
       - iam
-  /plan:
+  /plan/{plan_id}:
     get:
+      description: Авторизованному пользователю доступны публичные активные тарифы,
+        а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо
+        от is_public и is_available.
+      parameters:
+      - description: UUID тарифа
+        format: uuid
+        in: path
+        name: plan_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -619,6 +656,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/contract.PlanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
         "401":
           description: Unauthorized
           schema:
@@ -633,7 +674,7 @@ paths:
             type: string
       security:
       - BearerAuth: []
-      summary: Получить тариф аккаунта
+      summary: Получить тариф по ID
       tags:
       - iam
   /plans:
@@ -674,7 +715,8 @@ paths:
       consumes:
       - application/json
       description: Требует предварительного POST /account/initialize. Проект получает
-        план по умолчанию.
+        план по умолчанию. owner_subject_id по умолчанию — текущий пользователь; организация
+        допустима только для её owner, billing при этом ставится на этого owner.
       parameters:
       - description: Параметры проекта
         in: body
@@ -695,6 +737,10 @@ paths:
             type: string
         "403":
           description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
           schema:
             type: string
         "409":
@@ -2290,8 +2336,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/contract.ProjectUsageResponse'
         "400":
           description: Bad Request
           schema:

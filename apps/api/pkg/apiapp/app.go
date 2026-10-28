@@ -14,6 +14,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/membership"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
@@ -99,6 +100,12 @@ func (a *App) Run(ctx context.Context) error {
 		quotaHook = a.opts.QuotaHookFactory(repo)
 	}
 
+	membershipHook := membership.Noop()
+	if a.opts.MembershipRepositoryFactory != nil && a.opts.MembershipHookFactory != nil {
+		repo := a.opts.MembershipRepositoryFactory(platformDatabase.PgxPool())
+		membershipHook = a.opts.MembershipHookFactory(repo)
+	}
+
 	var additionalRoutes []route.Route
 	for _, factory := range a.opts.RouteFactories {
 		if factory == nil {
@@ -114,6 +121,7 @@ func (a *App) Run(ctx context.Context) error {
 		Telemetry:        telemetryService,
 		AccountHook:      accountHook,
 		QuotaHook:        quotaHook,
+		MembershipHook:   membershipHook,
 		AdditionalRoutes: additionalRoutes,
 		DefaultPlans:     a.opts.DefaultPlans.WithDefaults(),
 		Cfg:              cfg.Server,

@@ -91,7 +91,7 @@ func (p *PsqlDB) IsLiveSession(ctx context.Context, sessionID uuid.UUID, subject
 
 func (p *PsqlDB) GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model.Plan, error) {
 	const query = `
-		SELECT p.id, p.name, p.description, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
+		SELECT p.id, p.name_en, p.name_ru, p.description_en, p.description_ru, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
 		FROM subject_plans sp
 		INNER JOIN plans p ON p.id = sp.plan_id
 		WHERE sp.subject_id = $1
@@ -99,8 +99,10 @@ func (p *PsqlDB) GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model
 	var out model.Plan
 	if err := p.pool.QueryRow(ctx, query, subjectID).Scan(
 		&out.ID,
-		&out.Name,
-		&out.Description,
+		&out.NameEN,
+		&out.NameRU,
+		&out.DescriptionEN,
+		&out.DescriptionRU,
 		&out.Code,
 		&out.Kind,
 		&out.IsPublic,
@@ -118,7 +120,7 @@ func (p *PsqlDB) GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model
 
 func (p *PsqlDB) GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error) {
 	const query = `
-		SELECT p.id, p.name, p.description, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
+		SELECT p.id, p.name_en, p.name_ru, p.description_en, p.description_ru, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
 		FROM subject_plans sp
 		INNER JOIN plans p ON p.id = sp.plan_id
 		WHERE sp.subject_id = $1
@@ -127,8 +129,10 @@ func (p *PsqlDB) GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, 
 	var out model.Plan
 	if err := p.pool.QueryRow(ctx, query, subjectID, kind).Scan(
 		&out.ID,
-		&out.Name,
-		&out.Description,
+		&out.NameEN,
+		&out.NameRU,
+		&out.DescriptionEN,
+		&out.DescriptionRU,
 		&out.Code,
 		&out.Kind,
 		&out.IsPublic,
@@ -184,7 +188,7 @@ func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, pla
 
 func (p *PsqlDB) GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model.Plan, error) {
 	const query = `
-		SELECT p.id, p.name, p.description, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
+		SELECT p.id, p.name_en, p.name_ru, p.description_en, p.description_ru, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
 		FROM projects pr
 		INNER JOIN plans p ON p.id = pr.plan_id
 		WHERE pr.id = $1
@@ -192,8 +196,10 @@ func (p *PsqlDB) GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model
 	var out model.Plan
 	if err := p.pool.QueryRow(ctx, query, projectID).Scan(
 		&out.ID,
-		&out.Name,
-		&out.Description,
+		&out.NameEN,
+		&out.NameRU,
+		&out.DescriptionEN,
+		&out.DescriptionRU,
 		&out.Code,
 		&out.Kind,
 		&out.IsPublic,
@@ -209,12 +215,52 @@ func (p *PsqlDB) GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model
 	return out, nil
 }
 
+func (p *PsqlDB) GetPlan(ctx context.Context, planID uuid.UUID, subjectID uuid.UUID) (model.Plan, error) {
+	const query = `
+		SELECT p.id, p.name_en, p.name_ru, p.description_en, p.description_ru, p.code, p.kind, p.is_public, p.is_available, p.created_at, p.updated_at
+		FROM plans p
+		WHERE p.id = $1
+		  AND (
+			(p.is_public = true AND p.is_available = true)
+			OR EXISTS (
+				SELECT 1 FROM subject_plans sp
+				WHERE sp.plan_id = p.id AND sp.subject_id = $2
+			)
+			OR EXISTS (
+				SELECT 1 FROM projects pr
+				INNER JOIN project_members pm ON pm.project_id = pr.id
+				WHERE pr.plan_id = p.id AND pm.subject_id = $2
+			)
+		  )
+	`
+	var out model.Plan
+	if err := p.pool.QueryRow(ctx, query, planID, subjectID).Scan(
+		&out.ID,
+		&out.NameEN,
+		&out.NameRU,
+		&out.DescriptionEN,
+		&out.DescriptionRU,
+		&out.Code,
+		&out.Kind,
+		&out.IsPublic,
+		&out.IsAvailable,
+		&out.CreatedAt,
+		&out.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Plan{}, ErrPlanNotFound
+		}
+		return model.Plan{}, err
+	}
+	return out, nil
+}
+
 func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 	const query = `
-		SELECT id, name, description, code, kind, is_public, is_available, created_at, updated_at
+		SELECT id, name_en, name_ru, description_en, description_ru, code, kind, is_public, is_available, created_at, updated_at
 		FROM plans
 		WHERE is_public = true AND is_available = true
-		ORDER BY kind, name
+		ORDER BY kind, name_en
 	`
 	rows, err := p.pool.Query(ctx, query)
 	if err != nil {
@@ -227,8 +273,10 @@ func (p *PsqlDB) ListPublicPlans(ctx context.Context) ([]model.Plan, error) {
 		var plan model.Plan
 		if err := rows.Scan(
 			&plan.ID,
-			&plan.Name,
-			&plan.Description,
+			&plan.NameEN,
+			&plan.NameRU,
+			&plan.DescriptionEN,
+			&plan.DescriptionRU,
 			&plan.Code,
 			&plan.Kind,
 			&plan.IsPublic,
@@ -340,7 +388,8 @@ func (p *PsqlDB) CreateProject(ctx context.Context, ownerSubjectID uuid.UUID, bi
 		INSERT INTO project_members (project_id, subject_id, role)
 		VALUES ($1, $2, $3)
 	`
-	if _, err := tx.Exec(ctx, insertOwnerMemberQuery, project.ID, ownerSubjectID, model.PrjMemberRoleOwner); err != nil {
+	// Membership is the billed user. An organization owns the project but is not a member.
+	if _, err := tx.Exec(ctx, insertOwnerMemberQuery, project.ID, billingSubjectID, model.PrjMemberRoleOwner); err != nil {
 		return model.Project{}, err
 	}
 
@@ -536,7 +585,11 @@ func (p *PsqlDB) AddProjectMember(ctx context.Context, projectID uuid.UUID, subj
 	if err != nil {
 		return model.ProjectMember{}, err
 	}
-	if kind != "user" {
+	// Organizations own projects; they are never project members. Additional
+	// kinds (agent, service_account) can be added to this allowlist later.
+	switch kind {
+	case "user":
+	default:
 		return model.ProjectMember{}, ErrSubjectKindMismatch
 	}
 

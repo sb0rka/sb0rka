@@ -111,6 +111,15 @@ func roleRank(role string) (int, bool) {
 	return 0, false
 }
 
+// canAssignProjectRole reports whether callerRole may grant targetRole.
+// A member may grant only strictly lower roles: owner → admin and below,
+// admin → editor and below, editor → viewer.
+func canAssignProjectRole(callerRole, targetRole string) bool {
+	callerRank, callerOK := roleRank(callerRole)
+	targetRank, targetOK := roleRank(targetRole)
+	return callerOK && targetOK && targetRank < callerRank
+}
+
 func (h *Handler) getCallerProjectMember(ctx *http.Request, projectID uuid.UUID, callerID uuid.UUID) (model.ProjectMember, error) {
 	return h.deps.PlatformDatabase.GetProjectMember(ctx.Context(), projectID, callerID)
 }
@@ -131,7 +140,7 @@ func (h *Handler) countProjectOwners(ctx *http.Request, projectID uuid.UUID) (in
 
 // CreateProject godoc
 // @Summary  Создать проект
-// @Description Требует предварительного POST /account/initialize. Проект получает план по умолчанию.
+// @Description Требует предварительного POST /account/initialize. Проект получает план по умолчанию. owner_subject_id по умолчанию — текущий пользователь; организация допустима только для её owner, billing при этом ставится на этого owner.
 // @Tags     projects
 // @Accept   json
 // @Produce  json
@@ -139,6 +148,7 @@ func (h *Handler) countProjectOwners(ctx *http.Request, projectID uuid.UUID) (in
 // @Success  201   {object}  contract.ProjectResponse
 // @Failure  400   {string}  string
 // @Failure  403   {string}  string
+// @Failure  404   {string}  string
 // @Failure  409   {string}  string
 // @Security BearerAuth
 // @Router   /projects [post]
@@ -170,8 +180,29 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// v0.1.0: billing subject is always current subject.
-	billingSubjectID := subjectID
+	ownerSubjectID := subjectID
+	if rawOwner := strings.TrimSpace(req.OwnerSubjectID); rawOwner != "" {
+		ownerSubjectID, err = uuid.Parse(rawOwner)
+		if err != nil || ownerSubjectID == uuid.Nil {
+			http.Error(w, "invalid owner_subject_id", http.StatusBadRequest)
+			return
+		}
+	}
+	ownerKind, err := h.deps.PlatformDatabase.GetSubjectKind(r.Context(), ownerSubjectID)
+	if err != nil {
+		if errors.Is(err, db.ErrSubjectNotFound) {
+			http.Error(w, "Owner subject not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_owner_subject_kind_failed", "owner_subject_id", ownerSubjectID, "error", err)
+		http.Error(w, "Failed to create project", http.StatusInternalServerError)
+		return
+	}
+
+	billingSubjectID, ok := h.resolveProjectBilling(w, r, subjectID, ownerSubjectID, ownerKind)
+	if !ok {
+		return
+	}
 	if _, err := h.deps.PlatformDatabase.GetSubjectPlanByKind(r.Context(), billingSubjectID, model.PlanKindAccount); err != nil {
 		if errors.Is(err, db.ErrSubjectPlanNotFound) {
 			http.Error(w, "Subject plan not found", http.StatusNotFound)
@@ -202,7 +233,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), subjectID, billingSubjectID, planID, name, description)
+	project, err := h.deps.PlatformDatabase.CreateProject(r.Context(), ownerSubjectID, billingSubjectID, planID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectAlreadyExists) {
 			http.Error(w, "Project already exists", http.StatusConflict)
@@ -216,6 +247,37 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(toProject(project))
+}
+
+func (h *Handler) resolveProjectBilling(
+	w http.ResponseWriter,
+	r *http.Request,
+	callerID uuid.UUID,
+	ownerSubjectID uuid.UUID,
+	ownerKind string,
+) (uuid.UUID, bool) {
+	switch ownerKind {
+	case "user":
+		if ownerSubjectID != callerID {
+			writeForbidden(w)
+			return uuid.Nil, false
+		}
+		return callerID, true
+	case "organization":
+		billingSubjectID, err := h.deps.MembershipHook.ResolveOrganizationBilling(r.Context(), callerID, ownerSubjectID)
+		if err != nil {
+			coretransport.WriteHookError(w, err, h.deps.Log, "resolve_organization_billing_failed")
+			return uuid.Nil, false
+		}
+		if billingSubjectID == uuid.Nil {
+			http.Error(w, "Organization owner not found", http.StatusNotFound)
+			return uuid.Nil, false
+		}
+		return billingSubjectID, true
+	default:
+		http.Error(w, "invalid owner subject kind", http.StatusBadRequest)
+		return uuid.Nil, false
+	}
 }
 
 // GetProject godoc
@@ -581,13 +643,39 @@ func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid role", http.StatusBadRequest)
 		return
 	}
-
-	if role == model.PrjMemberRoleOwner && callerMember.Role != model.PrjMemberRoleOwner {
+	if !canAssignProjectRole(callerMember.Role, role) {
 		writeForbidden(w)
 		return
 	}
-	if callerMember.Role == model.PrjMemberRoleAdmin && role == model.PrjMemberRoleOwner {
-		writeForbidden(w)
+
+	project, err := h.deps.PlatformDatabase.GetProject(r.Context(), projectID)
+	if err != nil {
+		if errors.Is(err, db.ErrProjectNotFound) {
+			http.Error(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_project_failed", "project_id", projectID, "error", err)
+		http.Error(w, "Failed to add member", http.StatusInternalServerError)
+		return
+	}
+	targetKind, err := h.deps.PlatformDatabase.GetSubjectKind(r.Context(), targetSubjectID)
+	if err != nil {
+		if errors.Is(err, db.ErrSubjectNotFound) {
+			http.Error(w, "Subject not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_target_subject_kind_failed", "target_subject_id", targetSubjectID, "error", err)
+		http.Error(w, "Failed to add member", http.StatusInternalServerError)
+		return
+	}
+	if err := h.deps.MembershipHook.BeforeAddProjectMember(
+		r.Context(),
+		project.ID,
+		project.OwnerSubjectID,
+		targetSubjectID,
+		targetKind,
+	); err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "assert_project_membership_failed")
 		return
 	}
 
@@ -599,7 +687,7 @@ func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, db.ErrSubjectNotFound):
 			http.Error(w, "Subject not found", http.StatusNotFound)
 		case errors.Is(err, db.ErrSubjectKindMismatch):
-			http.Error(w, "Only user subjects are allowed in project members", http.StatusBadRequest)
+			http.Error(w, "Subject kind is not allowed as a project member", http.StatusBadRequest)
 		default:
 			h.deps.Log.Error("add_project_member_failed", "project_id", projectID, "target_subject_id", targetSubjectID, "error", err)
 			http.Error(w, "Failed to add member", http.StatusInternalServerError)
@@ -680,31 +768,16 @@ func (h *Handler) UpdateProjectMemberRole(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if targetMember.Role == model.PrjMemberRoleOwner || newRole == model.PrjMemberRoleOwner {
-		if callerMember.Role != model.PrjMemberRoleOwner {
-			writeForbidden(w)
-			return
-		}
-	}
-	callerRank, _ := roleRank(callerMember.Role)
-	targetRank, _ := roleRank(targetMember.Role)
-	newRank, _ := roleRank(newRole)
-	if callerMember.Role == model.PrjMemberRoleAdmin && (targetRank >= callerRank || newRank >= callerRank) {
-		writeForbidden(w)
+	targetRank, ok := roleRank(targetMember.Role)
+	if !ok {
+		h.deps.Log.Error("invalid_target_project_member_role", "project_id", projectID, "target_subject_id", targetSubjectID, "role", targetMember.Role)
+		http.Error(w, "Failed to update role", http.StatusInternalServerError)
 		return
 	}
-
-	if targetMember.Role == model.PrjMemberRoleOwner && newRole != model.PrjMemberRoleOwner {
-		owners, err := h.countProjectOwners(r, projectID)
-		if err != nil {
-			h.deps.Log.Error("count_project_owners_failed", "project_id", projectID, "error", err)
-			http.Error(w, "Failed to update role", http.StatusInternalServerError)
-			return
-		}
-		if owners <= 1 {
-			http.Error(w, "Cannot demote the last owner", http.StatusConflict)
-			return
-		}
+	callerRank, callerOK := roleRank(callerMember.Role)
+	if !callerOK || targetRank >= callerRank || !canAssignProjectRole(callerMember.Role, newRole) {
+		writeForbidden(w)
+		return
 	}
 
 	member, err := h.deps.PlatformDatabase.UpdateProjectMemberRole(r.Context(), projectID, targetSubjectID, newRole)

@@ -100,25 +100,42 @@ const docTemplate = `{
                 }
             }
         },
-        "/plan": {
+        "/plan/{plan_id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "iam"
                 ],
-                "summary": "Получить тариф аккаунта",
+                "summary": "Получить тариф по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "UUID тарифа",
+                        "name": "plan_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/contract.PlanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "401": {
@@ -202,7 +219,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Требует предварительного POST /account/initialize. Проект получает план по умолчанию.",
+                "description": "Требует предварительного POST /account/initialize. Проект получает план по умолчанию. owner_subject_id по умолчанию — текущий пользователь; организация допустима только для её owner, billing при этом ставится на этого owner.",
                 "consumes": [
                     "application/json"
                 ],
@@ -239,6 +256,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "string"
                         }
@@ -2661,8 +2684,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/contract.ProjectUsageResponse"
                         }
                     },
                     "400": {
@@ -2762,6 +2784,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "owner_subject_id": {
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "plan_id": {
                     "type": "string",
@@ -2886,7 +2912,10 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
-                "description": {
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
                     "type": "string"
                 },
                 "id": {
@@ -2901,7 +2930,10 @@ const docTemplate = `{
                 "kind": {
                     "type": "string"
                 },
-                "name": {
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2993,7 +3025,11 @@ const docTemplate = `{
         "contract.ProjectQuotaListResponse": {
             "type": "object",
             "properties": {
-                "project_id": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "quotas": {
@@ -3057,13 +3093,35 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.ProjectUsageResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "public_id": {
+                    "type": "string"
+                },
+                "usage": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            }
+        },
         "contract.QuotaDefinitionSnippet": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "string"
                 },
-                "description": {
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
                     "type": "string"
                 },
                 "id": {
@@ -3077,7 +3135,10 @@ const docTemplate = `{
                         "balance"
                     ]
                 },
-                "name": {
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
                     "type": "string"
                 },
                 "scope": {

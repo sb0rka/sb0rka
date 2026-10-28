@@ -10,9 +10,10 @@ const (
 )
 
 type CreateProjectRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	PlanID      string `json:"plan_id" format:"uuid"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	PlanID         string `json:"plan_id" format:"uuid"`
+	OwnerSubjectID string `json:"owner_subject_id,omitempty" format:"uuid"`
 }
 
 type UpdateProjectRequest struct {

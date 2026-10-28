@@ -2,6 +2,7 @@ package apiapp
 
 import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/membership"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/plan"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
@@ -23,6 +24,12 @@ type Options struct {
 	// Nil, or an incomplete pair, leaves quota.Noop() active.
 	QuotaRepositoryFactory quota.RepositoryFactory
 	QuotaHookFactory       quota.HookFactory
+
+	// MembershipRepositoryFactory and MembershipHookFactory activate project
+	// membership policy together. Nil, or an incomplete pair, leaves
+	// membership.Noop() active (any allowed subject kind may be granted).
+	MembershipRepositoryFactory membership.RepositoryFactory
+	MembershipHookFactory       membership.HookFactory
 
 	RouteFactories []route.RoutesFactory
 }
