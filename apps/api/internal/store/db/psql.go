@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
+	corestore "github.com/sb0rka/sb0rka/packages/core/store"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -35,15 +36,12 @@ func DatabaseSecretTag(databasePublicID, secretPublicID string) (string, string)
 }
 
 func NewPsqlDB(uri string, maxConns int, connMaxLifetime time.Duration) (*PsqlDB, error) {
-	pool, err := pgxpool.New(context.Background(), uri)
+	corePool, err := corestore.NewPool(uri, maxConns, connMaxLifetime)
 	if err != nil {
 		return nil, err
 	}
 
-	pool.Config().MaxConns = int32(maxConns)
-	pool.Config().MaxConnLifetime = connMaxLifetime
-
-	return &PsqlDB{pool: pool}, nil
+	return &PsqlDB{pool: corePool.Pgx()}, nil
 }
 
 func (p *PsqlDB) TestConnection(ctx context.Context) error {

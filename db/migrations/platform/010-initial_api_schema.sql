@@ -39,7 +39,7 @@ BEGIN
 END;
 $$;
 
--- PLANS & QUOTAS
+-- PLANS
 
 CREATE TABLE IF NOT EXISTS plans (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -222,21 +222,51 @@ CREATE INDEX IF NOT EXISTS ix_resources_project_created_at
 
 CREATE TABLE IF NOT EXISTS resource_usage_records (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    project_id UUID NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    project_id UUID NOT NULL,
     resource_id UUID NOT NULL,
     data JSONB DEFAULT '{}'::jsonb NOT NULL,
     started_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     finished_at TIMESTAMPTZ,
 
-    CHECK (finished_at IS NULL OR finished_at >= started_at),
-    FOREIGN KEY (resource_id, project_id) REFERENCES resources (id, project_id)
-        ON DELETE CASCADE
+    CHECK (finished_at IS NULL OR finished_at >= started_at)
 );
 
 CREATE INDEX IF NOT EXISTS ix_resource_usage_records_project_started_at
     ON resource_usage_records (project_id, started_at);
 CREATE INDEX IF NOT EXISTS ix_resource_usage_records_resource_started_at
     ON resource_usage_records (resource_id, started_at);
+
+-- Checks the resource's belonging to the project and saves the immutable UUID
+-- record after the parent deletion.
+CREATE OR REPLACE FUNCTION validate_resource_usage_identity()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = :"DB_API_SCHEMA_NAME", pg_temp
+AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        IF (NEW.id, NEW.project_id, NEW.resource_id, NEW.started_at)
+            IS DISTINCT FROM (OLD.id, OLD.project_id, OLD.resource_id, OLD.started_at) THEN
+            RAISE EXCEPTION 'usage identity is immutable' USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END IF;
+    PERFORM id FROM projects WHERE id = NEW.project_id FOR KEY SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'usage project does not exist' USING ERRCODE = '23503';
+    END IF;
+    PERFORM id FROM resources
+        WHERE id = NEW.resource_id AND project_id = NEW.project_id FOR KEY SHARE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'usage resource does not belong to project' USING ERRCODE = '23503';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_resource_usage_identity ON resource_usage_records;
+CREATE TRIGGER trg_resource_usage_identity BEFORE INSERT OR UPDATE ON resource_usage_records
+FOR EACH ROW EXECUTE FUNCTION validate_resource_usage_identity();
 
 CREATE TABLE IF NOT EXISTS resource_states (
     resource_id UUID PRIMARY KEY,
