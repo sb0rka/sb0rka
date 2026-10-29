@@ -19,6 +19,7 @@ import {
   type ProjectNavIconAnimation,
 } from "@/components/layout/project-nav-icon"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { SidebarLogo } from "@/components/layout/sidebar-logo"
 import {
   dividerClass,
   navIconClass,
@@ -89,34 +90,37 @@ export function ProjectSidebar({
         collapsed ? "w-[60px] [--sidebar-nav-pl:0.5rem]" : "w-[200px] [--sidebar-nav-pl:1rem]",
       )}
     >
-      <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)] pt-2">
-        {projectNavItems.map((item) => (
+      <div className="flex flex-col gap-2">
+        <SidebarLogo collapsed={collapsed} />
+        <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">
+          {projectNavItems.map((item) => (
+            <ProjectNavLink
+              key={item.tab}
+              to={getTabHref(item.tab)}
+              isActive={activeTab === item.tab}
+              icon={item.icon}
+              animation={item.iconAnimation}
+              collapsed={collapsed}
+            >
+              {t(item.labelKey)}
+            </ProjectNavLink>
+          ))}
+
+          <div className="relative h-px w-full">
+            <Separator className={dividerClass(collapsed)} />
+          </div>
+
           <ProjectNavLink
-            key={item.tab}
-            to={getTabHref(item.tab)}
-            isActive={activeTab === item.tab}
-            icon={item.icon}
-            animation={item.iconAnimation}
+            to={getTabHref(settingsNavItem.tab)}
+            isActive={activeTab === settingsNavItem.tab}
+            icon={settingsNavItem.icon}
+            animation={settingsNavItem.iconAnimation}
             collapsed={collapsed}
           >
-            {t(item.labelKey)}
+            {t(settingsNavItem.labelKey)}
           </ProjectNavLink>
-        ))}
-
-        <div className="relative h-px w-full">
-          <Separator className={dividerClass(collapsed)} />
-        </div>
-
-        <ProjectNavLink
-          to={getTabHref(settingsNavItem.tab)}
-          isActive={activeTab === settingsNavItem.tab}
-          icon={settingsNavItem.icon}
-          animation={settingsNavItem.iconAnimation}
-          collapsed={collapsed}
-        >
-          {t(settingsNavItem.labelKey)}
-        </ProjectNavLink>
-      </nav>
+        </nav>
+      </div>
 
       <div className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)] py-4">
         <div className="relative h-px w-full">
