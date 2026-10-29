@@ -195,7 +195,12 @@ definitions:
     properties:
       created_at:
         type: string
+      entitled:
+        description: Entitled is the sum of currently active project entitlements.
+        format: int64
+        type: integer
       limit_value:
+        description: LimitValue is the plan limit before entitlements.
         type: integer
       plan_id:
         type: string
@@ -1149,7 +1154,10 @@ paths:
       - iam
   /projects/{project_id}/quotas:
     get:
-      description: Возвращает список квот проекта.
+      description: Возвращает квоты плана со scope=project. limit_value — лимит плана,
+        entitled — сумма начислений проекта с starts_at <= now() и ends_at IS NULL
+        или ends_at > now(). При отсутствии действующих начислений entitled равен
+        0. Эффективный лимит = limit_value + entitled.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
