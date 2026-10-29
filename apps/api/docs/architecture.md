@@ -51,6 +51,8 @@ domain/model/ (доменные структуры)
 
 JSON-форматы запросов/ответов живут в `packages/contract` (общие с CLI `s0c`) — это единственный источник правды по контракту. Маппинг `model → contract` — функциями `toX` в хендлере.
 
+Параметры пути `project_id` и `resource_id` содержат `public_id`: 10 и 12 строчных hex-символов соответственно. Существующий запрос членства фильтрует проект по `public_id` и возвращает UUID; отсутствие членства дает `403`. Первый запрос ресурса фильтрует его по `public_id`. Дальнейшие проверки, связи, квоты и AAD используют UUID из результатов. JWT содержит UUID.
+
 ## Identity: мост JWT → context
 
 `authMiddleware` (`transport/middlewares.go`) проверяет `Authorization: Bearer <jwt>` через `service.ParseAndVerifyAccessTokenFromAuthHeader` (Ed25519/EdDSA, claims `sub`/`sid`/`sk`/`jti`) и кладёт identity в `context` через `runtime.WithAuthIdentity`. Дальше хендлеры читают её геттерами `runtime.AuthSubjectIDFromContext` и т.п. Сам `apps/api` токены **не выдаёт** — это делает `apps/auth`.
@@ -72,7 +74,9 @@ Deny-by-default (`authz/`). `RBACAuthorizer.Authorize` смотрит роль �
 5. `BuildSecretAAD(projectID, secretID, version=1, server_managed)` → AAD.
 6. `SecretCrypto.Encrypt(пароль, aad, key.KeyRef)` → шифртекст.
 7. `GeneratePostgresSCRAMSHA256Verifier(пароль)` → SCRAM-verifier (то, что хранит сам Postgres).
-8. `CreateDatabase(params)` — **одна транзакция**, создаёт согласованный набор: `dbis` + `resource_states` (database), `secrets` (имя `DATABASE_<id>_PASSWORD`) + `secret_versions` v1 + `secret_version_materials` (envelope), `dbi_verifiers` (verifier + `password_secret_id`, desired=`present`), системный тег `db_secret` (`resource_tags`).
+8. `CreateDatabase(params)` — **одна транзакция**, создает согласованный набор: `dbis` + `resource_states` (database), `secrets` (имя `DATABASE_<public_id>_PASSWORD`) + `secret_versions` v1 + `secret_version_materials` (envelope), `dbi_verifiers` (verifier + `password_secret_id`, desired=`present`), системный тег `db_secret` со значением `<db_public_id>_<secret_public_id>` (`resource_tags`).
+
+Описание password-секрета содержит public ID базы. Пароль и связанный с БД секрет при очистке находятся по UUID-связи `dbi_verifiers.password_secret_id`. Теги служат для отображения и не влияют на выбор ресурсов для очистки.
 
 Итог: пароль нигде не лежит в открытом виде — только зашифрованный материал + SCRAM-verifier. Реальный инстанс PostgreSQL поднимает внешний оркестратор по desired-state (в репозитории его нет).
 
@@ -86,7 +90,7 @@ Deny-by-default (`authz/`). `RBACAuthorizer.Authorize` смотрит роль �
 - желаемое пишет API (`dbis.desired_runtime_state`, `dbi_verifiers.password_desired_state`);
 - фактическое приводит к нему внешний реконсилятор (`resource_states.runtime_state`).
 
-`apps/drones` (фоновый GC) по тикеру вызывает SQL-функцию `api.cleanup_one_deleted_dbi()` (`SECURITY DEFINER`, `SKIP LOCKED` — безопасна для нескольких воркеров). Она по одной зачищает удалённые базы: когда база в `desired_runtime_state='terminated'`, и БД, и её password-секрет в `runtime_state='deleted'`, а `password_desired_state='absent'` — удаляет ресурс БД, ресурс секрета и системный тег `db_secret` одной транзакцией.
+`apps/drones` (фоновый GC) по тикеру вызывает SQL-функцию `api.cleanup_one_deleted_dbi()` (`SECURITY DEFINER`, `SKIP LOCKED` — безопасна для нескольких воркеров). Она по одной зачищает удалённые базы: когда база в `desired_runtime_state='terminated'`, и БД, и её password-секрет в `runtime_state='deleted'`, а `password_desired_state='absent'` — удаляет ресурс БД и ресурс секрета одной транзакцией. Отсутствие тегов и их привязок не препятствует удалению. Теги этих ресурсов удаляются, если после очистки у них не осталось привязок к другим ресурсам.
 
 ## Критические инварианты безопасности
 

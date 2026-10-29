@@ -25,5 +25,6 @@ type Route struct {
 	RequireEmailVerification bool
 }
 
-// RoutesFactory builds feature routes on top of the auth database pool.
+// RoutesFactory builds feature routes on the auth pool. Identity policy is
+// selected by Access; there is no project permission to inject.
 type RoutesFactory func(pool *pgxpool.Pool) []Route

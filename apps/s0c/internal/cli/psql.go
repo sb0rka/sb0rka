@@ -64,11 +64,11 @@ func NewCmdPsql() *cobra.Command {
 				return err
 			}
 
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Operating in project %s ID: %s\n", project.Name, project.ID)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Operating in project %s ID: %s\n", project.Name, project.PublicID)
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Connecting to database %s ID: %s\n", database.Name, database.DBInstanceID)
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Connecting to database %s ID: %s\n", database.Name, database.PublicID)
 			if err != nil {
 				return err
 			}
@@ -127,8 +127,8 @@ func NewCmdPsql() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringP("project-id", "p", "", "Project ID (overrides default from `s0c config`)")
-	cmd.Flags().StringP("database-id", "d", "", "Database resource ID (overrides default from `s0c config`)")
+	cmd.Flags().StringP("project-id", "p", "", "Project public ID (overrides default from `s0c config`)")
+	cmd.Flags().StringP("database-id", "d", "", "Database public ID (overrides default from `s0c config`)")
 
 	return cmd
 }
@@ -146,28 +146,28 @@ func bootstrapPsqlDefaults(cmd *cobra.Command, platformService *app.PlatformServ
 	if err != nil {
 		return "", "", fmt.Errorf("create project: %w", err)
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created project %s ID: %s\n", project.Name, project.ID)
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created project %s ID: %s\n", project.Name, project.PublicID)
 	if err != nil {
 		return "", "", err
 	}
 
-	databasePayload, err := platformService.CreateDatabase(cmd.Context(), project.ID, "default_db", "")
+	databasePayload, err := platformService.CreateDatabase(cmd.Context(), project.PublicID, "default_db", "")
 	if err != nil {
 		return "", "", fmt.Errorf("create database: %w", err)
 	}
 	database := databasePayload.DBInstance
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created database %s ID: %s\n", database.Name, database.DBInstanceID)
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Created database %s ID: %s\n", database.Name, database.PublicID)
 	if err != nil {
 		return "", "", err
 	}
 
-	cfg.ProjectID = project.ID
-	cfg.DatabaseID = database.DBInstanceID
+	cfg.ProjectID = project.PublicID
+	cfg.DatabaseID = database.PublicID
 	if err := config.Save(cfg); err != nil {
 		return "", "", fmt.Errorf("save config: %w", err)
 	}
 
-	return project.ID, database.DBInstanceID, nil
+	return project.PublicID, database.PublicID, nil
 }
 
 func withoutPGPassword(env []string) []string {

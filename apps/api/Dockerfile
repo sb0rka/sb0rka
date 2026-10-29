@@ -17,6 +17,7 @@ RUN go mod download
 
 COPY apps/api/cmd ./cmd
 COPY apps/api/internal ./internal
+COPY apps/api/pkg ./pkg
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api

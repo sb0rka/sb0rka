@@ -37,27 +37,28 @@ func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
 	return id, true
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectPublicID string) (uuid.UUID, bool) {
 	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
+		Type:     "project",
+		PublicID: projectPublicID,
 	})
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_public_id", projectPublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 // InitializeAccount godoc
 // @Summary  Инициализировать аккаунт
+// @Description Назначает план аккаунта по умолчанию. Повторный вызов сохраняет существующий план; перед созданием проекта инициализация обязательна.
 // @Tags     iam
 // @Success  204
 // @Failure  401  {string}  string
@@ -88,7 +89,7 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, model.PlanCodeFreeAccount, model.PlanKindAccount); err != nil {
+	if err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, h.deps.DefaultPlans.AccountCode, model.PlanKindAccount); err != nil {
 		h.handleInitializePlanError(w, "account", err)
 		return
 	}
@@ -105,7 +106,6 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 // @Failure  404  {string}  string
 // @Failure  500  {string}  string
 // @Security BearerAuth
-// @Router   /plan [get]
 // @Router   /account/plan [get]
 func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 	subjectID, ok := parseSubjectID(r)
@@ -129,6 +129,48 @@ func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// GetPlan godoc
+// @Summary  Получить тариф по ID
+// @Description Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.
+// @Tags     iam
+// @Produce  json
+// @Param    plan_id  path  string  true  "UUID тарифа" format(uuid)
+// @Success  200  {object}  contract.PlanResponse
+// @Failure  400  {string}  string
+// @Failure  401  {string}  string
+// @Failure  404  {string}  string
+// @Failure  500  {string}  string
+// @Security BearerAuth
+// @Router   /plan/{plan_id} [get]
+func (h *Handler) GetPlan(w http.ResponseWriter, r *http.Request) {
+	subjectID, ok := parseSubjectID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	planID, err := uuid.Parse(strings.TrimSpace(r.PathValue("plan_id")))
+	if err != nil {
+		http.Error(w, "Invalid plan_id", http.StatusBadRequest)
+		return
+	}
+
+	plan, err := h.deps.PlatformDatabase.GetPlan(r.Context(), planID, subjectID)
+	if err != nil {
+		if errors.Is(err, db.ErrPlanNotFound) {
+			http.Error(w, "Plan not found", http.StatusNotFound)
+			return
+		}
+		h.deps.Log.Error("get_plan_failed", "plan_id", planID, "error", err)
+		http.Error(w, "Failed to get plan", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(toPlanResponse(plan))
 }
 
 // ListPublicPlans godoc
@@ -160,7 +202,7 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить тариф проекта
 // @Tags     iam
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.PlanResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -174,12 +216,13 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID := strings.TrimSpace(r.PathValue("project_id"))
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
+	projectPublicID, err := runtime.ParsePublicID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
+	if !ok {
 		return
 	}
 
@@ -201,9 +244,10 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 
 // GetProjectQuotas godoc
 // @Summary  Получить квоты проекта
+// @Description Возвращает список квот проекта.
 // @Tags     iam
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.ProjectQuotaListResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -217,101 +261,45 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID := strings.TrimSpace(r.PathValue("project_id"))
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
-		return
-	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
-		return
-	}
-	quotas, err := h.deps.PlatformDatabase.ListProjectQuotas(r.Context(), projectID)
+	projectPublicID, err := runtime.ParsePublicID(r.PathValue("project_id"), "project_id")
 	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("get_project_quotas_failed", "project_id", projectID, "error", err)
-		http.Error(w, "Failed to get project quotas", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
+	if !ok {
+		return
+	}
+	quotas, err := h.deps.QuotaHook.ListProjectQuotas(r.Context(), projectID)
+	if err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "get_project_quotas_failed", "project_id", projectID)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	items := make([]contract.ProjectQuotaItemResponse, 0, len(quotas))
-	for _, q := range quotas {
-		items = append(items, contract.ProjectQuotaItemResponse{
-			PlanID: q.PlanID.String(),
-			QuotaDefinition: contract.QuotaDefinitionSnippet{
-				ID:          q.Definition.ID.String(),
-				Name:        q.Definition.Name,
-				Description: q.Definition.Description,
-				Code:        q.Definition.Code,
-				Unit:        q.Definition.Unit,
-				Scope:       q.Definition.Scope,
-			},
-			LimitValue: q.LimitValue,
-			CreatedAt:  q.CreatedAt,
-			UpdatedAt:  q.UpdatedAt,
-		})
+	if quotas == nil {
+		quotas = []contract.ProjectQuotaItemResponse{}
 	}
 	_ = json.NewEncoder(w).Encode(contract.ProjectQuotaListResponse{
-		ProjectID: projectID,
-		Quotas:    items,
+		PublicID: projectPublicID,
+		ID:       projectID.String(),
+		Quotas:   quotas,
 	})
-}
-
-// GetProjectUsage godoc
-// @Summary  Получить потребление проекта
-// @Tags     iam
-// @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
-// @Success  200         {object}  map[string]interface{}
-// @Failure  400         {string}  string
-// @Failure  403         {string}  string
-// @Failure  404         {string}  string
-// @Failure  500         {string}  string
-// @Security BearerAuth
-// @Router   /projects/{project_id}/usage [get]
-func (h *Handler) GetProjectUsage(w http.ResponseWriter, r *http.Request) {
-	subjectID, ok := parseSubjectID(r)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	projectID := strings.TrimSpace(r.PathValue("project_id"))
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
-		return
-	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
-		return
-	}
-	usage, err := h.deps.PlatformDatabase.ListProjectUsage(r.Context(), projectID)
-	if err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("get_project_usage_failed", "project_id", projectID, "error", err)
-		http.Error(w, "Failed to get project usage", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{"project_id": projectID, "usage": usage})
 }
 
 func toPlanResponse(p model.Plan) contract.PlanResponse {
 	return contract.PlanResponse{
-		ID:          p.ID.String(),
-		Name:        p.Name,
-		Description: p.Description,
-		Code:        p.Code,
-		Kind:        p.Kind,
-		IsPublic:    p.IsPublic,
-		IsAvailable: p.IsAvailable,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		ID:            p.ID.String(),
+		NameEN:        p.NameEN,
+		NameRU:        p.NameRU,
+		DescriptionEN: p.DescriptionEN,
+		DescriptionRU: p.DescriptionRU,
+		Code:          p.Code,
+		Kind:          p.Kind,
+		IsPublic:      p.IsPublic,
+		IsAvailable:   p.IsAvailable,
+		CreatedAt:     p.CreatedAt,
+		UpdatedAt:     p.UpdatedAt,
 	}
 }
 func (h *Handler) handleInitializePlanError(w http.ResponseWriter, kind string, err error) {

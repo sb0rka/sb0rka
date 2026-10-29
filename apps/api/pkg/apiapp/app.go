@@ -14,6 +14,9 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/account"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/membership"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -91,12 +94,43 @@ func (a *App) Run(ctx context.Context) error {
 		accountHook = a.opts.AccountHookFactory(repo)
 	}
 
+	quotaHook := quota.Noop()
+	if a.opts.QuotaRepositoryFactory != nil && a.opts.QuotaHookFactory != nil {
+		repo := a.opts.QuotaRepositoryFactory(platformDatabase.PgxPool())
+		quotaHook = a.opts.QuotaHookFactory(repo)
+	}
+
+	membershipHook := membership.Noop()
+	if a.opts.MembershipRepositoryFactory != nil && a.opts.MembershipHookFactory != nil {
+		repo := a.opts.MembershipRepositoryFactory(platformDatabase.PgxPool())
+		membershipHook = a.opts.MembershipHookFactory(repo)
+	}
+
+	var additionalRoutes []route.Route
+	// Extension handlers live outside this module and cannot import internal/authz.
+	// They share this audited authorizer, but only through AuthorizeProjectRead.
+	authorizer := authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log)
+	routeDeps := route.Dependencies{
+		Pool:                 platformDatabase.PgxPool(),
+		AuthorizeProjectRead: projectReadAuthorizer(authorizer),
+	}
+	for _, factory := range a.opts.RouteFactories {
+		if factory == nil {
+			return fmt.Errorf("nil API route factory")
+		}
+		additionalRoutes = append(additionalRoutes, factory(routeDeps)...)
+	}
+
 	newSrv := transport.NewServer(transport.Dependencies{
 		PlatformDatabase: platformDatabase,
-		Authorizer:       authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log),
+		Authorizer:       authorizer,
 		SecretCrypto:     secretCrypto,
 		Telemetry:        telemetryService,
 		AccountHook:      accountHook,
+		QuotaHook:        quotaHook,
+		MembershipHook:   membershipHook,
+		AdditionalRoutes: additionalRoutes,
+		DefaultPlans:     a.opts.DefaultPlans.WithDefaults(),
 		Cfg:              cfg.Server,
 		Log:              log,
 	})

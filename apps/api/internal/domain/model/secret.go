@@ -25,20 +25,21 @@ const (
 )
 
 type SecretPasswordVerifierMeta struct {
-	PasswordDesiredVersion int       `json:"password_desired_version"`
+	PasswordDesiredVersion int32     `json:"password_desired_version"`
 	PasswordDesiredState   string    `json:"password_desired_state"`
 	CreatedAt              time.Time `json:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at"`
 }
 
 type Secret struct {
-	ProjectID          string     `json:"project_id"`
-	ResourceID         string     `json:"resource_id"`
+	PublicID           string     `json:"public_id"`
+	ProjectID          uuid.UUID  `json:"project_id"`
+	ResourceID         uuid.UUID  `json:"resource_id"`
 	Name               string     `json:"name"`
 	Description        *string    `json:"description,omitempty"`
 	PayloadKind        string     `json:"payload_kind"`
 	ProtectionClass    string     `json:"protection_class"`
-	CurrentVersionNo   int        `json:"current_version_no"`
+	CurrentVersionNo   int32      `json:"current_version_no"`
 	CreatedBySubjectID uuid.UUID  `json:"created_by_subject_id"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
@@ -52,11 +53,10 @@ type Secret struct {
 }
 
 type SecretVersion struct {
-	ProjectID          string     `json:"project_id"`
-	SecretID           string     `json:"secret_id"`
-	VersionNo          int        `json:"version_no"`
+	ProjectID          uuid.UUID  `json:"project_id"`
+	SecretID           uuid.UUID  `json:"secret_id"`
+	VersionNo          int32      `json:"version_no"`
 	State              string     `json:"state"`
-	PayloadKind        string     `json:"payload_kind"`
 	CreatedBySubjectID uuid.UUID  `json:"created_by_subject_id"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
@@ -64,9 +64,9 @@ type SecretVersion struct {
 }
 
 type SecretMaterial struct {
-	ProjectID              string    `json:"project_id"`
-	SecretID               string    `json:"secret_id"`
-	VersionNo              int       `json:"version_no"`
+	ProjectID              uuid.UUID `json:"project_id"`
+	SecretID               uuid.UUID `json:"secret_id"`
+	VersionNo              int32     `json:"version_no"`
 	EncryptionKeyID        uuid.UUID `json:"encryption_key_id"`
 	CryptoProvider         string    `json:"crypto_provider"`
 	CryptoEnvelopeVersion  string    `json:"crypto_envelope_version"`

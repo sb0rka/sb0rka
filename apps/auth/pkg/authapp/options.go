@@ -26,6 +26,8 @@ type Options struct {
 	// Nil, or an incomplete factory pair, means verification.Noop().
 	VerificationHookFactory verification.HookFactory
 
+	// RouteFactories register routes implemented outside this module.
+	// Each factory receives only the auth database pool.
 	RouteFactories []route.RoutesFactory
 
 	// SubjectResolverFactories extend GET /auth/subject with profile

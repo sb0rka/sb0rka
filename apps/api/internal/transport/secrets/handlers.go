@@ -3,6 +3,7 @@ package secrets
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
@@ -39,38 +41,34 @@ func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
 }
 
 func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
+	return runtime.ParsePublicID(raw, name)
 }
 
-func parseVersionNo(raw string) (int, error) {
-	versionNo, err := strconv.Atoi(strings.TrimSpace(raw))
+func parseVersionNo(raw string) (int32, error) {
+	versionNo, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 32)
 	if err != nil || versionNo <= 0 {
 		return 0, errors.New("version_no must be a positive integer")
 	}
-	return versionNo, nil
+	return int32(versionNo), nil
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectPublicID string) (uuid.UUID, bool) {
 	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
+		Type:     "project",
+		PublicID: projectPublicID,
 	})
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_public_id", projectPublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 func normalizePayloadKind(raw string) (string, error) {
@@ -86,7 +84,7 @@ func normalizePayloadKind(raw string) (string, error) {
 	}
 }
 
-func (h *Handler) encryptSecretValue(r *http.Request, projectID string, secretID string, versionNo int, protectionClass string, value string) (model.EncryptionKey, []byte, []byte, error) {
+func (h *Handler) encryptSecretValue(r *http.Request, projectID uuid.UUID, secretID uuid.UUID, versionNo int32, protectionClass string, value string) (model.EncryptionKey, []byte, []byte, error) {
 	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context())
 	if err != nil {
 		return model.EncryptionKey{}, nil, nil, err
@@ -107,7 +105,7 @@ func (h *Handler) encryptSecretValue(r *http.Request, projectID string, secretID
 // @Tags     secrets
 // @Accept   json
 // @Produce  json
-// @Param    project_id  path      string                         true  "ID проекта"
+// @Param    project_id  path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Param    body        body      contract.CreateSecretRequest   true  "Параметры секрета"
 // @Success  201         {object}  map[string]interface{}  "{\"secret\": {...}, \"version\": {...}}"
 // @Failure  400         {string}  string
@@ -123,25 +121,17 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretCreate, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretCreate, projectPublicID)
+	if !ok {
 		return
 	}
-	if err := h.deps.PlatformDatabase.AssertCanCreateResourceWithType(r.Context(), subjectID, projectID, model.ResourceKindSecret); err != nil {
-		if errors.Is(err, db.ErrResourceLimitReached) {
-			http.Error(w, "Resource limit reached", http.StatusForbidden)
-			return
-		}
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		h.deps.Log.Error("assert_resource_quota_failed", "error", err)
-		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
+	if err := h.deps.QuotaHook.BeforeCreateResource(r.Context(), subjectID, projectID, model.ResourceKindSecret); err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "assert_resource_quota_failed")
 		return
 	}
 
@@ -224,7 +214,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 // @Summary  Список секретов проекта
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id  path      string                          true  "ID проекта"
+// @Param    project_id  path      string                          true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.SecretListResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -236,12 +226,13 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretList, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretList, projectPublicID)
+	if !ok {
 		return
 	}
 	rows, err := h.deps.PlatformDatabase.ListSecrets(r.Context(), projectID)
@@ -258,7 +249,7 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.SecretListResponse{
-		ProjectID: projectID,
+		ProjectID: projectID.String(),
 		Secrets:   out,
 	})
 }
@@ -267,8 +258,8 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить метаданные секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                    true  "ID проекта"
-// @Param    resource_id  path      string                    true  "ID секрета"
+// @Param    project_id   path      string                    true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                    true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.SecretResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -281,16 +272,17 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretReadMeta, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretReadMeta, projectPublicID)
+	if !ok {
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.GetSecret(r.Context(), projectID, secretID)
+	secret, err := h.deps.PlatformDatabase.GetSecretByPublicID(r.Context(), projectID, secretPublicID)
 	if err != nil {
-		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -303,8 +295,8 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 // @Tags     secrets
 // @Accept   json
 // @Produce  json
-// @Param    project_id   path      string                         true  "ID проекта"
-// @Param    resource_id  path      string                         true  "ID секрета"
+// @Param    project_id   path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                         true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Param    body         body      contract.UpdateSecretRequest   true  "Изменяемые поля"
 // @Success  200          {object}  contract.SecretResponse
 // @Failure  400          {string}  string
@@ -318,11 +310,12 @@ func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretUpdateMeta, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretUpdateMeta, projectPublicID)
+	if !ok {
 		return
 	}
 	var req contract.UpdateSecretRequest
@@ -337,9 +330,9 @@ func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.UpdateSecretMeta(r.Context(), projectID, secretID, description)
+	secret, err := h.deps.PlatformDatabase.UpdateSecretMeta(r.Context(), projectID, secretPublicID, description)
 	if err != nil {
-		h.writeSecretStoreError(w, "update_secret_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "update_secret_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -351,8 +344,8 @@ func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 // @Summary  Список версий секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                              true  "ID проекта"
-// @Param    resource_id  path      string                              true  "ID секрета"
+// @Param    project_id   path      string                              true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                              true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.SecretVersionListResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -365,16 +358,17 @@ func (h *Handler) ListSecretVersions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionList, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretVersionList, projectPublicID)
+	if !ok {
 		return
 	}
-	versions, err := h.deps.PlatformDatabase.ListSecretVersions(r.Context(), projectID, secretID)
+	versions, err := h.deps.PlatformDatabase.ListSecretVersions(r.Context(), projectID, secretPublicID)
 	if err != nil {
-		h.writeSecretStoreError(w, "list_secret_versions_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "list_secret_versions_failed", projectID, secretPublicID, err)
 		return
 	}
 	out := make([]contract.SecretVersionListItem, 0, len(versions))
@@ -384,8 +378,8 @@ func (h *Handler) ListSecretVersions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.SecretVersionListResponse{
-		ProjectID: projectID,
-		SecretID:  secretID,
+		ProjectID: projectID.String(),
+		SecretID:  versions[0].SecretID.String(),
 		Versions:  out,
 	})
 }
@@ -394,9 +388,9 @@ func (h *Handler) ListSecretVersions(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить версию секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                           true  "ID проекта"
-// @Param    resource_id  path      string                           true  "ID секрета"
-// @Param    version_no   path      integer                          true  "Номер версии"
+// @Param    project_id   path      string                           true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                           true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
+// @Param    version_no   path      integer                          true  "Номер версии" format(int32)
 // @Success  200          {object}  contract.SecretVersionResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -409,7 +403,7 @@ func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
@@ -418,12 +412,13 @@ func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretVersionRead, projectPublicID)
+	if !ok {
 		return
 	}
-	version, err := h.deps.PlatformDatabase.GetSecretVersion(r.Context(), projectID, secretID, versionNo)
+	version, err := h.deps.PlatformDatabase.GetSecretVersion(r.Context(), projectID, secretPublicID, versionNo)
 	if err != nil {
-		h.writeSecretStoreError(w, "get_secret_version_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "get_secret_version_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -436,9 +431,9 @@ func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
 // @Tags     secrets
 // @Accept   json
 // @Produce  json
-// @Param    project_id   path      string                                true  "ID проекта"
-// @Param    resource_id  path      string                                true  "ID секрета"
-// @Param    body         body      contract.CreateSecretVersionRequest   true  "Значение и тип payload"
+// @Param    project_id   path      string                                true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                                true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
+// @Param    body         body      contract.CreateSecretVersionRequest   true  "Значение секрета"
 // @Success  201          {object}  contract.SecretVersionResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -453,16 +448,21 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionCreate, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretVersionCreate, projectPublicID)
+	if !ok {
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.GetSecret(r.Context(), projectID, secretID)
+	secret, err := h.deps.PlatformDatabase.GetSecretByPublicID(r.Context(), projectID, secretPublicID)
 	if err != nil {
-		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretPublicID, err)
+		return
+	}
+	if _, err := normalizePayloadKind(secret.PayloadKind); err != nil {
+		http.Error(w, "Unsupported secret payload_kind", http.StatusUnprocessableEntity)
 		return
 	}
 	var req contract.CreateSecretVersionRequest
@@ -477,11 +477,11 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	payloadKind, err := normalizePayloadKind(req.PayloadKind)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+	if secret.CurrentVersionNo == math.MaxInt32 {
+		http.Error(w, "Secret version limit reached", http.StatusConflict)
 		return
 	}
+	secretID := secret.ResourceID
 	newVersionNo := secret.CurrentVersionNo + 1
 	key, aad, encryptedMessage, err := h.encryptSecretValue(r, projectID, secretID, newVersionNo, secret.ProtectionClass, value)
 	if err != nil {
@@ -493,7 +493,6 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		ProjectID:             projectID,
 		SecretID:              secretID,
 		VersionNo:             newVersionNo,
-		PayloadKind:           payloadKind,
 		CreatedBySubjectID:    subjectID,
 		EncryptionKeyID:       key.ID,
 		CryptoProvider:        model.CryptoProviderTinkAEAD,
@@ -507,7 +506,7 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Secret version conflict", http.StatusConflict)
 			return
 		}
-		h.writeSecretStoreError(w, "create_secret_version_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "create_secret_version_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -519,9 +518,9 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 // @Summary  Отключить версию секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                           true  "ID проекта"
-// @Param    resource_id  path      string                           true  "ID секрета"
-// @Param    version_no   path      integer                          true  "Номер версии"
+// @Param    project_id   path      string                           true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                           true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
+// @Param    version_no   path      integer                          true  "Номер версии" format(int32)
 // @Success  200          {object}  contract.SecretVersionResponse
 // @Success  204          "Already disabled"
 // @Failure  400          {string}  string
@@ -536,7 +535,7 @@ func (h *Handler) DisableSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
@@ -545,16 +544,17 @@ func (h *Handler) DisableSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretVersionDisable, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretVersionDisable, projectPublicID)
+	if !ok {
 		return
 	}
-	version, err := h.deps.PlatformDatabase.DisableSecretVersion(r.Context(), projectID, secretID, versionNo)
+	version, err := h.deps.PlatformDatabase.DisableSecretVersion(r.Context(), projectID, secretPublicID, versionNo)
 	if err != nil {
 		if errors.Is(err, db.ErrSecretVersionAlreadyDisabled) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		h.writeSecretStoreError(w, "disable_secret_version_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "disable_secret_version_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -566,8 +566,8 @@ func (h *Handler) DisableSecretVersion(w http.ResponseWriter, r *http.Request) {
 // @Summary  Раскрыть значение текущей версии секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                         true  "ID проекта"
-// @Param    resource_id  path      string                         true  "ID секрета"
+// @Param    project_id   path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                         true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.RevealSecretResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -581,28 +581,29 @@ func (h *Handler) RevealSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectPublicID)
+	if !ok {
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.GetSecret(r.Context(), projectID, secretID)
+	secret, err := h.deps.PlatformDatabase.GetSecretByPublicID(r.Context(), projectID, secretPublicID)
 	if err != nil {
-		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretPublicID, err)
 		return
 	}
-	h.revealSecretVersion(w, r, projectID, secretID, secret.CurrentVersionNo)
+	h.revealSecretVersion(w, r, projectID, secret.ResourceID, secret.CurrentVersionNo)
 }
 
 // RevealSecretVersion godoc
 // @Summary  Раскрыть значение версии секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                         true  "ID проекта"
-// @Param    resource_id  path      string                         true  "ID секрета"
-// @Param    version_no   path      integer                        true  "Номер версии"
+// @Param    project_id   path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                         true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
+// @Param    version_no   path      integer                        true  "Номер версии" format(int32)
 // @Success  200          {object}  contract.RevealSecretResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -616,7 +617,7 @@ func (h *Handler) RevealSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
@@ -625,19 +626,25 @@ func (h *Handler) RevealSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectPublicID)
+	if !ok {
 		return
 	}
-	h.revealSecretVersion(w, r, projectID, secretID, versionNo)
+	secret, version, material, err := h.deps.PlatformDatabase.GetSecretMaterialForRevealByPublicID(r.Context(), projectID, secretPublicID, versionNo)
+	if err != nil {
+		h.writeSecretStoreError(w, "get_secret_material_failed", projectID, secretPublicID, err)
+		return
+	}
+	h.writeRevealedSecret(w, r, secret, version, material)
 }
 
 // ApplySecretVersionPasswordVerifier godoc
 // @Summary  Применить SCRAM-verifier пароля БД для версии секрета
 // @Tags     secrets
 // @Produce  json
-// @Param    project_id   path      string                                          true  "ID проекта"
-// @Param    resource_id  path      string                                          true  "ID секрета"
-// @Param    version_no   path      integer                                         true  "Номер версии"
+// @Param    project_id   path      string                                          true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                                          true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
+// @Param    version_no   path      integer                                         true  "Номер версии" format(int32)
 // @Success  200          {object}  contract.ApplySecretPasswordVerifierResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -652,7 +659,7 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
@@ -661,12 +668,13 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectPublicID)
+	if !ok {
 		return
 	}
-	isDBPasswordSecret, err := h.deps.PlatformDatabase.IsDatabasePasswordSecret(r.Context(), projectID, secretID)
+	secretID, isDBPasswordSecret, err := h.deps.PlatformDatabase.IsDatabasePasswordSecretByPublicID(r.Context(), projectID, secretPublicID)
 	if err != nil {
-		h.writeSecretStoreError(w, "check_db_password_secret_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "check_db_password_secret_failed", projectID, secretPublicID, err)
 		return
 	}
 	if !isDBPasswordSecret {
@@ -675,14 +683,14 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 	}
 	secret, version, material, err := h.deps.PlatformDatabase.GetSecretMaterialForReveal(r.Context(), projectID, secretID, versionNo)
 	if err != nil {
-		h.writeSecretStoreError(w, "get_secret_material_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "get_secret_material_failed", projectID, secretPublicID, err)
 		return
 	}
 	if version.State != model.SecretVersionStateActive {
 		http.Error(w, "Secret version is not active", http.StatusConflict)
 		return
 	}
-	if version.PayloadKind != model.SecretPayloadKindText {
+	if secret.PayloadKind != model.SecretPayloadKindText {
 		http.Error(w, "Only text payload_kind can be used as a database password", http.StatusUnprocessableEntity)
 		return
 	}
@@ -693,7 +701,7 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 	}
 	plain, err := h.deps.SecretCrypto.Decrypt(r.Context(), material.EncryptedMessage, aad, material.EncryptionKeyRef)
 	if err != nil {
-		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", versionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
+		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", version.VersionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
 		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
 	}
@@ -705,25 +713,30 @@ func (h *Handler) ApplySecretVersionPasswordVerifier(w http.ResponseWriter, r *h
 	}
 	verifierRow, err := h.deps.PlatformDatabase.SetDatabasePasswordSecretVerifier(r.Context(), projectID, secretID, versionNo, passwordVerifier)
 	if err != nil {
-		h.writeSecretStoreError(w, "set_db_password_verifier_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "set_db_password_verifier_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ApplySecretPasswordVerifierResponse{
-		ProjectID:    projectID,
-		SecretID:     secretID,
+		ProjectID:    projectID.String(),
+		SecretID:     secretID.String(),
 		VersionNo:    versionNo,
-		DBInstanceID: verifierRow.DBInstanceID,
+		DBInstanceID: verifierRow.DBInstanceID.String(),
 	})
 }
 
-func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, projectID string, secretID string, versionNo int) {
+func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, secretID uuid.UUID, versionNo int32) {
 	secret, version, material, err := h.deps.PlatformDatabase.GetSecretMaterialForReveal(r.Context(), projectID, secretID, versionNo)
 	if err != nil {
-		h.writeSecretStoreError(w, "get_secret_material_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "get_secret_material_failed", projectID, secretID.String(), err)
 		return
 	}
+	h.writeRevealedSecret(w, r, secret, version, material)
+}
+
+func (h *Handler) writeRevealedSecret(w http.ResponseWriter, r *http.Request, secret model.Secret, version model.SecretVersion, material model.SecretMaterial) {
+	projectID, secretID := secret.ProjectID, secret.ResourceID
 	if version.State != model.SecretVersionStateActive {
 		http.Error(w, "Secret version is not active", http.StatusConflict)
 		return
@@ -735,7 +748,7 @@ func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, pr
 	}
 	value, err := h.deps.SecretCrypto.Decrypt(r.Context(), material.EncryptedMessage, aad, material.EncryptionKeyRef)
 	if err != nil {
-		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", versionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
+		h.deps.Log.Error("decrypt_secret_failed", "project_id", projectID, "secret_id", secretID, "version_no", version.VersionNo, "crypto_provider", material.CryptoProvider, "encryption_key_id", material.EncryptionKeyID, "error", err)
 		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
 	}
@@ -744,10 +757,10 @@ func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, pr
 	w.Header().Set("Pragma", "no-cache")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.RevealSecretResponse{
-		ProjectID:   projectID,
-		SecretID:    secretID,
+		ProjectID:   projectID.String(),
+		SecretID:    secretID.String(),
 		VersionNo:   version.VersionNo,
-		PayloadKind: version.PayloadKind,
+		PayloadKind: secret.PayloadKind,
 		Value:       string(value),
 	})
 }
@@ -755,8 +768,8 @@ func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, pr
 // DeleteSecret godoc
 // @Summary  Удалить секрет
 // @Tags     secrets
-// @Param    project_id   path  string  true  "ID проекта"
-// @Param    resource_id  path  string  true  "ID секрета"
+// @Param    project_id   path  string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path  string  true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  204          "No Content"
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -770,36 +783,37 @@ func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, secretID, ok := h.parseSecretPath(w, r)
+	projectPublicID, secretPublicID, ok := h.parseSecretPath(w, r)
 	if !ok {
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretDelete, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionSecretDelete, projectPublicID)
+	if !ok {
 		return
 	}
-	err := h.deps.PlatformDatabase.DeleteSecret(r.Context(), projectID, secretID)
+	err := h.deps.PlatformDatabase.DeleteSecret(r.Context(), projectID, secretPublicID)
 	if err != nil {
-		h.writeSecretStoreError(w, "delete_secret_failed", projectID, secretID, err)
+		h.writeSecretStoreError(w, "delete_secret_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) parseSecretPath(w http.ResponseWriter, r *http.Request) (string, string, bool) {
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return "", "", false
 	}
-	secretID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	secretPublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return "", "", false
 	}
-	return projectID, secretID, true
+	return projectPublicID, secretPublicID, true
 }
 
-func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, projectID string, secretID string, err error) {
+func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, projectID uuid.UUID, secretID string, err error) {
 	switch {
 	case errors.Is(err, db.ErrResourceNotFound):
 		http.Error(w, "Secret not found", http.StatusNotFound)
@@ -827,7 +841,8 @@ func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, pro
 
 func toSecretListItem(s model.Secret) contract.SecretListItem {
 	return contract.SecretListItem{
-		SecretID:           s.ResourceID,
+		PublicID:           s.PublicID,
+		SecretID:           s.ResourceID.String(),
 		Name:               s.Name,
 		Description:        s.Description,
 		PayloadKind:        s.PayloadKind,
@@ -841,8 +856,9 @@ func toSecretListItem(s model.Secret) contract.SecretListItem {
 
 func toSecretResponse(s model.Secret) contract.SecretResponse {
 	resp := contract.SecretResponse{
-		ProjectID:          s.ProjectID,
-		SecretID:           s.ResourceID,
+		PublicID:           s.PublicID,
+		ProjectID:          s.ProjectID.String(),
+		SecretID:           s.ResourceID.String(),
 		Name:               s.Name,
 		Description:        s.Description,
 		PayloadKind:        s.PayloadKind,
@@ -865,7 +881,7 @@ func toSecretResponse(s model.Secret) contract.SecretResponse {
 		for _, tag := range s.Tags {
 			resp.Tags = append(resp.Tags, contract.TagResponse{
 				ID:         tag.ID,
-				ProjectID:  tag.ProjectID,
+				ProjectID:  tag.ProjectID.String(),
 				TagKey:     tag.TagKey,
 				TagValue:   tag.TagValue,
 				Color:      tag.Color,
@@ -889,7 +905,6 @@ func toSecretVersionListItem(v model.SecretVersion) contract.SecretVersionListIt
 	return contract.SecretVersionListItem{
 		VersionNo:          v.VersionNo,
 		State:              v.State,
-		PayloadKind:        v.PayloadKind,
 		CreatedBySubjectID: v.CreatedBySubjectID.String(),
 		CreatedAt:          v.CreatedAt,
 		UpdatedAt:          v.UpdatedAt,
@@ -898,11 +913,10 @@ func toSecretVersionListItem(v model.SecretVersion) contract.SecretVersionListIt
 
 func toSecretVersionResponse(v model.SecretVersion) contract.SecretVersionResponse {
 	return contract.SecretVersionResponse{
-		ProjectID:          v.ProjectID,
-		SecretID:           v.SecretID,
+		ProjectID:          v.ProjectID.String(),
+		SecretID:           v.SecretID.String(),
 		VersionNo:          v.VersionNo,
 		State:              v.State,
-		PayloadKind:        v.PayloadKind,
 		CreatedBySubjectID: v.CreatedBySubjectID.String(),
 		CreatedAt:          v.CreatedAt,
 		UpdatedAt:          v.UpdatedAt,

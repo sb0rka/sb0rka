@@ -3,15 +3,17 @@ package contract
 import "time"
 
 type ResourceListItem struct {
-	ID        string    `json:"id"`
+	PublicID  string    `json:"public_id"`
+	ID        string    `json:"id" format:"uuid"`
 	Kind      string    `json:"kind"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ResourceResponse struct {
-	ID        string    `json:"id"`
-	ProjectID string    `json:"project_id"`
+	PublicID  string    `json:"public_id"`
+	ID        string    `json:"id" format:"uuid"`
+	ProjectID string    `json:"project_id" format:"uuid"`
 	Kind      string    `json:"kind"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -26,7 +28,7 @@ type ResourceStateResponse struct {
 }
 
 type ResourceListResponse struct {
-	ProjectID string             `json:"project_id"`
+	ProjectID string             `json:"project_id" format:"uuid"`
 	Resources []ResourceListItem `json:"resources"`
 }
 

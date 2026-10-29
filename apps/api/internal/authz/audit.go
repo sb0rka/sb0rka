@@ -16,6 +16,9 @@ func NewAuditedAuthorizer(next Authorizer, logger *slog.Logger) Authorizer {
 
 func (a *auditedAuthorizer) Authorize(ctx context.Context, principal Principal, action Action, resource ResourceRef) (*AuthorizationDecision, error) {
 	decision, err := a.next.Authorize(ctx, principal, action, resource)
+	if decision != nil {
+		resource = decision.Resource
+	}
 	args := []any{
 		"subject_id", principal.SubjectID,
 		"session_id", principal.SessionID,

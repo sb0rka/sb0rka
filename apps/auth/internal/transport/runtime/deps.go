@@ -17,6 +17,6 @@ type Dependencies struct {
 	Log              *slog.Logger
 	InviteHook       invite.Hook
 	VerificationHook verification.Hook
-	Routes           []route.Route
+	AdditionalRoutes []route.Route
 	SubjectResolvers map[string]subject.ProfileResolver
 }
