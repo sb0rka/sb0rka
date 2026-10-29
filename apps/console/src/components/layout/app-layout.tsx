@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Home } from "lucide-react"
+import { Building2, Home } from "lucide-react"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar, projectTabIcon } from "./project-sidebar"
 import { Header, type BreadcrumbItem } from "./header"
@@ -9,6 +9,7 @@ import { MobileRootNav } from "./mobile-root-nav"
 import { LayoutProvider, useLayoutContext } from "./layout-context"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { useOrganization, useOrganizations } from "@/features/organizations/hooks"
 import { ScrollArea } from "@sb0rka/ui"
 
 const DATA_EXPLORER_NARROW_MAX_WIDTH = 1439
@@ -33,6 +34,7 @@ const projectTabLabelKeyById: Record<ProjectTab, string> = {
   databases: "tabs.databases",
   "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
+  access: "tabs.access",
   settings: "tabs.settings",
 }
 
@@ -55,6 +57,10 @@ function AppLayoutContent() {
   const projectNestedMatch = useMatch("/projects/:id/*")
   const databaseDetailsMatch = useMatch("/projects/:id/databases/:resourceId")
   const isProjectOpen = isProjectRoot || isProjectNested
+  const organizationDetailMatch = useMatch("/organizations/:orgId")
+  const organizationId = organizationDetailMatch?.params.orgId ?? ""
+  const { data: organization } = useOrganization(organizationId)
+  const { data: organizationsData } = useOrganizations()
   const projectId =
     databaseDetailsMatch?.params.id ??
     projectNestedMatch?.params.id ??
@@ -82,11 +88,24 @@ function AppLayoutContent() {
     databases: t(projectTabLabelKeyById.databases),
     "data-explorer": t(projectTabLabelKeyById["data-explorer"]),
     secrets: t(projectTabLabelKeyById.secrets),
+    access: t(projectTabLabelKeyById.access),
     settings: t(projectTabLabelKeyById.settings),
   }
+  const owningOrganization = (organizationsData?.organizations ?? []).find(
+    (item) => item.id === project?.owner_subject_id,
+  )
   const breadcrumbs: BreadcrumbItem[] = isProjectOpen
     ? [
         { label: t("nav.projects"), href: "/projects", icon: Home },
+        ...(owningOrganization
+          ? [
+              {
+                label: owningOrganization.name,
+                href: `/organizations/${owningOrganization.id}`,
+                icon: Building2,
+              },
+            ]
+          : []),
         {
           label: project?.name ?? t("projects.fallbackProject"),
           href: projectOverviewHref,
@@ -133,7 +152,12 @@ function AppLayoutContent() {
                   },
                 ]),
       ]
-    : [] // No breadcrumbs for non-project routes
+    : organizationDetailMatch
+      ? [
+          { label: t("nav.organizations"), href: "/organizations", icon: Building2 },
+          { label: organization?.name ?? t("organizations.fallback") },
+        ]
+      : []
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectSidebarCollapsed, setProjectSidebarCollapsed] = useState(false)

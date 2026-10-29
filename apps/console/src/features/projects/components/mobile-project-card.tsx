@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Copy } from "lucide-react"
+import { Building2, Copy, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Badge,
@@ -11,7 +11,13 @@ import {
 } from "@sb0rka/ui"
 import type { ProjectResponse } from "@/features/projects/api"
 
-export function MobileProjectCard({ project }: { project: ProjectResponse }) {
+export function MobileProjectCard({
+  project,
+  owner,
+}: {
+  project: ProjectResponse
+  owner?: { name: string; personal: boolean } | null
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
@@ -34,6 +40,12 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
           <h2 className="truncate text-lg font-semibold tracking-[-0.2px] text-card-foreground">
             {project.name}
           </h2>
+          {owner ? (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              {owner.personal ? <User className="size-3.5 shrink-0" /> : <Building2 className="size-3.5 shrink-0" />}
+              <span className="truncate">{owner.personal ? t("projects.personal") : owner.name}</span>
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={() => void handleCopyProjectId()}

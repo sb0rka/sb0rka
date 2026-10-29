@@ -2,7 +2,11 @@ import { apiRequest, apiRequestText } from "@/lib/api-client"
 
 export interface ProjectResponse {
   id: string
-  user_id: string
+  public_id?: string
+  user_id?: string
+  owner_subject_id?: string
+  billing_subject_id?: string
+  plan_id?: string
   name: string
   description?: string
   is_active: boolean
@@ -17,6 +21,7 @@ export interface ProjectListResponse {
 export interface CreateProjectRequest {
   name: string
   description: string
+  owner_subject_id?: string
 }
 
 export interface UpdateProjectRequest {
@@ -60,6 +65,68 @@ export async function deactivateProject(
   return apiRequest<void>({
     method: "DELETE",
     path: `/projects/${projectId}`,
+    base: "resource",
+  })
+}
+
+export interface ProjectMemberItem {
+  subject_id: string
+  role: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectMemberListResponse {
+  project_id: string
+  members: ProjectMemberItem[]
+}
+
+export interface CreateProjectMemberRequest {
+  subject_id: string
+  role: string
+}
+
+export async function listProjectMembers(
+  projectId: string,
+): Promise<ProjectMemberListResponse> {
+  return apiRequest<ProjectMemberListResponse>({
+    path: `/projects/${projectId}/members`,
+    base: "resource",
+  })
+}
+
+export async function addProjectMember(
+  projectId: string,
+  data: CreateProjectMemberRequest,
+): Promise<ProjectMemberItem> {
+  return apiRequest<ProjectMemberItem>({
+    method: "POST",
+    path: `/projects/${projectId}/members`,
+    json: data,
+    base: "resource",
+  })
+}
+
+export async function updateProjectMemberRole(
+  projectId: string,
+  subjectId: string,
+  role: string,
+): Promise<ProjectMemberItem> {
+  return apiRequest<ProjectMemberItem>({
+    method: "PATCH",
+    path: `/projects/${projectId}/members/${subjectId}`,
+    json: { role },
+    base: "resource",
+  })
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  subjectId: string,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "DELETE",
+    path: `/projects/${projectId}/members/${subjectId}`,
     base: "resource",
   })
 }

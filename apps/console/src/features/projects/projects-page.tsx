@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Plus, Copy } from "lucide-react"
+import { Plus, Copy, Building2, User } from "lucide-react"
 import {
   AlphaToast,
   Badge,
@@ -17,16 +17,36 @@ import {
 import { ToastPinned } from "@sb0rka/ui"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
+import { useAuth } from "../auth/auth-provider"
+import { useOrganizations } from "@/features/organizations/hooks"
+import type { OrganizationResponse } from "@/features/organizations/api"
 import { CreateProjectDialog } from "./create-project-dialog"
 import { PageStagger, SlideIn, StaggerGroup } from "@/components/motion/page-entrance"
 import { MobileProjectCard } from "./components/mobile-project-card"
 import { EmailVerificationDialog } from "./email-verification-dialog"
 import { initializeAccount, verifyEmailCheck } from "../auth/api"
-import { useAuth } from "../auth/auth-provider"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
-function ProjectCard({ project }: { project: ProjectResponse }) {
+function projectOwner(
+  project: ProjectResponse,
+  organizations: OrganizationResponse[],
+  userId: string | undefined,
+): { name: string; personal: boolean } | null {
+  if (!project.owner_subject_id) return null
+  const organization = organizations.find((item) => item.id === project.owner_subject_id)
+  if (organization) return { name: organization.name, personal: false }
+  if (!userId || project.owner_subject_id === userId) return { name: "", personal: true }
+  return null
+}
+
+function ProjectCard({
+  project,
+  owner,
+}: {
+  project: ProjectResponse
+  owner: { name: string; personal: boolean } | null
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
@@ -58,6 +78,12 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
             {project.is_active ? t("projects.cardOnline") : t("projects.cardOffline")}
           </Badge>
         </div>
+        {owner ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            {owner.personal ? <User className="size-4 shrink-0" /> : <Building2 className="size-4 shrink-0" />}
+            <span>{owner.personal ? t("projects.personal") : owner.name}</span>
+          </p>
+        ) : null}
         <div className="text-sm leading-5 text-muted-foreground">
           {isLoading ? (
             <p className="leading-5">{t("common.loading")}</p>
@@ -117,10 +143,22 @@ export function ProjectsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [createOpen, setCreateOpen] = useState(false)
+  const [ownerFilter, setOwnerFilter] = useState("all")
+  const organizations = useOrganizations().data?.organizations ?? []
   const [emailVerifiedOpen, setEmailVerifiedOpen] = useState(false)
   const [alphaToastOpen, setAlphaToastOpen] = useState(false)
   const { data, isLoading } = useProjects()
-  const projects = data?.projects ?? []
+  const projects = (data?.projects ?? []).filter((project) => {
+    if (ownerFilter === "all") return true
+    if (ownerFilter === "personal") {
+      return (
+        !project.owner_subject_id ||
+        project.owner_subject_id === user?.id ||
+        !organizations.some((organization) => organization.id === project.owner_subject_id)
+      )
+    }
+    return project.owner_subject_id === ownerFilter
+  })
 
   async function handleEmailVerified() {
     try {
@@ -174,6 +212,32 @@ export function ProjectsPage() {
             </Button>
           </SlideIn>
 
+          {organizations.length > 0 ? (
+            <SlideIn className="flex flex-wrap gap-2">
+              {[
+                { id: "all", label: t("projects.ownerFilter.all", { count: data?.projects.length ?? 0 }) },
+                {
+                  id: "personal",
+                  label: t("projects.personal"),
+                },
+                ...organizations.map((organization) => ({
+                  id: organization.id,
+                  label: organization.name,
+                })),
+              ].map((filter) => (
+                <Button
+                  key={filter.id}
+                  type="button"
+                  size="sm"
+                  variant={ownerFilter === filter.id ? "default" : "outline"}
+                  onClick={() => setOwnerFilter(filter.id)}
+                >
+                  {filter.label}
+                </Button>
+              ))}
+            </SlideIn>
+          ) : null}
+
           {projects.length === 0 ? (
             <SlideIn className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-border shadow-sm">
               <div className="flex flex-col items-center gap-1">
@@ -194,14 +258,20 @@ export function ProjectsPage() {
               <StaggerGroup className="grid gap-3 md:hidden">
                 {projects.map((project) => (
                   <SlideIn key={project.id}>
-                    <MobileProjectCard project={project} />
+                    <MobileProjectCard
+                      project={project}
+                      owner={projectOwner(project, organizations, user?.id)}
+                    />
                   </SlideIn>
                 ))}
               </StaggerGroup>
               <StaggerGroup className="hidden gap-4 [grid-template-columns:repeat(auto-fill,minmax(0,450px))] md:grid [&>*]:h-full">
                 {projects.map((project) => (
                   <SlideIn key={project.id} className="h-full max-w-[450px]">
-                    <ProjectCard project={project} />
+                    <ProjectCard
+                      project={project}
+                      owner={projectOwner(project, organizations, user?.id)}
+                    />
                   </SlideIn>
                 ))}
               </StaggerGroup>

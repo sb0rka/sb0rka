@@ -25,6 +25,7 @@ import {
   type SecretRow,
   SecretsTab,
   SettingsTab,
+  AccessTab,
   type DraftTag,
   type CreateDatabaseFormState,
   type CreateDatabaseFormActions,
@@ -240,6 +241,7 @@ export function ProjectDetailPage() {
           isCreateSecretPending={createSecret.isPending}
           onCreateSecret={handleCreateSecret}
         />
+        <AccessTab projectId={id} />
         <SettingsTab
           projectId={id}
           projectName={project.name}

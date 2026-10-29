@@ -4,6 +4,8 @@ import { listDatabases, listProjects, listSecrets } from "@/features/projects/ap
 import { getCurrentPlan, listPlans } from "./api"
 import type { PlanListResponse, PlanResponse } from "./api"
 
+export { FREE_ACCOUNT_PLAN_CODE } from "./api"
+
 export function useCurrentPlan() {
   const { isAuthenticated } = useAuth()
 

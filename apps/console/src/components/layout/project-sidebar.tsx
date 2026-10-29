@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   PanelLeft,
   Settings,
+  Users,
 } from "lucide-react"
 import {
   buttonPressClass,
@@ -34,6 +35,7 @@ export const projectTabIcon = {
   databases: Database,
   "data-explorer": LayoutGrid,
   secrets: KeyRound,
+  access: Users,
   settings: Settings,
 } as const satisfies Record<ProjectTab, ProjectTabIcon>
 
@@ -50,6 +52,7 @@ const projectNavItems: ProjectNavItem[] = [
   { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: projectTabIcon.databases, iconAnimation: "database" as const },
   { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: projectTabIcon["data-explorer"], iconAnimation: "database" as const },
   { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: projectTabIcon.secrets, iconAnimation: "key" as const },
+  { key: "access", tab: "access", labelKey: "tabs.access", icon: projectTabIcon.access, iconAnimation: "chart" as const },
 ]
 
 const settingsNavItem = {

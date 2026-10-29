@@ -3,6 +3,7 @@ export const PROJECT_TABS = [
   "databases",
   "data-explorer",
   "secrets",
+  "access",
   "settings",
 ] as const
 

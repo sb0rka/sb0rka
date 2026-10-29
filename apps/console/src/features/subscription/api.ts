@@ -1,7 +1,10 @@
 import { apiRequest } from "@/lib/api-client"
 
+export const FREE_ACCOUNT_PLAN_CODE = "free_account"
+
 export interface PlanResponse {
   id: string
+  code?: string
   name: string
   description?: string
   db_limit: number

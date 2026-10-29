@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
-import { BarChart3, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
+import { BarChart3, Building2, Database, Home, KeyRound, Lock, RussianRuble, User, Users } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Badge,
@@ -21,12 +21,17 @@ import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import {
+  FREE_ACCOUNT_PLAN_CODE,
+  useCurrentPlan,
+} from "@/features/subscription/hooks"
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
   databases: "tabs.databases",
   "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
+  access: "tabs.access",
   settings: "tabs.settings",
 }
 
@@ -40,6 +45,7 @@ type MobileNavItem = {
 
 const rootMobileNavItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
+  { labelKey: "nav.organizations", icon: Building2, href: "/organizations" },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ] as const
@@ -153,6 +159,7 @@ function useMobileProjectHeader() {
         databases: "overview",
         secrets: "overview",
         settings: "overview",
+        access: "overview",
         "data-explorer": "databases",
       }
       const backTab = backTabByActiveTab[activeTab] ?? "overview"
@@ -179,6 +186,8 @@ function useMobileProjectHeader() {
 
 function useMobileNavItems(): MobileNavItem[] {
   const location = useLocation()
+  const planQuery = useCurrentPlan()
+  const isFreeAccount = planQuery.data?.code === FREE_ACCOUNT_PLAN_CODE
   const {
     projectId,
     isProjectView,
@@ -189,14 +198,27 @@ function useMobileNavItems(): MobileNavItem[] {
   } = useMobileProjectContext()
 
   if (!isProjectView || !projectId) {
-    return rootMobileNavItems.map((item) => ({
-      ...item,
-      isActive:
-        item.href === "/projects"
-          ? location.pathname === "/projects" ||
-            location.pathname.startsWith("/projects/")
-          : location.pathname === item.href,
-    }))
+    return rootMobileNavItems.map((item) => {
+      if (item.href === "/organizations" && isFreeAccount) {
+        return {
+          labelKey: item.labelKey,
+          icon: Lock,
+          href: "/subscription",
+          isActive: false,
+        }
+      }
+      return {
+        ...item,
+        isActive:
+          item.href === "/projects"
+            ? location.pathname === "/projects" ||
+              location.pathname.startsWith("/projects/")
+            : item.href === "/organizations"
+              ? location.pathname === "/organizations" ||
+                location.pathname.startsWith("/organizations/")
+              : location.pathname === item.href,
+      }
+    })
   }
 
   const isDatabasesActive =
@@ -226,6 +248,12 @@ function useMobileNavItems(): MobileNavItem[] {
       icon: KeyRound,
       href: `/projects/${projectId}?tab=secrets`,
       isActive: activeTab === "secrets",
+    },
+    {
+      labelKey: "tabs.access",
+      icon: Users,
+      href: `/projects/${projectId}?tab=access`,
+      isActive: activeTab === "access",
     },
   ]
 }
@@ -319,7 +347,12 @@ export function MobileRootNav() {
       </header>
 
       <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--mobile-chrome-bg)] p-1.5 shadow-lg">
-        <div className="grid grid-cols-3 gap-1">
+        <div
+          className={cn(
+            "grid gap-1",
+            mobileNavItems.length > 3 ? "grid-cols-4" : "grid-cols-3",
+          )}
+        >
           {mobileNavItems.map((item) => (
               <Link
                 key={item.href}

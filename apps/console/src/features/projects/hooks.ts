@@ -27,6 +27,10 @@ import {
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
   deleteSecret,
+  listProjectMembers,
+  addProjectMember,
+  updateProjectMemberRole,
+  removeProjectMember,
 } from "./api"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
@@ -50,6 +54,8 @@ import type {
   ResourceMetricTimeseries,
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
+  ProjectMemberListResponse,
+  CreateProjectMemberRequest,
 } from "./api"
 import { useToast } from "@sb0rka/ui"
 
@@ -506,6 +512,50 @@ export function useDeactivateProject() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: PROJECTS_KEY })
+    },
+  })
+}
+
+export function useProjectMembers(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<ProjectMemberListResponse>({
+    queryKey: ["projects", projectId, "members"],
+    queryFn: () => listProjectMembers(projectId),
+    enabled: isAuthenticated && !!projectId,
+  })
+}
+
+export function useAddProjectMember(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreateProjectMemberRequest) => addProjectMember(projectId, data),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "members"] })
+    },
+  })
+}
+
+export function useUpdateProjectMemberRole(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ subjectId, role }: { subjectId: string; role: string }) =>
+      updateProjectMemberRole(projectId, subjectId, role),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "members"] })
+    },
+  })
+}
+
+export function useRemoveProjectMember(projectId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (subjectId: string) => removeProjectMember(projectId, subjectId),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "members"] })
     },
   })
 }

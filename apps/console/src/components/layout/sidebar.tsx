@@ -1,7 +1,9 @@
 import { Link, useLocation } from "react-router-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  Building2,
   Home,
+  Lock,
   RussianRuble,
   FileText,
   Code2,
@@ -25,9 +27,14 @@ import {
   rowChromeClass,
   sidebarIconSlotClass,
 } from "@/components/layout/sidebar-rail"
+import {
+  FREE_ACCOUNT_PLAN_CODE,
+  useCurrentPlan,
+} from "@/features/subscription/hooks"
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
+  { labelKey: "nav.organizations", icon: Building2, href: "/organizations" },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
@@ -67,9 +74,21 @@ interface SidebarProps {
   onToggleCollapsed?: () => void
 }
 
+function isNavActive(href: string, pathname: string) {
+  if (href === "/projects") {
+    return pathname === "/projects" || pathname.startsWith("/projects/")
+  }
+  if (href === "/organizations") {
+    return pathname === "/organizations" || pathname.startsWith("/organizations/")
+  }
+  return pathname === href
+}
+
 export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
+  const planQuery = useCurrentPlan()
+  const isFreeAccount = planQuery.data?.code === FREE_ACCOUNT_PLAN_CODE
 
   const itemLabel = itemLabelClass(collapsed)
 
@@ -92,11 +111,58 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
         <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">
           {navItems.map((item) => {
             const label = t(item.labelKey)
-            const isActive =
-              item.href === "/projects"
-                ? location.pathname === "/projects" ||
-                  location.pathname.startsWith("/projects/")
-                : location.pathname === item.href
+            const isActive = isNavActive(item.href, location.pathname)
+            const organizationsLocked = item.href === "/organizations" && isFreeAccount
+
+            if (organizationsLocked && collapsed) {
+              return (
+                <Link
+                  key={item.href}
+                  to="/subscription"
+                  className="group relative block h-9 w-full rounded-lg text-sm font-medium text-muted-foreground pressable"
+                  title={t("nav.organizationsLocked")}
+                >
+                  <span
+                    className={cn(rowChromeClass(collapsed), "group-hover:bg-muted/50")}
+                    aria-hidden
+                  />
+                  <item.icon className={cn(navIconClass, sidebarIconSlotClass)} />
+                  <Lock className="pointer-events-none absolute top-1 right-1 z-10 h-3 w-3" />
+                </Link>
+              )
+            }
+
+            if (organizationsLocked) {
+              return (
+                <div
+                  key={item.href}
+                  aria-disabled="true"
+                  className="relative block h-9 w-full rounded-lg text-sm font-medium text-muted-foreground/70"
+                  title={t("nav.organizationsLocked")}
+                >
+                  <span className={rowChromeClass(collapsed)} aria-hidden />
+                  <item.icon className={cn(navIconClass, sidebarIconSlotClass, "opacity-60")} />
+                  <span
+                    className={cn(
+                      itemLabel,
+                      "absolute top-1/2 max-w-[4.75rem] -translate-y-1/2 truncate",
+                    )}
+                  >
+                    {label}
+                  </span>
+                  <span className="pointer-events-none absolute top-1/2 right-[4.25rem] z-10 -translate-y-1/2">
+                    <Lock className="h-3.5 w-3.5" />
+                  </span>
+                  <Link
+                    to="/subscription"
+                    className="absolute top-1/2 right-1 z-10 -translate-y-1/2 rounded-md bg-background px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    {t("nav.upgrade")}
+                  </Link>
+                </div>
+              )
+            }
+
             return (
               <Link
                 key={item.href}

@@ -1,4 +1,6 @@
+import { Link } from "react-router-dom"
 import { AnimatePresence, motion } from "framer-motion"
+import { useTranslation } from "react-i18next"
 import { SborkaLogo, SborkaLogoMark } from "@sb0rka/ui"
 
 const logoTransition = { duration: 0.21, ease: "easeOut" as const }
@@ -16,8 +18,14 @@ interface SidebarLogoProps {
 }
 
 export function SidebarLogo({ collapsed = false }: SidebarLogoProps) {
+  const { t } = useTranslation()
+
   return (
-    <div className="relative h-[60px] overflow-hidden border-b border-border">
+    <Link
+      to="/projects"
+      aria-label={t("nav.projects")}
+      className="relative block h-[60px] overflow-hidden border-b border-border"
+    >
       <AnimatePresence mode="wait" initial={false}>
         {collapsed ? (
           <motion.div
@@ -43,6 +51,6 @@ export function SidebarLogo({ collapsed = false }: SidebarLogoProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </Link>
   )
 }
