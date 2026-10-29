@@ -244,7 +244,7 @@ func (h *Handler) GetProjectPlan(w http.ResponseWriter, r *http.Request) {
 
 // GetProjectQuotas godoc
 // @Summary  Получить квоты проекта
-// @Description Возвращает список квот проекта.
+// @Description Возвращает квоты плана со scope=project. limit_value — лимит плана, entitled — сумма начислений проекта с starts_at <= now() и ends_at IS NULL или ends_at > now(). При отсутствии действующих начислений entitled равен 0. Эффективный лимит = limit_value + entitled.
 // @Tags     iam
 // @Produce  json
 // @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)

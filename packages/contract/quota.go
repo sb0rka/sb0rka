@@ -72,8 +72,9 @@ type QuotaDefinitionSnippet struct {
 type ProjectQuotaItemResponse struct {
 	PlanID          string                 `json:"plan_id"`
 	QuotaDefinition QuotaDefinitionSnippet `json:"quota_definition"`
-	LimitValue      int64                  `json:"limit_value"`
-	CreatedAt       time.Time              `json:"created_at"`
+	LimitValue int64 `json:"limit_value"`
+	Entitled  int64     `json:"entitled" format:"int64"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type ProjectQuotaListResponse struct {

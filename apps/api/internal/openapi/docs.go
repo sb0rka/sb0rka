@@ -910,7 +910,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Возвращает список квот проекта.",
+                "description": "Возвращает квоты плана со scope=project. limit_value — лимит плана, entitled — сумма начислений проекта с starts_at \u003c= now() и ends_at IS NULL или ends_at \u003e now(). При отсутствии действующих начислений entitled равен 0. Эффективный лимит = limit_value + entitled.",
                 "produces": [
                     "application/json"
                 ],
@@ -2952,7 +2952,13 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "entitled": {
+                    "description": "Entitled is the sum of currently active project entitlements.",
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "limit_value": {
+                    "description": "LimitValue is the plan limit before entitlements.",
                     "type": "integer"
                 },
                 "plan_id": {
