@@ -88,6 +88,16 @@ type ProjectUsageResponse struct {
 	Usage    map[string]QuotaUsageResponse `json:"usage"`
 }
 
+type BalanceResponse map[string]QuotaBalanceResponse
+
+type QuotaBalanceResponse struct {
+	Limit     int64 `json:"limit" format:"int64"`
+	Entitled  int64 `json:"entitled" format:"int64"`
+	Used      int64 `json:"used" format:"int64"`
+	Held      int64 `json:"held" format:"int64"`
+	Available int64 `json:"available" format:"int64"`
+}
+
 type QuotaUsageResponse struct {
 	Used        *int64                   `json:"used" format:"int64" extensions:"x-nullable"`
 	Status      string                   `json:"status" enums:"available,unavailable,unsupported"`
