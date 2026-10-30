@@ -85,7 +85,7 @@ func normalizePayloadKind(raw string) (string, error) {
 }
 
 func (h *Handler) encryptSecretValue(r *http.Request, projectID uuid.UUID, secretID uuid.UUID, versionNo int32, protectionClass string, value string) (model.EncryptionKey, []byte, []byte, error) {
-	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context())
+	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context(), h.deps.Cfg.AuthConfig.SecretKeyRef)
 	if err != nil {
 		return model.EncryptionKey{}, nil, nil, err
 	}

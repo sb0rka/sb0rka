@@ -133,7 +133,7 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate secret id", http.StatusInternalServerError)
 		return
 	}
-	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context())
+	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context(), h.deps.Cfg.AuthConfig.SecretKeyRef)
 	if err != nil {
 		h.deps.Log.Error("get_active_encryption_key_failed", "error", err)
 		http.Error(w, "Failed to resolve encryption key", http.StatusInternalServerError)

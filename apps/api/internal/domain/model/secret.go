@@ -81,6 +81,7 @@ type SecretMaterial struct {
 type EncryptionKey struct {
 	ID        uuid.UUID  `json:"id"`
 	Provider  string     `json:"provider"`
+	Purpose   string     `json:"purpose"`
 	KeyRef    string     `json:"key_ref"`
 	Algorithm string     `json:"algorithm"`
 	Status    string     `json:"status"`
