@@ -1552,6 +1552,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Возвращает метаданные секрета и versions.",
                 "produces": [
                     "application/json"
                 ],
@@ -1672,6 +1673,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Обновляет описание. Непереданное description сохраняется, пустая строка очищает его.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1732,6 +1734,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "type": "string"
                         }
@@ -1874,6 +1882,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "При наличии secret_llm_keys сервер генерирует новую версию и digest независимо от переданного secret_value.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2484,6 +2493,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "payload_kind: text, json, binary. purpose=llm_key генерирует текст независимо от secret_value.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2516,10 +2526,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "{\\\"secret\\\": {...}, \\\"version\\\": {...}}",
+                        "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/contract.CreateSecretResponse"
                         }
                     },
                     "400": {
@@ -2746,10 +2755,81 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "payload_kind": {
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "json",
+                        "binary"
+                    ]
+                },
+                "purpose": {
                     "type": "string"
                 },
                 "secret_value": {
                     "type": "string"
+                }
+            }
+        },
+        "contract.CreateSecretResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_subject_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "current_version_no": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password_verifier": {
+                    "$ref": "#/definitions/contract.SecretPasswordVerifierResponse"
+                },
+                "payload_kind": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "protection_class": {
+                    "type": "string"
+                },
+                "public_id": {
+                    "type": "string"
+                },
+                "resource_state": {
+                    "$ref": "#/definitions/contract.ResourceStateResponse"
+                },
+                "scheduled_destroy_at": {
+                    "type": "string"
+                },
+                "secret_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.TagResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SecretVersionResponse"
+                    }
                 }
             }
         },
@@ -2953,12 +3033,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "entitled": {
-                    "description": "Entitled is the sum of currently active project entitlements.",
                     "type": "integer",
                     "format": "int64"
                 },
                 "limit_value": {
-                    "description": "LimitValue is the plan limit before entitlements.",
                     "type": "integer"
                 },
                 "plan_id": {
@@ -3295,6 +3373,36 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SecretVersionResponse"
+                    }
+                }
+            }
+        },
+        "contract.SecretVersionDigestResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "digest_alg": {
+                    "type": "string"
+                },
+                "postfix": {
+                    "type": "string",
+                    "maxLength": 3,
+                    "minLength": 3
+                },
+                "prefix": {
+                    "type": "string",
+                    "maxLength": 14,
+                    "minLength": 14
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -3348,6 +3456,9 @@ const docTemplate = `{
                 "created_by_subject_id": {
                     "type": "string",
                     "format": "uuid"
+                },
+                "digest": {
+                    "$ref": "#/definitions/contract.SecretVersionDigestResponse"
                 },
                 "disabled_at": {
                     "type": "string"
@@ -3510,24 +3621,17 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.1.0",
+	Version:          "",
 	Host:             "",
-	BasePath:         "/",
+	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Sb0rka Platform API",
-	Description:      "REST API платформы Sb0rka: проекты, базы данных, секреты, теги.",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

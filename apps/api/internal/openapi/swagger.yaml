@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   contract.ApplySecretPasswordVerifierResponse:
     properties:
@@ -60,9 +59,58 @@ definitions:
       name:
         type: string
       payload_kind:
+        enum:
+        - text
+        - json
+        - binary
+        type: string
+      purpose:
         type: string
       secret_value:
         type: string
+    type: object
+  contract.CreateSecretResponse:
+    properties:
+      created_at:
+        type: string
+      created_by_subject_id:
+        format: uuid
+        type: string
+      current_version_no:
+        format: int32
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      password_verifier:
+        $ref: '#/definitions/contract.SecretPasswordVerifierResponse'
+      payload_kind:
+        type: string
+      project_id:
+        format: uuid
+        type: string
+      protection_class:
+        type: string
+      public_id:
+        type: string
+      resource_state:
+        $ref: '#/definitions/contract.ResourceStateResponse'
+      scheduled_destroy_at:
+        type: string
+      secret_id:
+        format: uuid
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagResponse'
+        type: array
+      updated_at:
+        type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionResponse'
+        type: array
     type: object
   contract.CreateSecretVersionRequest:
     properties:
@@ -196,11 +244,9 @@ definitions:
       created_at:
         type: string
       entitled:
-        description: Entitled is the sum of currently active project entitlements.
         format: int64
         type: integer
       limit_value:
-        description: LimitValue is the plan limit before entitlements.
         type: integer
       plan_id:
         type: string
@@ -428,6 +474,27 @@ definitions:
         type: array
       updated_at:
         type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionResponse'
+        type: array
+    type: object
+  contract.SecretVersionDigestResponse:
+    properties:
+      created_at:
+        type: string
+      digest_alg:
+        type: string
+      postfix:
+        maxLength: 3
+        minLength: 3
+        type: string
+      prefix:
+        maxLength: 14
+        minLength: 14
+        type: string
+      updated_at:
+        type: string
     type: object
   contract.SecretVersionListItem:
     properties:
@@ -464,6 +531,8 @@ definitions:
       created_by_subject_id:
         format: uuid
         type: string
+      digest:
+        $ref: '#/definitions/contract.SecretVersionDigestResponse'
       disabled_at:
         type: string
       project_id:
@@ -571,9 +640,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: 'REST API платформы Sb0rka: проекты, базы данных, секреты, теги.'
-  title: Sb0rka Platform API
-  version: 0.1.0
 paths:
   /account/initialize:
     post:
@@ -1621,6 +1687,7 @@ paths:
       tags:
       - secrets
     get:
+      description: Возвращает метаданные секрета и versions.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1663,6 +1730,8 @@ paths:
     patch:
       consumes:
       - application/json
+      description: Обновляет описание. Непереданное description сохраняется, пустая
+        строка очищает его.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1701,6 +1770,10 @@ paths:
             type: string
         "404":
           description: Not Found
+          schema:
+            type: string
+        "422":
+          description: Unprocessable Entity
           schema:
             type: string
       security:
@@ -1797,6 +1870,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: При наличии secret_llm_keys сервер генерирует новую версию и digest
+        независимо от переданного secret_value.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -2204,6 +2279,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: 'payload_kind: text, json, binary. purpose=llm_key генерирует текст
+        независимо от secret_value.'
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -2222,10 +2299,9 @@ paths:
       - application/json
       responses:
         "201":
-          description: '{\"secret\": {...}, \"version\": {...}}'
+          description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/contract.CreateSecretResponse'
         "400":
           description: Bad Request
           schema:
@@ -2315,9 +2391,4 @@ paths:
       summary: Список тегов проекта
       tags:
       - tags
-securityDefinitions:
-  BearerAuth:
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

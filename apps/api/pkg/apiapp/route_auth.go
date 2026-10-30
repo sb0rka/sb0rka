@@ -11,9 +11,12 @@ import (
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
-// projectReadAuthorizer binds platform RBAC for an extension handler.
-// Only project.read is exposed; the handler picks the project and keeps its own permissions.
 func projectReadAuthorizer(authorizer authz.Authorizer) func(context.Context, string) (uuid.UUID, error) {
+	return projectActionAuthorizer(authorizer, authz.ActionProjectRead)
+}
+
+// Each exposed permission binds a fixed platform action to the audited RBAC.
+func projectActionAuthorizer(authorizer authz.Authorizer, action authz.Action) func(context.Context, string) (uuid.UUID, error) {
 	return func(ctx context.Context, publicID string) (uuid.UUID, error) {
 		raw, ok := authctx.SubjectIDFromContext(ctx)
 		callerID, err := uuid.Parse(raw)
@@ -24,7 +27,7 @@ func projectReadAuthorizer(authorizer authz.Authorizer) func(context.Context, st
 		if err != nil {
 			return uuid.Nil, &route.StatusError{Status: http.StatusBadRequest, Message: err.Error()}
 		}
-		decision, err := authorizer.Authorize(ctx, authz.PrincipalFromContext(ctx, callerID), authz.ActionProjectRead, authz.ResourceRef{
+		decision, err := authorizer.Authorize(ctx, authz.PrincipalFromContext(ctx, callerID), action, authz.ResourceRef{
 			Type: "project", PublicID: publicID,
 		})
 		if err != nil {

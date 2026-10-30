@@ -24,9 +24,10 @@ type Route struct {
 
 type Dependencies struct {
 	Pool *pgxpool.Pool
-	// AuthorizeProjectRead is the only platform permission an extension can ask for.
-	// Every project role passes it, including viewer.
-	AuthorizeProjectRead func(ctx context.Context, projectPublicID string) (uuid.UUID, error)
+	// AuthorizeProjectRead allows every project role, including viewer.
+	AuthorizeProjectRead      func(ctx context.Context, projectPublicID string) (uuid.UUID, error)
+	AuthorizeSecretReadMeta   func(ctx context.Context, projectPublicID string) (uuid.UUID, error)
+	AuthorizeSecretUpdateMeta func(ctx context.Context, projectPublicID string) (uuid.UUID, error)
 }
 
 // StatusError exposes controlled access errors through coretransport.WriteHookError.

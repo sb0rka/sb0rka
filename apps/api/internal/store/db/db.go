@@ -7,6 +7,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -71,7 +72,7 @@ type Database interface {
 	ListSecrets(ctx context.Context, projectID uuid.UUID) ([]model.Secret, error)
 	GetSecret(ctx context.Context, projectID uuid.UUID, resourceID uuid.UUID) (model.Secret, error)
 	GetSecretByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (model.Secret, error)
-	UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, resourcePublicID string, description *string) (model.Secret, error)
+	UpdateSecretMeta(ctx context.Context, params UpdateSecretMetaParams) (model.Secret, error)
 	DeleteSecret(ctx context.Context, projectID uuid.UUID, resourcePublicID string) error
 	ListSecretVersions(ctx context.Context, projectID uuid.UUID, secretPublicID string) ([]model.SecretVersion, error)
 	GetSecretVersion(ctx context.Context, projectID uuid.UUID, secretPublicID string, versionNo int32) (model.SecretVersion, error)
@@ -94,6 +95,7 @@ type Database interface {
 }
 
 type CreateSecretWithInitialVersionParams struct {
+	PostInsert            func(ctx context.Context, tx pgx.Tx) error
 	ProjectID             uuid.UUID
 	SecretID              uuid.UUID
 	Name                  string
@@ -127,6 +129,7 @@ type CreateDatabaseParams struct {
 }
 
 type CreateSecretVersionParams struct {
+	PostInsert            func(ctx context.Context, tx pgx.Tx) error
 	ProjectID             uuid.UUID
 	SecretID              uuid.UUID
 	VersionNo             int32
@@ -137,4 +140,11 @@ type CreateSecretVersionParams struct {
 	ContentAlgorithm      string
 	AADContext            []byte
 	EncryptedMessage      []byte
+}
+
+type UpdateSecretMetaParams struct {
+	ProjectID         uuid.UUID
+	ResourcePublicID  string
+	Description       *string
+	UpdateDescription bool
 }

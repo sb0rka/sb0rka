@@ -1330,6 +1330,12 @@ func (p *PsqlDB) CreateSecretWithInitialVersion(ctx context.Context, params Crea
 		return model.Secret{}, model.SecretVersion{}, err
 	}
 
+	if params.PostInsert != nil {
+		if err := params.PostInsert(ctx, tx); err != nil {
+			return model.Secret{}, model.SecretVersion{}, err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return model.Secret{}, model.SecretVersion{}, err
 	}
@@ -1494,11 +1500,11 @@ func (p *PsqlDB) getSecret(ctx context.Context, projectID uuid.UUID, predicate s
 	return secret, nil
 }
 
-func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, resourcePublicID string, description *string) (model.Secret, error) {
+func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, params UpdateSecretMetaParams) (model.Secret, error) {
 	const query = `
 		WITH updated_secret AS (
 			UPDATE secrets s
-			SET description = $3
+			SET description = CASE WHEN $4 THEN $3 ELSE s.description END
 			FROM resources r
 			WHERE s.resource_id = r.id
 			  AND r.project_id = $1
@@ -1510,7 +1516,7 @@ func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, reso
 		FROM updated_secret
 	`
 	var secret model.Secret
-	if err := p.pool.QueryRow(ctx, query, projectID, resourcePublicID, description).Scan(
+	if err := p.pool.QueryRow(ctx, query, params.ProjectID, params.ResourcePublicID, params.Description, params.UpdateDescription).Scan(
 		&secret.PublicID,
 		&secret.ProjectID,
 		&secret.ResourceID,
@@ -1665,6 +1671,12 @@ func (p *PsqlDB) CreateSecretVersion(ctx context.Context, params CreateSecretVer
 	`
 	if _, err := tx.Exec(ctx, updateSecretQuery, params.ProjectID, params.SecretID, newVersionNo); err != nil {
 		return model.SecretVersion{}, err
+	}
+
+	if params.PostInsert != nil {
+		if err := params.PostInsert(ctx, tx); err != nil {
+			return model.SecretVersion{}, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
