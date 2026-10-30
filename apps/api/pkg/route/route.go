@@ -13,6 +13,7 @@ type Access int
 const (
 	Authenticated Access = iota
 	LiveSession
+	Public
 )
 
 type Route struct {
@@ -38,6 +39,9 @@ func (e *StatusError) Error() string         { return e.Message }
 func (e *StatusError) StatusCode() int       { return e.Status }
 func (e *StatusError) ClientMessage() string { return e.Message }
 
-// RoutesFactory builds extension routes. The server applies JWT or a live-session
-// check, logging, CORS, and panic recovery. It does not run RBAC.
+// RoutesFactory builds extension routes. Public routes skip authentication;
+// other routes require JWT or a live session. All routes receive logging,
+// CORS, and panic recovery.
+// Extension handlers must explicitly authorize resource access;
+// the router does not infer or enforce RBAC actions for them.
 type RoutesFactory func(deps Dependencies) []Route
