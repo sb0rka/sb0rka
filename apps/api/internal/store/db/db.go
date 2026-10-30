@@ -79,7 +79,7 @@ type Database interface {
 	DisableSecretVersion(ctx context.Context, projectID uuid.UUID, secretPublicID string, versionNo int32) (model.SecretVersion, error)
 	GetSecretMaterialForReveal(ctx context.Context, projectID uuid.UUID, secretID uuid.UUID, versionNo int32) (model.Secret, model.SecretVersion, model.SecretMaterial, error)
 	GetSecretMaterialForRevealByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string, versionNo int32) (model.Secret, model.SecretVersion, model.SecretMaterial, error)
-	GetActiveEncryptionKey(ctx context.Context) (model.EncryptionKey, error)
+	GetActiveEncryptionKey(ctx context.Context, keyRef string) (model.EncryptionKey, error)
 	GetDatabasePasswordSecretMaterial(ctx context.Context, projectID uuid.UUID, dbPublicID string) (model.DBInstance, model.Secret, model.SecretVersion, model.SecretMaterial, error)
 	IsDatabasePasswordSecretByPublicID(ctx context.Context, projectID uuid.UUID, secretPublicID string) (uuid.UUID, bool, error)
 	IsDatabasePasswordSecret(ctx context.Context, projectID uuid.UUID, secretID uuid.UUID) (bool, error)

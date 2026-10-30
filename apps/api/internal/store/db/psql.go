@@ -1795,7 +1795,7 @@ func (p *PsqlDB) getSecretMaterialForReveal(ctx context.Context, projectID uuid.
 			ON svm.project_id = sv.project_id
 		   AND svm.secret_id = sv.secret_id
 		   AND svm.version_no = sv.version_no
-		INNER JOIN encryption_keys ek ON ek.id = svm.encryption_key_id
+		INNER JOIN encryption_keys ek ON ek.id = svm.encryption_key_id AND ek.purpose = 'resource_secret'
 		WHERE s.project_id = $1
 		  AND %s
 		  AND sv.version_no = $3
@@ -1819,16 +1819,18 @@ func (p *PsqlDB) getSecretMaterialForReveal(ctx context.Context, projectID uuid.
 	return secret, version, material, nil
 }
 
-func (p *PsqlDB) GetActiveEncryptionKey(ctx context.Context) (model.EncryptionKey, error) {
+func (p *PsqlDB) GetActiveEncryptionKey(ctx context.Context, keyRef string) (model.EncryptionKey, error) {
 	const query = `
-		SELECT id, provider, key_ref, algorithm, status, created_at, updated_at, rotated_at
+		SELECT id, provider, purpose, key_ref, algorithm, status, created_at, updated_at, rotated_at
 		FROM encryption_keys
-		WHERE status = 'active'
-		ORDER BY created_at DESC
-		LIMIT 1
+		WHERE purpose = 'resource_secret'
+		  AND provider = 'tink_aead'
+		  AND algorithm = 'AES256_GCM'
+		  AND key_ref = $1
+		  AND status = 'active'
 	`
 	var key model.EncryptionKey
-	if err := p.pool.QueryRow(ctx, query).Scan(&key.ID, &key.Provider, &key.KeyRef, &key.Algorithm, &key.Status, &key.CreatedAt, &key.UpdatedAt, &key.RotatedAt); err != nil {
+	if err := p.pool.QueryRow(ctx, query, keyRef).Scan(&key.ID, &key.Provider, &key.Purpose, &key.KeyRef, &key.Algorithm, &key.Status, &key.CreatedAt, &key.UpdatedAt, &key.RotatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.EncryptionKey{}, ErrEncryptionKeyNotFound
 		}

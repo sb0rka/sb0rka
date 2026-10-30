@@ -322,6 +322,8 @@ CREATE TABLE IF NOT EXISTS encryption_keys (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 
     provider VARCHAR(32) NOT NULL,
+    purpose VARCHAR(32) DEFAULT 'resource_secret' NOT NULL
+        CONSTRAINT ck_encryption_keys_purpose CHECK (purpose IN ('resource_secret')),
     key_ref VARCHAR NOT NULL,
     algorithm VARCHAR(64) NOT NULL,
     status VARCHAR(16) NOT NULL
@@ -340,8 +342,8 @@ BEFORE UPDATE ON encryption_keys
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_enc_keys_active_provider
-    ON encryption_keys (provider)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_enc_keys_active_provider_purpose
+    ON encryption_keys (provider, purpose)
     WHERE status = 'active';
 
 CREATE INDEX IF NOT EXISTS ix_enc_keys_status_created_at
