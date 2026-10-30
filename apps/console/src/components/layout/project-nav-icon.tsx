@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState } from "react"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { Link, useLocation } from "react-router-dom"
 import { entranceEase } from "@/lib/motion"
-import { cn } from "@sb0rka/ui"
 import {
+  cn,
   itemLabelClass,
   navIconClass,
   rowChromeClass,
   sidebarIconSlotClass,
-} from "@/components/layout/sidebar-rail"
+} from "@sb0rka/ui"
 
 export type ProjectNavIconAnimation = "chart" | "database" | "key" | "settings"
 
