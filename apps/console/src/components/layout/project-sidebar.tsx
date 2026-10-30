@@ -13,18 +13,16 @@ import {
   buttonPressClass,
   cn,
   Separator,
+  dividerClass,
+  navIconClass,
+  rowChromeClass,
+  sidebarIconSlotClass,
 } from "@sb0rka/ui"
 import {
   ProjectNavLink,
   type ProjectNavIconAnimation,
 } from "@/components/layout/project-nav-icon"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
-import {
-  dividerClass,
-  navIconClass,
-  rowChromeClass,
-  sidebarIconSlotClass,
-} from "@/components/layout/sidebar-rail"
 
 type ProjectTabIcon = ComponentType<{ className?: string }>
 
