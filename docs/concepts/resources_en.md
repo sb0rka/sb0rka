@@ -3,16 +3,15 @@ title: "Resources and tags"
 description: "Resources are the unified abstraction for all objects in a project. Databases and secrets are resources. Attach key-value tags to any resource for organization."
 ---
 
-Every object you create inside a project—whether a database or a secret—is backed by a resource record. Resources give every object a consistent identity: a unique `id`, a lifecycle timestamps, and an `is_active` flag. Because all objects share this structure, you can manage them through a single resources API regardless of their type, and you can organize them with tags.
+Every object you create inside a project—whether a database or a secret—is backed by a resource record. Resources give every object a consistent identity: a public `public_id` for API paths and lifecycle timestamps. Because all objects share this structure, you can manage them through a single resources API regardless of their type, and you can organize them with tags.
 
 ## Resource fields
 
 | Field           | Type       | Description                                                                                                            |
 | --------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `id`            | hex-string | Unique identifier for the resource within the platform. This is the `resource_id` referenced by databases and secrets. |
-| `project_id`    | hex-string | The project this resource belongs to.                                                                                  |
-| `is_active`     | boolean    | Whether the resource is active. Deactivating a resource marks it inactive for permanently deleting it.                 |
-| `resource_type` | string     | The type of resource, for example `database` or `secret`.                                                              |
+| `public_id`     | hex-string | Public identifier for the resource (12 lowercase hex characters). API paths use this value. Databases and secrets expose the same value as `public_id`. |
+| `id`            | uuid       | Internal identifier. Not used in API paths.                                                                            |
+| `kind`          | string     | Resource type: `dbi` or `secret`.                                                                                      |
 | `created_at`    | timestamp  | When the resource was created.                                                                                         |
 | `updated_at`    | timestamp  | When the resource was last updated.                                                                                    |
 
