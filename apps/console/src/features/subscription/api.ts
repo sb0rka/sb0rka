@@ -2,14 +2,14 @@ import { apiRequest } from "@/lib/api-client"
 
 export interface PlanResponse {
   id: string
-  name: string
-  description?: string
-  db_limit: number
-  code_limit: number
-  function_limit: number
-  secret_limit: number
-  project_limit: number
-  group_limit: number
+  name_en: string
+  name_ru: string
+  description_en?: string
+  description_ru?: string
+  code: string
+  kind: string
+  is_public: boolean
+  is_available: boolean
   created_at: string
   updated_at: string
 }
@@ -18,9 +18,19 @@ export interface PlanListResponse {
   plans: PlanResponse[]
 }
 
+export function planTitle(plan: PlanResponse, language: string): string {
+  return language.startsWith("ru") ? plan.name_ru : plan.name_en
+}
+
+export function planDescription(plan: PlanResponse, language: string): string | undefined {
+  const description = language.startsWith("ru") ? plan.description_ru : plan.description_en
+  const trimmed = description?.trim()
+  return trimmed ? trimmed : undefined
+}
+
 export async function getCurrentPlan(): Promise<PlanResponse> {
   return apiRequest<PlanResponse>({
-    path: "/plan",
+    path: "/account/plan",
     base: "resource",
   })
 }

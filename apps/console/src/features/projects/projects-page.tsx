@@ -30,12 +30,12 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [copyMessage, setCopyMessage] = useState<string | null>(null)
-  const { data, isLoading, isError } = useDatabases(project.id)
-  const databases = data?.databases ?? []
+  const { data, isLoading, isError } = useDatabases(project.public_id)
+  const databases = data?.dbis ?? []
 
   async function handleCopyProjectId() {
     try {
-      await navigator.clipboard.writeText(project.id)
+      await navigator.clipboard.writeText(project.public_id)
       setCopyMessage(t("projects.detail.idCopied"))
       window.setTimeout(() => setCopyMessage(null), 2000)
     } catch {
@@ -68,7 +68,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
           ) : (
             <ul className="max-h-32 space-y-0 overflow-y-auto">
               {databases.map((db) => (
-                <li key={db.resource_id}>
+                <li key={db.public_id}>
                   <button
                     type="button"
                     className={cn(
@@ -76,7 +76,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
                       buttonPressClass,
                     )}
                     onClick={() =>
-                      navigate(`/projects/${project.id}/databases/${db.resource_id}`)
+                      navigate(`/projects/${project.public_id}/databases/${db.public_id}`)
                     }
                   >
                     {db.name}
@@ -100,12 +100,12 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
           >
             <Copy className="size-4 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate text-left text-sm leading-5 text-muted-foreground">
-              {project.id}
+              {project.public_id}
             </span>
           </button>
           <FloatingHint message={copyMessage} placement="bottom" align="start" />
         </div>
-        <Button className="shrink-0" onClick={() => navigate(`/projects/${project.id}`)}>
+        <Button className="shrink-0" onClick={() => navigate(`/projects/${project.public_id}`)}>
           {t("projects.cardConnect")}
         </Button>
       </CardFooter>
@@ -193,14 +193,14 @@ export function ProjectsPage() {
             <>
               <StaggerGroup className="grid gap-3 md:hidden">
                 {projects.map((project) => (
-                  <SlideIn key={project.id}>
+                  <SlideIn key={project.public_id}>
                     <MobileProjectCard project={project} />
                   </SlideIn>
                 ))}
               </StaggerGroup>
               <StaggerGroup className="hidden gap-4 [grid-template-columns:repeat(auto-fill,minmax(0,450px))] md:grid [&>*]:h-full">
                 {projects.map((project) => (
-                  <SlideIn key={project.id} className="h-full max-w-[450px]">
+                  <SlideIn key={project.public_id} className="h-full max-w-[450px]">
                     <ProjectCard project={project} />
                   </SlideIn>
                 ))}

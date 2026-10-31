@@ -55,7 +55,7 @@ function buildNl2SqlSchemaSnapshot(
   nodes: DataExplorerDatabaseNode[],
   resourceId: string,
 ): string {
-  const node = nodes.find((n) => n.database.resource_id === resourceId)
+  const node = nodes.find((n) => n.database.public_id === resourceId)
   if (!node) return ""
   const lines: string[] = []
   for (const table of node.tables) {
@@ -101,26 +101,26 @@ export function DataExplorerPage() {
   const sqlTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const nodes = useMemo(() => {
-    const databases = databasesQuery.data?.databases ?? []
+    const databases = databasesQuery.data?.dbis ?? []
     const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "base" })
     const sortedDatabases = [...databases].sort((a, b) =>
       collator.compare(a.name ?? "", b.name ?? ""),
     )
     const tablesByResourceId = new Map(
-      (schemaQuery.data ?? []).map((node) => [node.database.resource_id, node.tables]),
+      (schemaQuery.data ?? []).map((node) => [node.database.public_id, node.tables]),
     )
     return sortedDatabases.map((database) => ({
       database,
-      tables: tablesByResourceId.get(database.resource_id) ?? [],
+      tables: tablesByResourceId.get(database.public_id) ?? [],
     }))
-  }, [databasesQuery.data?.databases, locale, schemaQuery.data])
+  }, [databasesQuery.data?.dbis, locale, schemaQuery.data])
   const nl2sqlSchema = useMemo(() => {
     if (!selectedResourceId) return ""
     return buildNl2SqlSchemaSnapshot(nodes, selectedResourceId)
   }, [nodes, selectedResourceId])
   const selectedName = useMemo(() => {
     if (!selectedResourceId) return ""
-    return nodes.find((node) => node.database.resource_id === selectedResourceId)?.database.name ?? ""
+    return nodes.find((node) => node.database.public_id === selectedResourceId)?.database.name ?? ""
   }, [nodes, selectedResourceId])
   const hasRequiredAiSecretNames = useMemo(() => {
     const required = new Set(["llm_base_url", "llm_api_key"])
@@ -147,8 +147,8 @@ export function DataExplorerPage() {
       }
 
       const [openaiUrlResponse, openaiKeyResponse] = await Promise.all([
-        revealSecretValue(id, openaiUrlSecret.secret_id),
-        revealSecretValue(id, openaiKeySecret.secret_id),
+        revealSecretValue(id, openaiUrlSecret.public_id),
+        revealSecretValue(id, openaiKeySecret.public_id),
       ])
 
       const openaiUrl = openaiUrlResponse.value.trim()
@@ -206,8 +206,8 @@ export function DataExplorerPage() {
   useEffect(() => {
     if (nodes.length === 0) return
     setSelectedResourceId((current) => {
-      const ids = new Set(nodes.map((n) => n.database.resource_id))
-      if (!current || !ids.has(current)) return nodes[0].database.resource_id
+      const ids = new Set(nodes.map((n) => n.database.public_id))
+      if (!current || !ids.has(current)) return nodes[0].database.public_id
       return current
     })
   }, [nodes])

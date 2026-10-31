@@ -5,13 +5,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -55,12 +55,8 @@ func ValidateSecretValue(rawValue string) (string, error) {
 	return value, nil
 }
 
-func GenerateResourceID() (string, error) {
-	var raw [8]byte
-	if _, err := rand.Read(raw[:]); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(raw[:]), nil
+func GenerateResourceID() (uuid.UUID, error) {
+	return uuid.NewRandom()
 }
 
 // GenerateAlphaNumPassword creates a cryptographically-random password consisting of

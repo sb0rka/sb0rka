@@ -1,8 +1,11 @@
 import { apiRequest, apiRequestText } from "@/lib/api-client"
 
 export interface ProjectResponse {
+  public_id: string
   id: string
-  user_id: string
+  owner_subject_id: string
+  billing_subject_id: string
+  plan_id: string
   name: string
   description?: string
   is_active: boolean
@@ -64,17 +67,26 @@ export async function deactivateProject(
   })
 }
 
+export interface ResourceStateResponse {
+  runtime_state: string
+  created_at: string
+  updated_at: string
+}
+
 export interface DatabaseResponse {
-  resource_id: string
+  public_id: string
+  dbi_id: string
   name: string
+  normalized_name: string
   description?: string
-  next_table_id: number
-  sync_state?: "pending" | "ongoing" | "synced" | "failed"
-  desired_state?: "present" | "absent"
+  desired_runtime_state: "running" | "suspended" | "terminated"
+  resource_state?: ResourceStateResponse
+  tags?: TagResponse[]
 }
 
 export interface DatabaseListResponse {
-  databases: DatabaseResponse[]
+  project_id: string
+  dbis: DatabaseResponse[]
 }
 
 export interface CreateDatabaseRequest {
@@ -95,7 +107,7 @@ export interface UpdateDatabaseRequest {
 }
 
 export interface DatabaseWithSecretResponse {
-  database: DatabaseResponse
+  dbi: DatabaseResponse
   secret: SecretResponse
 }
 
@@ -105,7 +117,7 @@ export async function createDatabase(
 ): Promise<DatabaseWithSecretResponse> {
   return apiRequest<DatabaseWithSecretResponse>({
     method: "POST",
-    path: `/projects/${projectId}/database`,
+    path: `/projects/${projectId}/dbi`,
     json: data,
     base: "resource",
   })
@@ -115,7 +127,7 @@ export async function listDatabases(
   projectId: string,
 ): Promise<DatabaseListResponse> {
   return apiRequest<DatabaseListResponse>({
-    path: `/projects/${projectId}/databases`,
+    path: `/projects/${projectId}/dbis`,
     base: "resource",
   })
 }
@@ -125,7 +137,7 @@ export async function getDatabase(
   resourceId: string,
 ): Promise<DatabaseResponse> {
   return apiRequest<DatabaseResponse>({
-    path: `/projects/${projectId}/resources/${resourceId}/database`,
+    path: `/projects/${projectId}/resources/${resourceId}/dbi`,
     base: "resource",
   })
 }
@@ -137,7 +149,7 @@ export async function updateDatabase(
 ): Promise<DatabaseResponse> {
   return apiRequest<DatabaseResponse>({
     method: "PATCH",
-    path: `/projects/${projectId}/resources/${resourceId}/database`,
+    path: `/projects/${projectId}/resources/${resourceId}/dbi`,
     json: data,
     base: "resource",
   })
@@ -148,7 +160,8 @@ export async function getDatabaseUri(
   resourceId: string,
 ): Promise<string> {
   return apiRequestText({
-    path: `/projects/${projectId}/resources/${resourceId}/database/uri`,
+    method: "POST",
+    path: `/projects/${projectId}/resources/${resourceId}/dbi/uri/direct/reveal`,
     base: "resource",
   })
 }
@@ -310,22 +323,16 @@ export async function fetchQueryRunnerSchema(data: {
   }
 }
 
-export interface DeactivateResourceResponse {
-  resource_id: string
-  name: string
-  description?: string
-}
-
 export interface ProjectResourceResponse {
+  public_id: string
   id: string
-  project_id: string
-  is_active: boolean
-  resource_type: string
+  kind: string
   created_at: string
   updated_at: string
 }
 
 export interface ProjectResourceListResponse {
+  project_id: string
   resources: ProjectResourceResponse[]
 }
 
@@ -338,13 +345,13 @@ export async function listResources(
   })
 }
 
-export async function deactivateResource(
+export async function deleteDatabase(
   projectId: string,
   resourceId: string,
-): Promise<DeactivateResourceResponse> {
-  return apiRequest<DeactivateResourceResponse>({
-    method: "POST",
-    path: `/projects/${projectId}/resources/${resourceId}/deactivate`,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "DELETE",
+    path: `/projects/${projectId}/resources/${resourceId}/dbi`,
     base: "resource",
   })
 }
@@ -1583,6 +1590,7 @@ export async function resolveOptimalSql(
 }
 
 export interface SecretResponse {
+  public_id: string
   project_id: string
   secret_id: string
   name: string

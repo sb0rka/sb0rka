@@ -11,6 +11,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +25,7 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 }
 
 func extractSubjectID(r *http.Request) (uuid.UUID, bool) {
-	raw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	raw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		return uuid.Nil, false
 	}
@@ -36,37 +37,33 @@ func extractSubjectID(r *http.Request) (uuid.UUID, bool) {
 }
 
 func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
+	return runtime.ParsePublicID(raw, name)
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
-	decision, err := h.deps.Authorizer.Authorize(r.Context(), callerID, action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectPublicID string) (uuid.UUID, bool) {
+	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, authz.ResourceRef{
+		Type:     "project",
+		PublicID: projectPublicID,
 	})
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_public_id", projectPublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 // ListResources godoc
 // @Summary  Список ресурсов проекта
 // @Tags     resources
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.ResourceListResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -79,12 +76,13 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionProjectRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionProjectRead, projectPublicID)
+	if !ok {
 		return
 	}
 
@@ -106,14 +104,15 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ResourceListResponse{
-		ProjectID: projectID,
+		ProjectID: projectID.String(),
 		Resources: out,
 	})
 }
 
 func toResourceListItem(row model.Resource) contract.ResourceListItem {
 	return contract.ResourceListItem{
-		ID:        row.ID,
+		PublicID:  row.PublicID,
+		ID:        row.ID.String(),
 		Kind:      row.Kind,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,

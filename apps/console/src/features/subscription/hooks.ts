@@ -39,12 +39,12 @@ export function useSubscriptionUsage() {
       const perProjectUsage = await Promise.all(
         projects.map(async (project) => {
           const [databasesResponse, secretsResponse] = await Promise.all([
-            listDatabases(project.id),
-            listSecrets(project.id),
+            listDatabases(project.public_id),
+            listSecrets(project.public_id),
           ])
 
           return {
-            databases: databasesResponse.databases.length,
+            databases: databasesResponse.dbis.length,
             secrets: secretsResponse.secrets.length,
           }
         }),

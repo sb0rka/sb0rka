@@ -13,6 +13,8 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +28,7 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 }
 
 func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
-	raw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	raw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		return uuid.Nil, false
 	}
@@ -38,30 +40,23 @@ func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
 }
 
 func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
+	return runtime.ParsePublicID(raw, name)
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
-	decision, err := h.deps.Authorizer.Authorize(r.Context(), callerID, action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
-	})
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, resource authz.ResourceRef) (uuid.UUID, bool) {
+	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, resource)
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_id", resource.ID, "project_public_id", resource.PublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 // CreateDBInstance godoc
@@ -69,12 +64,13 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 // @Tags     dbis
 // @Accept   json
 // @Produce  json
-// @Param    project_id  path      string                              true  "ID проекта"
+// @Param    project_id  path      string                              true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Param    body        body      contract.CreateDBInstanceRequest    true  "Параметры инстанса БД"
 // @Success  201         {object}  contract.DatabaseWithSecretResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
+// @Failure  409         {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/dbi [post]
 func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
@@ -83,12 +79,13 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBCreate, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBCreate, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
@@ -115,17 +112,8 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.AssertCanCreateResourceWithType(r.Context(), subjectID, projectID, model.ResourceKindDatabase); err != nil {
-		if errors.Is(err, db.ErrProjectNotFound) {
-			http.Error(w, "Project not found", http.StatusNotFound)
-			return
-		}
-		if errors.Is(err, db.ErrResourceLimitReached) {
-			http.Error(w, "Resource limit reached", http.StatusForbidden)
-			return
-		}
-		h.deps.Log.Error("assert_resource_quota_failed", "error", err)
-		http.Error(w, "Failed to create database", http.StatusInternalServerError)
+	if err := h.deps.QuotaHook.BeforeCreateResource(r.Context(), subjectID, projectID, model.ResourceKindDatabase); err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "assert_resource_quota_failed")
 		return
 	}
 
@@ -145,7 +133,7 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate secret id", http.StatusInternalServerError)
 		return
 	}
-	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context())
+	key, err := h.deps.PlatformDatabase.GetActiveEncryptionKey(r.Context(), h.deps.Cfg.AuthConfig.SecretKeyRef)
 	if err != nil {
 		h.deps.Log.Error("get_active_encryption_key_failed", "error", err)
 		http.Error(w, "Failed to resolve encryption key", http.StatusInternalServerError)
@@ -186,6 +174,10 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 		EncryptedMessage:      encryptedSecretValue,
 	})
 	if err != nil {
+		if errors.Is(err, db.ErrDatabaseAlreadyExists) {
+			http.Error(w, "Database with this name already exists", http.StatusConflict)
+			return
+		}
 		h.deps.Log.Error("create_database_failed", "error", err)
 		http.Error(w, "Failed to create database", http.StatusInternalServerError)
 		return
@@ -205,7 +197,7 @@ func (h *Handler) CreateDBInstance(w http.ResponseWriter, r *http.Request) {
 // @Summary  Список инстансов БД проекта
 // @Tags     dbis
 // @Produce  json
-// @Param    project_id  path      string                          true  "ID проекта"
+// @Param    project_id  path      string                          true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.DBInstanceListResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -217,12 +209,13 @@ func (h *Handler) ListDBInstances(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBList, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBList, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
@@ -241,7 +234,7 @@ func (h *Handler) ListDBInstances(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.DBInstanceListResponse{
-		ProjectID:   projectID,
+		ProjectID:   projectID.String(),
 		DBInstances: out,
 	})
 }
@@ -250,8 +243,8 @@ func (h *Handler) ListDBInstances(w http.ResponseWriter, r *http.Request) {
 // @Summary  Получить инстанс БД
 // @Tags     dbis
 // @Produce  json
-// @Param    project_id   path      string                      true  "ID проекта"
-// @Param    resource_id  path      string                      true  "ID инстанса БД"
+// @Param    project_id   path      string                      true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                      true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.DBInstanceResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -264,21 +257,22 @@ func (h *Handler) GetDBInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBRead, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
-	row, err := h.deps.PlatformDatabase.GetDatabase(r.Context(), subjectID, projectID, resourceID)
+	row, err := h.deps.PlatformDatabase.GetDatabaseByPublicID(r.Context(), subjectID, projectID, resourcePublicID)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -299,8 +293,8 @@ func (h *Handler) GetDBInstance(w http.ResponseWriter, r *http.Request) {
 // @Tags     dbis
 // @Accept   json
 // @Produce  json
-// @Param    project_id   path      string                            true  "ID проекта"
-// @Param    resource_id  path      string                            true  "ID инстанса БД"
+// @Param    project_id   path      string                            true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                            true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Param    body         body      contract.UpdateDBInstanceRequest  true  "Обновляемые поля"
 // @Success  200          {object}  contract.DBInstanceResponse
 // @Failure  400          {string}  string
@@ -314,17 +308,18 @@ func (h *Handler) UpdateDBInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBUpdateMeta, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBUpdateMeta, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
@@ -357,7 +352,7 @@ func (h *Handler) UpdateDBInstance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	row, err := h.deps.PlatformDatabase.UpdateDatabase(r.Context(), projectID, resourceID, name, description)
+	row, err := h.deps.PlatformDatabase.UpdateDatabase(r.Context(), projectID, resourcePublicID, name, description)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -377,8 +372,8 @@ func (h *Handler) UpdateDBInstance(w http.ResponseWriter, r *http.Request) {
 // @Summary  Запустить инстанс БД
 // @Tags     dbis
 // @Produce  json
-// @Param    project_id   path      string                      true  "ID проекта"
-// @Param    resource_id  path      string                      true  "ID инстанса БД"
+// @Param    project_id   path      string                      true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                      true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.DBInstanceResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -393,8 +388,8 @@ func (h *Handler) StartDBInstance(w http.ResponseWriter, r *http.Request) {
 // @Summary  Остановить инстанс БД
 // @Tags     dbis
 // @Produce  json
-// @Param    project_id   path      string                      true  "ID проекта"
-// @Param    resource_id  path      string                      true  "ID инстанса БД"
+// @Param    project_id   path      string                      true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                      true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.DBInstanceResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -411,27 +406,28 @@ func (h *Handler) setDBInstanceDesiredRuntimeState(w http.ResponseWriter, r *htt
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, action, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, action, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
-	row, err := h.deps.PlatformDatabase.SetDatabaseDesiredRuntimeState(r.Context(), projectID, resourceID, desiredRuntimeState)
+	row, err := h.deps.PlatformDatabase.SetDatabaseDesiredRuntimeState(r.Context(), projectID, resourcePublicID, desiredRuntimeState)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
 			return
 		}
-		h.deps.Log.Error("set_database_desired_runtime_state_failed", "project_id", projectID, "resource_id", resourceID, "desired_runtime_state", desiredRuntimeState, "error", err)
+		h.deps.Log.Error("set_database_desired_runtime_state_failed", "project_id", projectID, "resource_id", resourcePublicID, "desired_runtime_state", desiredRuntimeState, "error", err)
 		http.Error(w, "Failed to update database runtime state", http.StatusInternalServerError)
 		return
 	}
@@ -445,8 +441,8 @@ func (h *Handler) setDBInstanceDesiredRuntimeState(w http.ResponseWriter, r *htt
 // @Summary  Параметры прямого подключения к инстансу БД
 // @Tags     dbis
 // @Produce  json
-// @Param    project_id   path      string                                true  "ID проекта"
-// @Param    resource_id  path      string                                true  "ID инстанса БД"
+// @Param    project_id   path      string                                true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                                true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.DBInstanceConnParamsResponse
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -460,21 +456,22 @@ func (h *Handler) GetDBInstanceConnection(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBConnectionInfoRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBConnectionInfoRead, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
-	dbRow, secret, err := h.deps.PlatformDatabase.GetDatabaseConnParams(r.Context(), projectID, resourceID)
+	dbRow, secret, err := h.deps.PlatformDatabase.GetDatabaseConnParams(r.Context(), projectID, resourcePublicID)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -492,11 +489,12 @@ func (h *Handler) GetDBInstanceConnection(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.DBInstanceConnParamsResponse{
-		Host:             fmt.Sprintf("%s.%s", dbRow.ResourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost),
-		Port:             h.deps.Cfg.TenantsDatabasePublicPort,
-		User:             h.deps.Cfg.TenantsDatabaseUser,
-		PasswordSecretID: secret.ResourceID,
-		DatabaseName:     dbRow.NormalizedName,
+		Host:                   fmt.Sprintf("%s.%s", dbRow.ResourceID, h.deps.Cfg.TenantsDatabasePublicBaseHost),
+		Port:                   h.deps.Cfg.TenantsDatabasePublicPort,
+		User:                   h.deps.Cfg.TenantsDatabaseUser,
+		PasswordSecretID:       secret.ResourceID.String(),
+		PasswordSecretPublicID: secret.PublicID,
+		DatabaseName:           dbRow.NormalizedName,
 	})
 }
 
@@ -504,8 +502,8 @@ func (h *Handler) GetDBInstanceConnection(w http.ResponseWriter, r *http.Request
 // @Summary  Раскрыть строку подключения (URI) инстанса БД
 // @Tags     dbis
 // @Produce  plain
-// @Param    project_id   path      string  true  "ID проекта"
-// @Param    resource_id  path      string  true  "ID инстанса БД"
+// @Param    project_id   path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string  true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {string}  string  "Строка подключения PostgreSQL"
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
@@ -519,21 +517,22 @@ func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	dbID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	dbPublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBConnectionInfoRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBConnectionInfoRead, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
-	dbRow, secret, version, material, err := h.deps.PlatformDatabase.GetDatabasePasswordSecretMaterial(r.Context(), projectID, dbID)
+	dbRow, secret, version, material, err := h.deps.PlatformDatabase.GetDatabasePasswordSecretMaterial(r.Context(), projectID, dbPublicID)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -547,7 +546,8 @@ func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get database URI params", http.StatusInternalServerError)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionSecretReveal, projectID) {
+	_, ok = h.authorize(w, r, subjectID, authz.ActionSecretReveal, authz.ResourceRef{Type: "project", ID: projectID})
+	if !ok {
 		return
 	}
 
@@ -562,7 +562,7 @@ func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 	}
 	decryptedSecretValue, err := h.deps.SecretCrypto.Decrypt(r.Context(), material.EncryptedMessage, aad, material.EncryptionKeyRef)
 	if err != nil {
-		h.deps.Log.Error("decrypt_database_uri_secret_failed", "project_id", projectID, "db_id", dbID, "secret_id", secret.ResourceID, "version_no", version.VersionNo, "error", err)
+		h.deps.Log.Error("decrypt_database_uri_secret_failed", "project_id", projectID, "db_id", dbRow.ResourceID, "secret_id", secret.ResourceID, "version_no", version.VersionNo, "error", err)
 		http.Error(w, "Failed to decrypt secret value", http.StatusInternalServerError)
 		return
 	}
@@ -583,8 +583,8 @@ func (h *Handler) RevealDBInstanceURI(w http.ResponseWriter, r *http.Request) {
 // DeleteDBInstance godoc
 // @Summary  Удалить инстанс БД
 // @Tags     dbis
-// @Param    project_id   path  string  true  "ID проекта"
-// @Param    resource_id  path  string  true  "ID инстанса БД"
+// @Param    project_id   path  string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path  string  true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  204
 // @Failure  400  {string}  string
 // @Failure  403  {string}  string
@@ -597,21 +597,22 @@ func (h *Handler) DeleteDBInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBDelete, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBDelete, authz.ResourceRef{Type: "project", PublicID: projectPublicID})
+	if !ok {
 		return
 	}
 
-	dbRow, dbVerifier, err := h.deps.PlatformDatabase.ClaimDatabaseTermination(r.Context(), projectID, resourceID)
+	dbRow, dbVerifier, err := h.deps.PlatformDatabase.ClaimDatabaseTermination(r.Context(), projectID, resourcePublicID)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Database not found", http.StatusNotFound)
@@ -628,7 +629,8 @@ func (h *Handler) DeleteDBInstance(w http.ResponseWriter, r *http.Request) {
 
 func toDBInstanceResponse(d model.DBInstance) contract.DBInstanceResponse {
 	resp := contract.DBInstanceResponse{
-		DBInstanceID:        d.ResourceID,
+		PublicID:            d.PublicID,
+		DBInstanceID:        d.ResourceID.String(),
 		Name:                d.Name,
 		NormalizedName:      d.NormalizedName,
 		Description:         d.Description,
@@ -648,7 +650,7 @@ func toDBInstanceResponse(d model.DBInstance) contract.DBInstanceResponse {
 		for _, tag := range d.Tags {
 			resp.Tags = append(resp.Tags, contract.TagResponse{
 				ID:         tag.ID,
-				ProjectID:  tag.ProjectID,
+				ProjectID:  tag.ProjectID.String(),
 				TagKey:     tag.TagKey,
 				TagValue:   tag.TagValue,
 				Color:      tag.Color,
@@ -663,8 +665,9 @@ func toDBInstanceResponse(d model.DBInstance) contract.DBInstanceResponse {
 
 func toSecretResponse(s model.Secret) contract.SecretResponse {
 	resp := contract.SecretResponse{
-		ProjectID:          s.ProjectID,
-		SecretID:           s.ResourceID,
+		PublicID:           s.PublicID,
+		ProjectID:          s.ProjectID.String(),
+		SecretID:           s.ResourceID.String(),
 		Name:               s.Name,
 		Description:        s.Description,
 		PayloadKind:        s.PayloadKind,

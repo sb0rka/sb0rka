@@ -33,6 +33,7 @@ task tidy        # go mod tidy во всех модулях
 task swagger     # перегенерировать OpenAPI-спеку (после правок swaggo-аннотаций)
 task dev         # поднять локальный стенд (docker-compose)
 task dev-down    # погасить стенд
+task dev:logs    # следить за логами всех сервисов (или: task dev:logs -- auth)
 ```
 
 Без Task — те же команды напрямую, например: `go build -o bin/api ./apps/api/cmd/api`. Линтер запускают помодульно (из-за `go.work`): `cd apps/api && golangci-lint run ./...` — и так по каждому модулю.
@@ -42,8 +43,12 @@ task dev-down    # погасить стенд
 Полный прод-сценарий локально невозможен (нет оркестратора инстансов). Стенд из репо (Postgres + auth + api + drones + proxy):
 
 ```bash
-task dev    # или: docker compose -f docker-compose.dev.yml up -d --build
+task dev    # или: docker compose up -d --build
 ```
+
+API и auth читают настройки из `apps/api/.env` и `apps/auth/.env`.
+Подготовьте `.env` вручную по `.env.sample`. Ключи Ed25519, Tink 
+и OIDC генерируются один раз в томе `keys` общим скриптом `deploy/dev/keygen.sh`.
 
 Доступ к API — по Bearer-JWT. Токен получают через `auth` (:8020): регистрация `POST /identity/users`, затем логин `POST /auth/login` → `access_token`.
 

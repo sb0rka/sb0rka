@@ -51,6 +51,8 @@ A typical handler (reference: `transport/projects/handlers.go`):
 
 Request/response JSON shapes live in `packages/contract` (shared with the `s0c` CLI) — the single source of truth for the contract. `model → contract` mapping is done by `toX` functions in the handler.
 
+The `project_id` and `resource_id` path parameters contain `public_id`: 10 and 12 lowercase hex characters respectively. The existing membership query filters the project by `public_id` and returns its UUID; missing membership still returns `403`. The first resource query filters by `public_id`. Subsequent checks, relationships, quotas, and AAD use UUIDs from the results. JWTs contain UUIDs.
+
 ## Identity: the JWT → context bridge
 
 `authMiddleware` (`transport/middlewares.go`) verifies `Authorization: Bearer <jwt>` via `service.ParseAndVerifyAccessTokenFromAuthHeader` (Ed25519/EdDSA, claims `sub`/`sid`/`sk`/`jti`) and stores identity in `context` via `runtime.WithAuthIdentity`. Handlers then read it through `runtime.AuthSubjectIDFromContext` etc. `apps/api` itself does **not** issue tokens — `apps/auth` does.
@@ -72,7 +74,9 @@ The most complex multi-entity flow (`transport/dbis/handlers.go` `CreateDBInstan
 5. `BuildSecretAAD(projectID, secretID, version=1, server_managed)` → AAD.
 6. `SecretCrypto.Encrypt(password, aad, key.KeyRef)` → ciphertext.
 7. `GeneratePostgresSCRAMSHA256Verifier(password)` → SCRAM verifier (what Postgres itself stores).
-8. `CreateDatabase(params)` — **one transaction** creating a consistent set: `dbis` + `resource_states` (database), `secrets` (name `DATABASE_<id>_PASSWORD`) + `secret_versions` v1 + `secret_version_materials` (envelope), `dbi_verifiers` (verifier + `password_secret_id`, desired=`present`), and the system tag `db_secret` (`resource_tags`).
+8. `CreateDatabase(params)` — **one transaction** creating a consistent set: `dbis` + `resource_states` (database), `secrets` (name `DATABASE_<public_id>_PASSWORD`) + `secret_versions` v1 + `secret_version_materials` (envelope), `dbi_verifiers` (verifier + `password_secret_id`, desired=`present`), and the system tag `db_secret` with value `<db_public_id>_<secret_public_id>` (`resource_tags`).
+
+The password secret description contains the database public ID. Password lookup and cleanup follow the UUID relationship `dbi_verifiers.password_secret_id`. Tags are for display and do not affect which resources are selected for cleanup.
 
 Result: the password is never stored in plaintext — only the encrypted material + SCRAM verifier. The real PostgreSQL instance is provisioned by an external orchestrator from desired state (not present in this repository).
 
@@ -86,7 +90,7 @@ Desired and actual state are separated across the schema:
 - desired state is written by the API (`dbis.desired_runtime_state`, `dbi_verifiers.password_desired_state`);
 - actual state is reconciled by an external reconciler (`resource_states.runtime_state`).
 
-`apps/drones` (background GC) ticks and calls the SQL function `api.cleanup_one_deleted_dbi()` (`SECURITY DEFINER`, `SKIP LOCKED` — safe for multiple workers). It cleans deleted databases one at a time: once the database is `desired_runtime_state='terminated'`, both the database and its password secret are `runtime_state='deleted'`, and `password_desired_state='absent'`, it deletes the database resource, the secret resource and the `db_secret` system tag in one transaction.
+`apps/drones` (background GC) ticks and calls the SQL function `api.cleanup_one_deleted_dbi()` (`SECURITY DEFINER`, `SKIP LOCKED` — safe for multiple workers). It cleans deleted databases one at a time: once the database is `desired_runtime_state='terminated'`, both the database and its password secret are `runtime_state='deleted'`, and `password_desired_state='absent'`, it deletes the database resource and the secret resource in one transaction. Missing tags or tag associations do not prevent deletion. Tags attached to these resources are deleted if they have no remaining associations with other resources after cleanup.
 
 ## Critical security invariants
 

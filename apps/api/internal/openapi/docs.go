@@ -22,6 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Назначает план аккаунта по умолчанию. Повторный вызов сохраняет существующий план; перед созданием проекта инициализация обязательна.",
                 "tags": [
                     "iam"
                 ],
@@ -99,25 +100,42 @@ const docTemplate = `{
                 }
             }
         },
-        "/plan": {
+        "/plan/{plan_id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "iam"
                 ],
-                "summary": "Получить тариф аккаунта",
+                "summary": "Получить тариф по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "UUID тарифа",
+                        "name": "plan_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/contract.PlanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "401": {
@@ -201,6 +219,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Требует предварительного POST /account/initialize. Проект получает план по умолчанию. owner_subject_id по умолчанию — текущий пользователь; организация допустима только для её owner, billing при этом ставится на этого owner.",
                 "consumes": [
                     "application/json"
                 ],
@@ -241,6 +260,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
                         "schema": {
@@ -266,8 +291,10 @@ const docTemplate = `{
                 "summary": "Получить проект",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -307,8 +334,10 @@ const docTemplate = `{
                 "summary": "Удалить проект",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -350,8 +379,10 @@ const docTemplate = `{
                 "summary": "Обновить метаданные проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -390,6 +421,12 @@ const docTemplate = `{
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             }
@@ -413,8 +450,10 @@ const docTemplate = `{
                 "summary": "Создать инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -453,6 +492,12 @@ const docTemplate = `{
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             }
@@ -473,8 +518,10 @@ const docTemplate = `{
                 "summary": "Список инстансов БД проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -518,8 +565,10 @@ const docTemplate = `{
                 "summary": "Список участников проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -558,8 +607,10 @@ const docTemplate = `{
                 "summary": "Добавить участника проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -624,14 +675,17 @@ const docTemplate = `{
                 "summary": "Получить участника проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "UUID участника",
                         "name": "subject_id",
                         "in": "path",
@@ -671,14 +725,17 @@ const docTemplate = `{
                 "summary": "Удалить участника проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "UUID участника",
                         "name": "subject_id",
                         "in": "path",
@@ -727,14 +784,17 @@ const docTemplate = `{
                 "summary": "Изменить роль участника",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "UUID участника",
                         "name": "subject_id",
                         "in": "path",
@@ -800,8 +860,10 @@ const docTemplate = `{
                 "summary": "Получить тариф проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -816,6 +878,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "string"
                         }
@@ -842,6 +910,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Возвращает квоты плана со scope=project. limit_value — лимит плана, entitled — сумма начислений проекта с starts_at \u003c= now() и ends_at IS NULL или ends_at \u003e now(). При отсутствии действующих начислений entitled равен 0. Эффективный лимит = limit_value + entitled.",
                 "produces": [
                     "application/json"
                 ],
@@ -851,8 +920,10 @@ const docTemplate = `{
                 "summary": "Получить квоты проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -867,6 +938,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "string"
                         }
@@ -902,8 +979,10 @@ const docTemplate = `{
                 "summary": "Список ресурсов проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -953,15 +1032,19 @@ const docTemplate = `{
                 "summary": "Получить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1006,15 +1089,19 @@ const docTemplate = `{
                 "summary": "Удалить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1062,15 +1149,19 @@ const docTemplate = `{
                 "summary": "Обновить метаданные инстанса БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1129,15 +1220,19 @@ const docTemplate = `{
                 "summary": "Параметры прямого подключения к инстансу БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1193,15 +1288,19 @@ const docTemplate = `{
                 "summary": "Запустить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1251,15 +1350,19 @@ const docTemplate = `{
                 "summary": "Остановить инстанс БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1309,15 +1412,19 @@ const docTemplate = `{
                 "summary": "Раскрыть строку подключения (URI) инстанса БД",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID инстанса БД",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1373,15 +1480,19 @@ const docTemplate = `{
                 "summary": "Временной ряд метрики ресурса",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1450,15 +1561,19 @@ const docTemplate = `{
                 "summary": "Получить метаданные секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1503,15 +1618,19 @@ const docTemplate = `{
                 "summary": "Удалить секрет",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1565,15 +1684,19 @@ const docTemplate = `{
                 "summary": "Обновить метаданные секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1632,15 +1755,19 @@ const docTemplate = `{
                 "summary": "Раскрыть значение текущей версии секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1696,15 +1823,19 @@ const docTemplate = `{
                 "summary": "Список версий секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -1755,21 +1886,25 @@ const docTemplate = `{
                 "summary": "Создать новую версию секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Значение и тип payload",
+                        "description": "Значение секрета",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1834,21 +1969,26 @@ const docTemplate = `{
                 "summary": "Получить версию секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -1899,21 +2039,26 @@ const docTemplate = `{
                 "summary": "Отключить версию секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -1973,21 +2118,26 @@ const docTemplate = `{
                 "summary": "Раскрыть значение версии секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -2044,21 +2194,26 @@ const docTemplate = `{
                 "summary": "Применить SCRAM-verifier пароля БД для версии секрета",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID секрета",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
+                        "format": "int32",
                         "description": "Номер версии",
                         "name": "version_no",
                         "in": "path",
@@ -2124,15 +2279,19 @@ const docTemplate = `{
                 "summary": "Прикрепить тег к ресурсу",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -2197,15 +2356,19 @@ const docTemplate = `{
                 "summary": "Список тегов ресурса",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -2258,15 +2421,19 @@ const docTemplate = `{
                 "summary": "Открепить тег от ресурса",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maxLength": 12,
+                        "minLength": 12,
                         "type": "string",
-                        "description": "ID ресурса",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
                         "name": "resource_id",
                         "in": "path",
                         "required": true
@@ -2329,8 +2496,10 @@ const docTemplate = `{
                 "summary": "Создать секрет",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2371,6 +2540,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "422": {
                         "description": "Unprocessable Entity",
                         "schema": {
@@ -2396,8 +2571,10 @@ const docTemplate = `{
                 "summary": "Список секретов проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2441,8 +2618,10 @@ const docTemplate = `{
                 "summary": "Список тегов проекта",
                 "parameters": [
                     {
+                        "maxLength": 10,
+                        "minLength": 10,
                         "type": "string",
-                        "description": "ID проекта",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
                         "name": "project_id",
                         "in": "path",
                         "required": true
@@ -2475,58 +2654,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/projects/{project_id}/usage": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "iam"
-                ],
-                "summary": "Получить потребление проекта",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID проекта",
-                        "name": "project_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -2534,16 +2661,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dbi_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },
@@ -2595,8 +2726,13 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "owner_subject_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
                 "plan_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },
@@ -2620,9 +2756,6 @@ const docTemplate = `{
         "contract.CreateSecretVersionRequest": {
             "type": "object",
             "properties": {
-                "payload_kind": {
-                    "type": "string"
-                },
                 "secret_value": {
                     "type": "string"
                 }
@@ -2638,6 +2771,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password_secret_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "password_secret_public_id": {
                     "type": "string"
                 },
                 "port": {
@@ -2658,7 +2795,8 @@ const docTemplate = `{
                     }
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },
@@ -2666,7 +2804,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "dbi_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "description": {
                     "type": "string"
@@ -2678,6 +2817,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "normalized_name": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "resource_state": {
@@ -2711,7 +2853,10 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
-                "description": {
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
                     "type": "string"
                 },
                 "id": {
@@ -2726,7 +2871,10 @@ const docTemplate = `{
                 "kind": {
                     "type": "string"
                 },
-                "name": {
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2772,7 +2920,8 @@ const docTemplate = `{
                     }
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },
@@ -2783,7 +2932,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "role": {
                     "type": "string"
@@ -2802,7 +2952,13 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "entitled": {
+                    "description": "Entitled is the sum of currently active project entitlements.",
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "limit_value": {
+                    "description": "LimitValue is the plan limit before entitlements.",
                     "type": "integer"
                 },
                 "plan_id": {
@@ -2810,16 +2966,17 @@ const docTemplate = `{
                 },
                 "quota_definition": {
                     "$ref": "#/definitions/contract.QuotaDefinitionSnippet"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
         "contract.ProjectQuotaListResponse": {
             "type": "object",
             "properties": {
-                "project_id": {
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "quotas": {
@@ -2834,7 +2991,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "billing_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "created_at": {
                     "type": "string"
@@ -2843,7 +3001,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "is_active": {
                     "type": "boolean"
@@ -2852,9 +3011,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "plan_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2882,19 +3046,36 @@ const docTemplate = `{
                 "code": {
                     "type": "string"
                 },
-                "description": {
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
-                "name": {
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "snapshot",
+                        "periodic",
+                        "balance"
+                    ]
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
                     "type": "string"
                 },
                 "scope": {
                     "type": "string"
                 },
                 "unit": {
+                    "type": "string"
+                },
+                "window": {
                     "type": "string"
                 }
             }
@@ -2906,9 +3087,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "kind": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2920,7 +3105,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "resources": {
                     "type": "array",
@@ -2968,16 +3154,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "value": {
                     "type": "string"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },
@@ -2988,10 +3177,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "current_version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "description": {
                     "type": "string"
@@ -3005,8 +3196,12 @@ const docTemplate = `{
                 "protection_class": {
                     "type": "string"
                 },
-                "secret_id": {
+                "public_id": {
                     "type": "string"
+                },
+                "secret_id": {
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "updated_at": {
                     "type": "string"
@@ -3017,7 +3212,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secrets": {
                     "type": "array",
@@ -3037,7 +3233,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password_desired_version": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "updated_at": {
                     "type": "string"
@@ -3051,10 +3248,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "current_version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 },
                 "description": {
                     "type": "string"
@@ -3069,9 +3268,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "protection_class": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "resource_state": {
@@ -3081,7 +3284,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "tags": {
                     "type": "array",
@@ -3101,10 +3305,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
-                },
-                "payload_kind": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "state": {
                     "type": "string"
@@ -3113,7 +3315,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },
@@ -3121,10 +3324,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "versions": {
                     "type": "array",
@@ -3141,19 +3346,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_by_subject_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "disabled_at": {
                     "type": "string"
                 },
-                "payload_kind": {
-                    "type": "string"
-                },
                 "project_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "secret_id": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                 },
                 "state": {
                     "type": "string"
@@ -3162,7 +3367,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version_no": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int32"
                 }
             }
         },

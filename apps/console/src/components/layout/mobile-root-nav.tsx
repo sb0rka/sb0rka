@@ -139,7 +139,7 @@ function useMobileProjectHeader() {
 
     if (activeTab === "secrets" && selectedSecretId) {
       const selectedSecret = secretsData?.secrets.find(
-        (secret) => secret.secret_id === selectedSecretId,
+        (secret) => secret.public_id === selectedSecretId,
       )
       return {
         backHref: `/projects/${projectId}?tab=secrets`,

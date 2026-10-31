@@ -1,0 +1,52 @@
+name: Build core
+
+on:
+  pull_request:
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/build-core.yml"
+      - ".github/actions/go-build/**"
+  push:
+    branches: [main]
+    paths:
+      - "packages/core/**"
+      - ".github/workflows/build-core.yml"
+      - ".github/actions/go-build/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Vet and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GOWORK: off
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build core
+        uses: ./.github/actions/go-build
+        with:
+          module-dir: packages/core
+          version-file: version.txt
+
+      - name: Verify modules
+        working-directory: packages/core
+        run: go mod verify
+
+      - name: Vet
+        working-directory: packages/core
+        run: go vet ./...
+
+      - name: Test
+        working-directory: packages/core
+        run: go test -race -count=1 ./...

@@ -42,6 +42,7 @@ type AuthConfig struct {
 type ServerConfig struct {
 	Addr string
 	Port string
+	OIDC *OIDCConfig
 
 	IsPhoneRequired bool
 

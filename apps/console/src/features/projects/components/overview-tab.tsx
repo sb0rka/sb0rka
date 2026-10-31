@@ -403,7 +403,7 @@ export function OverviewTab({
   const diskUsageValue = diskUsageSeries[diskUsageSeries.length - 1]?.value ?? 0
 
   return (
-    <TabsContent value="overview" className="flex flex-col gap-4">
+    <TabsContent value="overview" className="flex flex-col gap-4 data-[state=inactive]:hidden">
       <PageStagger className="flex flex-col gap-4">
         <StaggerGroup className="grid gap-4 sm:grid-cols-3">
           <SlideIn>

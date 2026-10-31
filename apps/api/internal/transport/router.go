@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"fmt"
 	"net/http"
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
@@ -13,6 +14,7 @@ import (
 	tsecrets "github.com/sb0rka/sb0rka/apps/api/internal/transport/secrets"
 	ttags "github.com/sb0rka/sb0rka/apps/api/internal/transport/tags"
 	ttelemetry "github.com/sb0rka/sb0rka/apps/api/internal/transport/telemetry"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 )
 
 type Dependencies = runtime.Dependencies
@@ -52,19 +54,18 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	mux.HandleFunc("GET /ping", s.ping)
 	mux.HandleFunc("GET /health", s.health)
-	mux.HandleFunc("GET /plans", s.iam.ListPublicPlans)
 
 	// Swagger UI (публичный)
 	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 
 	// Plans & quotas
 
-	mux.Handle("GET /plan", authOnly(s.iam.GetAccountPlan))
+	mux.HandleFunc("GET /plans", s.iam.ListPublicPlans)
+	mux.Handle("GET /plan/{plan_id}", authOnly(s.iam.GetPlan))
 	mux.Handle("POST /account/initialize", authLive(s.iam.InitializeAccount))
 	mux.Handle("GET /account/plan", authOnly(s.iam.GetAccountPlan))
 	mux.Handle("GET /projects/{project_id}/plan", authOnly(s.iam.GetProjectPlan))
 	mux.Handle("GET /projects/{project_id}/quotas", authOnly(s.iam.GetProjectQuotas))
-	mux.Handle("GET /projects/{project_id}/usage", authOnly(s.iam.GetProjectUsage))
 
 	// Projects
 	mux.Handle("POST /projects", authLive(s.projects.CreateProject))
@@ -116,6 +117,17 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tags", authOnly(s.tags.ListResourceTags))
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/tag", authLive(s.tags.AttachResourceTag))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach", authLive(s.tags.DetachResourceTag))
+
+	for _, extra := range s.deps.AdditionalRoutes {
+		switch extra.Access {
+		case route.Authenticated:
+			mux.Handle(extra.Pattern, authOnly(extra.Handler))
+		case route.LiveSession:
+			mux.Handle(extra.Pattern, authLive(extra.Handler))
+		default:
+			panic(fmt.Sprintf("invalid API route access %d for %s", extra.Access, extra.Pattern))
+		}
+	}
 
 	commonHandler := s.loggerMiddleware(mux)
 	commonHandler = s.corsMiddleware(commonHandler)

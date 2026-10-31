@@ -13,6 +13,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +27,7 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 }
 
 func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
-	subjectIDStr, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDStr, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		return uuid.Nil, false
 	}
@@ -52,37 +53,33 @@ func parsePathInt64(raw, name string) (int64, error) {
 }
 
 func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
+	return runtime.ParsePublicID(raw, name)
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
-	decision, err := h.deps.Authorizer.Authorize(r.Context(), callerID, action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectPublicID string) (uuid.UUID, bool) {
+	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, authz.ResourceRef{
+		Type:     "project",
+		PublicID: projectPublicID,
 	})
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_public_id", projectPublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 // ListProjectTags godoc
 // @Summary  Список тегов проекта
 // @Tags     tags
 // @Produce  json
-// @Param    project_id  path      string  true  "ID проекта"
+// @Param    project_id  path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Success  200         {object}  contract.ProjectTagListResponse
 // @Failure  400         {string}  string
 // @Failure  401         {string}  string
@@ -95,12 +92,13 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionTagList, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionTagList, projectPublicID)
+	if !ok {
 		return
 	}
 
@@ -114,7 +112,7 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ProjectTagListResponse{
-		ProjectID: projectID,
+		ProjectID: projectID.String(),
 		Tags:      toTagListEntries(tags),
 	})
 }
@@ -123,8 +121,8 @@ func (h *Handler) ListProjectTags(w http.ResponseWriter, r *http.Request) {
 // @Summary  Список тегов ресурса
 // @Tags     tags
 // @Produce  json
-// @Param    project_id   path      string  true  "ID проекта"
-// @Param    resource_id  path      string  true  "ID ресурса"
+// @Param    project_id   path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string  true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Success  200          {object}  contract.ResourceTagListResponse
 // @Failure  400          {string}  string
 // @Failure  401          {string}  string
@@ -138,21 +136,22 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionTagList, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionTagList, projectPublicID)
+	if !ok {
 		return
 	}
 
-	tags, err := h.deps.PlatformDatabase.ListResourceTags(r.Context(), projectID, resourceID)
+	resourceUUID, tags, err := h.deps.PlatformDatabase.ListResourceTagsByPublicID(r.Context(), projectID, resourcePublicID)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Resource not found", http.StatusNotFound)
@@ -166,8 +165,8 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(contract.ResourceTagListResponse{
-		ProjectID:  projectID,
-		ResourceID: resourceID,
+		ProjectID:  projectID.String(),
+		ResourceID: resourceUUID.String(),
 		Tags:       toTagListEntries(tags),
 	})
 }
@@ -177,8 +176,8 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 // @Tags     tags
 // @Accept   json
 // @Produce  json
-// @Param    project_id   path      string                              true  "ID проекта"
-// @Param    resource_id  path      string                              true  "ID ресурса"
+// @Param    project_id   path      string                              true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string                              true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Param    body         body      contract.AttachResourceTagRequest   true  "Параметры тега"
 // @Success  201          {object}  contract.TagResponse
 // @Failure  400          {string}  string
@@ -193,17 +192,18 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionResourceTagAttach, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionResourceTagAttach, projectPublicID)
+	if !ok {
 		return
 	}
 	var req contract.AttachResourceTagRequest
@@ -229,7 +229,7 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), projectID, resourceID, tagKey, tagValue, tagColor)
+	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), projectID, resourcePublicID, tagKey, tagValue, tagColor)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Resource not found", http.StatusNotFound)
@@ -252,8 +252,8 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 // DetachResourceTag godoc
 // @Summary  Открепить тег от ресурса
 // @Tags     tags
-// @Param    project_id   path  string  true  "ID проекта"
-// @Param    resource_id  path  string  true  "ID ресурса"
+// @Param    project_id   path  string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path  string  true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Param    tag_id       path  int     true  "ID тега"
 // @Success  204          "No Content"
 // @Failure  400          {string}  string
@@ -268,12 +268,12 @@ func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -283,11 +283,12 @@ func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionResourceTagDetach, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionResourceTagDetach, projectPublicID)
+	if !ok {
 		return
 	}
 
-	if err := h.deps.PlatformDatabase.DetachResourceTag(r.Context(), projectID, resourceID, tagID); err != nil {
+	if err := h.deps.PlatformDatabase.DetachResourceTag(r.Context(), projectID, resourcePublicID, tagID); err != nil {
 		if errors.Is(err, db.ErrResourceTagNotFound) {
 			http.Error(w, "Tag not found", http.StatusNotFound)
 			return
@@ -307,7 +308,7 @@ func (h *Handler) DetachResourceTag(w http.ResponseWriter, r *http.Request) {
 func toTagResponse(tag model.Tag) contract.TagResponse {
 	return contract.TagResponse{
 		ID:         tag.ID,
-		ProjectID:  tag.ProjectID,
+		ProjectID:  tag.ProjectID.String(),
 		TagKey:     tag.TagKey,
 		TagValue:   tag.TagValue,
 		Color:      tag.Color,

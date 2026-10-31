@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
-
-type authContextKey string
 
 // responseWriter wraps http.ResponseWriter to capture status code and bytes written
 type responseWriter struct {
@@ -106,8 +106,106 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := runtime.WithAuthIdentity(r.Context(), identity)
+		ctx := authctx.WithIdentity(r.Context(), authctx.Identity{
+			SubjectID:   identity.SubjectID,
+			SubjectKind: identity.SubjectKind,
+			SessionID:   identity.SessionID,
+			JTI:         identity.JTI,
+			ClientID:    identity.ClientID,
+		})
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// optionalBrowserSessionMiddleware resolves a browser cookie without rotating
+// it. Missing, malformed, revoked, and expired cookies deliberately continue as
+// anonymous requests so protocol handlers can choose their own fallback.
+func (s *Server) optionalBrowserSessionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Pragma", "no-cache")
+
+		cookie, err := r.Cookie(s.deps.Cfg.AuthConfig.RefreshTokenCookieName)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		refreshToken, err := service.ValidateLengthOfRefreshToken(cookie.Value, s.deps.Cfg.AuthConfig)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		session, err := s.deps.Database.ResolveBrowserSession(
+			r.Context(),
+			service.HashRefreshToken(refreshToken),
+		)
+		if err != nil {
+			if errors.Is(err, db.ErrTokenNotFound) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			s.deps.Log.Error("browser_session_resolution_failed", "path", r.URL.Path, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		ctx := authctx.WithIdentity(r.Context(), authctx.Identity{
+			SubjectID:   session.SubjectID.String(),
+			SubjectKind: model.SubjectKindUser,
+			SessionID:   session.SessionID.String(),
+		})
+		ctx = authctx.WithAuthenticationTime(ctx, session.AuthenticationTime.UTC())
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// requireEmailVerificationMiddleware is chained after authMiddleware and,
+// when needed, requireLiveSessionMiddleware. Route registration remains
+// responsible for opting into this policy.
+func (s *Server) requireEmailVerificationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		subjectKind, ok := authctx.SubjectKindFromContext(r.Context())
+		if !ok {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if subjectKind != model.SubjectKindUser {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		userID, err := uuid.Parse(subjectIDRaw)
+		if err != nil {
+			s.deps.Log.Error(
+				"email_verification_invalid_subject_id",
+				"path", r.URL.Path,
+				"subject_id", subjectIDRaw,
+				"error", err,
+			)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if err := s.deps.VerificationHook.BeforeAccess(r.Context(), userID); err != nil {
+			coretransport.WriteHookError(
+				w,
+				err,
+				s.deps.Log,
+				"verification_hook_failed",
+				"path", r.URL.Path,
+			)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -119,7 +217,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 //   - (Implicit) authMiddleware has already run and populated identity in context.
 func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionIDRaw, ok := runtime.AuthSessionIDFromContext(r.Context())
+		sessionIDRaw, ok := authctx.SessionIDFromContext(r.Context())
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -130,7 +228,7 @@ func (s *Server) requireLiveSessionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+		subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return

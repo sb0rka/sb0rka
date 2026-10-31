@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func CreateDatabase(uri string, maxConns int, connMaxLifetime int64) (Database, error) {
@@ -18,6 +19,11 @@ type Database interface {
 	TestConnection(ctx context.Context) error
 
 	Close() error
+
+	// PgxPool exposes the underlying connection pool. It exists only to hand
+	// the pool to pluggable feature modules (route/invite/subject factories);
+	// queries must go through the interface methods.
+	PgxPool() *pgxpool.Pool
 
 	// --- Subjects ---
 
@@ -35,26 +41,20 @@ type Database interface {
 
 	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
 	GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error)
-	GetAuthSessionByRefreshToken(ctx context.Context, refreshTokenHash string) (model.AuthSession, error)
+	ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error)
 	RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
+	RefreshOAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, oauthClientID string) (model.AuthSession, error)
+	RevokeOAuthSessionFamily(ctx context.Context, refreshTokenHash, oauthClientID string) error
 	ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error)
 	RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error
 	RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error
 
-	// --- Organizations ---
+	// --- OAuth/OIDC ---
 
-	CreateOrganization(ctx context.Context, orgID uuid.UUID, name string, description *string, ownerUserID uuid.UUID) (model.Organization, error)
-	GetOrganization(ctx context.Context, orgID, memberUserID uuid.UUID) (model.Organization, error)
-	GetOrganizationByID(ctx context.Context, orgID uuid.UUID) (model.Organization, error)
-	ListOrganizations(ctx context.Context, userID uuid.UUID) ([]model.Organization, error)
-	UpdateOrganization(ctx context.Context, orgID, memberUserID uuid.UUID, name *string, description *string) (model.Organization, error)
-	DeleteOrganization(ctx context.Context, orgID, memberUserID uuid.UUID) error
-
-	// --- Organization members ---
-
-	ListOrganizationMembers(ctx context.Context, orgID, memberUserID uuid.UUID) ([]model.OrganizationMember, error)
-	AddOrganizationMember(ctx context.Context, orgID, userID, memberUserID uuid.UUID, role string) (model.OrganizationMember, error)
-	GetOrganizationMember(ctx context.Context, orgID, userID, memberUserID uuid.UUID) (model.OrganizationMember, error)
-	UpdateOrganizationMemberRole(ctx context.Context, orgID, userID, memberUserID uuid.UUID, role string) (model.OrganizationMember, error)
-	RemoveOrganizationMember(ctx context.Context, orgID, userID, memberUserID uuid.UUID) error
+	CreateOIDCPending(ctx context.Context, request OIDCPendingRequest) error
+	AuthorizeOIDC(ctx context.Context, requestID, userID uuid.UUID, authTime time.Time, codeHash []byte, now time.Time) (OIDCClientRedirect, error)
+	CancelOIDC(ctx context.Context, requestID uuid.UUID, now time.Time) (OIDCClientRedirect, error)
+	GetOIDCSessionAuthenticationTime(ctx context.Context, sessionID, userID uuid.UUID) (time.Time, error)
+	ExchangeOIDCCode(ctx context.Context, request OIDCExchangeRequest, issue IssueOIDCTokensFunc) (OIDCTokenSet, error)
+	GetOIDCActiveUser(ctx context.Context, userID uuid.UUID) (OIDCUserClaims, error)
 }

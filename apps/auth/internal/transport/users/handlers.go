@@ -15,6 +15,8 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 type Handler struct {
@@ -77,7 +79,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	regReq := invite.Request{Username: username, Email: email, Extras: req.Extras}
 	if err := h.deps.InviteHook.BeforeCreate(r.Context(), regReq); err != nil {
-		h.writeHookError(w, err)
+		coretransport.WriteHookError(w, err, h.deps.Log, "invite_hook_failed")
 		return
 	}
 
@@ -87,10 +89,10 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExists) {
-			http.Error(w, "Username or email already exists", http.StatusConflict)
+			http.Error(w, "Username, email or phone already exists", http.StatusConflict)
 			return
 		}
-		h.writeHookError(w, err)
+		coretransport.WriteHookError(w, err, h.deps.Log, "invite_hook_failed")
 		return
 	}
 
@@ -99,20 +101,8 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ToUserResponse(user))
 }
 
-// writeHookError surfaces only a client-facing *StatusError (4xx); 5xx and any
-// other error are logged and returned as a generic 500 so hook internals never leak.
-func (h *Handler) writeHookError(w http.ResponseWriter, err error) {
-	var re *invite.StatusError
-	if errors.As(err, &re) && re.Status < http.StatusInternalServerError {
-		http.Error(w, re.Message, re.Status)
-		return
-	}
-	h.deps.Log.Error("invite_hook_failed", "error", err)
-	http.Error(w, "Internal server error", http.StatusInternalServerError)
-}
-
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-	subjectID, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectID, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -139,7 +129,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -207,7 +197,7 @@ func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
 	updatedUser, err := h.deps.Database.UpdateUser(r.Context(), currentUser.ID, username, email, phoneValue)
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExists) {
-			http.Error(w, "Username or email already exists", http.StatusConflict)
+			http.Error(w, "Username, email or phone already exists", http.StatusConflict)
 			return
 		}
 		if errors.Is(err, db.ErrUserNotFound) {
@@ -224,7 +214,7 @@ func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -306,7 +296,7 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 
 // UserDelete handles DELETE /identity/users/current — marks the user as inactive.
 func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthUserIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.RequireUserSubject(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -334,11 +324,13 @@ func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
 
 func ToUserResponse(u model.User) contract.UserResponse {
 	user := contract.UserResponse{
-		ID:        u.ID.String(),
-		Username:  u.Username,
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		ID:              u.ID.String(),
+		Username:        u.Username,
+		Email:           u.Email,
+		EmailVerifiedAt: u.EmailVerifiedAt,
+		PhoneVerifiedAt: u.PhoneVerifiedAt,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 	if u.Phone != nil {
 		p := strconv.Itoa(int(*u.Phone))

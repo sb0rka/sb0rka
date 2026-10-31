@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d platform"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # Key generator: Ed25519, Tink and OIDC.
+  keygen:
+    image: golang:1.25
+    working_dir: /src
+    command: ["bash", "/src/deploy/dev/keygen.sh"]
+    volumes:
+      - .:/src
+      - keys:/keys
+      - gomod:/go/pkg/mod
+    restart: "no"
+
+  migrate:
+    image: postgres:18
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bash", "/migrate.sh"]
+    volumes:
+      - ./db/migrations/platform:/migrations:ro
+      - ./db/migrations/auth:/migrations-auth:ro
+      - ./deploy/dev/migrate.sh:/migrate.sh:ro
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["/app/api", "server"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
+    env_file:
+      - ./apps/api/.env
+    volumes:
+      - keys:/keys:ro
+    ports:
+      - "8080:8080"
+
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+    command: ["/app/auth", "server"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
+    env_file:
+      - ./apps/auth/.env
+    volumes:
+      - keys:/keys:ro
+    ports:
+      - "8020:8020"
+
+  drones:
+    build:
+      context: .
+      dockerfile: apps/drones/Dockerfile
+    command: ["/app/drone", "gc"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URI: "postgres://postgres:postgres@postgres:5432/platform"
+      GC_INTERVAL_SEC: "10"
+
+  proxy:
+    profiles: ["proxy"]
+    build:
+      context: ./apps/proxy-ql-executor
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      API_ENDPOINT: "http://api:8080"
+      LOCAL_HTTP_ADDR: "8070"
+      DANGER_ALLOW_ALL_QUERIES: "false"
+    ports:
+      - "8070:8070"
+
+volumes:
+  pgdata:
+  keys:
+  gomod:

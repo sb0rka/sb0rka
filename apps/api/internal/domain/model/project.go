@@ -14,7 +14,8 @@ const (
 )
 
 type Project struct {
-	ID               string    `json:"id"`
+	PublicID         string    `json:"public_id"`
+	ID               uuid.UUID `json:"id"`
 	OwnerSubjectID   uuid.UUID `json:"owner_subject_id"`
 	BillingSubjectID uuid.UUID `json:"billing_subject_id"`
 	PlanID           uuid.UUID `json:"plan_id"`
@@ -26,7 +27,7 @@ type Project struct {
 }
 
 type ProjectMember struct {
-	ProjectID string    `json:"project_id"`
+	ProjectID uuid.UUID `json:"project_id"`
 	SubjectID uuid.UUID `json:"subject_id"`
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`

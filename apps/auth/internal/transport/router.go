@@ -1,12 +1,14 @@
 package transport
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/auth"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/organizations"
+	transportoidc "github.com/sb0rka/sb0rka/apps/auth/internal/transport/oidc"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/users"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 )
 
 type Dependencies = runtime.Dependencies
@@ -14,21 +16,19 @@ type Dependencies = runtime.Dependencies
 type Server struct {
 	deps Dependencies
 
-	auth          *auth.Handler
-	organizations *organizations.Handler
-	users         *users.Handler
+	auth  *auth.Handler
+	users *users.Handler
 }
 
 func NewServer(deps Dependencies) *Server {
 	return &Server{
-		deps:          deps,
-		auth:          auth.NewHandler(deps),
-		organizations: organizations.NewHandler(deps),
-		users:         users.NewHandler(deps),
+		deps:  deps,
+		auth:  auth.NewHandler(deps),
+		users: users.NewHandler(deps),
 	}
 }
 
-func (s *Server) BuildCommonHandler() *http.Handler {
+func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /ping", s.ping)
@@ -46,27 +46,62 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	// User identity endpoints
 	mux.HandleFunc("POST /identity/users", s.users.RegisterUser)
 	mux.Handle("GET /identity/users/current", s.authMiddleware(http.HandlerFunc(s.users.GetUser)))
-	mux.Handle("PATCH /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserPatch))))
-	mux.Handle("PUT /identity/users/current/password", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserPasswordUpdate))))
-	mux.Handle("DELETE /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.users.UserDelete))))
+	mux.Handle("PATCH /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(s.requireEmailVerificationMiddleware(http.HandlerFunc(s.users.UserPatch)))))
+	mux.Handle("PUT /identity/users/current/password", s.authMiddleware(s.requireLiveSessionMiddleware(s.requireEmailVerificationMiddleware(http.HandlerFunc(s.users.UserPasswordUpdate)))))
+	mux.Handle("DELETE /identity/users/current", s.authMiddleware(s.requireLiveSessionMiddleware(s.requireEmailVerificationMiddleware(http.HandlerFunc(s.users.UserDelete)))))
 
-	// Organization endpoints
-	mux.Handle("GET /identity/organizations", s.authMiddleware(http.HandlerFunc(s.organizations.ListOrganizations)))
-	mux.Handle("POST /identity/organizations", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.CreateOrganization))))
-	mux.Handle("GET /identity/organizations/{organization_id}", s.authMiddleware(http.HandlerFunc(s.organizations.GetOrganization)))
-	mux.Handle("PATCH /identity/organizations/{organization_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.UpdateOrganization))))
-	mux.Handle("DELETE /identity/organizations/{organization_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.DeleteOrganization))))
-
-	// Membership endpoints
-	mux.Handle("GET /identity/organizations/{organization_id}/memberships", s.authMiddleware(http.HandlerFunc(s.organizations.ListMembers)))
-	mux.Handle("POST /identity/organizations/{organization_id}/memberships", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.AddMember))))
-	mux.Handle("GET /identity/organizations/{organization_id}/memberships/{user_id}", s.authMiddleware(http.HandlerFunc(s.organizations.GetMember)))
-	mux.Handle("PATCH /identity/organizations/{organization_id}/memberships/{user_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.UpdateMemberRole))))
-	mux.Handle("DELETE /identity/organizations/{organization_id}/memberships/{user_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.organizations.RemoveMember))))
+	// OIDC is a native auth transport and uses the same middleware composition
+	// as optional feature routes.
+	routes := make([]route.Route, 0, len(s.deps.AdditionalRoutes)+7)
+	if s.deps.Cfg.OIDC != nil {
+		oidcHandler := transportoidc.NewHandler(
+			s.deps.Database,
+			s.deps.Cfg.AuthConfig,
+			*s.deps.Cfg.OIDC,
+			s.deps.Log,
+		)
+		routes = append(routes,
+			route.Route{Pattern: "GET /.well-known/openid-configuration", Handler: oidcHandler.Discovery, Access: route.Public},
+			route.Route{Pattern: "GET /oauth2/jwks", Handler: oidcHandler.JWKS, Access: route.Public},
+			route.Route{Pattern: "GET /oauth2/authorize", Handler: oidcHandler.Authorize, Access: route.OptionalBrowserSession},
+			route.Route{Pattern: "POST /oauth2/token", Handler: oidcHandler.Token, Access: route.Public},
+			route.Route{Pattern: "POST /oauth2/revoke", Handler: oidcHandler.Revoke, Access: route.Public},
+			route.Route{Pattern: "GET /oauth2/login/continue", Handler: oidcHandler.ContinueBrowser, Access: route.OptionalBrowserSession},
+			route.Route{Pattern: "POST /oauth2/login/continue", Handler: oidcHandler.ContinueConsole, Access: route.LiveSession},
+		)
+	}
+	routes = append(routes, s.deps.AdditionalRoutes...)
+	for _, rt := range routes {
+		handler, err := s.authWrap(rt)
+		if err != nil {
+			return nil, fmt.Errorf("configure route %q: %w", rt.Pattern, err)
+		}
+		mux.Handle(rt.Pattern, handler)
+	}
 
 	commonHandler := s.loggerMiddleware(mux)
 	commonHandler = s.corsMiddleware(commonHandler)
 	commonHandler = s.panicMiddleware(commonHandler)
 
-	return &commonHandler
+	return &commonHandler, nil
+}
+
+func (s *Server) authWrap(rt route.Route) (http.Handler, error) {
+	var handler http.Handler = rt.Handler
+	if rt.RequireEmailVerification {
+		handler = s.requireEmailVerificationMiddleware(handler)
+	}
+
+	switch rt.Access {
+	case route.Public:
+		return handler, nil
+	case route.Authenticated:
+		return s.authMiddleware(handler), nil
+	case route.LiveSession:
+		return s.authMiddleware(s.requireLiveSessionMiddleware(handler)), nil
+	case route.OptionalBrowserSession:
+		return s.optionalBrowserSessionMiddleware(handler), nil
+	default:
+		return nil, fmt.Errorf("unknown access mode %d", rt.Access)
+	}
 }

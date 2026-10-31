@@ -34,6 +34,8 @@ go run ./apps/auth/cmd/auth server
 | `GET /auth/sessions`, `DELETE /auth/sessions[/{id}]` | Список/отзыв сессий |
 | `GET/PATCH/DELETE /identity/users/current` | Профиль текущего пользователя |
 | `GET/POST/PATCH /identity/organizations[...]` | Организации |
+| `GET /.well-known/openid-configuration`, `GET /oauth2/jwks` | OIDC discovery/JWKS, если задана полная OIDC-конфигурация |
+| `GET /oauth2/authorize`, `POST /oauth2/token`, `POST /oauth2/revoke` | OIDC authorization code + PKCE, refresh rotation и revoke для настроенного клиента |
 
 ## Конфигурация (env)
 
@@ -44,5 +46,12 @@ go run ./apps/auth/cmd/auth server
 | `ACCESS_TOKEN_PRIVATE_KEY` / `…_FILE_PATH` | — | Ed25519-ключ подписи (общий с `api`) |
 | `ACCESS_TOKEN_ISSUER` / `…_AUDIENCE` / `…_KID` | `auth.local` / `api.local` / `ed25519-v1` | claims токена |
 | `ACCESS_TOKEN_TTL_SEC` / `ACCESS_SESSION_TTL_SEC` | `300` / `604800` | TTL access-токена и сессии |
-| `REFRESH_TOKEN_COOKIE_*` | см. `.env.sample` | имя/secure/samesite refresh-cookie |
+| `REFRESH_TOKEN_COOKIE_*` | `__Host-refresh_token`, secure, path `/`, host-only, httpOnly, lax | параметры refresh-cookie; для `__Host-` контракт проверяется при запуске |
 | `IS_PHONE_REQUIRED` | `false` | требовать телефон при регистрации |
+| `OIDC_ISSUER` / `OIDC_LOGIN_URL` | — | canonical issuer и community console login URL |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URIS` | — | настраиваемый confidential client, его secret и точные callback URI |
+| `OIDC_SIGNING_PRIVATE_KEY_FILE_PATH` / `OIDC_SIGNING_KID` | — | путь к RSA PKCS#8 PEM key и `kid` для RS256 ID token |
+| `OIDC_PROVIDER_CRYPTO_KEY_FILE_PATH` | — | путь к файлу с 32-byte AES-GCM key для authorization request/code envelope |
+| `OIDC_CODE_HMAC_KEY_FILE_PATH` | — | путь к отдельному файлу с ≥32-byte HMAC key для hash authorization code |
+
+OIDC включается только полным набором переменных; частичная конфигурация останавливает запуск. Client secret читается из env, остальные key material — только из файлов. `OIDC_ALLOW_INSECURE_HTTP_ISSUER=true` разрешён только для loopback/private-network development issuer.

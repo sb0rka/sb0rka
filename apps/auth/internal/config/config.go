@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
@@ -17,10 +18,10 @@ const (
 	DefaultLoggerLevel  = "info"
 	DefaultLoggerFormat = "text"
 
-	DefaultDatabasePsqlURI         = "postgres://postgres:postgres@localhost:5432/auth"
+	DefaultDatabasePsqlURI = "postgres://postgres:postgres@localhost:5432/auth"
 
-	DefaultServerAddr = "localhost"
-	DefaultServerPort = 8080
+	DefaultServerAddr                = "localhost"
+	DefaultServerPort                = 8080
 	DefaultCORSAllowedDefaultMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS"
 
 	DefaultIsPhoneRequired bool = false
@@ -44,7 +45,7 @@ const (
 	DefaultRefreshTokenCookieName          = "__Host-refresh_token"
 	DefaultRefreshTokenCookieSecure   bool = true
 	DefaultRefreshTokenCookiePath          = "/"
-	DefaultRefreshTokenCookieDomain        = "localhost"
+	DefaultRefreshTokenCookieDomain        = ""
 	DefaultRefreshTokenCookieHttpOnly bool = true
 	DefaultRefreshTokenCookieSameSite int  = 2 // 1 = http.SameSiteDefaultMode, 2 = http.SameSiteLaxMode, 3 = http.SameSiteStrictMode, 4 = http.SameSiteNoneMode
 )
@@ -58,7 +59,7 @@ func Load() (*Config, error) {
 	databaseURIEnv := coreconfig.GetStringEnv("DATABASE_URI", DefaultDatabasePsqlURI)
 
 	databaseMaxConns := coreconfig.GetIntEnv("DATABASE_MAX_OPEN_CONNS", coreconfig.DefaultDatabaseMaxConns)
-	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime)
+	databaseConnMaxLifetime := coreconfig.GetDurationEnv("DATABASE_CONN_MAX_LIFETIME_SEC", coreconfig.DefaultDatabaseConnMaxLifetime, time.Second)
 
 	serverAddr := coreconfig.GetStringEnv("SERVER_ADDR", DefaultServerAddr)
 	serverPort := coreconfig.GetIntEnv("SERVER_PORT", DefaultServerPort)
@@ -104,8 +105,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("access token private key is not ed25519")
 	}
 
-	accessSessionTTL := coreconfig.GetDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL)
-	accessTokenTTL := coreconfig.GetDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL)
+	accessSessionTTL := coreconfig.GetDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL, time.Second)
+	accessTokenTTL := coreconfig.GetDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL, time.Second)
 	accessTokenIssuer := coreconfig.GetStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
 	accessTokenAudience := coreconfig.GetStringEnv("ACCESS_TOKEN_AUDIENCE", DefaultAccessTokenAudience)
 	accessTokenKid := coreconfig.GetStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
@@ -118,6 +119,16 @@ func Load() (*Config, error) {
 	refreshTokenCookieDomain := coreconfig.GetStringEnv("REFRESH_TOKEN_COOKIE_DOMAIN", DefaultRefreshTokenCookieDomain)
 	refreshTokenCookieHttpOnly := coreconfig.GetBoolEnv("REFRESH_TOKEN_COOKIE_HTTP_ONLY", DefaultRefreshTokenCookieHttpOnly)
 	refreshTokenCookieSameSite := coreconfig.GetIntEnv("REFRESH_TOKEN_COOKIE_SAMESITE", DefaultRefreshTokenCookieSameSite)
+
+	if strings.HasPrefix(refreshTokenCookieName, "__Host-") &&
+		(!refreshTokenCookieSecure || refreshTokenCookiePath != "/" || refreshTokenCookieDomain != "") {
+		return nil, fmt.Errorf("refresh token cookie with __Host- prefix requires Secure, Path=/, and an empty Domain")
+	}
+
+	oidcConfig, err := loadOptionalOIDCConfig()
+	if err != nil {
+		return nil, fmt.Errorf("load OIDC configuration: %w", err)
+	}
 
 	cfg = Config{
 		Logger: LoggerConfig{
@@ -132,6 +143,7 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Addr: serverAddr,
 			Port: fmt.Sprintf("%d", serverPort),
+			OIDC: oidcConfig,
 
 			IsPhoneRequired: isPhoneRequired,
 

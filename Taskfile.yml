@@ -42,12 +42,35 @@ tasks:
     cmds:
       - go run github.com/swaggo/swag/cmd/swag init -g cmd/api/main.go --output internal/openapi --parseDependency --parseInternal
 
-  dev:
-    desc: Поднять локальный стенд (Postgres + api + drones + proxy)
+  dev:up:
+    desc: Собрать и запустить весь локальный стенд
     cmds:
-      - docker compose -f docker-compose.dev.yml up -d --build
+      - docker compose up -d --build
 
-  dev-down:
+  dev:down:
     desc: Остановить локальный стенд
     cmds:
-      - docker compose -f docker-compose.dev.yml down
+      - docker compose --profile proxy down
+
+  dev:logs:
+    desc: Смотреть логи всех сервисов или указанных после --
+    cmds:
+      - docker compose logs --follow --tail=100 {{.CLI_ARGS}}
+
+  exec:api:
+    desc: Выполнить команду apiapp
+    dir: bin
+    cmds:
+      - ./api {{.CLI_ARGS}}
+
+  exec:auth:
+    desc: Выполнить команду authapp
+    dir: bin
+    cmds:
+      - ./auth {{.CLI_ARGS}}
+
+  exec:drones:
+    desc: Выполнить команду dronesapp
+    dir: bin
+    cmds:
+      - ./drones {{.CLI_ARGS}}

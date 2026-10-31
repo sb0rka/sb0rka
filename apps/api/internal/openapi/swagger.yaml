@@ -3,12 +3,16 @@ definitions:
   contract.ApplySecretPasswordVerifierResponse:
     properties:
       dbi_id:
+        format: uuid
         type: string
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.AttachResourceTagRequest:
@@ -42,7 +46,11 @@ definitions:
         type: string
       name:
         type: string
+      owner_subject_id:
+        format: uuid
+        type: string
       plan_id:
+        format: uuid
         type: string
     type: object
   contract.CreateSecretRequest:
@@ -58,8 +66,6 @@ definitions:
     type: object
   contract.CreateSecretVersionRequest:
     properties:
-      payload_kind:
-        type: string
       secret_value:
         type: string
     type: object
@@ -70,6 +76,9 @@ definitions:
       host:
         type: string
       password_secret_id:
+        format: uuid
+        type: string
+      password_secret_public_id:
         type: string
       port:
         type: integer
@@ -83,11 +92,13 @@ definitions:
           $ref: '#/definitions/contract.DBInstanceResponse'
         type: array
       project_id:
+        format: uuid
         type: string
     type: object
   contract.DBInstanceResponse:
     properties:
       dbi_id:
+        format: uuid
         type: string
       description:
         type: string
@@ -96,6 +107,8 @@ definitions:
       name:
         type: string
       normalized_name:
+        type: string
+      public_id:
         type: string
       resource_state:
         $ref: '#/definitions/contract.ResourceStateResponse'
@@ -117,7 +130,9 @@ definitions:
         type: string
       created_at:
         type: string
-      description:
+      description_en:
+        type: string
+      description_ru:
         type: string
       id:
         type: string
@@ -127,7 +142,9 @@ definitions:
         type: boolean
       kind:
         type: string
-      name:
+      name_en:
+        type: string
+      name_ru:
         type: string
       updated_at:
         type: string
@@ -157,6 +174,7 @@ definitions:
           $ref: '#/definitions/contract.ProjectMemberItemResponse'
         type: array
       project_id:
+        format: uuid
         type: string
     type: object
   contract.ProjectMemberResponse:
@@ -164,6 +182,7 @@ definitions:
       created_at:
         type: string
       project_id:
+        format: uuid
         type: string
       role:
         type: string
@@ -176,18 +195,24 @@ definitions:
     properties:
       created_at:
         type: string
+      entitled:
+        description: Entitled is the sum of currently active project entitlements.
+        format: int64
+        type: integer
       limit_value:
+        description: LimitValue is the plan limit before entitlements.
         type: integer
       plan_id:
         type: string
       quota_definition:
         $ref: '#/definitions/contract.QuotaDefinitionSnippet'
-      updated_at:
-        type: string
     type: object
   contract.ProjectQuotaListResponse:
     properties:
-      project_id:
+      id:
+        format: uuid
+        type: string
+      public_id:
         type: string
       quotas:
         items:
@@ -197,20 +222,26 @@ definitions:
   contract.ProjectResponse:
     properties:
       billing_subject_id:
+        format: uuid
         type: string
       created_at:
         type: string
       description:
         type: string
       id:
+        format: uuid
         type: string
       is_active:
         type: boolean
       name:
         type: string
       owner_subject_id:
+        format: uuid
         type: string
       plan_id:
+        format: uuid
+        type: string
+      public_id:
         type: string
       updated_at:
         type: string
@@ -228,15 +259,27 @@ definitions:
     properties:
       code:
         type: string
-      description:
+      description_en:
+        type: string
+      description_ru:
         type: string
       id:
         type: string
-      name:
+      kind:
+        enum:
+        - snapshot
+        - periodic
+        - balance
+        type: string
+      name_en:
+        type: string
+      name_ru:
         type: string
       scope:
         type: string
       unit:
+        type: string
+      window:
         type: string
     type: object
   contract.ResourceListItem:
@@ -244,8 +287,11 @@ definitions:
       created_at:
         type: string
       id:
+        format: uuid
         type: string
       kind:
+        type: string
+      public_id:
         type: string
       updated_at:
         type: string
@@ -253,6 +299,7 @@ definitions:
   contract.ResourceListResponse:
     properties:
       project_id:
+        format: uuid
         type: string
       resources:
         items:
@@ -284,12 +331,15 @@ definitions:
       payload_kind:
         type: string
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       value:
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.SecretListItem:
@@ -297,8 +347,10 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
+        format: uuid
         type: string
       current_version_no:
+        format: int32
         type: integer
       description:
         type: string
@@ -308,7 +360,10 @@ definitions:
         type: string
       protection_class:
         type: string
+      public_id:
+        type: string
       secret_id:
+        format: uuid
         type: string
       updated_at:
         type: string
@@ -316,6 +371,7 @@ definitions:
   contract.SecretListResponse:
     properties:
       project_id:
+        format: uuid
         type: string
       secrets:
         items:
@@ -329,6 +385,7 @@ definitions:
       password_desired_state:
         type: string
       password_desired_version:
+        format: int32
         type: integer
       updated_at:
         type: string
@@ -338,8 +395,10 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
+        format: uuid
         type: string
       current_version_no:
+        format: int32
         type: integer
       description:
         type: string
@@ -350,14 +409,18 @@ definitions:
       payload_kind:
         type: string
       project_id:
+        format: uuid
         type: string
       protection_class:
+        type: string
+      public_id:
         type: string
       resource_state:
         $ref: '#/definitions/contract.ResourceStateResponse'
       scheduled_destroy_at:
         type: string
       secret_id:
+        format: uuid
         type: string
       tags:
         items:
@@ -371,21 +434,23 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
-        type: string
-      payload_kind:
+        format: uuid
         type: string
       state:
         type: string
       updated_at:
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.SecretVersionListResponse:
     properties:
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       versions:
         items:
@@ -397,20 +462,22 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
+        format: uuid
         type: string
       disabled_at:
         type: string
-      payload_kind:
-        type: string
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       state:
         type: string
       updated_at:
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.TagListEntry:
@@ -510,6 +577,8 @@ info:
 paths:
   /account/initialize:
     post:
+      description: Назначает план аккаунта по умолчанию. Повторный вызов сохраняет
+        существующий план; перед созданием проекта инициализация обязательна.
       responses:
         "204":
           description: No Content
@@ -560,8 +629,18 @@ paths:
       summary: Получить тариф аккаунта
       tags:
       - iam
-  /plan:
+  /plan/{plan_id}:
     get:
+      description: Авторизованному пользователю доступны публичные активные тарифы,
+        а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо
+        от is_public и is_available.
+      parameters:
+      - description: UUID тарифа
+        format: uuid
+        in: path
+        name: plan_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -569,6 +648,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/contract.PlanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
         "401":
           description: Unauthorized
           schema:
@@ -583,7 +666,7 @@ paths:
             type: string
       security:
       - BearerAuth: []
-      summary: Получить тариф аккаунта
+      summary: Получить тариф по ID
       tags:
       - iam
   /plans:
@@ -623,6 +706,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: Требует предварительного POST /account/initialize. Проект получает
+        план по умолчанию. owner_subject_id по умолчанию — текущий пользователь; организация
+        допустима только для её owner, billing при этом ставится на этого owner.
       parameters:
       - description: Параметры проекта
         in: body
@@ -645,6 +731,10 @@ paths:
           description: Forbidden
           schema:
             type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
         "409":
           description: Conflict
           schema:
@@ -658,8 +748,10 @@ paths:
     delete:
       description: Проект можно удалить только если в нём нет баз данных.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -681,8 +773,10 @@ paths:
       - projects
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -710,8 +804,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -740,6 +836,10 @@ paths:
           description: Not Found
           schema:
             type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
       security:
       - BearerAuth: []
       summary: Обновить метаданные проекта
@@ -750,8 +850,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -780,6 +882,10 @@ paths:
           description: Not Found
           schema:
             type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
       security:
       - BearerAuth: []
       summary: Создать инстанс БД
@@ -788,8 +894,10 @@ paths:
   /projects/{project_id}/dbis:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -816,8 +924,10 @@ paths:
   /projects/{project_id}/members:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -841,8 +951,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -883,12 +995,15 @@ paths:
   /projects/{project_id}/members/{subject_id}:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
       - description: UUID участника
+        format: uuid
         in: path
         name: subject_id
         required: true
@@ -915,12 +1030,15 @@ paths:
       - project-members
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
       - description: UUID участника
+        format: uuid
         in: path
         name: subject_id
         required: true
@@ -949,12 +1067,15 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
       - description: UUID участника
+        format: uuid
         in: path
         name: subject_id
         required: true
@@ -996,8 +1117,10 @@ paths:
   /projects/{project_id}/plan:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1010,6 +1133,10 @@ paths:
             $ref: '#/definitions/contract.PlanResponse'
         "400":
           description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
           schema:
             type: string
         "404":
@@ -1027,9 +1154,15 @@ paths:
       - iam
   /projects/{project_id}/quotas:
     get:
+      description: Возвращает квоты плана со scope=project. limit_value — лимит плана,
+        entitled — сумма начислений проекта с starts_at <= now() и ends_at IS NULL
+        или ends_at > now(). При отсутствии действующих начислений entitled равен
+        0. Эффективный лимит = limit_value + entitled.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1042,6 +1175,10 @@ paths:
             $ref: '#/definitions/contract.ProjectQuotaListResponse'
         "400":
           description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
           schema:
             type: string
         "404":
@@ -1060,8 +1197,10 @@ paths:
   /projects/{project_id}/resources:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1092,13 +1231,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1124,13 +1267,17 @@ paths:
       - dbis
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1162,13 +1309,17 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1205,13 +1356,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/connection/direct:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1246,13 +1401,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/state/start:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1283,13 +1442,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/state/stop:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1320,13 +1483,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1361,13 +1528,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/observability/metrics/timeseries:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1411,13 +1582,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1447,13 +1622,17 @@ paths:
       - secrets
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1485,13 +1664,17 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1528,13 +1711,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/reveal:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1569,13 +1756,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1607,17 +1798,21 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
-      - description: Значение и тип payload
+      - description: Значение секрета
         in: body
         name: body
         required: true
@@ -1658,17 +1853,22 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1700,17 +1900,22 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1748,17 +1953,22 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1794,17 +2004,22 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/verifier/apply:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1846,13 +2061,17 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1893,13 +2112,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/tags:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1934,13 +2157,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1978,8 +2205,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -2009,6 +2238,10 @@ paths:
           description: Not Found
           schema:
             type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
         "422":
           description: Unprocessable Entity
           schema:
@@ -2021,8 +2254,10 @@ paths:
   /projects/{project_id}/secrets:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -2049,8 +2284,10 @@ paths:
   /projects/{project_id}/tags:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -2078,39 +2315,6 @@ paths:
       summary: Список тегов проекта
       tags:
       - tags
-  /projects/{project_id}/usage:
-    get:
-      parameters:
-      - description: ID проекта
-        in: path
-        name: project_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "404":
-          description: Not Found
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получить потребление проекта
-      tags:
-      - iam
 securityDefinitions:
   BearerAuth:
     in: header

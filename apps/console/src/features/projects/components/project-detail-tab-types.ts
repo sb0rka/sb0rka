@@ -7,10 +7,14 @@ export interface DatabaseRow {
   id: string
   name: string
   description?: string
-  tablesCount: number
+  tablesCount: string
   columnsCount: string
-  syncState?: "pending" | "ongoing" | "synced" | "failed"
-  desiredState?: "present" | "absent"
+  desired_runtime_state: "running" | "suspended" | "terminated"
+  resource_state?: {
+    runtime_state: string
+    created_at: string
+    updated_at: string
+  }
   createdAt: string
   updatedAt: string
   isHighlighted: boolean
