@@ -8,6 +8,14 @@ import type {
 
 const NEAR_LIMIT_RATIO = 0.9
 const WARNING_RATIO = 0.7
+const TOGGLE_USAGE_RATIO = 0.8
+
+const TOGGLE_PINNED_CODES = new Set([
+  "dbis.count",
+  "dbis.storage.bytes",
+  "projects.members.count",
+  "secrets.count",
+])
 
 const WINDOWS = ["minute", "hour", "month"] as const
 
@@ -66,6 +74,12 @@ export function isNearLimit(ratio: number | null): boolean {
   return ratio != null && ratio >= NEAR_LIMIT_RATIO
 }
 
+export function toggleSummaryRows(rows: QuotaRowView[]): QuotaRowView[] {
+  return rows.filter(
+    (row) => TOGGLE_PINNED_CODES.has(row.code) || (row.ratio != null && row.ratio > TOGGLE_USAGE_RATIO),
+  )
+}
+
 export function windowLabelKey(window: string | null | undefined): QuotaWindow | null {
   if (window && (WINDOWS as readonly string[]).includes(window)) {
     return window as QuotaWindow
@@ -104,12 +118,6 @@ export function joinQuotaRows(
       nearLimit: isNearLimit(ratio),
     }
   })
-}
-
-export function summaryRows(rows: QuotaRowView[], count = 2): QuotaRowView[] {
-  return [...rows]
-    .sort((left, right) => (right.ratio ?? -1) - (left.ratio ?? -1))
-    .slice(0, count)
 }
 
 export type RelativeAge =

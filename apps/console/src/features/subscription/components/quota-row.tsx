@@ -120,14 +120,19 @@ export function QuotaRow({ row }: { row: QuotaRowView }) {
       ) : null}
       {resources.length > 0 ? (
         <div>
-          <button
-            type="button"
-            className="text-xs font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          <span
+            className="cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-expanded={resourcesOpen}
+            tabIndex={0}
             onClick={() => setResourcesOpen((open) => !open)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return
+              event.preventDefault()
+              setResourcesOpen((open) => !open)
+            }}
           >
             {resourcesOpen ? t("subscription.hideResources") : t("subscription.byResource")}
-          </button>
+          </span>
           {resourcesOpen ? <ResourceBreakdown resources={resources} unit={unit} /> : null}
         </div>
       ) : null}

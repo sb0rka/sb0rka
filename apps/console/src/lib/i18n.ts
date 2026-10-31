@@ -486,6 +486,28 @@ const resources = {
           month: "месяц",
         },
         credits: "кредитов",
+        quotaShort: {
+          dbis: {
+            count: "БД",
+            max_direct_connections: "Прямые",
+            max_pooled_connections: "Пул",
+            storage: { bytes: "Диск" },
+          },
+          llms: {
+            requests_per_minute: "LLM",
+            tokens_per_minute: "Токены",
+          },
+          projects: { members: { count: "Участники" } },
+          secrets: {
+            count: "Секреты",
+            versions: { count: "Версии" },
+          },
+        },
+        windowShort: {
+          minute: "/мин",
+          hour: "/ч",
+          month: "/мес",
+        },
         updated: "обновлено {{when}}",
         ageJustNow: "только что",
         ageMinutes: "{{count}} мин назад",
@@ -1004,6 +1026,28 @@ const resources = {
           month: "month",
         },
         credits: "credits",
+        quotaShort: {
+          dbis: {
+            count: "DBs",
+            max_direct_connections: "Direct",
+            max_pooled_connections: "Pool",
+            storage: { bytes: "Disk" },
+          },
+          llms: {
+            requests_per_minute: "LLM",
+            tokens_per_minute: "Tokens",
+          },
+          projects: { members: { count: "Members" } },
+          secrets: {
+            count: "Secrets",
+            versions: { count: "Versions" },
+          },
+        },
+        windowShort: {
+          minute: "/min",
+          hour: "/h",
+          month: "/mo",
+        },
         updated: "updated {{when}}",
         ageJustNow: "just now",
         ageMinutes: "{{count}} min ago",
