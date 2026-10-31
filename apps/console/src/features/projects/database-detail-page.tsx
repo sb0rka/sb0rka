@@ -32,6 +32,7 @@ import {
 import { formatDraftTagLabel } from "./parse-draft-tag"
 import type { DatabaseResponse } from "./api"
 import {
+  databaseStatusKey,
   getDatabaseStatusLabel,
   isDatabaseCredentialsAvailable,
 } from "./components/get-database-status-label"
@@ -89,15 +90,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function databaseDetailStatusBadgeVariant(
-  sync_state?: DatabaseResponse["sync_state"],
-  desired_state?: DatabaseResponse["desired_state"],
+  db: Pick<DatabaseResponse, "desired_runtime_state" | "resource_state">,
 ): "active" | "inactive" | "destructive" {
-  if (isDatabaseCredentialsAvailable({ sync_state, desired_state })) {
-    return "active"
-  }
-  if (sync_state === "failed") {
-    return "destructive"
-  }
+  const status = databaseStatusKey(db)
+  if (status === "online") return "active"
+  if (status === "failed") return "destructive"
   return "inactive"
 }
 
@@ -277,7 +274,7 @@ export function DatabaseDetailPage() {
   )
 
   const resourceTimestamps = useMemo(() => {
-    const row = resourcesQuery.data?.resources.find((r) => r.id === normalizedResourceId)
+    const row = resourcesQuery.data?.resources.find((r) => r.public_id === normalizedResourceId)
     return row ? { createdAt: row.created_at, updatedAt: row.updated_at } : null
   }, [resourcesQuery.data?.resources, normalizedResourceId])
 
@@ -505,17 +502,8 @@ export function DatabaseDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {databaseQuery.data.name}
           </h1>
-          <Badge
-            variant={databaseDetailStatusBadgeVariant(
-              databaseQuery.data.sync_state,
-              databaseQuery.data.desired_state,
-            )}
-          >
-            {getDatabaseStatusLabel(
-              t,
-              databaseQuery.data.sync_state,
-              databaseQuery.data.desired_state,
-            )}
+          <Badge variant={databaseDetailStatusBadgeVariant(databaseQuery.data)}>
+            {getDatabaseStatusLabel(t, databaseQuery.data)}
           </Badge>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -592,11 +580,7 @@ export function DatabaseDetailPage() {
             {!credentialsEnabled ? (
               <p className="text-sm text-muted-foreground">
                 {t("databases.credentialsUnavailableNotice", {
-                  status: getDatabaseStatusLabel(
-                    t,
-                    databaseQuery.data.sync_state,
-                    databaseQuery.data.desired_state,
-                  ),
+                  status: getDatabaseStatusLabel(t, databaseQuery.data),
                 })}
               </p>
             ) : null}

@@ -109,7 +109,7 @@ export function DatabasesTable({
                     </span>
                   </div>
                   <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                    {getDatabaseStatusLabel(t, row.syncState, row.desiredState)}
+                    {getDatabaseStatusLabel(t, row)}
                   </div>
                   <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
                     {row.diskUsageLabel}

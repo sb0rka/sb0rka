@@ -18,7 +18,7 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
 
   async function handleCopyProjectId() {
     try {
-      await navigator.clipboard.writeText(project.id)
+      await navigator.clipboard.writeText(project.public_id)
       setCopyMessage(t("projects.detail.idCopied"))
       window.setTimeout(() => setCopyMessage(null), 2000)
     } catch {
@@ -44,7 +44,7 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
             aria-label={t("projects.detail.copyProjectId")}
           >
             <Copy className="size-3.5 shrink-0" />
-            <span className="truncate">{project.id}</span>
+            <span className="truncate">{project.public_id}</span>
             <FloatingHint message={copyMessage} placement="bottom" align="start" />
           </button>
         </div>
@@ -58,7 +58,7 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
 
       <Button
         className="mt-4 h-11 w-full rounded-xl"
-        onClick={() => navigate(`/projects/${project.id}`)}
+        onClick={() => navigate(`/projects/${project.public_id}`)}
       >
         {t("projects.cardConnect")}
       </Button>
