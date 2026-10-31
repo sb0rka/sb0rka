@@ -133,7 +133,7 @@ func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 
 // GetPlan godoc
 // @Summary  Получить тариф по ID
-// @Description Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.
+// @Description Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит.
 // @Tags     iam
 // @Produce  json
 // @Param    plan_id  path  string  true  "UUID тарифа" format(uuid)

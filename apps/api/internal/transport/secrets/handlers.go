@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math"
@@ -13,11 +14,13 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
+	secrethook "github.com/sb0rka/sb0rka/apps/api/pkg/secret"
 	"github.com/sb0rka/sb0rka/packages/contract"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Handler struct {
@@ -77,7 +80,7 @@ func normalizePayloadKind(raw string) (string, error) {
 		return model.SecretPayloadKindText, nil
 	}
 	switch kind {
-	case model.SecretPayloadKindText, model.SecretPayloadKindJSON:
+	case model.SecretPayloadKindText, model.SecretPayloadKindJSON, model.SecretPayloadKindBinary:
 		return kind, nil
 	default:
 		return "", errors.New("invalid payload_kind")
@@ -107,7 +110,8 @@ func (h *Handler) encryptSecretValue(r *http.Request, projectID uuid.UUID, secre
 // @Produce  json
 // @Param    project_id  path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Param    body        body      contract.CreateSecretRequest   true  "Параметры секрета"
-// @Success  201         {object}  map[string]interface{}  "{\"secret\": {...}, \"version\": {...}}"
+// @Description payload_kind: text, json, binary. purpose=llm_key генерирует текст независимо от secret_value.
+// @Success  201         {object}  contract.CreateSecretResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
 // @Failure  404         {string}  string
@@ -152,11 +156,6 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	value, err := service.ValidateSecretValue(req.SecretValue)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	if strings.TrimSpace(req.PayloadKind) == "" {
 		http.Error(w, "payload_kind is required", http.StatusUnprocessableEntity)
 		return
@@ -164,6 +163,11 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 	payloadKind, err := normalizePayloadKind(req.PayloadKind)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
+	value, err := h.prepareSecretValue(r.Context(), payloadKind, req.SecretValue, req.Purpose)
+	if err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "prepare_secret_value_failed")
 		return
 	}
 	secretID, err := h.deps.PlatformDatabase.GenerateResourceID(r.Context())
@@ -177,7 +181,8 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encrypt secret value", http.StatusInternalServerError)
 		return
 	}
-	secret, version, err := h.deps.PlatformDatabase.CreateSecretWithInitialVersion(r.Context(), db.CreateSecretWithInitialVersionParams{
+	var digest *contract.SecretVersionDigestResponse
+	params := db.CreateSecretWithInitialVersionParams{
 		ProjectID:             projectID,
 		SecretID:              secretID,
 		Name:                  name,
@@ -191,23 +196,31 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		ContentAlgorithm:      key.Algorithm,
 		AADContext:            aad,
 		EncryptedMessage:      encryptedMessage,
-	})
+	}
+	params.PostInsert = func(ctx context.Context, tx pgx.Tx) error {
+		var hookErr error
+		digest, hookErr = h.deps.SecretHook.AfterVersion(ctx, tx, secrethook.Version{
+			ProjectID: projectID, SecretID: secretID, VersionNo: 1, Value: value,
+		}, req.Purpose)
+		return hookErr
+	}
+	secret, version, err := h.deps.PlatformDatabase.CreateSecretWithInitialVersion(r.Context(), params)
 	if err != nil {
 		if errors.Is(err, db.ErrSecretAlreadyExists) {
 			http.Error(w, "Secret with this name already exists", http.StatusConflict)
 			return
 		}
-		h.deps.Log.Error("create_secret_failed", "project_id", projectID, "secret_id", secretID, "error", err)
-		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
+		coretransport.WriteHookError(w, err, h.deps.Log, "create_secret_failed", "project_id", projectID, "secret_id", secretID)
 		return
 	}
 
+	versionMeta := toSecretVersionResponse(version)
+	versionMeta.Digest = digest
+	out := contract.CreateSecretResponse{SecretResponse: toSecretResponse(secret)}
+	out.Versions = []contract.SecretVersionResponse{versionMeta}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"secret":  toSecretResponse(secret),
-		"version": toSecretVersionResponse(version),
-	})
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 // ListSecrets godoc
@@ -256,6 +269,7 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 
 // GetSecret godoc
 // @Summary  Получить метаданные секрета
+// @Description Возвращает метаданные секрета и versions.
 // @Tags     secrets
 // @Produce  json
 // @Param    project_id   path      string                    true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
@@ -285,13 +299,33 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 		h.writeSecretStoreError(w, "get_secret_failed", projectID, secretPublicID, err)
 		return
 	}
+	versions, err := h.deps.PlatformDatabase.ListSecretVersions(r.Context(), projectID, secretPublicID)
+	if err != nil {
+		h.writeSecretStoreError(w, "list_secret_versions_failed", projectID, secretPublicID, err)
+		return
+	}
+	digests, err := h.deps.SecretHook.Digests(r.Context(), projectID, secret.ResourceID)
+	if err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "read_secret_digests_failed")
+		return
+	}
+	out := toSecretResponse(secret)
+	out.Versions = make([]contract.SecretVersionResponse, 0, len(versions))
+	for _, version := range versions {
+		meta := toSecretVersionResponse(version)
+		if digest, exists := digests[version.VersionNo]; exists {
+			meta.Digest = &digest
+		}
+		out.Versions = append(out.Versions, meta)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toSecretResponse(secret))
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 // UpdateSecret godoc
 // @Summary  Обновить метаданные секрета
+// @Description Обновляет описание. Непереданное description сохраняется, пустая строка очищает его.
 // @Tags     secrets
 // @Accept   json
 // @Produce  json
@@ -302,6 +336,7 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 // @Failure  400          {string}  string
 // @Failure  403          {string}  string
 // @Failure  404          {string}  string
+// @Failure  422          {string}  string
 // @Security BearerAuth
 // @Router   /projects/{project_id}/resources/{resource_id}/secret [patch]
 func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
@@ -325,14 +360,18 @@ func (h *Handler) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	description, err := service.ValidateCommonDescription(&req.Description)
+	description, err := service.ValidateCommonDescription(req.Description)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	secret, err := h.deps.PlatformDatabase.UpdateSecretMeta(r.Context(), projectID, secretPublicID, description)
+	params := db.UpdateSecretMetaParams{
+		ProjectID: projectID, ResourcePublicID: secretPublicID,
+		Description: description, UpdateDescription: req.Description != nil,
+	}
+	secret, err := h.deps.PlatformDatabase.UpdateSecretMeta(r.Context(), params)
 	if err != nil {
-		h.writeSecretStoreError(w, "update_secret_failed", projectID, secretPublicID, err)
+		h.writeSecretMutationError(w, "update_secret_failed", projectID, secretPublicID, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -428,6 +467,7 @@ func (h *Handler) GetSecretVersion(w http.ResponseWriter, r *http.Request) {
 
 // CreateSecretVersion godoc
 // @Summary  Создать новую версию секрета
+// @Description При наличии secret_llm_keys сервер генерирует новую версию и digest независимо от переданного secret_value.
 // @Tags     secrets
 // @Accept   json
 // @Produce  json
@@ -472,9 +512,14 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	value, err := service.ValidateSecretValue(req.SecretValue)
+	purpose, err := h.deps.SecretHook.VersionPurpose(r.Context(), projectID, secret.ResourceID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		coretransport.WriteHookError(w, err, h.deps.Log, "resolve_secret_version_purpose_failed")
+		return
+	}
+	value, err := h.prepareSecretValue(r.Context(), secret.PayloadKind, req.SecretValue, purpose)
+	if err != nil {
+		coretransport.WriteHookError(w, err, h.deps.Log, "prepare_secret_value_failed")
 		return
 	}
 	if secret.CurrentVersionNo == math.MaxInt32 {
@@ -489,7 +534,8 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encrypt secret value", http.StatusInternalServerError)
 		return
 	}
-	version, err := h.deps.PlatformDatabase.CreateSecretVersion(r.Context(), db.CreateSecretVersionParams{
+	var digest *contract.SecretVersionDigestResponse
+	params := db.CreateSecretVersionParams{
 		ProjectID:             projectID,
 		SecretID:              secretID,
 		VersionNo:             newVersionNo,
@@ -500,18 +546,28 @@ func (h *Handler) CreateSecretVersion(w http.ResponseWriter, r *http.Request) {
 		ContentAlgorithm:      key.Algorithm,
 		AADContext:            aad,
 		EncryptedMessage:      encryptedMessage,
-	})
+	}
+	params.PostInsert = func(ctx context.Context, tx pgx.Tx) error {
+		var hookErr error
+		digest, hookErr = h.deps.SecretHook.AfterVersion(ctx, tx, secrethook.Version{
+			ProjectID: projectID, SecretID: secretID, VersionNo: newVersionNo, Value: value,
+		}, purpose)
+		return hookErr
+	}
+	version, err := h.deps.PlatformDatabase.CreateSecretVersion(r.Context(), params)
 	if err != nil {
 		if errors.Is(err, db.ErrInvalidSecretVersion) {
 			http.Error(w, "Secret version conflict", http.StatusConflict)
 			return
 		}
-		h.writeSecretStoreError(w, "create_secret_version_failed", projectID, secretPublicID, err)
+		h.writeSecretMutationError(w, "create_secret_version_failed", projectID, secretPublicID, err)
 		return
 	}
+	out := toSecretVersionResponse(version)
+	out.Digest = digest
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(toSecretVersionResponse(version))
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 // DisableSecretVersion godoc

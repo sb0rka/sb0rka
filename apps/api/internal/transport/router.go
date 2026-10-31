@@ -120,6 +120,8 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	for _, extra := range s.deps.AdditionalRoutes {
 		switch extra.Access {
+		case route.Public:
+			mux.HandleFunc(extra.Pattern, extra.Handler)
 		case route.Authenticated:
 			mux.Handle(extra.Pattern, authOnly(extra.Handler))
 		case route.LiveSession:

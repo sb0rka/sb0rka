@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS secrets (
     name VARCHAR NOT NULL,
     description VARCHAR,
     payload_kind VARCHAR(16) DEFAULT 'text' NOT NULL
-        CHECK (payload_kind IN ('text', 'json', 'binary', 'llm_key')),
+        CHECK (payload_kind IN ('text', 'json', 'binary')),
     protection_class VARCHAR(32) DEFAULT 'server_managed' NOT NULL
         CHECK (protection_class IN ('server_managed')),
     current_version_no INT NOT NULL,

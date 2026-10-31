@@ -72,9 +72,9 @@ type QuotaDefinitionSnippet struct {
 type ProjectQuotaItemResponse struct {
 	PlanID          string                 `json:"plan_id"`
 	QuotaDefinition QuotaDefinitionSnippet `json:"quota_definition"`
-	LimitValue int64 `json:"limit_value"`
-	Entitled  int64     `json:"entitled" format:"int64"`
-	CreatedAt time.Time `json:"created_at"`
+	LimitValue      int64                  `json:"limit_value"`
+	Entitled        int64                  `json:"entitled" format:"int64"`
+	CreatedAt       time.Time              `json:"created_at"`
 }
 
 type ProjectQuotaListResponse struct {
@@ -89,14 +89,18 @@ type ProjectUsageResponse struct {
 	Usage    map[string]QuotaUsageResponse `json:"usage"`
 }
 
-type BalanceResponse map[string]QuotaBalanceResponse
+type BalanceResponse struct {
+	Balances []BalanceItemResponse `json:"balances"`
+}
+
+type BalanceItemResponse map[string]QuotaBalanceResponse
 
 type QuotaBalanceResponse struct {
-	Limit     int64 `json:"limit" format:"int64"`
-	Entitled  int64 `json:"entitled" format:"int64"`
-	Used      int64 `json:"used" format:"int64"`
-	Held      int64 `json:"held" format:"int64"`
-	Available int64 `json:"available" format:"int64"`
+	Limit     MoneyAmounts `json:"limit"`
+	Entitled  MoneyAmounts `json:"entitled"`
+	Used      MoneyAmounts `json:"used"`
+	Held      MoneyAmounts `json:"held"`
+	Available MoneyAmounts `json:"available"`
 }
 
 type QuotaUsageResponse struct {
