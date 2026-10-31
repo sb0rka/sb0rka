@@ -1,6 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { MockStore, createMockToken, type MockUser } from "./state"
-import { MOCK_PLANS } from "./fixtures"
+import {
+  MOCK_BALANCE,
+  MOCK_PLAN,
+  MOCK_PLANS,
+  MOCK_PROJECT_PLAN,
+  MOCK_PROJECT_QUOTAS,
+  MOCK_PROJECT_USAGE,
+} from "./fixtures"
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status
@@ -56,6 +63,10 @@ function matchPath(pathname: string): { name: string; params: Record<string, str
     { name: "auth.refresh", pattern: /^\/auth\/refresh$/ },
     { name: "auth.logout", pattern: /^\/auth\/logout$/ },
     { name: "user.get", pattern: /^\/user$/ },
+    { name: "identity.current", pattern: /^\/identity\/users\/current$/ },
+    { name: "account.plan", pattern: /^\/account\/plan$/ },
+    { name: "account.balance", pattern: /^\/account\/balance$/ },
+    { name: "account.initialize", pattern: /^\/account\/initialize$/ },
     { name: "user.patch", pattern: /^\/user$/ },
     { name: "user.password", pattern: /^\/user\/password$/ },
     { name: "plan.current", pattern: /^\/plan$/ },
@@ -63,6 +74,9 @@ function matchPath(pathname: string): { name: string; params: Record<string, str
     { name: "projects.list", pattern: /^\/projects$/ },
     { name: "projects.create", pattern: /^\/projects$/ },
     { name: "projects.detail", pattern: /^\/projects\/(?<projectId>[^/]+)$/ },
+    { name: "project.plan", pattern: /^\/projects\/(?<projectId>[^/]+)\/plan$/ },
+    { name: "project.quotas", pattern: /^\/projects\/(?<projectId>[^/]+)\/quotas$/ },
+    { name: "project.usage", pattern: /^\/projects\/(?<projectId>[^/]+)\/usage$/ },
     { name: "projects.databases", pattern: /^\/projects\/(?<projectId>[^/]+)\/databases$/ },
     { name: "projects.secrets", pattern: /^\/projects\/(?<projectId>[^/]+)\/secrets$/ },
     { name: "projects.resources", pattern: /^\/projects\/(?<projectId>[^/]+)\/resources$/ },
@@ -150,10 +164,57 @@ export async function handleMockRequest(
       sendNoContent(res)
       return true
     }
-    case "user.get": {
+    case "user.get":
+    case "identity.current": {
       if (method !== "GET") break
       if (!requireAuth(req, res)) return true
       sendJson(res, 200, store.user)
+      return true
+    }
+    case "account.plan": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      sendJson(res, 200, MOCK_PLAN)
+      return true
+    }
+    case "account.balance": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      sendJson(res, 200, MOCK_BALANCE)
+      return true
+    }
+    case "account.initialize": {
+      if (method !== "POST") break
+      if (!requireAuth(req, res)) return true
+      sendNoContent(res)
+      return true
+    }
+    case "project.plan": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      sendJson(res, 200, MOCK_PROJECT_PLAN)
+      return true
+    }
+    case "project.quotas": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      const projectId = route.params.projectId
+      sendJson(res, 200, {
+        public_id: projectId,
+        id: projectId,
+        quotas: MOCK_PROJECT_QUOTAS[projectId] ?? [],
+      })
+      return true
+    }
+    case "project.usage": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      const usage = MOCK_PROJECT_USAGE[route.params.projectId]
+      if (!usage) {
+        sendText(res, 404, "Usage not found")
+        return true
+      }
+      sendJson(res, 200, usage)
       return true
     }
     case "user.patch": {
