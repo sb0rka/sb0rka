@@ -104,7 +104,7 @@ export function SecretsTab({
     <TabsContent
       value="secrets"
       className={cn(
-        "flex flex-col gap-6",
+        "flex flex-col gap-6 data-[state=inactive]:hidden",
         isListView &&
           "h-[calc(100dvh-11rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] min-h-0 overflow-hidden md:h-[calc(100dvh-7.25rem)]",
       )}

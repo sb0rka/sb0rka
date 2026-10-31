@@ -286,7 +286,7 @@ export function AiQueryChatHistoryDialog({
             </Button>
           ) : null}
         </div>
-        <TabsContent value="history" className="min-h-0 flex-1">
+        <TabsContent value="history" className="min-h-0 flex-1 data-[state=inactive]:hidden">
           <SqlHistoryList
             items={filteredHistory}
             sourceItemCount={historyItems.length}
@@ -301,7 +301,7 @@ export function AiQueryChatHistoryDialog({
             onToggleBookmark={onToggleBookmark}
           />
         </TabsContent>
-        <TabsContent value="bookmarks" className="min-h-0 flex-1">
+        <TabsContent value="bookmarks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
           <SqlHistoryList
             items={filteredBookmarks}
             sourceItemCount={bookmarkItems.length}

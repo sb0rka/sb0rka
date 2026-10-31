@@ -152,7 +152,7 @@ export function DatabasesTab({
   }
 
   return (
-    <TabsContent value="databases" className="mt-2 flex flex-col gap-4">
+    <TabsContent value="databases" className="mt-2 flex flex-col gap-4 data-[state=inactive]:hidden">
       <PageStagger className="flex flex-col gap-6">
         <SlideIn className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-3">
