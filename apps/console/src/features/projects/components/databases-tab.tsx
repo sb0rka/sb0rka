@@ -25,6 +25,7 @@ import {
   type DatabaseResponse,
   type ResourceMetricTimeseries,
 } from "../api"
+import { databaseSyncStatusNeedsPolling } from "./get-database-status-label"
 import { AddTagDialog } from "./add-tag-dialog"
 import { DatabasesTable } from "./databases-table"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
@@ -37,10 +38,6 @@ import { useToast } from "@sb0rka/ui"
 
 const DATABASE_STATUS_POLL_INTERVAL_MS = 3000
 const DISK_USAGE_RATE_STALE_MS = 1000 * 60 * 5
-
-function isFinalSyncState(syncState?: string): boolean {
-  return syncState === "synced" || syncState === "failed"
-}
 
 interface DatabasesTabProps {
   projectId: string
@@ -68,14 +65,15 @@ export function DatabasesTab({
 
   const databaseDetailsQueries = useQueries({
     queries: databases.map((database) => ({
-      queryKey: ["projects", projectId, "resources", database.resource_id, "database"],
-      queryFn: () => getDatabase(projectId, database.resource_id),
+      queryKey: ["projects", projectId, "resources", database.public_id, "database"],
+      queryFn: () => getDatabase(projectId, database.public_id),
       enabled: !!projectId,
       refetchInterval: (query: {
         state: { data?: Awaited<ReturnType<typeof getDatabase>> }
       }) => {
-        const syncState = query.state.data?.sync_state
-        return isFinalSyncState(syncState) ? false : DATABASE_STATUS_POLL_INTERVAL_MS
+        const row = query.state.data
+        if (!row) return DATABASE_STATUS_POLL_INTERVAL_MS
+        return databaseSyncStatusNeedsPolling(row) ? DATABASE_STATUS_POLL_INTERVAL_MS : false
       },
     })),
   })
@@ -85,7 +83,7 @@ export function DatabasesTab({
         "projects",
         projectId,
         "resources",
-        database.resource_id,
+        database.public_id,
         "observability",
         "timeseries",
         "db_size_rate",
@@ -94,7 +92,7 @@ export function DatabasesTab({
         try {
           return await getResourceMetricTimeseries(
             projectId,
-            database.resource_id,
+            database.public_id,
             "db_size_rate",
           )
         } catch {
@@ -109,14 +107,14 @@ export function DatabasesTab({
     const details = new Map<string, Awaited<ReturnType<typeof getDatabase>>>()
     for (const query of databaseDetailsQueries) {
       if (!query.data) continue
-      details.set(query.data.resource_id, query.data)
+      details.set(query.data.public_id, query.data)
     }
     return details
   }, [databaseDetailsQueries])
   const databaseRows: DatabaseRow[] = useMemo(
     () =>
       databases.map((databaseFromList, index) => {
-        const database = databaseDetailsById.get(databaseFromList.resource_id) ?? databaseFromList
+        const database = databaseDetailsById.get(databaseFromList.public_id) ?? databaseFromList
         const rateSeries = diskUsageRateQueries[index]?.data
         let diskUsageLabel = "—"
         const lastValue = rateSeries?.points.at(-1)?.value
@@ -125,15 +123,15 @@ export function DatabasesTab({
         }
 
         return {
-          id: databaseFromList.resource_id,
+          id: databaseFromList.public_id,
           name: databaseFromList.name,
           description: databaseFromList.description,
-          tablesCount: Math.max(databaseFromList.next_table_id - 1, 0),
+          tablesCount: "—",
           columnsCount: "—",
-          syncState: database.sync_state,
-          desiredState: database.desired_state,
-          createdAt: resourceTimestampsById[databaseFromList.resource_id]?.createdAt ?? "",
-          updatedAt: resourceTimestampsById[databaseFromList.resource_id]?.updatedAt ?? "",
+          desired_runtime_state: database.desired_runtime_state,
+          resource_state: database.resource_state,
+          createdAt: resourceTimestampsById[databaseFromList.public_id]?.createdAt ?? "",
+          updatedAt: resourceTimestampsById[databaseFromList.public_id]?.updatedAt ?? "",
           isHighlighted: index === 0,
           diskUsageLabel,
         }
@@ -154,7 +152,7 @@ export function DatabasesTab({
   }
 
   return (
-    <TabsContent value="databases" className="mt-2 flex flex-col gap-4">
+    <TabsContent value="databases" className="mt-2 flex flex-col gap-4 data-[state=inactive]:hidden">
       <PageStagger className="flex flex-col gap-6">
         <SlideIn className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-3">

@@ -277,6 +277,7 @@ const resources = {
           ongoing: "ongoing",
           synced: "synced",
           failed: "failed",
+          stopped: "stopped",
         },
       },
       databaseQuery: {
@@ -751,6 +752,7 @@ const resources = {
           ongoing: "ongoing",
           synced: "synced",
           failed: "failed",
+          stopped: "stopped",
         },
       },
       databaseQuery: {

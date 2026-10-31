@@ -62,8 +62,8 @@ export function ProjectDetailPage() {
   const { data: secretsData } = useSecrets(id)
   const { data: resourcesData } = useResources(id)
   const metricResourceIds = useMemo(
-    () => (dbData?.databases ?? []).map((database) => String(database.resource_id)),
-    [dbData?.databases],
+    () => (dbData?.dbis ?? []).map((database) => String(database.public_id)),
+    [dbData?.dbis],
   )
   const { data: metricsTimeseries } = useProjectMetricsTimeseries(id, metricResourceIds)
   const createDatabase = useCreateDatabase(id)
@@ -75,14 +75,14 @@ export function ProjectDetailPage() {
   const [draftTags, setDraftTags] = useState<DraftTag[]>([])
   const { showSuccess, showError, showWarning } = useToast()
 
-  const dbCount = dbData?.databases.length ?? 0
+  const dbCount = dbData?.dbis.length ?? 0
   const secretCount = secretsData?.secrets.length ?? 0
-  const databases: DatabaseResponse[] = dbData?.databases ?? []
+  const databases: DatabaseResponse[] = dbData?.dbis ?? []
   const resourceTimestampsById = useMemo(
     () =>
       Object.fromEntries(
         (resourcesData?.resources ?? []).map((resource) => [
-          String(resource.id),
+          resource.public_id,
           {
             createdAt: resource.created_at,
             updatedAt: resource.updated_at,
@@ -94,13 +94,13 @@ export function ProjectDetailPage() {
   const secretRows: SecretRow[] = useMemo(
     () =>
       (secretsData?.secrets ?? []).map((secret) => ({
-        id: secret.secret_id,
+        id: secret.public_id,
         name: secret.name,
         description: secret.description,
         tablesCount: "—",
         columnsCount: "—",
-        createdAt: resourceTimestampsById[secret.secret_id]?.createdAt ?? "",
-        updatedAt: resourceTimestampsById[secret.secret_id]?.updatedAt ?? "",
+        createdAt: resourceTimestampsById[secret.public_id]?.createdAt ?? "",
+        updatedAt: resourceTimestampsById[secret.public_id]?.updatedAt ?? "",
       })),
     [resourceTimestampsById, secretsData?.secrets],
   )
@@ -149,7 +149,7 @@ export function ProjectDetailPage() {
           await Promise.all(
             draftTags.map((tag) =>
               attachResourceTag.mutateAsync({
-                resourceId: created.database.resource_id,
+                resourceId: created.dbi.public_id,
                 data: tag,
               }),
             ),
