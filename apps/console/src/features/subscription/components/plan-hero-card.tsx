@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Badge, Button, Card, CardContent } from "@sb0rka/ui"
+import { Badge, Button } from "@sb0rka/ui"
 import type { BalanceResponse, PlanResponse } from "../api"
 import {
   accountBalanceEntries,
@@ -27,19 +27,25 @@ function balanceFigures(
   })
 }
 
-const balanceRowClass =
-  "flex w-fit max-w-full flex-wrap items-center gap-3 border-t border-border pt-4"
+const balanceRowClass = "flex w-fit max-w-full flex-wrap items-center gap-3"
+
+function AccountDivider() {
+  return <div className="hidden h-7 w-px bg-border sm:block" aria-hidden />
+}
 
 function TopUpButton() {
   const { t } = useTranslation()
 
   return (
     <span className="relative inline-flex">
-      <Button type="button" variant="outline" disabled>
+      <Button type="button" variant="outline" size="sm" disabled>
         {t("subscription.topUp")}
         <span className="sr-only">, {t("subscription.soon")}</span>
       </Button>
-      <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
+      <Badge
+        variant="inactive"
+        className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
+      >
         {t("subscription.soon")}
       </Badge>
     </span>
@@ -61,22 +67,28 @@ function BalanceFigures({
 
   if (isLoading) {
     return (
-      <div className={balanceRowClass}>
-        <div aria-busy="true" className="h-6 w-24 animate-pulse rounded-md bg-muted" />
-        <TopUpButton />
-      </div>
+      <>
+        <AccountDivider />
+        <div className={balanceRowClass}>
+          <div aria-busy="true" className="h-5 w-16 animate-pulse rounded-md bg-muted" />
+          <TopUpButton />
+        </div>
+      </>
     )
   }
 
   if (isError) {
     return (
-      <div className={balanceRowClass}>
-        <p className="text-sm text-destructive">{t("subscription.balanceError")}</p>
-        <Button type="button" variant="outline" onClick={onRetry}>
-          {t("subscription.retry")}
-        </Button>
-        <TopUpButton />
-      </div>
+      <>
+        <AccountDivider />
+        <div className={balanceRowClass}>
+          <p className="text-sm text-destructive">{t("subscription.balanceError")}</p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            {t("subscription.retry")}
+          </Button>
+          <TopUpButton />
+        </div>
+      </>
     )
   }
 
@@ -85,24 +97,29 @@ function BalanceFigures({
   const showCode = figures.length > 1
 
   return (
-    <div className={balanceRowClass}>
-      <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-sm text-muted-foreground">{t("subscription.balanceTitle")}</span>
-        {figures.map((figure) => (
-          <span key={figure.code} className="inline-flex items-baseline gap-x-2">
-            {showCode ? (
-              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-                {figure.code}
-              </span>
-            ) : null}
-            <span className="text-xl font-semibold tabular-nums text-foreground">
-              {figure.text}
-            </span>
+    <>
+      <AccountDivider />
+      <div className={balanceRowClass}>
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-base font-semibold tracking-tight text-foreground">
+            {t("subscription.balanceTitle")}
           </span>
-        ))}
-      </p>
-      <TopUpButton />
-    </div>
+          {figures.map((figure) => (
+            <span key={figure.code} className="inline-flex items-baseline gap-x-2">
+              {showCode ? (
+                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                  {figure.code}
+                </span>
+              ) : null}
+              <span className="text-base font-semibold tabular-nums text-foreground">
+                {figure.text}
+              </span>
+            </span>
+          ))}
+        </p>
+        <TopUpButton />
+      </div>
+    </>
   )
 }
 
@@ -122,26 +139,24 @@ export function PlanHeroCard({
   const { t, i18n } = useTranslation()
 
   return (
-    <Card id="subscription-balance" className="w-fit max-w-full scroll-mt-4">
-      <CardContent className="flex w-fit max-w-full flex-col gap-8 px-10 py-8">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">{t("subscription.currentPlan")}</p>
-          <div className="flex flex-wrap items-center gap-4">
-            <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-              {localizedName(plan, i18n.language)}
-            </h2>
-            <Button asChild>
-              <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
-            </Button>
-          </div>
-        </div>
-        <BalanceFigures
-          balance={balance}
-          isLoading={balanceLoading}
-          isError={balanceError}
-          onRetry={onBalanceRetry}
-        />
-      </CardContent>
-    </Card>
+    <div
+      id="subscription-balance"
+      className="flex w-fit max-w-full flex-wrap items-center gap-x-6 gap-y-3 scroll-mt-4"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-base font-semibold tracking-tight text-foreground">
+          {localizedName(plan, i18n.language)}
+        </p>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
+        </Button>
+      </div>
+      <BalanceFigures
+        balance={balance}
+        isLoading={balanceLoading}
+        isError={balanceError}
+        onRetry={onBalanceRetry}
+      />
+    </div>
   )
 }
