@@ -7,6 +7,7 @@ import {
   localizedDescription,
   localizedName,
   shortQuotaName,
+  toggleSummaryRows,
   windowLabelKey,
   withCredits,
   type QuotaRowView,
@@ -116,7 +117,7 @@ export function ProjectQuotasCard({
             <Badge variant="warning">{t("subscription.attentionLabel")}</Badge>
           ) : null}
         </span>
-        {!view.loading ? <QuotaSummary rows={view.rows} /> : null}
+        {!view.loading ? <QuotaSummary rows={toggleSummaryRows(view.rows)} /> : null}
       </div>
       {view.planError && !view.loading ? (
         <div className="px-6 pb-5">
