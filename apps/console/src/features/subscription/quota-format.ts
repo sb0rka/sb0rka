@@ -1,4 +1,6 @@
 import type {
+  BalanceResponse,
+  MoneyAmounts,
   ProjectQuotaItem,
   ProjectUsageResponse,
   QuotaBalance,
@@ -8,7 +10,7 @@ import type {
 
 const NEAR_LIMIT_RATIO = 0.9
 const WARNING_RATIO = 0.7
-const TOGGLE_USAGE_RATIO = 0.8
+const TOGGLE_USAGE_RATIO = 0.01
 
 const TOGGLE_PINNED_CODES = new Set([
   "dbis.count",
@@ -32,6 +34,18 @@ export interface QuotaRowView {
   ratio: number | null
   level: ThresholdLevel | null
   nearLimit: boolean
+}
+
+export function shortQuotaName(
+  row: Pick<QuotaRowView, "code" | "definition">,
+  language: string,
+  t: (key: string) => string,
+  group: "quotaShort" | "quotaLabel" = "quotaShort",
+): string {
+  const key = `subscription.${group}.${row.code}`
+  const translated = t(key)
+  if (translated && translated !== key) return translated
+  return localizedName(row.definition, language)
 }
 
 export function localizedName(
@@ -87,13 +101,55 @@ export function windowLabelKey(window: string | null | undefined): QuotaWindow |
   return null
 }
 
+export interface AccountBalanceEntry {
+  code: string
+  balance: QuotaBalance
+}
+
+const DISPLAY_CURRENCIES = ["RUB", "USD"] as const
+export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number]
+
+export function accountBalanceEntries(
+  response: BalanceResponse | null | undefined,
+): AccountBalanceEntry[] {
+  if (!response || !Array.isArray(response.balances)) return []
+  const entries: AccountBalanceEntry[] = []
+  for (const item of response.balances) {
+    if (!item || typeof item !== "object") continue
+    for (const [code, balance] of Object.entries(item)) {
+      if (!balance || typeof balance.available !== "object" || balance.available == null) continue
+      entries.push({ code, balance })
+    }
+  }
+  return entries.sort((left, right) => left.code.localeCompare(right.code))
+}
+
+export function moneyNumber(
+  amounts: MoneyAmounts | undefined,
+  currency: DisplayCurrency,
+): number | null {
+  const raw = amounts?.[currency]
+  if (typeof raw !== "string" || raw.trim() === "") return null
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : null
+}
+
 export function balanceConsumedRatio(balance: QuotaBalance): number | null {
-  return usageRatio(balance.used + balance.held, effectiveLimit(balance.limit, balance.entitled))
+  const used = moneyNumber(balance.used, "RUB")
+  const held = moneyNumber(balance.held, "RUB") ?? 0
+  const limit = moneyNumber(balance.limit, "RUB")
+  const entitled = moneyNumber(balance.entitled, "RUB") ?? 0
+  if (used == null || limit == null) return null
+  return usageRatio(used + held, effectiveLimit(limit, entitled))
 }
 
 export function balanceIsNearLimit(balance: QuotaBalance): boolean {
-  const cap = effectiveLimit(balance.limit, balance.entitled)
-  if (cap > 0 && balance.available <= 0) return true
+  const available = moneyNumber(balance.available, "RUB")
+  const limit = moneyNumber(balance.limit, "RUB")
+  const entitled = moneyNumber(balance.entitled, "RUB") ?? 0
+  if (available == null || limit == null) return false
+  const cap = effectiveLimit(limit, entitled)
+  if (cap > 0 && available <= 0) return true
   return isNearLimit(balanceConsumedRatio(balance))
 }
 
@@ -141,6 +197,39 @@ function groupInteger(value: number): string {
   const sign = value < 0 ? "−" : ""
   const digits = Math.abs(Math.round(value)).toString()
   return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f")
+}
+
+export function formatMoneyAmount(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string" || raw.trim() === "") return null
+  const value = Number(raw)
+  if (!Number.isFinite(value)) return null
+  if (Number.isInteger(value)) return groupInteger(value)
+  const sign = value < 0 ? "−" : ""
+  const [whole, frac] = Math.abs(value).toFixed(2).split(".")
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f")
+  return `${sign}${grouped}.${frac}`
+}
+
+/** USD only when the UI is not Russian and the USD amount is a real number. */
+export function displayCurrency(
+  amounts: MoneyAmounts | undefined,
+  language: string,
+): DisplayCurrency {
+  if (!language.startsWith("ru") && moneyNumber(amounts, "USD") != null) return "USD"
+  return "RUB"
+}
+
+export function formatMoneyWithSign(
+  amounts: MoneyAmounts | undefined,
+  currency: DisplayCurrency,
+): string | null {
+  const text = formatMoneyAmount(amounts?.[currency])
+  if (!text) return null
+  if (currency === "USD") {
+    if (text.startsWith("−")) return `−$${text.slice(1)}`
+    return `$${text}`
+  }
+  return `${text}\u00a0₽`
 }
 
 function trimDecimal(value: number, digits: number): string {

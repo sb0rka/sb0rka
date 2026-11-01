@@ -1,6 +1,6 @@
 import { ApiError, apiRequest } from "@/lib/api-client"
 
-/** Cloud extension. An OSS build answers 404 and the balance section stays hidden. */
+/** Cloud extension. An OSS build answers 404 and the balance stays hidden. */
 export const ACCOUNT_BALANCE_PATH = "/account/balance"
 
 export interface PlanResponse {
@@ -71,15 +71,25 @@ export interface ProjectUsageResponse {
   usage: Record<string, QuotaUsage>
 }
 
-export interface QuotaBalance {
-  limit: number
-  entitled: number
-  used: number
-  held: number
-  available: number
+export interface MoneyAmounts {
+  RUB?: string | null
+  USD?: string | null
 }
 
-export type BalanceResponse = Record<string, QuotaBalance>
+export interface QuotaBalance {
+  limit: MoneyAmounts
+  entitled: MoneyAmounts
+  used: MoneyAmounts
+  held: MoneyAmounts
+  available: MoneyAmounts
+}
+
+/** One object per balance quota; the single key is that quota's code. */
+export type BalanceItem = Record<string, QuotaBalance>
+
+export interface BalanceResponse {
+  balances: BalanceItem[]
+}
 
 export function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404

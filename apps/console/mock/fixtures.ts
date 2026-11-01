@@ -129,11 +129,15 @@ export const MOCK_PROJECT_USAGE: Record<string, { id: string; public_id: string;
 }
 
 export const MOCK_BALANCE = {
-  credits: {
-    limit: 5_000_000,
-    entitled: 1_000_000,
-    used: 2_000_000,
-    held: 500_000,
-    available: 3_500_000,
-  },
+  balances: [
+    {
+      credits: {
+        limit: { RUB: "5000", USD: "50" },
+        entitled: { RUB: "1000", USD: "10" },
+        used: { RUB: "2000", USD: "20" },
+        held: { RUB: "500", USD: "5" },
+        available: { RUB: "3500", USD: "35" },
+      },
+    },
+  ],
 }

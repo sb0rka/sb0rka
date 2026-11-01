@@ -28,6 +28,16 @@ export function useAccountPlan() {
   })
 }
 
+export function useProjectPlan(projectId: string | null) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<PlanResponse>({
+    queryKey: ["subscription", "project", projectId, "plan"],
+    queryFn: () => getProjectPlan(projectId ?? ""),
+    enabled: isAuthenticated && projectId != null && projectId !== "",
+  })
+}
+
 export function usePublicPlans(enabled: boolean) {
   const { isAuthenticated } = useAuth()
 

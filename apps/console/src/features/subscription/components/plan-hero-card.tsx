@@ -1,65 +1,147 @@
-import { useState } from "react"
+import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Badge, Button, Card, CardContent } from "@sb0rka/ui"
-import type { PlanResponse } from "../api"
-import { localizedDescription, localizedName } from "../quota-format"
-import { ComparePlansDialog } from "./compare-plans-dialog"
+import type { BalanceResponse, PlanResponse } from "../api"
+import {
+  accountBalanceEntries,
+  displayCurrency,
+  formatMoneyWithSign,
+  localizedName,
+} from "../quota-format"
 
-export function PlanHeroCard({ plan }: { plan: PlanResponse }) {
-  const { t, i18n } = useTranslation()
-  const [compareOpen, setCompareOpen] = useState(false)
-  const description = localizedDescription(plan, i18n.language)
+interface BalanceFigure {
+  code: string
+  text: string
+}
+
+function balanceFigures(
+  balance: BalanceResponse | null | undefined,
+  language: string,
+): BalanceFigure[] {
+  return accountBalanceEntries(balance).map((entry) => {
+    const currency = displayCurrency(entry.balance.available, language)
+    return {
+      code: entry.code,
+      text: formatMoneyWithSign(entry.balance.available, currency) ?? "—",
+    }
+  })
+}
+
+const balanceRowClass =
+  "flex w-fit max-w-full flex-wrap items-center gap-3 border-t border-border pt-4"
+
+function TopUpButton() {
+  const { t } = useTranslation()
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-5 px-6 py-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0 space-y-2">
-            <p className="text-sm text-muted-foreground">{t("subscription.currentPlan")}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                {localizedName(plan, i18n.language)}
-              </h2>
+    <span className="relative inline-flex">
+      <Button type="button" variant="outline" disabled>
+        {t("subscription.topUp")}
+        <span className="sr-only">, {t("subscription.soon")}</span>
+      </Button>
+      <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
+        {t("subscription.soon")}
+      </Badge>
+    </span>
+  )
+}
+
+function BalanceFigures({
+  balance,
+  isLoading,
+  isError,
+  onRetry,
+}: {
+  balance: BalanceResponse | null | undefined
+  isLoading: boolean
+  isError: boolean
+  onRetry: () => void
+}) {
+  const { t, i18n } = useTranslation()
+
+  if (isLoading) {
+    return (
+      <div className={balanceRowClass}>
+        <div aria-busy="true" className="h-6 w-24 animate-pulse rounded-md bg-muted" />
+        <TopUpButton />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className={balanceRowClass}>
+        <p className="text-sm text-destructive">{t("subscription.balanceError")}</p>
+        <Button type="button" variant="outline" onClick={onRetry}>
+          {t("subscription.retry")}
+        </Button>
+        <TopUpButton />
+      </div>
+    )
+  }
+
+  const figures = balanceFigures(balance, i18n.language)
+  if (figures.length === 0) return null
+  const showCode = figures.length > 1
+
+  return (
+    <div className={balanceRowClass}>
+      <p className="flex flex-wrap items-baseline gap-x-2">
+        <span className="text-sm text-muted-foreground">{t("subscription.balanceTitle")}</span>
+        {figures.map((figure) => (
+          <span key={figure.code} className="inline-flex items-baseline gap-x-2">
+            {showCode ? (
               <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-                {plan.code}
+                {figure.code}
               </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {!plan.is_available ? (
-                <Badge variant="destructive">{t("subscription.legacyPlan")}</Badge>
-              ) : null}
-              {!plan.is_public ? (
-                <Badge variant="inactive">{t("subscription.customPlan")}</Badge>
-              ) : null}
-            </div>
-            {description ? (
-              <p className="max-w-xl text-sm text-muted-foreground">{description}</p>
             ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="relative inline-flex">
-              <Button type="button" disabled>
-                {t("subscription.changePlan")}
-                <span className="sr-only">, {t("subscription.soon")}</span>
-              </Button>
-              <Badge
-                variant="inactive"
-                className="pointer-events-none absolute -right-2 -top-2 px-1.5"
-              >
-                {t("subscription.soon")}
-              </Badge>
+            <span className="text-xl font-semibold tabular-nums text-foreground">
+              {figure.text}
             </span>
-            <Button type="button" variant="outline" onClick={() => setCompareOpen(true)}>
-              {t("subscription.compare")}
+          </span>
+        ))}
+      </p>
+      <TopUpButton />
+    </div>
+  )
+}
+
+export function PlanHeroCard({
+  plan,
+  balance,
+  balanceLoading,
+  balanceError,
+  onBalanceRetry,
+}: {
+  plan: PlanResponse
+  balance: BalanceResponse | null | undefined
+  balanceLoading: boolean
+  balanceError: boolean
+  onBalanceRetry: () => void
+}) {
+  const { t, i18n } = useTranslation()
+
+  return (
+    <Card id="subscription-balance" className="w-fit max-w-full scroll-mt-4">
+      <CardContent className="flex w-fit max-w-full flex-col gap-8 px-10 py-8">
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">{t("subscription.currentPlan")}</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+              {localizedName(plan, i18n.language)}
+            </h2>
+            <Button asChild>
+              <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
             </Button>
           </div>
         </div>
+        <BalanceFigures
+          balance={balance}
+          isLoading={balanceLoading}
+          isError={balanceError}
+          onRetry={onBalanceRetry}
+        />
       </CardContent>
-      <ComparePlansDialog
-        open={compareOpen}
-        onOpenChange={setCompareOpen}
-        currentPlan={plan}
-      />
     </Card>
   )
 }

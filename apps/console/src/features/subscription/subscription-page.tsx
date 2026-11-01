@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button, cn } from "@sb0rka/ui"
@@ -5,8 +6,8 @@ import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { useProjects } from "@/features/projects/hooks"
 import { isNotFound } from "./api"
 import { AttentionStrip } from "./components/attention-strip"
-import { BalanceSection } from "./components/balance-section"
 import { PlanHeroCard } from "./components/plan-hero-card"
+import { ProjectPlanUsageCard } from "./components/project-plan-usage-card"
 import { ProjectQuotasCard } from "./components/project-quotas-card"
 import {
   useAccountBalance,
@@ -37,19 +38,27 @@ export function SubscriptionPage() {
   const projects = projectsQuery.data?.projects ?? []
   const overview = useProjectsQuotaOverview(projects)
   const initialize = useInitializeAccount()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const ordered = [...overview].sort((left, right) => {
     if (left.nearLimit !== right.nearLimit) return left.nearLimit ? -1 : 1
     return left.project.name.localeCompare(right.project.name, i18n.language)
   })
   const overviewReady = !projectsQuery.isPending && ordered.every((view) => !view.loading)
-  const rows = ordered.flatMap((view) => view.rows)
+  const selected =
+    ordered.find((view) => view.project.public_id === selectedId) ?? ordered[0] ?? null
+
+  function selectProject(projectId: string) {
+    setSelectedId(projectId)
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+    document.getElementById("project-plan-usage")?.scrollIntoView({ behavior, block: "nearest" })
+  }
 
   if (planQuery.isPending) {
     return (
       <div className="flex flex-col gap-4" aria-busy="true">
         <PageTitle />
-        <Pulse className="h-36" />
+        <Pulse className="h-40 w-80 max-w-full" />
         <Pulse className="h-24" />
         <Pulse className="h-28" />
       </div>
@@ -101,22 +110,20 @@ export function SubscriptionPage() {
         <PageTitle />
       </SlideIn>
       <SlideIn>
-        <PlanHeroCard plan={planQuery.data} />
+        <PlanHeroCard
+          plan={planQuery.data}
+          balance={balanceQuery.data}
+          balanceLoading={balanceQuery.isPending}
+          balanceError={balanceQuery.isError}
+          onBalanceRetry={() => void balanceQuery.refetch()}
+        />
       </SlideIn>
       <SlideIn>
         <AttentionStrip
           views={ordered}
           balance={balanceQuery.data ?? null}
           ready={overviewReady && !balanceQuery.isPending}
-        />
-      </SlideIn>
-      <SlideIn>
-        <BalanceSection
-          balance={balanceQuery.data}
-          rows={rows}
-          isLoading={balanceQuery.isPending}
-          isError={balanceQuery.isError}
-          onRetry={() => void balanceQuery.refetch()}
+          onSelectProject={selectProject}
         />
       </SlideIn>
       <SlideIn>
@@ -142,10 +149,23 @@ export function SubscriptionPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {ordered.map((view) => (
-                <ProjectQuotasCard key={view.project.public_id} view={view} />
-              ))}
+            <div className="flex w-full min-w-0 flex-col items-stretch gap-4 md:flex-row md:items-start">
+              <ul
+                role="listbox"
+                aria-label={t("subscription.projectsTitle")}
+                className="grid min-w-0 flex-1 grid-cols-1 gap-3"
+              >
+                {ordered.map((view) => (
+                  <li key={view.project.public_id} role="presentation" className="min-w-0">
+                    <ProjectQuotasCard
+                      view={view}
+                      selected={selected?.project.public_id === view.project.public_id}
+                      onSelect={() => selectProject(view.project.public_id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+              {selected ? <ProjectPlanUsageCard view={selected} /> : null}
             </div>
           )}
         </section>

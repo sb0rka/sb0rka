@@ -2,7 +2,9 @@ import { useTranslation } from "react-i18next"
 import type { BalanceResponse } from "../api"
 import type { ProjectQuotaView } from "../hooks"
 import {
+  accountBalanceEntries,
   balanceIsNearLimit,
+  formatMoneyAmount,
   formatQuotaPair,
   formatQuotaValue,
   localizedName,
@@ -18,6 +20,7 @@ function scrollToTarget(id: string) {
 interface AttentionEntry {
   key: string
   targetId: string
+  projectId?: string
   context: string
   label: string
   detail: string
@@ -36,10 +39,12 @@ export function AttentionStrip({
   views,
   balance,
   ready,
+  onSelectProject,
 }: {
   views: ProjectQuotaView[]
   balance: BalanceResponse | null
   ready: boolean
+  onSelectProject?: (projectId: string) => void
 }) {
   const { t, i18n } = useTranslation()
   if (!ready) return null
@@ -53,19 +58,17 @@ export function AttentionStrip({
   }
 
   const entries: AttentionEntry[] = []
-  if (balance) {
-    for (const [code, item] of Object.entries(balance)) {
-      if (!balanceIsNearLimit(item)) continue
-      const match = named.get(code)
-      const unit = match?.definition.unit ?? "count"
-      entries.push({
-        key: `balance-${code}`,
-        targetId: "subscription-balance",
-        context: t("subscription.balanceTitle"),
-        label: match ? localizedName(match.definition, i18n.language) : code,
-        detail: `${t("subscription.available")} ${withCredits(formatQuotaValue(item.available, unit), unit, credits)}`,
-      })
-    }
+  for (const entry of accountBalanceEntries(balance)) {
+    if (!balanceIsNearLimit(entry.balance)) continue
+    const match = named.get(entry.code)
+    const amount = formatMoneyAmount(entry.balance.available?.RUB)
+    entries.push({
+      key: `balance-${entry.code}`,
+      targetId: "subscription-balance",
+      context: t("subscription.balanceTitle"),
+      label: match ? localizedName(match.definition, i18n.language) : entry.code,
+      detail: amount ?? "—",
+    })
   }
 
   for (const view of views) {
@@ -74,6 +77,7 @@ export function AttentionStrip({
       entries.push({
         key: `${view.project.public_id}-${row.code}`,
         targetId: `subscription-project-${view.project.public_id}`,
+        projectId: view.project.public_id,
         context: view.project.name,
         label: localizedName(row.definition, i18n.language),
         detail: quotaDetail(row, credits),
@@ -91,7 +95,13 @@ export function AttentionStrip({
           <li key={entry.key} className="shrink-0">
             <button
               type="button"
-              onClick={() => scrollToTarget(entry.targetId)}
+              onClick={() => {
+                if (entry.projectId && onSelectProject) {
+                  onSelectProject(entry.projectId)
+                  return
+                }
+                scrollToTarget(entry.targetId)
+              }}
               className="flex min-w-[12rem] max-w-xs flex-col items-start border-y border-r border-border border-l-2 border-l-destructive bg-card px-3 py-2 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="max-w-full truncate text-xs text-muted-foreground">{entry.context}</span>
