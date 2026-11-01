@@ -15,6 +15,7 @@ import {
   useInitializeAccount,
   useProjectsQuotaOverview,
 } from "./hooks"
+import { mockSubscriptionProjects } from "./mock-projects"
 
 function Pulse({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-md bg-muted", className)} />
@@ -36,7 +37,7 @@ export function SubscriptionPage() {
   const balanceQuery = useAccountBalance()
   const projectsQuery = useProjects()
   const projects = projectsQuery.data?.projects ?? []
-  const overview = useProjectsQuotaOverview(projects)
+  const overview = [...useProjectsQuotaOverview(projects), ...mockSubscriptionProjects()]
   const initialize = useInitializeAccount()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
