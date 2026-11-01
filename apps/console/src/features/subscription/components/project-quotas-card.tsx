@@ -7,7 +7,6 @@ import {
   localizedDescription,
   localizedName,
   shortQuotaName,
-  toggleSummaryRows,
   windowLabelKey,
   withCredits,
   type QuotaRowView,
@@ -43,7 +42,7 @@ function QuotaSummary({ rows }: { rows: QuotaRowView[] }) {
               <span
                 className={cn(
                   "inline-flex items-baseline gap-1 text-xs",
-                  row.nearLimit ? "text-destructive" : "text-foreground",
+                  row.nearLimit ? "text-[#c75a48]" : "text-foreground",
                 )}
               >
                 <span className={cn(!row.nearLimit && "text-muted-foreground")}>{name}</span>
@@ -114,10 +113,10 @@ export function ProjectQuotasCard({
             <Badge variant="inactive">{t("subscription.projectInactive")}</Badge>
           ) : null}
           {view.nearLimit ? (
-            <Badge variant="destructive">{t("subscription.attentionLabel")}</Badge>
+            <Badge variant="warning">{t("subscription.attentionLabel")}</Badge>
           ) : null}
         </span>
-        {!view.loading ? <QuotaSummary rows={toggleSummaryRows(view.rows)} /> : null}
+        {!view.loading ? <QuotaSummary rows={view.rows} /> : null}
       </div>
       {view.planError && !view.loading ? (
         <div className="px-6 pb-5">

@@ -38,7 +38,7 @@ function UsageDial({ ratio, nearLimit }: { ratio: number | null; nearLimit: bool
   const radius = 7
   const circumference = 2 * Math.PI * radius
   const filled = circumference * value
-  const tone = nearLimit ? "text-destructive" : "text-emerald-500"
+  const tone = nearLimit ? "text-[#c75a48]" : "text-emerald-500"
 
   return (
     <svg viewBox="0 0 20 20" className="size-5 shrink-0" aria-hidden>
@@ -92,7 +92,7 @@ function UsageMeterRow({ row }: { row: QuotaRowView }) {
       <span
         className={cn(
           "shrink-0 text-sm tabular-nums",
-          row.nearLimit ? "text-destructive" : "text-foreground",
+          row.nearLimit ? "text-[#c75a48]" : "text-foreground",
         )}
       >
         {label}

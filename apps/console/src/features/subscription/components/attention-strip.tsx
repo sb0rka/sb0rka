@@ -89,7 +89,7 @@ export function AttentionStrip({
 
   return (
     <section aria-label={t("subscription.attentionLabel")} className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium text-destructive">{t("subscription.attentionLabel")}</h2>
+      <h2 className="text-sm font-medium text-[#c75a48]">{t("subscription.attentionLabel")}</h2>
       <ul className="flex gap-2 overflow-x-auto pb-1">
         {entries.map((entry) => (
           <li key={entry.key} className="shrink-0">
@@ -102,7 +102,7 @@ export function AttentionStrip({
                 }
                 scrollToTarget(entry.targetId)
               }}
-              className="flex min-w-[12rem] max-w-xs flex-col items-start border-y border-r border-border border-l-2 border-l-destructive bg-card px-3 py-2 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-w-[12rem] max-w-xs flex-col items-start border-y border-r border-border border-l-2 border-l-[#c75a48] bg-card px-3 py-2 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="max-w-full truncate text-xs text-muted-foreground">{entry.context}</span>
               <span className="max-w-full truncate text-sm font-medium">{entry.label}</span>
