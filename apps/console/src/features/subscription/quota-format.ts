@@ -10,7 +10,7 @@ import type {
 
 const NEAR_LIMIT_RATIO = 0.9
 const WARNING_RATIO = 0.7
-const TOGGLE_USAGE_RATIO = 0.7
+const TOGGLE_USAGE_RATIO = 0.5
 
 const TOGGLE_PINNED_CODES = new Set([
   "dbis.count",
