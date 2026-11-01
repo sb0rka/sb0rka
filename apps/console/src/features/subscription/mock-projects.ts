@@ -147,119 +147,245 @@ function view(item: ProjectResponse, itemPlan: PlanResponse, rows: QuotaRowView[
 const freePlan = plan("free", "Free", "Бесплатный")
 const proPlan = plan("pro", "Pro", "Pro")
 
+type RatioBand = "low" | "mid" | "high" | "hot"
+
+// Lower bands own most rows. >0.9 stays rare, but the draw still forces one row into each band.
+const bandWeight: { band: RatioBand; weight: number }[] = [
+  { band: "low", weight: 0.7 },
+  { band: "mid", weight: 0.18 },
+  { band: "high", weight: 0.08 },
+  { band: "hot", weight: 0.04 },
+]
+
+interface MockResource {
+  id: string
+  publicId: string
+}
+
+interface MockProjectSpec {
+  publicId: string
+  name: string
+  tier: "free" | "pro"
+  isActive: boolean
+  resources: Partial<Record<string, MockResource[]>>
+}
+
+const mockProjectSpecs: MockProjectSpec[] = [
+  {
+    publicId: "mock-billing",
+    name: "Billing",
+    tier: "free",
+    isActive: true,
+    resources: {
+      "dbis.max_direct_connections": [{ id: "mock-billing-dbi", publicId: "billingdbi01" }],
+      "dbis.max_pooled_connections": [{ id: "mock-billing-dbi", publicId: "billingdbi01" }],
+      "dbis.storage.bytes": [{ id: "mock-billing-dbi", publicId: "billingdbi01" }],
+      "secrets.versions.count": [{ id: "mock-billing-secret", publicId: "billingsec01" }],
+    },
+  },
+  {
+    publicId: "mock-analytics",
+    name: "Analytics warehouse",
+    tier: "pro",
+    isActive: true,
+    resources: {
+      "dbis.max_direct_connections": [
+        { id: "mock-analytics-dbi-a", publicId: "analyticsa01" },
+        { id: "mock-analytics-dbi-b", publicId: "analyticsb01" },
+      ],
+      "dbis.max_pooled_connections": [
+        { id: "mock-analytics-dbi-a", publicId: "analyticsa01" },
+        { id: "mock-analytics-dbi-b", publicId: "analyticsb01" },
+      ],
+      "dbis.storage.bytes": [
+        { id: "mock-analytics-dbi-a", publicId: "analyticsa01" },
+        { id: "mock-analytics-dbi-b", publicId: "analyticsb01" },
+      ],
+      "secrets.versions.count": [
+        { id: "mock-analytics-secret-a", publicId: "analyticssa1" },
+        { id: "mock-analytics-secret-b", publicId: "analyticssb1" },
+      ],
+    },
+  },
+  {
+    publicId: "mock-mobile",
+    name: "Mobile API",
+    tier: "pro",
+    isActive: true,
+    resources: {
+      "dbis.max_direct_connections": [{ id: "mock-mobile-dbi", publicId: "mobiledbi001" }],
+      "dbis.max_pooled_connections": [{ id: "mock-mobile-dbi", publicId: "mobiledbi001" }],
+      "dbis.storage.bytes": [{ id: "mock-mobile-dbi", publicId: "mobiledbi001" }],
+      "secrets.versions.count": [{ id: "mock-mobile-secret", publicId: "mobilese0001" }],
+    },
+  },
+  {
+    publicId: "mock-docs",
+    name: "Internal docs",
+    tier: "free",
+    isActive: true,
+    resources: {
+      "dbis.max_direct_connections": [{ id: "mock-docs-dbi", publicId: "docsdbi0001" }],
+      "dbis.max_pooled_connections": [{ id: "mock-docs-dbi", publicId: "docsdbi0001" }],
+      "dbis.storage.bytes": [{ id: "mock-docs-dbi", publicId: "docsdbi0001" }],
+      "secrets.versions.count": [{ id: "mock-docs-secret", publicId: "docssec00001" }],
+    },
+  },
+  {
+    publicId: "mock-staging",
+    name: "Staging cluster",
+    tier: "free",
+    isActive: false,
+    resources: {
+      "dbis.max_direct_connections": [{ id: "mock-staging-dbi", publicId: "stagingdbi01" }],
+      "dbis.max_pooled_connections": [{ id: "mock-staging-dbi", publicId: "stagingdbi01" }],
+      "dbis.storage.bytes": [{ id: "mock-staging-dbi", publicId: "stagingdbi01" }],
+      "secrets.versions.count": [{ id: "mock-staging-secret", publicId: "stagingsec01" }],
+    },
+  },
+]
+
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = Math.imul(state ^ (state >>> 15), 1 | state)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function randomInt(rng: () => number, min: number, max: number): number {
+  return min + Math.floor(rng() * (max - min + 1))
+}
+
+// Integer used whose ratio falls in the band. Small limits cannot hit every band.
+function usedBounds(limit: number, band: RatioBand): { min: number; max: number } | null {
+  if (limit <= 0) return null
+  let min = 0
+  let max = limit
+  if (band === "low") {
+    max = Math.floor((limit - 1) / 2)
+  } else if (band === "mid") {
+    min = Math.ceil(limit / 2)
+    max = Math.floor((7 * limit - 1) / 10)
+  } else if (band === "high") {
+    min = Math.ceil((7 * limit) / 10)
+    max = Math.floor((9 * limit) / 10)
+  } else {
+    min = Math.floor((9 * limit) / 10) + 1
+    max = limit
+  }
+  if (min > max) return null
+  return { min, max }
+}
+
+function rollBand(rng: () => number): RatioBand {
+  const pick = rng()
+  let cursor = 0
+  for (const entry of bandWeight) {
+    cursor += entry.weight
+    if (pick < cursor) return entry.band
+  }
+  return "low"
+}
+
+function achievableBand(limit: number, preferred: RatioBand, hotTaken: boolean): RatioBand {
+  const order: RatioBand[] = ["hot", "high", "mid", "low"]
+  for (let index = order.indexOf(preferred); index < order.length; index += 1) {
+    const band = order[index]
+    if (band === "hot" && hotTaken) continue
+    if (usedBounds(limit, band)) return band
+  }
+  return "low"
+}
+
+interface UsageSlot {
+  publicId: string
+  code: string
+  limit: number
+}
+
+function assignBands(rng: () => number): Map<string, RatioBand> {
+  const slots: UsageSlot[] = []
+  for (const spec of mockProjectSpecs) {
+    for (const field of usageFields) {
+      slots.push({
+        publicId: spec.publicId,
+        code: field.code,
+        limit: spec.tier === "free" ? field.freeLimit : field.proLimit,
+      })
+    }
+  }
+
+  const assigned = new Map<string, RatioBand>()
+  const slotKey = (slot: UsageSlot) => `${slot.publicId}:${slot.code}`
+  const projectsWithBand = new Set<string>()
+
+  for (const band of ["hot", "high", "mid", "low"] as const) {
+    const open = slots.filter((slot) => !assigned.has(slotKey(slot)) && usedBounds(slot.limit, band))
+    const spread = open.filter((slot) => !projectsWithBand.has(slot.publicId))
+    const pool = spread.length > 0 ? spread : open
+    if (pool.length === 0) continue
+    const pick = pool[randomInt(rng, 0, pool.length - 1)]
+    assigned.set(slotKey(pick), band)
+    projectsWithBand.add(pick.publicId)
+  }
+
+  const hotByProject = new Map<string, number>()
+  for (const [key, band] of assigned) {
+    if (band !== "hot") continue
+    const publicId = key.slice(0, key.indexOf(":"))
+    hotByProject.set(publicId, (hotByProject.get(publicId) ?? 0) + 1)
+  }
+
+  for (const slot of slots) {
+    const key = slotKey(slot)
+    if (assigned.has(key)) continue
+    const band = achievableBand(slot.limit, rollBand(rng), (hotByProject.get(slot.publicId) ?? 0) >= 1)
+    assigned.set(key, band)
+    if (band === "hot") hotByProject.set(slot.publicId, (hotByProject.get(slot.publicId) ?? 0) + 1)
+  }
+
+  return assigned
+}
+
+function resourceUsages(templates: MockResource[], used: number, rng: () => number): ResourceUsage[] {
+  const peak = randomInt(rng, 0, templates.length - 1)
+  return templates.map((template, index) =>
+    resource(template.id, template.publicId, index === peak ? used : randomInt(rng, 0, used)),
+  )
+}
+
+function buildMockSubscriptionProjects(rng: () => number): ProjectQuotaView[] {
+  const bands = assignBands(rng)
+  return mockProjectSpecs.map((spec) => {
+    const usedByCode: Record<string, number> = {}
+    const resourcesByCode: Record<string, ResourceUsage[]> = {}
+    const itemPlan = spec.tier === "free" ? freePlan : proPlan
+    for (const field of usageFields) {
+      const limit = spec.tier === "free" ? field.freeLimit : field.proLimit
+      const band = bands.get(`${spec.publicId}:${field.code}`) ?? "low"
+      const bounds = usedBounds(limit, band) ?? { min: 0, max: 0 }
+      const used = randomInt(rng, bounds.min, bounds.max)
+      usedByCode[field.code] = used
+      const templates = spec.resources[field.code]
+      if (templates && templates.length > 0) {
+        resourcesByCode[field.code] = resourceUsages(templates, used, rng)
+      }
+    }
+    return view(
+      project(spec.publicId, spec.name, itemPlan.id, spec.isActive),
+      itemPlan,
+      rowsFor(spec.tier, usedByCode, resourcesByCode),
+    )
+  })
+}
+
+// One draw per page load, so a re-render does not reshuffle the list.
+let cachedMockProjects: ProjectQuotaView[] | undefined
+
 export function mockSubscriptionProjects(): ProjectQuotaView[] {
-  return [
-    view(
-      project("mock-billing", "Billing", freePlan.id, true),
-      freePlan,
-      rowsFor("free", {
-        "dbis.count": 1,
-        "dbis.max_direct_connections": 2,
-        "dbis.max_pooled_connections": 8,
-        "dbis.storage.bytes": 80 * mib,
-        "llms.requests_per_minute": 1,
-        "llms.tokens_per_minute": 400,
-        "projects.members.count": 1,
-        "secrets.count": 2,
-        "secrets.versions.count": 1,
-      }, {
-        "dbis.max_direct_connections": [resource("mock-billing-dbi", "billingdbi01", 2)],
-        "dbis.max_pooled_connections": [resource("mock-billing-dbi", "billingdbi01", 8)],
-        "dbis.storage.bytes": [resource("mock-billing-dbi", "billingdbi01", 80 * mib)],
-        "secrets.versions.count": [resource("mock-billing-secret", "billingsec01", 1)],
-      }),
-    ),
-    view(
-      project("mock-analytics", "Analytics warehouse", proPlan.id, true),
-      proPlan,
-      rowsFor("pro", {
-        "dbis.count": 4,
-        "dbis.max_direct_connections": 36,
-        "dbis.max_pooled_connections": 180,
-        "dbis.storage.bytes": 48 * gib,
-        "llms.requests_per_minute": 22,
-        "llms.tokens_per_minute": 40_000,
-        "projects.members.count": 6,
-        "secrets.count": 8,
-        "secrets.versions.count": 7,
-      }, {
-        "dbis.max_direct_connections": [
-          resource("mock-analytics-dbi-a", "analyticsa01", 36),
-          resource("mock-analytics-dbi-b", "analyticsb01", 12),
-        ],
-        "dbis.max_pooled_connections": [
-          resource("mock-analytics-dbi-a", "analyticsa01", 180),
-          resource("mock-analytics-dbi-b", "analyticsb01", 40),
-        ],
-        "dbis.storage.bytes": [
-          resource("mock-analytics-dbi-a", "analyticsa01", 48 * gib),
-          resource("mock-analytics-dbi-b", "analyticsb01", 6 * gib),
-        ],
-        "secrets.versions.count": [
-          resource("mock-analytics-secret-a", "analyticssa1", 7),
-          resource("mock-analytics-secret-b", "analyticssb1", 2),
-        ],
-      }),
-    ),
-    view(
-      project("mock-mobile", "Mobile API", proPlan.id, true),
-      proPlan,
-      rowsFor("pro", {
-        "dbis.count": 2,
-        "dbis.max_direct_connections": 14,
-        "dbis.max_pooled_connections": 90,
-        "dbis.storage.bytes": 6 * gib,
-        "llms.requests_per_minute": 8,
-        "llms.tokens_per_minute": 12_000,
-        "projects.members.count": 4,
-        "secrets.count": 11,
-        "secrets.versions.count": 3,
-      }, {
-        "dbis.max_direct_connections": [resource("mock-mobile-dbi", "mobiledbi001", 14)],
-        "dbis.max_pooled_connections": [resource("mock-mobile-dbi", "mobiledbi001", 90)],
-        "dbis.storage.bytes": [resource("mock-mobile-dbi", "mobiledbi001", 6 * gib)],
-        "secrets.versions.count": [resource("mock-mobile-secret", "mobilese0001", 3)],
-      }),
-    ),
-    view(
-      project("mock-docs", "Internal docs", freePlan.id, true),
-      freePlan,
-      rowsFor("free", {
-        "dbis.count": 1,
-        "dbis.max_direct_connections": 0,
-        "dbis.max_pooled_connections": 0,
-        "dbis.storage.bytes": 12 * mib,
-        "llms.requests_per_minute": 0,
-        "llms.tokens_per_minute": 0,
-        "projects.members.count": 2,
-        "secrets.count": 1,
-        "secrets.versions.count": 0,
-      }, {
-        "dbis.max_direct_connections": [resource("mock-docs-dbi", "docsdbi0001", 0)],
-        "dbis.max_pooled_connections": [resource("mock-docs-dbi", "docsdbi0001", 0)],
-        "dbis.storage.bytes": [resource("mock-docs-dbi", "docsdbi0001", 12 * mib)],
-        "secrets.versions.count": [resource("mock-docs-secret", "docssec00001", 0)],
-      }),
-    ),
-    view(
-      project("mock-staging", "Staging cluster", freePlan.id, false),
-      freePlan,
-      rowsFor("free", {
-        "dbis.count": 2,
-        "dbis.max_direct_connections": 6,
-        "dbis.max_pooled_connections": 24,
-        "dbis.storage.bytes": 200 * mib,
-        "llms.requests_per_minute": 4,
-        "llms.tokens_per_minute": 1_200,
-        "projects.members.count": 3,
-        "secrets.count": 4,
-        "secrets.versions.count": 2,
-      }, {
-        "dbis.max_direct_connections": [resource("mock-staging-dbi", "stagingdbi01", 6)],
-        "dbis.max_pooled_connections": [resource("mock-staging-dbi", "stagingdbi01", 24)],
-        "dbis.storage.bytes": [resource("mock-staging-dbi", "stagingdbi01", 200 * mib)],
-        "secrets.versions.count": [resource("mock-staging-secret", "stagingsec01", 2)],
-      }),
-    ),
-  ]
+  cachedMockProjects ??= buildMockSubscriptionProjects(mulberry32(Math.floor(Math.random() * 0x7fffffff)))
+  return cachedMockProjects
 }
