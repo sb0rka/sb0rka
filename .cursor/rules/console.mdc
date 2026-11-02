@@ -17,18 +17,19 @@ alwaysApply: false
 
 ## `Button` — только для действий
 
-`Button` (`src/components/ui/button.tsx`) несёт press-анимацию (`.pressable`), которая уместна
+Press-анимация (`transform: scale` на `:active`) задана в `packages/ui/src/styles/base.css`
+на `.pressable`, на каждый `button:not(:disabled)` и на `[role="button"]`. Она уместна
 только для действия: сохранить, удалить, отправить, перейти, открыть диалог.
 
-Не использовать `Button` для:
+Не использовать `Button`, нативный `<button>` и `role="button"` для:
 - expand/collapse, аккордеонов, chevron-тогглеров, раскрытия строк дерева/таблицы;
 - переключателей состояния (tabs, сегменты, сортировка колонок, «показать ещё»);
 - кликабельных строк списка/карточек, элементов выбора.
 
-Для них — нативный `<button type="button">` с собственными классами и aria-атрибутами
-(`aria-expanded`, `aria-pressed`, `aria-selected`), как в
-`features/projects/components/data-explorer-schema-tree.tsx`. Если нужен press-эффект без
-остальных стилей — класс `buttonPressClass`, не сам `Button`. Для tabs — `src/components/ui/tabs.tsx`.
+Для них — `<div>` со своими классами и aria-атрибутами (`aria-expanded`, `aria-pressed`,
+`aria-selected`). Нативный `<button>` анимируется так же, как `Button`. Если press-эффект
+нужен без остальных стилей `Button` — класс `buttonPressClass`. Для tabs —
+`src/components/ui/tabs.tsx`.
 
 ## Бэкенд не трогать
 
