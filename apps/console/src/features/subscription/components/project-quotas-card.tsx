@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
-import { Badge, Button, Card, cn, Tooltip, TooltipContent, TooltipTrigger } from "@sb0rka/ui"
+import { Button, Card, cn, Tooltip, TooltipContent, TooltipTrigger } from "@sb0rka/ui"
+import { Badge } from "@/components/ui/badge"
 import type { ProjectQuotaView } from "../hooks"
 import {
   formatQuotaPair,

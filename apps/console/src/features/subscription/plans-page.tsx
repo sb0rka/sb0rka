@@ -3,6 +3,13 @@ import { useTranslation } from "react-i18next"
 import { Badge, Button, cn } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import type { PlanQuota } from "./api"
+import {
+  ASSEMBLY_MIN_VISIBLE_MS,
+  AssemblingGraphic,
+  AssemblingStyle,
+  useMinimumVisible,
+  type AssemblyPart,
+} from "./components/assembling.tsx"
 import { useAccountPlan, useProjectPlan, usePublicPlans } from "./hooks"
 import {
   formatMoneyWithSign,
@@ -65,8 +72,34 @@ function AccountPlanQuotas({ quotas }: { quotas: PlanQuota[] }) {
   )
 }
 
-function Pulse({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-md bg-muted", className)} />
+const PLAN_PARTS: readonly AssemblyPart[] = [
+  { x: 16, y: 16, w: 96, h: 10, rx: 2, dx: 0, dy: -48 },
+  { x: 124, y: 16, w: 40, h: 10, rx: 5, dx: 56, dy: 0 },
+  { x: 16, y: 52, w: 176, h: 6, rx: 3, dx: -64, dy: 0 },
+  { x: 16, y: 68, w: 136, h: 6, rx: 3, dx: -64, dy: 0 },
+  { x: 16, y: 84, w: 156, h: 6, rx: 3, dx: -64, dy: 0 },
+  { x: 16, y: 112, w: 176, h: 16, rx: 4, dx: 0, dy: 48 },
+]
+
+function AssemblingPlans() {
+  return (
+    <div className="flex gap-3" aria-busy="true">
+      <AssemblingStyle />
+      <AssemblingGraphic className="h-36 w-52 shrink-0" viewBox="0 0 208 144" parts={PLAN_PARTS} />
+      <AssemblingGraphic
+        className="h-36 w-52 shrink-0"
+        viewBox="0 0 208 144"
+        parts={PLAN_PARTS}
+        delayMs={260}
+      />
+      <AssemblingGraphic
+        className="h-36 w-52 shrink-0"
+        viewBox="0 0 208 144"
+        parts={PLAN_PARTS}
+        delayMs={520}
+      />
+    </div>
+  )
 }
 
 export function PlansPage() {
@@ -78,6 +111,7 @@ export function PlansPage() {
   const accountPlanQuery = useAccountPlan()
   const projectPlanQuery = useProjectPlan(projectId)
   const currentQuery = kind === "project" ? projectPlanQuery : accountPlanQuery
+  const showAssembling = useMinimumVisible(plansQuery.isPending, ASSEMBLY_MIN_VISIBLE_MS)
 
   const listedPlans = (plansQuery.data?.plans ?? [])
     .filter((plan) => plan.kind === kind)
@@ -118,12 +152,8 @@ export function PlansPage() {
         </div>
       </SlideIn>
       <SlideIn>
-        {plansQuery.isPending ? (
-          <div className="flex gap-3" aria-busy="true">
-            <Pulse className="h-36 w-52" />
-            <Pulse className="h-36 w-52" />
-            <Pulse className="h-36 w-52" />
-          </div>
+        {showAssembling ? (
+          <AssemblingPlans />
         ) : plansQuery.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
             <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
