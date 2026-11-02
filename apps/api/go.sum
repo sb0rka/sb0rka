@@ -50,8 +50,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/rogpeppe/go-internal v1.15.0 h1:D0RCU5rMAp+SpgkiNdrjfJ+LX4J1M32V2NeCY7EJ6hc=
 github.com/rogpeppe/go-internal v1.15.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/sb0rka/sb0rka/packages/contract v0.0.15 h1:XdT8t7Yz4jBkpqlj3uQ20rqJ1Mk5GhTR26KpoRnmXoA=
-github.com/sb0rka/sb0rka/packages/contract v0.0.15/go.mod h1:mRicMHPx5t59AVnV/kKuOmjuXX5IaCLPfYeLiufBxzs=
+github.com/sb0rka/sb0rka/packages/contract v0.0.16 h1:dbIKBaOZRkIc1wMWarfFKhi94elvJE5qsfarD/T4+/U=
+github.com/sb0rka/sb0rka/packages/contract v0.0.16/go.mod h1:mRicMHPx5t59AVnV/kKuOmjuXX5IaCLPfYeLiufBxzs=
 github.com/sb0rka/sb0rka/packages/core v0.0.5 h1:5wlv1n2bBSHtIq/SskxBWvAZkNMEOI6bqCWFNrYOSzk=
 github.com/sb0rka/sb0rka/packages/core v0.0.5/go.mod h1:Y+i4GHnhZzDZ7YJ+dHLbWvOsdw/vnUsE7NBsn1w6Qvk=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=

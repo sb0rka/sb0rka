@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -137,7 +138,7 @@ func (h *Handler) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
 // @Tags     iam
 // @Produce  json
 // @Param    plan_id  path  string  true  "UUID тарифа" format(uuid)
-// @Success  200  {object}  contract.PlanResponse
+// @Success  200  {object}  contract.PlanWithQuotasResponse
 // @Failure  400  {string}  string
 // @Failure  401  {string}  string
 // @Failure  404  {string}  string
@@ -168,16 +169,24 @@ func (h *Handler) GetPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp, err := h.planWithQuotas(r.Context(), plan)
+	if err != nil {
+		h.deps.Log.Error("get_plan_quotas_failed", "plan_id", planID, "error", err)
+		http.Error(w, "Failed to get plan", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toPlanResponse(plan))
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // ListPublicPlans godoc
 // @Summary  Список публичных тарифов
+// @Description Публичные доступные тарифы.
 // @Tags     iam
 // @Produce  json
-// @Success  200  {object}  map[string][]contract.PlanResponse  "{\"plans\": [...]}"
+// @Success  200  {object}  map[string][]contract.PlanWithQuotasResponse  "{\"plans\": [...]}"
 // @Failure  500  {string}  string
 // @Router   /plans [get]
 func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
@@ -188,9 +197,11 @@ func (h *Handler) ListPublicPlans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make([]contract.PlanResponse, 0, len(plans))
-	for _, p := range plans {
-		out = append(out, toPlanResponse(p))
+	out, err := h.plansWithQuotas(r.Context(), plans)
+	if err != nil {
+		h.deps.Log.Error("list_plan_quotas_failed", "error", err)
+		http.Error(w, "Failed to list plans", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -285,6 +296,37 @@ func (h *Handler) GetProjectQuotas(w http.ResponseWriter, r *http.Request) {
 		ID:       projectID.String(),
 		Quotas:   quotas,
 	})
+}
+
+func (h *Handler) planWithQuotas(ctx context.Context, plan model.Plan) (contract.PlanWithQuotasResponse, error) {
+	out, err := h.plansWithQuotas(ctx, []model.Plan{plan})
+	if err != nil {
+		return contract.PlanWithQuotasResponse{}, err
+	}
+	return out[0], nil
+}
+
+func (h *Handler) plansWithQuotas(ctx context.Context, plans []model.Plan) ([]contract.PlanWithQuotasResponse, error) {
+	ids := make([]uuid.UUID, len(plans))
+	for i, plan := range plans {
+		ids[i] = plan.ID
+	}
+	byPlan, err := h.deps.QuotaHook.ListPlanQuotas(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]contract.PlanWithQuotasResponse, 0, len(plans))
+	for _, plan := range plans {
+		quotas := byPlan[plan.ID]
+		if quotas == nil {
+			quotas = []contract.PlanQuotaResponse{}
+		}
+		out = append(out, contract.PlanWithQuotasResponse{
+			PlanResponse: toPlanResponse(plan),
+			Quotas:       quotas,
+		})
+	}
+	return out, nil
 }
 
 func toPlanResponse(p model.Plan) contract.PlanResponse {

@@ -172,6 +172,37 @@ definitions:
       secret:
         $ref: '#/definitions/contract.SecretResponse'
     type: object
+  contract.PlanQuotaResponse:
+    properties:
+      code:
+        type: string
+      description_en:
+        type: string
+      description_ru:
+        type: string
+      id:
+        format: uuid
+        type: string
+      kind:
+        enum:
+        - snapshot
+        - periodic
+        - balance
+        type: string
+      limit_value:
+        format: int64
+        type: integer
+      name_en:
+        type: string
+      name_ru:
+        type: string
+      scope:
+        type: string
+      unit:
+        type: string
+      window:
+        type: string
+    type: object
   contract.PlanResponse:
     properties:
       code:
@@ -194,6 +225,35 @@ definitions:
         type: string
       name_ru:
         type: string
+      updated_at:
+        type: string
+    type: object
+  contract.PlanWithQuotasResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description_en:
+        type: string
+      description_ru:
+        type: string
+      id:
+        type: string
+      is_available:
+        type: boolean
+      is_public:
+        type: boolean
+      kind:
+        type: string
+      name_en:
+        type: string
+      name_ru:
+        type: string
+      quotas:
+        items:
+          $ref: '#/definitions/contract.PlanQuotaResponse'
+        type: array
       updated_at:
         type: string
     type: object
@@ -698,8 +758,7 @@ paths:
   /plan/{plan_id}:
     get:
       description: Авторизованному пользователю доступны публичные активные тарифы,
-        а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо
-        от is_public и is_available.
+        а также тариф его аккаунта и тарифы проектов, в которых он состоит.
       parameters:
       - description: UUID тарифа
         format: uuid
@@ -713,7 +772,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/contract.PlanResponse'
+            $ref: '#/definitions/contract.PlanWithQuotasResponse'
         "400":
           description: Bad Request
           schema:
@@ -737,6 +796,7 @@ paths:
       - iam
   /plans:
     get:
+      description: Публичные доступные тарифы.
       produces:
       - application/json
       responses:
@@ -745,7 +805,7 @@ paths:
           schema:
             additionalProperties:
               items:
-                $ref: '#/definitions/contract.PlanResponse'
+                $ref: '#/definitions/contract.PlanWithQuotasResponse'
               type: array
             type: object
         "500":

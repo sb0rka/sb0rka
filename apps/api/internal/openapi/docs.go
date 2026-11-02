@@ -107,7 +107,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.",
+                "description": "Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит.",
                 "produces": [
                     "application/json"
                 ],
@@ -129,7 +129,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/contract.PlanResponse"
+                            "$ref": "#/definitions/contract.PlanWithQuotasResponse"
                         }
                     },
                     "400": {
@@ -161,6 +161,7 @@ const docTemplate = `{
         },
         "/plans": {
             "get": {
+                "description": "Публичные доступные тарифы.",
                 "produces": [
                     "application/json"
                 ],
@@ -176,7 +177,7 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/contract.PlanResponse"
+                                    "$ref": "#/definitions/contract.PlanWithQuotasResponse"
                                 }
                             }
                         }
@@ -2924,6 +2925,51 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.PlanQuotaResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "snapshot",
+                        "periodic",
+                        "balance"
+                    ]
+                },
+                "limit_value": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "window": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.PlanResponse": {
             "type": "object",
             "properties": {
@@ -2956,6 +3002,50 @@ const docTemplate = `{
                 },
                 "name_ru": {
                     "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.PlanWithQuotasResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_available": {
+                    "type": "boolean"
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "type": "string"
+                },
+                "quotas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.PlanQuotaResponse"
+                    }
                 },
                 "updated_at": {
                     "type": "string"
