@@ -5,7 +5,6 @@ import { Button, cn } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { useProjects } from "@/features/projects/hooks"
 import { isNotFound } from "./api"
-import { AttentionStrip } from "./components/attention-strip"
 import { PlanHeroCard } from "./components/plan-hero-card"
 import { ProjectPlanUsageCard } from "./components/project-plan-usage-card"
 import { ProjectQuotasCard } from "./components/project-quotas-card"
@@ -45,7 +44,6 @@ export function SubscriptionPage() {
     if (left.nearLimit !== right.nearLimit) return left.nearLimit ? -1 : 1
     return left.project.name.localeCompare(right.project.name, i18n.language)
   })
-  const overviewReady = !projectsQuery.isPending && ordered.every((view) => !view.loading)
   const selected =
     ordered.find((view) => view.project.public_id === selectedId) ?? ordered[0] ?? null
 
@@ -120,14 +118,6 @@ export function SubscriptionPage() {
             onBalanceRetry={() => void balanceQuery.refetch()}
           />
         </div>
-      </SlideIn>
-      <SlideIn>
-        <AttentionStrip
-          views={ordered}
-          balance={balanceQuery.data ?? null}
-          ready={overviewReady && !balanceQuery.isPending}
-          onSelectProject={selectProject}
-        />
       </SlideIn>
       <SlideIn>
         <section className="flex flex-col gap-3">

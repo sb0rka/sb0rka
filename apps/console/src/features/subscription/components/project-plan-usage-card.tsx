@@ -1,6 +1,5 @@
-import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Button, Card, cn } from "@sb0rka/ui"
+import { Badge, Button, Card, cn } from "@sb0rka/ui"
 import type { ProjectQuotaView } from "../hooks"
 import {
   formatQuotaPair,
@@ -104,20 +103,28 @@ function UsageMeterRow({ row }: { row: QuotaRowView }) {
 export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
   const { t } = useTranslation()
   const showCycle = view.rows.some((row) => windowLabelKey(row.definition.window) === "month")
-  const plansHref = `/subscription/plans?kind=project&project=${encodeURIComponent(view.project.public_id)}`
 
   return (
     <Card id="project-plan-usage" className="w-full shrink-0 scroll-mt-4 md:sticky md:top-4 md:w-[380px]">
       <div className="flex items-center justify-between gap-3 px-6 py-5">
         <div className="min-w-0">
-          <h3 className="truncate text-2xl font-semibold tracking-tight text-foreground">{view.project.name}</h3>
+          <h3 className="truncate text-lg font-semibold text-foreground">{view.project.name}</h3>
           {showCycle ? (
             <p className="text-sm text-muted-foreground">{t("subscription.billingCycle")}</p>
           ) : null}
         </div>
-        <Button asChild variant="outline" className="shrink-0 rounded-full">
-          <Link to={plansHref}>{t("subscription.changePlan")}</Link>
-        </Button>
+        <span className="relative inline-flex shrink-0">
+          <Button type="button" variant="outline" className="rounded-full" disabled>
+            {t("subscription.upgradeLimits")}
+            <span className="sr-only">, {t("subscription.soon")}</span>
+          </Button>
+          <Badge
+            variant="inactive"
+            className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
+          >
+            {t("subscription.soon")}
+          </Badge>
+        </span>
       </div>
       {view.loading ? (
         <div className="px-6 pb-5" aria-busy="true">

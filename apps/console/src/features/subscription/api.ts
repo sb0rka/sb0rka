@@ -17,8 +17,26 @@ export interface PlanResponse {
   updated_at: string
 }
 
+export interface PlanQuota {
+  id: string
+  code: string
+  name_en: string
+  name_ru: string
+  description_en?: string | null
+  description_ru?: string | null
+  scope: string
+  kind: "snapshot" | "periodic" | "balance" | string
+  unit: string
+  window: string | null
+  limit_value: number
+}
+
+export interface PlanWithQuotas extends PlanResponse {
+  quotas?: PlanQuota[]
+}
+
 export interface PlanListResponse {
-  plans: PlanResponse[]
+  plans: PlanWithQuotas[]
 }
 
 export interface QuotaDefinitionSnippet {

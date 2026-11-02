@@ -10,13 +10,36 @@ function plan(fields: {
   name_ru: string
   description_en: string
   description_ru: string
+  quotas?: ReturnType<typeof accountQuota>[]
 }) {
   return {
     ...fields,
+    quotas: fields.quotas ?? [],
     is_public: true,
     is_available: true,
     created_at: STAMP,
     updated_at: STAMP,
+  }
+}
+
+function accountQuota(
+  code: string,
+  name_en: string,
+  name_ru: string,
+  limit_value: number,
+  unit = "count",
+  kind: "snapshot" | "periodic" | "balance" = "snapshot",
+) {
+  return {
+    id: `qd-${code}`,
+    code,
+    name_en,
+    name_ru,
+    scope: "account",
+    kind,
+    unit,
+    window: null,
+    limit_value,
   }
 }
 
@@ -28,6 +51,14 @@ export const MOCK_PLAN = plan({
   name_ru: "Pro",
   description_en: "For teams running more than one project.",
   description_ru: "Для команд с несколькими проектами.",
+  quotas: [
+    accountQuota("llms.spend.micros", "LLM balance", "Баланс LLM", 5_000_000, "micros", "balance"),
+    accountQuota("organizations.count", "Owned organizations count", "Число своих организаций", 10),
+    accountQuota("organizations.members.count", "Organization members count", "Число участников организации", 25),
+    accountQuota("projects.count", "Projects count", "Число проектов", 20),
+    accountQuota("total.dbis.count", "Total database instances count", "Общее число инстансов БД", 10),
+    accountQuota("total.secrets.count", "Total secrets count", "Общее число секретов", 200),
+  ],
 })
 
 export const MOCK_PLANS = {
@@ -41,6 +72,14 @@ export const MOCK_PLANS = {
       name_ru: "Бесплатный",
       description_en: "A single project to try the platform.",
       description_ru: "Один проект, чтобы попробовать платформу.",
+      quotas: [
+        accountQuota("llms.spend.micros", "LLM balance", "Баланс LLM", 0, "micros", "balance"),
+        accountQuota("organizations.count", "Owned organizations count", "Число своих организаций", 3),
+        accountQuota("organizations.members.count", "Organization members count", "Число участников организации", 5),
+        accountQuota("projects.count", "Projects count", "Число проектов", 2),
+        accountQuota("total.dbis.count", "Total database instances count", "Общее число инстансов БД", 1),
+        accountQuota("total.secrets.count", "Total secrets count", "Общее число секретов", 40),
+      ],
     }),
   ],
 }

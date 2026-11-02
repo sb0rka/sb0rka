@@ -134,25 +134,6 @@ export function moneyNumber(
   return Number.isFinite(value) ? value : null
 }
 
-export function balanceConsumedRatio(balance: QuotaBalance): number | null {
-  const used = moneyNumber(balance.used, "RUB")
-  const held = moneyNumber(balance.held, "RUB") ?? 0
-  const limit = moneyNumber(balance.limit, "RUB")
-  const entitled = moneyNumber(balance.entitled, "RUB") ?? 0
-  if (used == null || limit == null) return null
-  return usageRatio(used + held, effectiveLimit(limit, entitled))
-}
-
-export function balanceIsNearLimit(balance: QuotaBalance): boolean {
-  const available = moneyNumber(balance.available, "RUB")
-  const limit = moneyNumber(balance.limit, "RUB")
-  const entitled = moneyNumber(balance.entitled, "RUB") ?? 0
-  if (available == null || limit == null) return false
-  const cap = effectiveLimit(limit, entitled)
-  if (cap > 0 && available <= 0) return true
-  return isNearLimit(balanceConsumedRatio(balance))
-}
-
 export function joinQuotaRows(
   items: ProjectQuotaItem[],
   usage: ProjectUsageResponse | null,

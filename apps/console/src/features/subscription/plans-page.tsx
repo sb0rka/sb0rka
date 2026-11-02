@@ -2,8 +2,68 @@ import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Badge, Button, cn } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
+import type { PlanQuota } from "./api"
 import { useAccountPlan, useProjectPlan, usePublicPlans } from "./hooks"
-import { localizedDescription, localizedName } from "./quota-format"
+import {
+  formatMoneyWithSign,
+  formatQuotaValue,
+  localizedDescription,
+  localizedName,
+  shortQuotaName,
+  windowLabelKey,
+  withCredits,
+} from "./quota-format"
+
+const LLM_BALANCE_CODE = "llms.spend.micros"
+const MICROS_PER_RUBLE = 1_000_000
+
+function planQuotaValue(quota: PlanQuota, credits: string): string {
+  if (quota.code === LLM_BALANCE_CODE) {
+    const rubles = quota.limit_value / MICROS_PER_RUBLE
+    return formatMoneyWithSign({ RUB: String(rubles) }, "RUB") ?? "—"
+  }
+  return withCredits(formatQuotaValue(quota.limit_value, quota.unit), quota.unit, credits)
+}
+
+function quotaLabel(
+  quota: PlanQuota,
+  language: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const name = shortQuotaName({ code: quota.code, definition: quota }, language, t, "quotaLabel")
+  const window = windowLabelKey(quota.window)
+  if (!window) return name
+  return t("subscription.quotaWithWindow", {
+    name,
+    window: t(`subscription.window.${window}`),
+  })
+}
+
+function AccountPlanQuotas({ quotas }: { quotas: PlanQuota[] }) {
+  const { t, i18n } = useTranslation()
+  const credits = t("subscription.credits")
+  const rows = [...quotas].sort((left, right) =>
+    localizedName(left, i18n.language).localeCompare(localizedName(right, i18n.language), i18n.language),
+  )
+  if (rows.length === 0) return null
+
+  return (
+    <dl className="flex flex-col gap-1.5 border-t border-border pt-3">
+      {rows.map((quota) => {
+        const description = localizedDescription(quota, i18n.language)
+        const value = planQuotaValue(quota, credits)
+        return (
+          <div key={quota.id} className="flex items-baseline justify-between gap-3">
+            <dt className="min-w-0 text-sm text-muted-foreground" title={description}>
+              {quotaLabel(quota, i18n.language, t)}
+            </dt>
+            <dd className="shrink-0 text-sm tabular-nums text-foreground">{value}</dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
 
 function Pulse({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-md bg-muted", className)} />
@@ -83,7 +143,7 @@ export function PlansPage() {
             {showCustomNote ? (
               <p className="text-sm text-muted-foreground">{t("subscription.customNotListed")}</p>
             ) : null}
-            {/* TODO: BACKEND_TODO — price and included-quota rows need a per-plan pricing endpoint. */}
+            {/* TODO: BACKEND_TODO — plan price is not on the catalog response. */}
             <div className="overflow-x-auto p-1">
               <table className="w-max border-separate border-spacing-3 text-left">
                 <tbody>
@@ -97,20 +157,30 @@ export function PlansPage() {
                           aria-current={current ? "true" : undefined}
                           className="w-max max-w-72 align-top rounded-lg border border-border p-4"
                         >
-                          <div className="flex w-max max-w-64 flex-col gap-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-base font-semibold text-foreground">
-                                {localizedName(plan, i18n.language)}
-                              </span>
-                              {current ? (
-                                <Badge variant="active">{t("subscription.current")}</Badge>
-                              ) : null}
-                              {!plan.is_available ? (
-                                <Badge variant="destructive">{t("subscription.legacyPlan")}</Badge>
+                          <div
+                            className={cn(
+                              "flex max-w-64 flex-col gap-4",
+                              kind === "account" ? "w-64" : "w-max",
+                            )}
+                          >
+                            <div className={cn("flex flex-col gap-4", kind === "account" && "min-h-24")}>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-base font-semibold text-foreground">
+                                  {localizedName(plan, i18n.language)}
+                                </span>
+                                {current ? (
+                                  <Badge variant="active">{t("subscription.current")}</Badge>
+                                ) : null}
+                                {!plan.is_available ? (
+                                  <Badge variant="destructive">{t("subscription.legacyPlan")}</Badge>
+                                ) : null}
+                              </div>
+                              {description ? (
+                                <p className="text-sm text-muted-foreground">{description}</p>
                               ) : null}
                             </div>
-                            {description ? (
-                              <p className="text-sm text-muted-foreground">{description}</p>
+                            {kind === "account" ? (
+                              <AccountPlanQuotas quotas={plan.quotas ?? []} />
                             ) : null}
                             {current ? null : (
                               <span className="relative mt-1 inline-flex w-full">
