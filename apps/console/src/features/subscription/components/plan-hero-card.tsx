@@ -30,7 +30,7 @@ function balanceFigures(
 const balanceRowClass = "flex w-fit max-w-full flex-wrap items-center gap-3"
 
 function AccountDivider() {
-  return <div className="hidden h-7 w-px bg-border sm:block" aria-hidden />
+  return <div className="hidden h-8 w-px bg-border sm:block" aria-hidden />
 }
 
 function TopUpButton() {
@@ -38,7 +38,7 @@ function TopUpButton() {
 
   return (
     <span className="relative inline-flex">
-      <Button type="button" variant="outline" size="sm" disabled>
+      <Button type="button" variant="outline" disabled>
         {t("subscription.topUp")}
         <span className="sr-only">, {t("subscription.soon")}</span>
       </Button>
@@ -70,7 +70,7 @@ function BalanceFigures({
       <>
         <AccountDivider />
         <div className={balanceRowClass}>
-          <div aria-busy="true" className="h-5 w-16 animate-pulse rounded-md bg-muted" />
+          <div aria-busy="true" className="h-8 w-24 animate-pulse rounded-md bg-muted" />
           <TopUpButton />
         </div>
       </>
@@ -83,7 +83,7 @@ function BalanceFigures({
         <AccountDivider />
         <div className={balanceRowClass}>
           <p className="text-sm text-destructive">{t("subscription.balanceError")}</p>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          <Button type="button" variant="outline" onClick={onRetry}>
             {t("subscription.retry")}
           </Button>
           <TopUpButton />
@@ -101,7 +101,7 @@ function BalanceFigures({
       <AccountDivider />
       <div className={balanceRowClass}>
         <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-base font-semibold tracking-tight text-foreground">
+          <span className="text-2xl font-semibold tracking-tight text-foreground">
             {t("subscription.balanceTitle")}
           </span>
           {figures.map((figure) => (
@@ -111,7 +111,7 @@ function BalanceFigures({
                   {figure.code}
                 </span>
               ) : null}
-              <span className="text-base font-semibold tabular-nums text-foreground">
+              <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
                 {figure.text}
               </span>
             </span>
@@ -144,10 +144,10 @@ export function PlanHeroCard({
       className="flex w-fit max-w-full flex-wrap items-center gap-x-6 gap-y-3 scroll-mt-4"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-base font-semibold tracking-tight text-foreground">
+        <p className="text-2xl font-semibold tracking-tight text-foreground">
           {localizedName(plan, i18n.language)}
         </p>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline">
           <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
         </Button>
       </div>
