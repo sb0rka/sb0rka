@@ -41,6 +41,25 @@ type PlanResponse struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+type PlanWithQuotasResponse struct {
+	PlanResponse
+	Quotas []PlanQuotaResponse `json:"quotas"`
+}
+
+type PlanQuotaResponse struct {
+	ID            string  `json:"id" format:"uuid"`
+	Code          string  `json:"code"`
+	NameEN        string  `json:"name_en"`
+	NameRU        string  `json:"name_ru"`
+	DescriptionEN *string `json:"description_en,omitempty"`
+	DescriptionRU *string `json:"description_ru,omitempty"`
+	Scope         string  `json:"scope"`
+	Kind          string  `json:"kind" enums:"snapshot,periodic,balance"`
+	Unit          string  `json:"unit"`
+	Window        *string `json:"window"`
+	LimitValue    int64   `json:"limit_value" format:"int64"`
+}
+
 type QuotaDefinitionResponse struct {
 	ID            string    `json:"id"`
 	NameEN        string    `json:"name_en"`
