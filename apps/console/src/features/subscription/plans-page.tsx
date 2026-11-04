@@ -106,7 +106,9 @@ function PlanColumn({
             ) : null}
           </div>
           {custom ? (
-            <p className="text-sm text-muted-foreground">{t("subscription.customNotListed")}</p>
+            <p className="whitespace-nowrap text-sm font-semibold tracking-tight text-foreground">
+              {t("subscription.customNotListed")}
+            </p>
           ) : null}
           {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         </div>
