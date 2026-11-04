@@ -5,13 +5,7 @@ import { Button } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { useProjects } from "@/features/projects/hooks"
 import { isNotFound } from "./api"
-import {
-  ASSEMBLY_MIN_VISIBLE_MS,
-  AssemblingGraphic,
-  AssemblingStyle,
-  useMinimumVisible,
-  type AssemblyPart,
-} from "./components/assembling.tsx"
+import { ASSEMBLY_MIN_VISIBLE_MS, AssemblingLoader, useMinimumVisible } from "./components/assembling.tsx"
 import { PlanHeroCard } from "./components/plan-hero-card"
 import { ProjectPlanUsageCard } from "./components/project-plan-usage-card"
 import { ProjectQuotasCard } from "./components/project-quotas-card"
@@ -21,23 +15,6 @@ import {
   useInitializeAccount,
   useProjectsQuotaOverview,
 } from "./hooks"
-
-const HERO_PARTS: readonly AssemblyPart[] = [
-  { x: 10, y: 12, w: 118, h: 16, rx: 3, dx: -48, dy: 0 },
-  { x: 176, y: 10, w: 68, h: 20, rx: 10, dx: 48, dy: 0 },
-]
-
-const SECTION_PARTS: readonly AssemblyPart[] = [
-  { x: 20, y: 18, w: 160, h: 12, rx: 2, dx: 0, dy: -32 },
-  { x: 500, y: 16, w: 120, h: 16, rx: 8, dx: 72, dy: 0 },
-  { x: 20, y: 48, w: 440, h: 8, rx: 4, dx: -72, dy: 0 },
-  { x: 20, y: 68, w: 280, h: 8, rx: 4, dx: -72, dy: 0 },
-]
-
-const SECTION_TALL_PARTS: readonly AssemblyPart[] = [
-  ...SECTION_PARTS,
-  { x: 20, y: 88, w: 360, h: 8, rx: 4, dx: -72, dy: 0 },
-]
 
 function PageTitle() {
   const { t } = useTranslation()
@@ -59,10 +36,7 @@ export function SubscriptionPage() {
   const initialize = useInitializeAccount()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const showPlanAssembling = useMinimumVisible(planQuery.isPending, ASSEMBLY_MIN_VISIBLE_MS)
-  const showProjectsAssembling = useMinimumVisible(
-    projectsQuery.isPending,
-    ASSEMBLY_MIN_VISIBLE_MS,
-  )
+  const showProjectsAssembling = useMinimumVisible(projectsQuery.isPending, ASSEMBLY_MIN_VISIBLE_MS)
 
   const ordered = [...overview].sort((left, right) => {
     if (left.nearLimit !== right.nearLimit) return left.nearLimit ? -1 : 1
@@ -79,29 +53,9 @@ export function SubscriptionPage() {
 
   if (showPlanAssembling) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true">
-        <AssemblingStyle />
-        <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-center lg:justify-between">
-          <PageTitle />
-          <AssemblingGraphic
-            className="h-10 w-64 max-w-full shrink-0"
-            viewBox="0 0 256 40"
-            parts={HERO_PARTS}
-          />
-        </div>
-        <AssemblingGraphic
-          className="h-24 w-full"
-          viewBox="0 0 640 96"
-          parts={SECTION_PARTS}
-          stretch
-        />
-        <AssemblingGraphic
-          className="h-28 w-full"
-          viewBox="0 0 640 112"
-          parts={SECTION_TALL_PARTS}
-          delayMs={260}
-          stretch
-        />
+      <div className="flex flex-col gap-4">
+        <PageTitle />
+        <AssemblingLoader />
       </div>
     )
   }
@@ -163,22 +117,7 @@ export function SubscriptionPage() {
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">{t("subscription.projectsTitle")}</h2>
           {showProjectsAssembling ? (
-            <div className="flex flex-col gap-3" aria-busy="true">
-              <AssemblingStyle />
-              <AssemblingGraphic
-                className="h-24 w-full"
-                viewBox="0 0 640 96"
-                parts={SECTION_PARTS}
-                stretch
-              />
-              <AssemblingGraphic
-                className="h-24 w-full"
-                viewBox="0 0 640 96"
-                parts={SECTION_PARTS}
-                delayMs={260}
-                stretch
-              />
-            </div>
+            <AssemblingLoader className="py-10" />
           ) : projectsQuery.isError ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
               <p className="text-sm text-destructive">{t("subscription.projectsError")}</p>
