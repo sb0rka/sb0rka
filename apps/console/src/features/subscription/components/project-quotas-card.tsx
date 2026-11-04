@@ -108,15 +108,14 @@ export function ProjectQuotasCard({
           onSelect()
         }}
       >
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-2xl font-semibold tracking-tight">{view.project.name}</span>
-          <span className="text-sm text-muted-foreground">{planName}</span>
-          {!view.project.is_active ? (
-            <Badge variant="inactive">{t("subscription.projectInactive")}</Badge>
-          ) : null}
-          {view.nearLimit ? (
-            <Badge variant="warning">{t("subscription.attentionLabel")}</Badge>
-          ) : null}
+        <span className="flex min-w-0 items-start justify-between gap-3">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="truncate text-2xl font-semibold tracking-tight">{view.project.name}</span>
+            {!view.project.is_active ? (
+              <Badge variant="inactive">{t("subscription.projectInactive")}</Badge>
+            ) : null}
+          </span>
+          <span className="shrink-0 pt-1.5 text-right text-sm text-muted-foreground">{planName}</span>
         </span>
         {!view.loading ? <QuotaSummary rows={toggleSummaryRows(view.rows)} /> : null}
       </div>

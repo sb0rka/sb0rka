@@ -1,12 +1,16 @@
 import { useTranslation } from "react-i18next"
 import { Badge, Button, Card, cn } from "@sb0rka/ui"
-import type { ProjectQuotaView } from "../hooks"
+import { useProjectQuotaPeaks, type ProjectQuotaView } from "../hooks"
 import {
+  applyTelemetryPeak,
   formatQuotaPair,
   formatQuotaValue,
   localizedDescription,
   localizedName,
+  quotaTableBand,
   shortQuotaName,
+  usageTableRows,
+  usesTelemetryPeak,
   windowLabelKey,
   withCredits,
   type QuotaRowView,
@@ -67,7 +71,7 @@ function UsageDial({ ratio, nearLimit }: { ratio: number | null; nearLimit: bool
   )
 }
 
-function UsageMeterRow({ row }: { row: QuotaRowView }) {
+function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boolean }) {
   const { t, i18n } = useTranslation()
   const credits = t("subscription.credits")
   const quotaName = shortQuotaName(row, i18n.language, t, "quotaLabel")
@@ -81,20 +85,32 @@ function UsageMeterRow({ row }: { row: QuotaRowView }) {
   const full = localizedName(row.definition, i18n.language)
   const description = localizedDescription(row.definition, i18n.language)
   const label = usageLabel(row, credits, t)
+  const showPeak =
+    usesTelemetryPeak(row) && row.usage?.status === "available" && row.usage.used != null
 
   return (
-    <div className="flex items-center gap-3 border-t border-border px-6 py-3.5">
+    <div
+      className={cn(
+        "flex items-center gap-3 border-t border-border px-6 py-3.5",
+        separated && "mt-2",
+      )}
+    >
       <UsageDial ratio={row.ratio} nearLimit={row.nearLimit} />
       <span className="min-w-0 flex-1 truncate text-sm" title={description ?? full}>
         {name}
       </span>
-      <span
-        className={cn(
-          "shrink-0 text-sm tabular-nums",
-          row.nearLimit ? "text-[#c75a48]" : "text-foreground",
-        )}
-      >
-        {label}
+      <span className="flex shrink-0 items-baseline gap-2">
+        <span
+          className={cn(
+            "text-sm tabular-nums",
+            row.nearLimit ? "text-[#c75a48]" : "text-foreground",
+          )}
+        >
+          {label}
+        </span>
+        {showPeak ? (
+          <span className="text-xs text-muted-foreground">{t("subscription.peak24h")}</span>
+        ) : null}
       </span>
     </div>
   )
@@ -102,7 +118,9 @@ function UsageMeterRow({ row }: { row: QuotaRowView }) {
 
 export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
   const { t } = useTranslation()
-  const showCycle = view.rows.some((row) => windowLabelKey(row.definition.window) === "month")
+  const peaksQuery = useProjectQuotaPeaks(view.project.public_id)
+  const rows = usageTableRows(view.rows).map((row) => applyTelemetryPeak(row, peaksQuery.data))
+  const showCycle = rows.some((row) => windowLabelKey(row.definition.window) === "month")
 
   return (
     <Card id="project-plan-usage" className="w-full shrink-0 scroll-mt-4 md:sticky md:top-4 md:w-[380px]">
@@ -137,7 +155,7 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
             {t("subscription.retry")}
           </Button>
         </div>
-      ) : view.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p className="border-t border-border px-6 py-4 text-sm text-muted-foreground">
           {t("subscription.noQuotas")}
         </p>
@@ -151,8 +169,12 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
               </Button>
             </div>
           ) : null}
-          {view.rows.map((row) => (
-            <UsageMeterRow key={row.code} row={row} />
+          {rows.map((row, index) => (
+            <UsageMeterRow
+              key={row.code}
+              row={row}
+              separated={index > 0 && quotaTableBand(row.code) !== quotaTableBand(rows[index - 1].code)}
+            />
           ))}
         </div>
       )}

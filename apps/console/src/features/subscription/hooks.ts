@@ -4,7 +4,9 @@ import type { ProjectResponse } from "@/features/projects/api"
 import {
   getAccountBalance,
   getAccountPlan,
+  getPlan,
   getProjectPlan,
+  getProjectQuotaPeaks,
   getProjectQuotas,
   getProjectUsage,
   initializeAccount,
@@ -13,8 +15,10 @@ import {
   type BalanceResponse,
   type PlanListResponse,
   type PlanResponse,
+  type PlanWithQuotas,
   type ProjectQuotaListResponse,
   type ProjectUsageResponse,
+  type QuotaPeaks,
 } from "./api"
 import { joinQuotaRows, type QuotaRowView } from "./quota-format"
 
@@ -28,6 +32,20 @@ export function useAccountPlan() {
   })
 }
 
+// TODO: BACKEND_TODO — 24h peaks are not on the API yet. Leave this off so a
+// missing route is not a failed load; the usage table shows limits only.
+const quotaPeaksReady = false
+
+export function useProjectQuotaPeaks(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<QuotaPeaks | null>({
+    queryKey: ["subscription", "project", projectId, "quota-peaks"],
+    queryFn: () => getProjectQuotaPeaks(projectId),
+    enabled: quotaPeaksReady && isAuthenticated && projectId !== "",
+  })
+}
+
 export function useProjectPlan(projectId: string | null) {
   const { isAuthenticated } = useAuth()
 
@@ -35,6 +53,16 @@ export function useProjectPlan(projectId: string | null) {
     queryKey: ["subscription", "project", projectId, "plan"],
     queryFn: () => getProjectPlan(projectId ?? ""),
     enabled: isAuthenticated && projectId != null && projectId !== "",
+  })
+}
+
+export function usePlan(planId: string | null) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<PlanWithQuotas>({
+    queryKey: ["subscription", "plan", planId],
+    queryFn: () => getPlan(planId ?? ""),
+    enabled: isAuthenticated && planId != null && planId !== "",
   })
 }
 

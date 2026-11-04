@@ -89,6 +89,14 @@ export interface ProjectUsageResponse {
   usage: Record<string, QuotaUsage>
 }
 
+export interface QuotaPeakSample {
+  peak: number
+  observed_at: string | null
+}
+
+/** Peaks keyed by quota code. */
+export type QuotaPeaks = Record<string, QuotaPeakSample>
+
 export interface MoneyAmounts {
   RUB?: string | null
   USD?: string | null
@@ -127,6 +135,13 @@ export async function listPublicPlans(): Promise<PlanListResponse> {
   })
 }
 
+export async function getPlan(planId: string): Promise<PlanWithQuotas> {
+  return apiRequest<PlanWithQuotas>({
+    path: `/plan/${planId}`,
+    base: "resource",
+  })
+}
+
 export async function getProjectPlan(projectId: string): Promise<PlanResponse> {
   return apiRequest<PlanResponse>({
     path: `/projects/${projectId}/plan`,
@@ -139,6 +154,41 @@ export async function getProjectQuotas(projectId: string): Promise<ProjectQuotaL
     path: `/projects/${projectId}/quotas`,
     base: "resource",
   })
+}
+
+function parseQuotaPeaks(payload: unknown): QuotaPeaks | null {
+  if (!payload || typeof payload !== "object") return null
+  const peaks = (payload as { peaks?: unknown }).peaks
+  if (!peaks || typeof peaks !== "object") return null
+  const parsed: QuotaPeaks = {}
+  for (const [code, sample] of Object.entries(peaks)) {
+    if (!sample || typeof sample !== "object") continue
+    const peak = (sample as { peak?: unknown }).peak
+    const observed = (sample as { observed_at?: unknown }).observed_at
+    if (typeof peak !== "number" || !Number.isFinite(peak)) continue
+    parsed[code] = {
+      peak,
+      observed_at: typeof observed === "string" ? observed : null,
+    }
+  }
+  return parsed
+}
+
+// TODO: BACKEND_TODO — no project-level 24h peak. Resource timeseries is per
+// database, so it cannot fill the usage table. Expected:
+// GET /projects/{project_id}/telemetry/quota-peaks?window=24h
+// { peaks: { [quotaCode]: { peak: number, observed_at: string | null } } }
+export async function getProjectQuotaPeaks(projectId: string): Promise<QuotaPeaks | null> {
+  try {
+    const payload = await apiRequest<unknown>({
+      path: `/projects/${projectId}/telemetry/quota-peaks?window=24h`,
+      base: "resource",
+    })
+    return parseQuotaPeaks(payload)
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
 }
 
 export async function getProjectUsage(projectId: string): Promise<ProjectUsageResponse | null> {

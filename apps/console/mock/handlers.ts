@@ -70,6 +70,7 @@ function matchPath(pathname: string): { name: string; params: Record<string, str
     { name: "user.patch", pattern: /^\/user$/ },
     { name: "user.password", pattern: /^\/user\/password$/ },
     { name: "plan.current", pattern: /^\/plan$/ },
+    { name: "plan.get", pattern: /^\/plan\/(?<planId>[^/]+)$/ },
     { name: "plans.list", pattern: /^\/plans$/ },
     { name: "projects.list", pattern: /^\/projects$/ },
     { name: "projects.create", pattern: /^\/projects$/ },
@@ -237,6 +238,20 @@ export async function handleMockRequest(
       if (method !== "GET") break
       if (!requireAuth(req, res)) return true
       sendJson(res, 200, store.getPlan())
+      return true
+    }
+    case "plan.get": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      const planId = route.params.planId
+      const plan =
+        MOCK_PLANS.plans.find((item) => item.id === planId) ??
+        (MOCK_PROJECT_PLAN.id === planId ? MOCK_PROJECT_PLAN : null)
+      if (!plan) {
+        sendText(res, 404, "Plan not found")
+        return true
+      }
+      sendJson(res, 200, plan)
       return true
     }
     case "plans.list": {

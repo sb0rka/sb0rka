@@ -5,6 +5,7 @@ import type {
   ProjectUsageResponse,
   QuotaBalance,
   QuotaDefinitionSnippet,
+  QuotaPeaks,
   QuotaUsage,
 } from "./api"
 
@@ -18,6 +19,27 @@ const TOGGLE_PINNED_CODES = new Set([
   "projects.members.count",
   "secrets.count",
 ])
+
+const MAIN_LIMIT_CODES = ["dbis.count", "dbis.storage.bytes"] as const
+
+const DYNAMIC_LIMIT_CODES = [
+  "dbis.max_direct_connections",
+  "dbis.max_pooled_connections",
+  "llms.requests_per_minute",
+  "llms.tokens_per_minute",
+] as const
+
+const TAIL_LIMIT_CODES = [
+  "projects.members.count",
+  "secrets.count",
+  "secrets.versions.count",
+] as const
+
+const MAIN_LIMIT_CODE_SET = new Set<string>(MAIN_LIMIT_CODES)
+const DYNAMIC_LIMIT_CODE_SET = new Set<string>(DYNAMIC_LIMIT_CODES)
+const TAIL_LIMIT_CODE_SET = new Set<string>(TAIL_LIMIT_CODES)
+
+export type QuotaTableBand = "main" | "middle" | "tail"
 
 const WINDOWS = ["minute", "hour", "month"] as const
 
@@ -86,6 +108,63 @@ export function thresholdLevel(ratio: number | null): ThresholdLevel | null {
 
 export function isNearLimit(ratio: number | null): boolean {
   return ratio != null && ratio >= NEAR_LIMIT_RATIO
+}
+
+export function quotaTableBand(code: string): QuotaTableBand {
+  if (MAIN_LIMIT_CODE_SET.has(code)) return "main"
+  if (TAIL_LIMIT_CODE_SET.has(code)) return "tail"
+  return "middle"
+}
+
+// Periodic quotas and connection/LLM caps are a 24h peak, not the usage snapshot.
+export function usesTelemetryPeak(row: Pick<QuotaRowView, "code" | "definition">): boolean {
+  if (MAIN_LIMIT_CODE_SET.has(row.code) || TAIL_LIMIT_CODE_SET.has(row.code)) return false
+  return DYNAMIC_LIMIT_CODE_SET.has(row.code) || row.definition.kind === "periodic"
+}
+
+export function usageTableRows(rows: QuotaRowView[]): QuotaRowView[] {
+  const byCode = new Map(rows.map((row) => [row.code, row]))
+  const seen = new Set<string>()
+  const pick = (codes: readonly string[]) => {
+    const picked: QuotaRowView[] = []
+    for (const code of codes) {
+      const row = byCode.get(code)
+      if (!row) continue
+      seen.add(code)
+      picked.push(row)
+    }
+    return picked
+  }
+  const main = pick(MAIN_LIMIT_CODES)
+  const dynamic = pick(DYNAMIC_LIMIT_CODES)
+  const rest = rows.filter((row) => !seen.has(row.code) && !TAIL_LIMIT_CODE_SET.has(row.code))
+  const tail = pick(TAIL_LIMIT_CODES)
+  return [...main, ...dynamic, ...rest, ...tail]
+}
+
+export function applyTelemetryPeak(
+  row: QuotaRowView,
+  peaks: QuotaPeaks | null | undefined,
+): QuotaRowView {
+  if (!usesTelemetryPeak(row)) return row
+  const sample = peaks?.[row.code]
+  if (sample == null) {
+    return { ...row, usage: null, ratio: null, level: null, nearLimit: false }
+  }
+  const ratio = usageRatio(sample.peak, row.effective)
+  return {
+    ...row,
+    usage: {
+      used: sample.peak,
+      status: "available",
+      unit: row.usage?.unit || row.definition.unit,
+      observed_at: sample.observed_at,
+      aggregation: "max",
+    },
+    ratio,
+    level: thresholdLevel(ratio),
+    nearLimit: isNearLimit(ratio),
+  }
 }
 
 export function toggleSummaryRows(rows: QuotaRowView[]): QuotaRowView[] {

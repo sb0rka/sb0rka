@@ -2,7 +2,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Badge, Button, cn } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-import type { PlanQuota } from "./api"
+import type { PlanQuota, PlanResponse } from "./api"
 import {
   ASSEMBLY_MIN_VISIBLE_MS,
   AssemblingGraphic,
@@ -10,9 +10,8 @@ import {
   useMinimumVisible,
   type AssemblyPart,
 } from "./components/assembling.tsx"
-import { useAccountPlan, useProjectPlan, usePublicPlans } from "./hooks"
+import { useAccountPlan, usePlan, useProjectPlan, usePublicPlans } from "./hooks"
 import {
-  formatMoneyWithSign,
   formatQuotaValue,
   localizedDescription,
   localizedName,
@@ -22,13 +21,8 @@ import {
 } from "./quota-format"
 
 const LLM_BALANCE_CODE = "llms.spend.micros"
-const MICROS_PER_RUBLE = 1_000_000
 
 function planQuotaValue(quota: PlanQuota, credits: string): string {
-  if (quota.code === LLM_BALANCE_CODE) {
-    const rubles = quota.limit_value / MICROS_PER_RUBLE
-    return formatMoneyWithSign({ RUB: String(rubles) }, "RUB") ?? "—"
-  }
   return withCredits(formatQuotaValue(quota.limit_value, quota.unit), quota.unit, credits)
 }
 
@@ -49,9 +43,11 @@ function quotaLabel(
 function AccountPlanQuotas({ quotas }: { quotas: PlanQuota[] }) {
   const { t, i18n } = useTranslation()
   const credits = t("subscription.credits")
-  const rows = [...quotas].sort((left, right) =>
-    localizedName(left, i18n.language).localeCompare(localizedName(right, i18n.language), i18n.language),
-  )
+  const rows = quotas
+    .filter((quota) => quota.code !== LLM_BALANCE_CODE)
+    .sort((left, right) =>
+      localizedName(left, i18n.language).localeCompare(localizedName(right, i18n.language), i18n.language),
+    )
   if (rows.length === 0) return null
 
   return (
@@ -69,6 +65,81 @@ function AccountPlanQuotas({ quotas }: { quotas: PlanQuota[] }) {
         )
       })}
     </dl>
+  )
+}
+
+function PlanColumn({
+  plan,
+  current,
+  custom,
+  kind,
+  quotasLoading,
+  quotasError,
+  onQuotasRetry,
+}: {
+  plan: PlanResponse & { quotas?: PlanQuota[] }
+  current: boolean
+  custom: boolean
+  kind: "account" | "project"
+  quotasLoading?: boolean
+  quotasError?: boolean
+  onQuotasRetry?: () => void
+}) {
+  const { t, i18n } = useTranslation()
+  const description = localizedDescription(plan, i18n.language)
+  const showQuotas = custom || kind === "account"
+
+  return (
+    <td
+      aria-current={current ? "true" : undefined}
+      className="w-max max-w-72 align-top rounded-lg border border-border p-4"
+    >
+      <div className={cn("flex max-w-64 flex-col gap-4", kind === "account" ? "w-64" : "w-max")}>
+        <div className={cn("flex flex-col gap-4", kind === "account" && "min-h-24")}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base font-semibold text-foreground">
+              {localizedName(plan, i18n.language)}
+            </span>
+            {current ? <Badge variant="active">{t("subscription.current")}</Badge> : null}
+            {!plan.is_available ? (
+              <Badge variant="destructive">{t("subscription.legacyPlan")}</Badge>
+            ) : null}
+          </div>
+          {custom ? (
+            <p className="text-sm text-muted-foreground">{t("subscription.customNotListed")}</p>
+          ) : null}
+          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        {showQuotas ? (
+          custom && quotasLoading ? (
+            <div aria-busy="true" className="flex flex-col gap-1.5 border-t border-border pt-3">
+              <div className="h-4 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+            </div>
+          ) : custom && quotasError ? (
+            <div className="flex flex-col items-start gap-2 border-t border-border pt-3">
+              <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
+              <Button type="button" variant="outline" onClick={onQuotasRetry}>
+                {t("subscription.retry")}
+              </Button>
+            </div>
+          ) : (
+            <AccountPlanQuotas quotas={plan.quotas ?? []} />
+          )
+        ) : null}
+        {current ? null : (
+          <span className="relative mt-1 inline-flex w-full">
+            <Button type="button" className="w-full" disabled>
+              {t("subscription.select")}
+              <span className="sr-only">, {t("subscription.soon")}</span>
+            </Button>
+            <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
+              {t("subscription.soon")}
+            </Badge>
+          </span>
+        )}
+      </div>
+    </td>
   )
 }
 
@@ -111,7 +182,12 @@ export function PlansPage() {
   const accountPlanQuery = useAccountPlan()
   const projectPlanQuery = useProjectPlan(projectId)
   const currentQuery = kind === "project" ? projectPlanQuery : accountPlanQuery
-  const showAssembling = useMinimumVisible(plansQuery.isPending, ASSEMBLY_MIN_VISIBLE_MS)
+  // isLoading stays false when the project query is disabled (no ?project=).
+  // isPending would stay true for that disabled query and hold the skeleton forever.
+  const showAssembling = useMinimumVisible(
+    plansQuery.isPending || currentQuery.isLoading,
+    ASSEMBLY_MIN_VISIBLE_MS,
+  )
 
   const listedPlans = (plansQuery.data?.plans ?? [])
     .filter((plan) => plan.kind === kind)
@@ -122,10 +198,15 @@ export function PlansPage() {
       ),
     )
 
-  const currentId = currentQuery.data?.id
-  const currentIsListed =
-    currentId == null || listedPlans.some((plan) => plan.id === currentId)
-  const showCustomNote = currentQuery.isSuccess && currentId != null && !currentIsListed
+  const currentPlan = currentQuery.isSuccess ? currentQuery.data : undefined
+  const customPlan =
+    plansQuery.isSuccess &&
+    currentPlan != null &&
+    !listedPlans.some((plan) => plan.id === currentPlan.id)
+      ? currentPlan
+      : null
+  const customQuotasQuery = usePlan(customPlan?.id ?? null)
+  const customPlanWithQuotas = customQuotasQuery.data ?? customPlan
 
   return (
     <PageStagger className="flex flex-col gap-6">
@@ -154,82 +235,51 @@ export function PlansPage() {
       <SlideIn>
         {showAssembling ? (
           <AssemblingPlans />
-        ) : plansQuery.isError ? (
+        ) : plansQuery.isError || currentQuery.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
             <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
-            <Button type="button" variant="outline" onClick={() => void plansQuery.refetch()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (plansQuery.isError) void plansQuery.refetch()
+                if (currentQuery.isError) void currentQuery.refetch()
+              }}
+            >
               {t("subscription.retry")}
             </Button>
           </div>
-        ) : listedPlans.length === 0 ? (
+        ) : listedPlans.length === 0 && customPlan == null ? (
           <div className="flex flex-col gap-2 rounded-lg border border-border p-6">
             <p className="text-sm text-muted-foreground">{t("subscription.emptyPlans")}</p>
-            {showCustomNote ? (
-              <p className="text-sm text-muted-foreground">{t("subscription.customNotListed")}</p>
-            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {showCustomNote ? (
-              <p className="text-sm text-muted-foreground">{t("subscription.customNotListed")}</p>
-            ) : null}
             {/* TODO: BACKEND_TODO — plan price is not on the catalog response. */}
             <div className="overflow-x-auto p-1">
               <table className="w-max border-separate border-spacing-3 text-left">
                 <tbody>
                   <tr>
-                    {listedPlans.map((plan) => {
-                      const current = plan.id === currentId
-                      const description = localizedDescription(plan, i18n.language)
-                      return (
-                        <td
-                          key={plan.id}
-                          aria-current={current ? "true" : undefined}
-                          className="w-max max-w-72 align-top rounded-lg border border-border p-4"
-                        >
-                          <div
-                            className={cn(
-                              "flex max-w-64 flex-col gap-4",
-                              kind === "account" ? "w-64" : "w-max",
-                            )}
-                          >
-                            <div className={cn("flex flex-col gap-4", kind === "account" && "min-h-24")}>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-base font-semibold text-foreground">
-                                  {localizedName(plan, i18n.language)}
-                                </span>
-                                {current ? (
-                                  <Badge variant="active">{t("subscription.current")}</Badge>
-                                ) : null}
-                                {!plan.is_available ? (
-                                  <Badge variant="destructive">{t("subscription.legacyPlan")}</Badge>
-                                ) : null}
-                              </div>
-                              {description ? (
-                                <p className="text-sm text-muted-foreground">{description}</p>
-                              ) : null}
-                            </div>
-                            {kind === "account" ? (
-                              <AccountPlanQuotas quotas={plan.quotas ?? []} />
-                            ) : null}
-                            {current ? null : (
-                              <span className="relative mt-1 inline-flex w-full">
-                                <Button type="button" className="w-full" disabled>
-                                  {t("subscription.select")}
-                                  <span className="sr-only">, {t("subscription.soon")}</span>
-                                </Button>
-                                <Badge
-                                  variant="inactive"
-                                  className="pointer-events-none absolute -right-2 -top-2 px-1.5"
-                                >
-                                  {t("subscription.soon")}
-                                </Badge>
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      )
-                    })}
+                    {customPlanWithQuotas ? (
+                      <PlanColumn
+                        plan={customPlanWithQuotas}
+                        current
+                        custom
+                        kind={kind}
+                        quotasLoading={customQuotasQuery.isLoading}
+                        quotasError={customQuotasQuery.isError}
+                        onQuotasRetry={() => void customQuotasQuery.refetch()}
+                      />
+                    ) : null}
+                    {listedPlans.map((plan) => (
+                      <PlanColumn
+                        key={plan.id}
+                        plan={plan}
+                        current={plan.id === currentPlan?.id}
+                        custom={false}
+                        kind={kind}
+                      />
+                    ))}
                   </tr>
                 </tbody>
               </table>
