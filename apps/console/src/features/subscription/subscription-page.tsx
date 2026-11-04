@@ -1,187 +1,158 @@
+import { useState } from "react"
+import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { Button } from "@sb0rka/ui"
+import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
+import { useProjects } from "@/features/projects/hooks"
+import { isNotFound } from "./api"
+import { ASSEMBLY_MIN_VISIBLE_MS, AssemblingLoader, useMinimumVisible } from "./components/assembling.tsx"
+import { PlanHeroCard } from "./components/plan-hero-card"
+import { ProjectPlanUsageCard } from "./components/project-plan-usage-card"
+import { ProjectQuotasCard } from "./components/project-quotas-card"
 import {
-  Badge,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@sb0rka/ui"
-import { ApiError } from "@/lib/api-client"
-import { planDescription, planTitle } from "./api"
-import { useCurrentPlan, usePlans, useSubscriptionUsage } from "./hooks"
-import type { SubscriptionUsage } from "./hooks"
-import {
-  PageStagger,
-  SlideIn,
-  StaggerGroup,
-} from "@/components/motion/page-entrance"
-import {
-  MobilePlanCard,
-  MobileUsageCard,
-} from "./components/mobile-usage-card"
+  useAccountBalance,
+  useAccountPlan,
+  useInitializeAccount,
+  useProjectsQuotaOverview,
+} from "./hooks"
 
-interface UsageItem {
-  labelKey: string
-  usageKey: keyof SubscriptionUsage
-}
-
-const USAGE_ITEMS: UsageItem[] = [
-  { labelKey: "subscription.limits.projects", usageKey: "projects" },
-  { labelKey: "subscription.limits.databases", usageKey: "databases" },
-  { labelKey: "subscription.limits.secrets", usageKey: "secrets" },
-]
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message || fallback
-  if (error instanceof Error) return error.message || fallback
-  return fallback
+function PageTitle() {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-1">
+      <h1 className="text-2xl font-semibold text-foreground">{t("subscription.title")}</h1>
+      <p className="text-sm text-muted-foreground">{t("subscription.description")}</p>
+    </div>
+  )
 }
 
 export function SubscriptionPage() {
   const { t, i18n } = useTranslation()
-  const currentPlanQuery = useCurrentPlan()
-  const plansQuery = usePlans()
-  const usageQuery = useSubscriptionUsage()
+  const planQuery = useAccountPlan()
+  const balanceQuery = useAccountBalance()
+  const projectsQuery = useProjects()
+  const projects = projectsQuery.data?.projects ?? []
+  const overview = useProjectsQuotaOverview(projects)
+  const initialize = useInitializeAccount()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const showPlanAssembling = useMinimumVisible(planQuery.isPending, ASSEMBLY_MIN_VISIBLE_MS)
+  const showProjectsAssembling = useMinimumVisible(projectsQuery.isPending, ASSEMBLY_MIN_VISIBLE_MS)
 
-  const currentPlan = currentPlanQuery.data
-  const plans = plansQuery.data?.plans ?? []
-  const usage = usageQuery.data
-  const isLoading = currentPlanQuery.isLoading || plansQuery.isLoading || usageQuery.isLoading
-  const error = currentPlanQuery.error ?? plansQuery.error
+  const ordered = [...overview].sort((left, right) => {
+    if (left.nearLimit !== right.nearLimit) return left.nearLimit ? -1 : 1
+    return left.project.name.localeCompare(right.project.name, i18n.language)
+  })
+  const selected =
+    ordered.find((view) => view.project.public_id === selectedId) ?? ordered[0] ?? null
 
-  if (isLoading) {
+  function selectProject(projectId: string) {
+    setSelectedId(projectId)
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+    document.getElementById("project-plan-usage")?.scrollIntoView({ behavior, block: "nearest" })
+  }
+
+  if (showPlanAssembling) {
     return (
-      <div className="flex flex-1 items-center justify-center min-h-[500px]">
-        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      <div className="flex flex-col gap-4">
+        <PageTitle />
+        <AssemblingLoader />
       </div>
     )
   }
 
-  if (error || !currentPlan) {
+  if (isNotFound(planQuery.error)) {
     return (
-      <div className="flex flex-1 items-center justify-center min-h-[500px]">
-        <p className="text-sm text-destructive">
-          {getErrorMessage(error, t("subscription.loadError"))}
-        </p>
+      <div className="flex flex-col gap-4">
+        <PageTitle />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border px-6 py-16 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">{t("subscription.notInitializedTitle")}</h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            {t("subscription.notInitializedDescription")}
+          </p>
+          <Button
+            type="button"
+            className="mt-2"
+            disabled={initialize.isPending}
+            onClick={() => initialize.mutate()}
+          >
+            {initialize.isPending ? t("subscription.initializing") : t("subscription.initialize")}
+          </Button>
+          {initialize.isError ? (
+            <p className="text-sm text-destructive">{t("subscription.initializeError")}</p>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
+  if (planQuery.isError || !planQuery.data) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageTitle />
+        <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
+          <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
+          <Button type="button" variant="outline" onClick={() => void planQuery.refetch()}>
+            {t("subscription.retry")}
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <PageStagger className="flex flex-col gap-6 text-[var(--subscription-heading)] !bg-transparent">
-      <SlideIn className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold leading-normal text-[var(--subscription-heading)]">
-            {t("subscription.title")}
-          </h1>
-          <Badge className="mt-1 shrink-0 rounded-full border border-[var(--subscription-border)] bg-[var(--plan-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--plan-badge-fg)]">
-            {planTitle(currentPlan, i18n.language)}
-          </Badge>
+    <PageStagger className="flex flex-col gap-6">
+      <SlideIn>
+        <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-center lg:justify-between">
+          <PageTitle />
+          <PlanHeroCard
+            plan={planQuery.data}
+            balance={balanceQuery.data}
+            balanceLoading={balanceQuery.isPending}
+            balanceError={balanceQuery.isError}
+            onBalanceRetry={() => void balanceQuery.refetch()}
+          />
         </div>
-        <p className="text-sm text-[var(--subscription-muted)]">
-          {t("subscription.description")}
-        </p>
       </SlideIn>
-
       <SlideIn>
-        <StaggerGroup className="grid gap-3 md:hidden">
-          {USAGE_ITEMS.map((item) => (
-            <SlideIn key={item.usageKey}>
-              <MobileUsageCard
-                label={t(item.labelKey)}
-                used={usage?.[item.usageKey]}
-                usedLabel={t("subscription.used")}
-              />
-            </SlideIn>
-          ))}
-        </StaggerGroup>
-        <StaggerGroup className="hidden flex-wrap items-start gap-4 md:flex">
-          {USAGE_ITEMS.map((item) => {
-            const used = usage?.[item.usageKey]
-
-            return (
-              <SlideIn
-                key={item.usageKey}
-                className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-[var(--subscription-border)] !bg-transparent p-4"
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold">{t("subscription.projectsTitle")}</h2>
+          {showProjectsAssembling ? (
+            <AssemblingLoader className="py-10" />
+          ) : projectsQuery.isError ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
+              <p className="text-sm text-destructive">{t("subscription.projectsError")}</p>
+              <Button type="button" variant="outline" onClick={() => void projectsQuery.refetch()}>
+                {t("subscription.retry")}
+              </Button>
+            </div>
+          ) : ordered.length === 0 ? (
+            <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
+              <p className="text-sm text-muted-foreground">{t("subscription.projectsEmpty")}</p>
+              <Button asChild>
+                <Link to="/projects">{t("subscription.projectsEmptyAction")}</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex w-full min-w-0 flex-col items-stretch gap-4 md:flex-row md:flex-wrap md:items-start">
+              <ul
+                role="listbox"
+                aria-label={t("subscription.projectsTitle")}
+                className="grid w-full min-w-0 grid-cols-1 gap-3 md:w-[min(100%,28rem)] md:shrink-0"
               >
-                <p className="text-sm text-[var(--subscription-muted)]">
-                  {t(item.labelKey)}
-                </p>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--subscription-heading)]">
-                  {typeof used === "number" ? used : "—"}
-                </p>
-                <p className="mt-1 text-sm text-[var(--subscription-muted)]">
-                  {t("subscription.used")}
-                </p>
-              </SlideIn>
-            )
-          })}
-        </StaggerGroup>
-      </SlideIn>
-
-      <SlideIn>
-        <Card className="border border-[var(--subscription-border)] !bg-transparent shadow-none text-[var(--subscription-heading)]">
-          <CardHeader>
-            <CardTitle className="text-xl text-[var(--subscription-heading)]">
-              {t("subscription.availablePlans")}
-            </CardTitle>
-            <CardDescription className="text-[var(--subscription-muted)]">
-              {t("subscription.comparePlans")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-start gap-4">
-            {plans.length === 0 ? (
-              <p className="w-full text-sm text-[var(--subscription-muted)]">
-                {t("subscription.emptyPlans")}
-              </p>
-            ) : (
-              <>
-                <StaggerGroup className="grid w-full gap-3 md:hidden">
-                  {plans.map((plan) => (
-                    <SlideIn key={plan.id}>
-                      <MobilePlanCard
-                        name={planTitle(plan, i18n.language)}
-                        description={planDescription(plan, i18n.language)}
-                        isCurrent={plan.id === currentPlan.id}
-                        currentLabel={t("subscription.current")}
-                        fallbackDescription={t("subscription.noPlanDescription")}
-                      />
-                    </SlideIn>
-                  ))}
-                </StaggerGroup>
-                <StaggerGroup className="hidden flex-wrap items-start gap-4 md:flex">
-                  {plans.map((plan) => {
-                    const isCurrent = plan.id === currentPlan.id
-                    return (
-                      <SlideIn
-                        key={plan.id}
-                        className="flex min-w-[240px] max-w-sm shrink-0 flex-col rounded-lg border border-[var(--subscription-border)] !bg-transparent p-5"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--subscription-heading)]">
-                              {planTitle(plan, i18n.language)}
-                            </h3>
-                            <p className="mt-1 line-clamp-2 text-sm text-[var(--subscription-muted)]">
-                              {planDescription(plan, i18n.language) || t("subscription.noPlanDescription")}
-                            </p>
-                          </div>
-                          {isCurrent ? (
-                            <Badge className="rounded-md border border-[var(--subscription-accent)] bg-[var(--subscription-accent)] px-3 py-1 font-medium text-[var(--subscription-accent-fg)] hover:bg-[var(--subscription-accent)]">
-                              {t("subscription.current")}
-                            </Badge>
-                          ) : null}
-                        </div>
-
-                      </SlideIn>
-                    )
-                  })}
-                </StaggerGroup>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                {ordered.map((view) => (
+                  <li key={view.project.public_id} role="presentation" className="min-w-0">
+                    <ProjectQuotasCard
+                      view={view}
+                      selected={selected?.project.public_id === view.project.public_id}
+                      onSelect={() => selectProject(view.project.public_id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+              {selected ? <ProjectPlanUsageCard view={selected} /> : null}
+            </div>
+          )}
+        </section>
       </SlideIn>
     </PageStagger>
   )
