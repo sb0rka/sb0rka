@@ -194,11 +194,11 @@ export function SubscriptionPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex w-full min-w-0 flex-col items-stretch gap-4 md:flex-row md:items-start">
+            <div className="flex w-full min-w-0 flex-col items-stretch gap-4 md:flex-row md:flex-wrap md:items-start">
               <ul
                 role="listbox"
                 aria-label={t("subscription.projectsTitle")}
-                className="grid min-w-0 flex-1 grid-cols-1 gap-3"
+                className="grid w-full min-w-0 grid-cols-1 gap-3 md:w-[min(100%,28rem)] md:shrink-0"
               >
                 {ordered.map((view) => (
                   <li key={view.project.public_id} role="presentation" className="min-w-0">

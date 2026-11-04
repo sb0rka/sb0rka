@@ -8,7 +8,6 @@ import {
   localizedDescription,
   localizedName,
   quotaTableBand,
-  shortQuotaName,
   usageTableRows,
   usesTelemetryPeak,
   windowLabelKey,
@@ -74,15 +73,7 @@ function UsageDial({ ratio, nearLimit }: { ratio: number | null; nearLimit: bool
 function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boolean }) {
   const { t, i18n } = useTranslation()
   const credits = t("subscription.credits")
-  const quotaName = shortQuotaName(row, i18n.language, t, "quotaLabel")
-  const window = windowLabelKey(row.definition.window)
-  const name = window
-    ? t("subscription.quotaWithWindow", {
-        name: quotaName,
-        window: t(`subscription.window.${window}`),
-      })
-    : quotaName
-  const full = localizedName(row.definition, i18n.language)
+  const name = localizedName(row.definition, i18n.language)
   const description = localizedDescription(row.definition, i18n.language)
   const label = usageLabel(row, credits, t)
   const showPeak =
@@ -91,12 +82,12 @@ function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boole
   return (
     <div
       className={cn(
-        "flex items-center gap-3 border-t border-border px-6 py-3.5",
+        "flex items-start gap-3 border-t border-border px-6 py-3.5",
         separated && "mt-2",
       )}
     >
       <UsageDial ratio={row.ratio} nearLimit={row.nearLimit} />
-      <span className="min-w-0 flex-1 truncate text-sm" title={description ?? full}>
+      <span className="min-w-0 flex-1 break-words text-sm" title={description}>
         {name}
       </span>
       <span className="flex shrink-0 items-baseline gap-2">
@@ -123,7 +114,7 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
   const showCycle = rows.some((row) => windowLabelKey(row.definition.window) === "month")
 
   return (
-    <Card id="project-plan-usage" className="w-full shrink-0 scroll-mt-4 md:sticky md:top-4 md:w-[380px]">
+    <Card id="project-plan-usage" className="w-full shrink-0 scroll-mt-4 md:sticky md:top-4 md:w-[min(100%,36rem)]">
       <div className="flex items-center justify-between gap-3 px-6 py-5">
         <div className="min-w-0">
           <h3 className="truncate text-lg font-semibold text-foreground">{view.project.name}</h3>

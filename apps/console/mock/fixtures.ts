@@ -129,10 +129,12 @@ export const MOCK_PROJECT_QUOTAS: Record<string, ReturnType<typeof quota>[]> = {
     quota("databases", "Databases", "Базы данных", "snapshot", "count", null, 5),
     quota("storage", "Storage", "Хранилище", "snapshot", "bytes", null, 5 * GIB),
     quota("requests", "Requests", "Запросы", "periodic", "count", "hour", 10_000),
+    quota("secrets.versions.count", "Secret versions", "Версии секрета", "snapshot", "count", null, 40),
   ],
   "proj-beta": [
     quota("databases", "Databases", "Базы данных", "snapshot", "count", null, 3),
     quota("storage", "Storage", "Хранилище", "snapshot", "bytes", null, GIB, 256 * 1024 * 1024),
+    quota("secrets.versions.count", "Secret versions", "Версии секрета", "snapshot", "count", null, 40),
   ],
 }
 
@@ -155,6 +157,7 @@ export const MOCK_PROJECT_USAGE: Record<string, { id: string; public_id: string;
         ],
       },
       requests: { used: 1200, status: "available", unit: "count", observed_at: OBSERVED, aggregation: "max" },
+      "secrets.versions.count": { used: 40, status: "available", unit: "count", observed_at: OBSERVED },
     },
   },
   "proj-beta": {
@@ -163,6 +166,7 @@ export const MOCK_PROJECT_USAGE: Record<string, { id: string; public_id: string;
     usage: {
       databases: { used: 1, status: "available", unit: "count", observed_at: OBSERVED },
       storage: { used: Math.round(0.2 * GIB), status: "available", unit: "bytes", observed_at: OBSERVED },
+      "secrets.versions.count": { used: 40, status: "available", unit: "count", observed_at: OBSERVED },
     },
   },
 }
