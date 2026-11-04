@@ -18,6 +18,9 @@ import { DatabaseQueryPage } from "@/features/projects/database-query-page"
 import { MetricDetailPage } from "@/features/projects/metric-detail-page"
 import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
+import { OrganizationsPage } from "@/features/organizations/organizations-page"
+import { OrganizationDetailPage } from "@/features/organizations/organization-detail-page"
+import { AcceptOrganizationInvitePage } from "@/features/organizations/accept-invite-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
 import { MobileDataExplorerPage } from "./features/projects/mobile-data-explorer-page"
@@ -51,6 +54,12 @@ export default function App() {
                         />
                         <Route element={<AppLayout />}>
                           <Route path="/projects" element={<ProjectsPage />} />
+                          <Route path="/organizations" element={<OrganizationsPage />} />
+                          <Route
+                            path="/organizations/:orgId/invites/accept"
+                            element={<AcceptOrganizationInvitePage />}
+                          />
+                          <Route path="/organizations/:orgId" element={<OrganizationDetailPage />} />
                           <Route path="/subscription" element={<SubscriptionPage />} />
                           <Route path="/profile" element={<ProfilePage />} />
                           <Route path="/projects/:id" element={<ProjectDetailPage />} />

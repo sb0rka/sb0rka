@@ -114,7 +114,10 @@ export async function apiRequest<T = unknown>(
 
   if (res.status === 204) return undefined as T
 
-  return res.json()
+  // Some auth writes, such as creating an organization invite, return 200 with an empty body.
+  const text = await res.text()
+  if (text.trim() === "") return undefined as T
+  return JSON.parse(text) as T
 }
 
 export async function apiRequestText(opts: RequestOptions): Promise<string> {

@@ -20,6 +20,7 @@ export interface ProjectListResponse {
 export interface CreateProjectRequest {
   name: string
   description: string
+  owner_subject_id?: string
 }
 
 export interface UpdateProjectRequest {

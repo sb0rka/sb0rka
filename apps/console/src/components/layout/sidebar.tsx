@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  Building2,
   Home,
   RussianRuble,
   FileText,
@@ -28,6 +29,7 @@ import {
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
+  { labelKey: "nav.organizations", icon: Building2, href: "/organizations" },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
@@ -96,7 +98,10 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
               item.href === "/projects"
                 ? location.pathname === "/projects" ||
                   location.pathname.startsWith("/projects/")
-                : location.pathname === item.href
+                : item.href === "/organizations"
+                  ? location.pathname === "/organizations" ||
+                    location.pathname.startsWith("/organizations/")
+                  : location.pathname === item.href
             return (
               <Link
                 key={item.href}
