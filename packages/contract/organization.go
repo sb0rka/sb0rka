@@ -55,15 +55,17 @@ type OrganizationMemberListResponse struct {
 // Status is one of: pending, accepted, expired, revoked.
 // Email/Username may be absent if the invited user was removed.
 type OrganizationMemberInviteResponse struct {
-	ID              string     `json:"id"`
-	OrganizationID  string     `json:"organization_id"`
-	Role            string     `json:"role"`
-	Status          string     `json:"status"`
-	Email           *string    `json:"email,omitempty"`
-	Username        *string    `json:"username,omitempty"`
-	CreatedByUserID *string    `json:"created_by_user_id,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
+	ID                string     `json:"id"`
+	OrganizationID    string     `json:"organization_id"`
+	OrganizationName  string     `json:"organization_name"`
+	Role              string     `json:"role"`
+	Status            string     `json:"status"`
+	Email             *string    `json:"email,omitempty"`
+	Username          *string    `json:"username,omitempty"`
+	CreatedByUserID   *string    `json:"created_by_user_id,omitempty"`
+	CreatedByUsername *string    `json:"created_by_username,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
 }
 
 type OrganizationMemberInviteListResponse struct {
