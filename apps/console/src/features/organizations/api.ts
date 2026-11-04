@@ -43,11 +43,13 @@ export interface UpdateOrganizationMemberRequest {
 export interface OrganizationMemberInviteResponse {
   id: string
   organization_id: string
+  organization_name?: string
   role: MemberRole | string
   status: "pending" | "accepted" | "expired" | "revoked" | string
   email?: string
   username?: string
   created_by_user_id?: string
+  created_by_username?: string
   created_at: string
   expires_at?: string
 }

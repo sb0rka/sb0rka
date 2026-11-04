@@ -259,10 +259,11 @@ const resources = {
           fallbackError: "Не удалось создать организацию",
         },
         accept: {
-          title: "Приглашение в организацию",
-          description: "Примите приглашение, чтобы стать участником организации",
-          role: "Роль: {{role}}",
-          expires: "Действует до {{date}}",
+          invitedBy:
+            "Пользователь <name>{{name}}</name> приглашает вас в организацию <org>{{organization}}</org> в роли {{role}}.",
+          invitedByUnknown:
+            "Вас приглашают в организацию <org>{{organization}}</org> в роли {{role}}.",
+          expires: "Приглашение истекает {{date}}.",
           notFound: "Активного приглашения нет. Оно могло истечь, быть отозвано или уже принято.",
           fallbackError: "Не удалось принять приглашение",
         },
@@ -834,10 +835,11 @@ const resources = {
           fallbackError: "Unable to create organization",
         },
         accept: {
-          title: "Organization invitation",
-          description: "Accept the invitation to join this organization",
-          role: "Role: {{role}}",
-          expires: "Valid until {{date}}",
+          invitedBy:
+            "User <name>{{name}}</name> invites you to the organization <org>{{organization}}</org> as {{role}}.",
+          invitedByUnknown:
+            "You are invited to the organization <org>{{organization}}</org> as {{role}}.",
+          expires: "The invitation expires {{date}}.",
           notFound: "There is no active invitation. It may have expired, been revoked, or already been accepted.",
           fallbackError: "Unable to accept the invitation",
         },

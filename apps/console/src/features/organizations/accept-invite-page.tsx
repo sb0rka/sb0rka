@@ -1,14 +1,7 @@
 import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { useTranslation } from "react-i18next"
-import {
-  Button,
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@sb0rka/ui"
+import { Trans, useTranslation } from "react-i18next"
+import { Button, Card, CardFooter, CardHeader } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import { useAcceptOrganizationInvite, useCurrentOrganizationInvite } from "./hooks"
 import { isMemberRole } from "./roles"
@@ -17,7 +10,10 @@ function formatExpiry(value: string | undefined, locale: string): string | null 
   if (!value) return null
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date)
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date)
 }
 
 export function AcceptOrganizationInvitePage() {
@@ -28,9 +24,12 @@ export function AcceptOrganizationInvitePage() {
   const acceptInvite = useAcceptOrganizationInvite(orgId)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const invite = inviteQuery.data
-  const expiry = formatExpiry(invite?.expires_at, i18n.language)
   const roleLabel =
     invite && isMemberRole(invite.role) ? t(`roles.${invite.role}`) : invite?.role
+  const organizationName = invite?.organization_name?.trim() || t("organizations.fallback")
+  const inviterName = invite?.created_by_username?.trim()
+  const expiry = formatExpiry(invite?.expires_at, i18n.language)
+  const expiryText = expiry ? t("organizations.accept.expires", { date: expiry }) : null
 
   async function handleAccept() {
     setErrorMessage(null)
@@ -53,33 +52,40 @@ export function AcceptOrganizationInvitePage() {
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col py-10">
       <Card className="shadow-sm">
-        <CardHeader className="gap-1.5">
-          <CardTitle className="text-xl font-semibold tracking-tight">
-            {t("organizations.accept.title")}
-          </CardTitle>
-          <CardDescription>{t("organizations.accept.description")}</CardDescription>
-        </CardHeader>
-        <div className="flex flex-col gap-2 px-6 pb-6 text-sm">
+        <CardHeader>
           {inviteQuery.isLoading ? (
-            <p className="text-muted-foreground">{t("common.loading")}</p>
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : inviteQuery.isError &&
             inviteQuery.error instanceof ApiError &&
             inviteQuery.error.status === 404 ? (
-            <p className="text-muted-foreground">{t("organizations.accept.notFound")}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {t("organizations.accept.notFound")}
+            </p>
           ) : inviteQuery.isError ? (
-            <p className="text-destructive">{t("organizations.loadError")}</p>
+            <p className="text-sm text-destructive">{t("organizations.loadError")}</p>
           ) : invite ? (
-            <>
-              <p className="text-foreground">{t("organizations.accept.role", { role: roleLabel })}</p>
-              {expiry ? (
-                <p className="text-muted-foreground">
-                  {t("organizations.accept.expires", { date: expiry })}
-                </p>
-              ) : null}
-            </>
+            <p className="text-base leading-relaxed text-muted-foreground">
+              <Trans
+                i18nKey={
+                  inviterName
+                    ? "organizations.accept.invitedBy"
+                    : "organizations.accept.invitedByUnknown"
+                }
+                values={{
+                  name: inviterName,
+                  organization: organizationName,
+                  role: roleLabel,
+                }}
+                components={{
+                  name: <strong className="font-bold text-foreground" />,
+                  org: <strong className="font-bold text-foreground" />,
+                }}
+              />
+              {expiryText ? <> {expiryText}</> : null}
+            </p>
           ) : null}
-          {errorMessage ? <p className="text-destructive">{errorMessage}</p> : null}
-        </div>
+          {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+        </CardHeader>
         <CardFooter className="flex gap-2">
           {invite ? (
             <Button disabled={acceptInvite.isPending} onClick={() => void handleAccept()}>
