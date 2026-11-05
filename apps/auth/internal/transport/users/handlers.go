@@ -84,6 +84,11 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	postInsert := func(ctx context.Context, tx pgx.Tx) error {
+		if h.deps.TrustEmailOnRegister {
+			if err := h.deps.Database.StampEmailVerified(ctx, tx, userID); err != nil {
+				return err
+			}
+		}
 		return h.deps.InviteHook.Provision(ctx, tx, regReq, userID)
 	}
 	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
@@ -94,6 +99,11 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		}
 		coretransport.WriteHookError(w, err, h.deps.Log, "invite_hook_failed")
 		return
+	}
+	if h.deps.TrustEmailOnRegister {
+		if verified, getErr := h.deps.Database.GetUser(r.Context(), userID.String(), "", ""); getErr == nil {
+			user = verified
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

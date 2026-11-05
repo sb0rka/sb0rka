@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS project_members (
     subject_id UUID NOT NULL,
 
     role VARCHAR(8) NOT NULL
-        CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
+        CHECK (role IN ('owner', 'admin', 'editor', 'viewer', 'agent')),
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
@@ -478,6 +478,21 @@ CREATE INDEX IF NOT EXISTS ix_dbi_vrf_pwd_secret_id_version
 
 CREATE INDEX IF NOT EXISTS ix_dbi_vrf_project_desired_state
     ON dbi_verifiers (project_id, password_desired_state);
+
+CREATE TABLE IF NOT EXISTS secret_agent_keys (
+    project_id UUID NOT NULL,
+    secret_id UUID NOT NULL,
+    agent_subject_id UUID NOT NULL,
+
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+
+    CONSTRAINT pk_secret_agent_keys PRIMARY KEY (secret_id, agent_subject_id),
+    CONSTRAINT fk_secret_agent_keys_secret_project FOREIGN KEY (secret_id, project_id)
+        REFERENCES secrets (resource_id, project_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ix_secret_agent_keys_project_agent
+    ON secret_agent_keys (project_id, agent_subject_id);
 
 -- TAGS
 

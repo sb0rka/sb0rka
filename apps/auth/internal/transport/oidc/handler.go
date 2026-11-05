@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -16,9 +17,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	"github.com/sb0rka/sb0rka/packages/contract"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
@@ -35,7 +39,12 @@ type Handler struct {
 }
 
 // NewHandler snapshots validated configuration and assembles the OIDC protocol dependencies.
-func NewHandler(database db.Database, authConfig config.AuthConfig, cfg config.OIDCConfig, logger *slog.Logger) *Handler {
+func NewHandler(
+	database db.Database,
+	authConfig config.AuthConfig,
+	cfg config.OIDCConfig,
+	logger *slog.Logger,
+) *Handler {
 	cfg = cfg.Clone()
 	return &Handler{
 		config:      cfg,
@@ -49,6 +58,11 @@ func NewHandler(database db.Database, authConfig config.AuthConfig, cfg config.O
 }
 
 // Discovery publishes provider capabilities and endpoint locations for OIDC clients.
+// @Summary Discover the platform issuer and OIDC endpoints
+// @Tags oauth2
+// @Produce json
+// @Success 200 {object} contract.OIDCDiscoveryResponse
+// @Router /.well-known/openid-configuration [get]
 func (h *Handler) Discovery(w http.ResponseWriter, _ *http.Request) {
 	setNoStore(w.Header())
 	w.Header().Set("Content-Type", "application/json")
@@ -56,17 +70,67 @@ func (h *Handler) Discovery(w http.ResponseWriter, _ *http.Request) {
 	_ = json.NewEncoder(w).Encode(ToOIDCDiscoveryResponse(h.config.Issuer))
 }
 
-// JWKS publishes the RSA public key clients need to verify ID tokens.
+// JWKS publishes the public signing keys for the separate access and ID-token profiles.
+// @Summary Read access JWT and OIDC ID-token public keys
+// @Tags oauth2
+// @Produce json
+// @Success 200 {object} contract.OIDCJWKSResponse
+// @Router /oauth2/jwks [get]
 func (h *Handler) JWKS(w http.ResponseWriter, _ *http.Request) {
 	setNoStore(w.Header())
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	_ = json.NewEncoder(w).Encode(ToOIDCJWKSResponse(&h.config.SigningPrivateKey.PublicKey, h.config.SigningKeyID))
+	doc := ToOIDCJWKSResponse(&h.config.SigningPrivateKey.PublicKey, h.config.SigningKeyID)
+	doc.Keys = append(
+		doc.Keys,
+		contract.OIDCJWKResponse{
+			KTY: "OKP",
+			CRV: "Ed25519",
+			Alg: "EdDSA",
+			Use: "sig",
+			KID: h.authConfig.AccessTokenKid,
+			X:   base64.RawURLEncoding.EncodeToString(h.authConfig.AccessTokenPrivateKey.Public().(ed25519.PublicKey)),
+		},
+	)
+	if len(h.config.PreviousAccessJWKS) > 0 {
+		var previous contract.OIDCJWKSResponse
+		if json.Unmarshal(h.config.PreviousAccessJWKS, &previous) != nil {
+			http.Error(w, "invalid previous keys", http.StatusInternalServerError)
+			return
+		}
+		for _, key := range previous.Keys {
+			if key.KTY == "OKP" && key.CRV == "Ed25519" && key.Alg == "EdDSA" && key.Use == "sig" &&
+				key.KID != h.authConfig.AccessTokenKid {
+				doc.Keys = append(doc.Keys, key)
+			}
+		}
+	}
+	_ = json.NewEncoder(w).Encode(doc)
 }
 
 // Authorize validates and stores a browser authorization request, then continues or starts user login.
+// @Summary Start OIDC login for a registered client
+// @Description Redirect URI and scopes must match the client registry. Access audience is fixed by the client profile; login creates no integration grants.
+// @Tags oauth2
+// @Param client_id query string true "Registered login client"
+// @Param response_type query string true "code"
+// @Param redirect_uri query string true "Exact registered callback URI"
+// @Param scope query string true "Allowed OIDC scopes including openid"
+// @Param state query string true "Client request binding"
+// @Param nonce query string true "ID-token replay protection"
+// @Param code_challenge query string true "PKCE S256 challenge"
+// @Param code_challenge_method query string true "S256"
+// @Success 303 "Redirect to login or the registered callback"
+// @Failure 400 {object} contract.OAuthErrorResponse
+// @Failure 503 {string} string
+// @Router /oauth2/authorize [get]
 func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
-	request, protocolErr, canRedirect := validateAuthorizationRequest(r.URL.RawQuery, h.config)
+	client, exists := h.config.Registry.Client(r.URL.Query().Get("client_id"))
+	if !exists || !h.clientGrantAllowed(client.ClientID, "authorization_code") {
+		h.writeOAuthError(w, newProtocolError("unauthorized_client", http.StatusBadRequest))
+		return
+	}
+	request, protocolErr, canRedirect := validateAuthorizationRequest(r.URL.RawQuery, client)
 	if protocolErr != nil {
 		h.audit("authorize", "rejected", protocolErr.Code)
 		if canRedirect {
@@ -137,6 +201,13 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 }
 
 // ContinueBrowser resumes an authorization request after browser login and redirects back to the client.
+// @Summary Resume a client-bound browser authorization request
+// @Tags oauth2
+// @Param auth_request_id query string true "Opaque authorization request identifier"
+// @Success 303 "Redirect to login or the registered callback"
+// @Failure 400 {object} contract.OAuthErrorResponse
+// @Failure 503 {string} string
+// @Router /oauth2/login/continue [get]
 func (h *Handler) ContinueBrowser(w http.ResponseWriter, r *http.Request) {
 	opaqueID, protocolErr := parseContinuationQuery(r.URL.Query())
 	if protocolErr != nil {
@@ -171,6 +242,19 @@ func (h *Handler) ContinueBrowser(w http.ResponseWriter, r *http.Request) {
 }
 
 // ContinueConsole lets the trusted console resume authorization through a same-origin JSON request.
+// @Summary Complete browser authorization after Console login
+// @Description Requires the live Auth browser session and the configured Console Origin.
+// @Tags oauth2
+// @Accept json
+// @Produce json
+// @Param Origin header string true "Configured Console origin"
+// @Param request body object{auth_request_id=string} true "Opaque authorization request identifier"
+// @Success 200 {object} contract.OIDCContinuationResponse
+// @Failure 400 {object} contract.OAuthErrorResponse
+// @Failure 401 {object} contract.OAuthErrorResponse
+// @Failure 403 {object} contract.OAuthErrorResponse
+// @Failure 503 {string} string
+// @Router /oauth2/login/continue [post]
 func (h *Handler) ContinueConsole(w http.ResponseWriter, r *http.Request) {
 	if !h.requireConsoleOrigin(w, r) {
 		h.audit("continuation", "rejected", "origin")
@@ -212,6 +296,12 @@ func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (strin
 		return "", newProtocolError("server_error", http.StatusInternalServerError)
 	}
 
+	if delegation, err := h.database.DelegationRequest(r.Context(), requestID); err == nil {
+		if delegation.SubjectID != userID {
+			return "", newProtocolError("access_denied", http.StatusForbidden)
+		}
+		return h.config.Issuer + "/oauth2/delegations/consent?request_id=" + requestID.String(), nil
+	}
 	authTime, ok := authctx.AuthenticationTimeFromContext(r.Context())
 	if !ok || authTime.IsZero() {
 		sessionIDRaw, sessionOK := authctx.SessionIDFromContext(r.Context())
@@ -274,19 +364,42 @@ func (h *Handler) rejectAuthorization(r *http.Request, requestID uuid.UUID) (str
 	return target, nil
 }
 
-// Token authenticates the confidential client and dispatches the requested supported grant.
-func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
-	setNoStore(w.Header())
-	clientID, clientSecret, ok := parseBasicCredentials(r)
-	if !ok || !constantTimeCredentialMatch(clientID, clientSecret, h.config.ClientID, h.config.ClientSecret) {
+// tokenFormParams lists the form parameters of the authorization_code and refresh_token grants.
+var tokenFormParams = map[string]struct{}{
+	"grant_type": {}, "code": {}, "redirect_uri": {}, "code_verifier": {}, "refresh_token": {},
+}
+
+// authenticateTokenClient checks the confidential client credentials and writes the
+// invalid_client response when they do not match.
+func (h *Handler) authenticateTokenClient(w http.ResponseWriter, r *http.Request) (string, bool) {
+	client, err := h.authenticatedClient(r)
+	if err != nil {
 		h.audit("token", "rejected", "invalid_client")
 		w.Header().Set("WWW-Authenticate", `Basic realm="oauth2/token"`)
 		h.writeOAuthError(w, newProtocolError("invalid_client", http.StatusUnauthorized))
+		return "", false
+	}
+	return client.ClientID, true
+}
+
+// onlyParams reports whether values holds nothing but the allowed parameters.
+func onlyParams(values url.Values, allowed map[string]struct{}) bool {
+	for name := range values {
+		if _, ok := allowed[name]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// Token authenticates the confidential client and dispatches the requested supported grant.
+func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
+	setNoStore(w.Header())
+	clientID, ok := h.authenticateTokenClient(w, r)
+	if !ok {
 		return
 	}
-	values, protocolErr := parseFormRequest(w, r, map[string]struct{}{
-		"grant_type": {}, "code": {}, "redirect_uri": {}, "code_verifier": {}, "refresh_token": {},
-	})
+	values, protocolErr := parseFormRequest(w, r, tokenFormParams)
 	if protocolErr != nil {
 		h.audit("token", "rejected", protocolErr.Code)
 		h.writeOAuthError(w, protocolErr)
@@ -296,6 +409,21 @@ func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		h.audit("token", "rejected", "invalid_request")
 		h.writeOAuthError(w, newProtocolError("invalid_request", http.StatusBadRequest))
+		return
+	}
+	h.oidcGrant(w, r, grantType, values, clientID)
+}
+
+// oidcGrant runs the authorization_code or refresh_token grant for an already authenticated client.
+func (h *Handler) oidcGrant(
+	w http.ResponseWriter,
+	r *http.Request,
+	grantType string,
+	values url.Values,
+	clientID string,
+) {
+	if !h.clientGrantAllowed(clientID, grantType) {
+		h.writeOAuthError(w, newProtocolError("unauthorized_client", http.StatusBadRequest))
 		return
 	}
 	switch grantType {
@@ -311,6 +439,11 @@ func (h *Handler) Token(w http.ResponseWriter, r *http.Request) {
 
 // authorizationCodeGrant atomically exchanges a one-time code and PKCE verifier for the initial token set.
 func (h *Handler) authorizationCodeGrant(w http.ResponseWriter, r *http.Request, values url.Values, clientID string) {
+	client, _ := h.config.Registry.Client(clientID)
+	if !exactRedirectAllowed(client.RedirectURIs, values.Get("redirect_uri")) {
+		h.writeInvalidGrant(w)
+		return
+	}
 	code, codeOK := singleValue(values, "code")
 	redirectURI, redirectOK := singleValue(values, "redirect_uri")
 	verifier, verifierOK := singleValue(values, "code_verifier")
@@ -345,7 +478,8 @@ func (h *Handler) authorizationCodeGrant(w http.ResponseWriter, r *http.Request,
 		CreatedUserAgent: optionalString(r.UserAgent()),
 		SessionExpiresAt: now.Add(h.authConfig.AccessSessionTTL),
 	}, func(user db.OIDCUserClaims, exchangeTime time.Time) (db.OIDCTokenSet, error) {
-		return h.tokens.Issue(user, sessionID, exchangeTime)
+		client, _ := h.config.Registry.Client(clientID)
+		return h.tokens.Issue(user, sessionID, exchangeTime, client)
 	})
 	if err != nil {
 		if errors.Is(err, db.ErrOIDCInvalidGrant) || errors.Is(err, db.ErrOIDCInactiveUser) {
@@ -357,14 +491,17 @@ func (h *Handler) authorizationCodeGrant(w http.ResponseWriter, r *http.Request,
 		h.writeOAuthError(w, newProtocolError("server_error", http.StatusInternalServerError))
 		return
 	}
-	tokens.RefreshToken = refreshToken
+	if strings.Contains(" "+tokens.Scope+" ", " offline_access ") {
+		tokens.RefreshToken = refreshToken
+	}
 	h.writeTokenSet(w, tokens)
 }
 
 // refreshTokenGrant rotates an OAuth-bound refresh family and returns a new access/refresh pair.
 func (h *Handler) refreshTokenGrant(w http.ResponseWriter, r *http.Request, values url.Values, clientID string) {
 	refreshToken, ok := singleValue(values, "refresh_token")
-	if !ok || refreshToken == "" || values.Get("code") != "" || values.Get("redirect_uri") != "" || values.Get("code_verifier") != "" {
+	if !ok || refreshToken == "" || values.Get("code") != "" || values.Get("redirect_uri") != "" ||
+		values.Get("code_verifier") != "" {
 		h.audit("token", "rejected", "invalid_request")
 		h.writeOAuthError(w, newProtocolError("invalid_request", http.StatusBadRequest))
 		return
@@ -380,48 +517,86 @@ func (h *Handler) refreshTokenGrant(w http.ResponseWriter, r *http.Request, valu
 		h.writeOAuthError(w, newProtocolError("server_error", http.StatusInternalServerError))
 		return
 	}
-	session, err := h.database.RefreshOAuthSession(
+	operation := r.Header.Get("Idempotency-Key")
+	if len(operation) > 128 {
+		h.writeInvalidGrant(w)
+		return
+	}
+	sealed, err := h.database.RefreshOAuthResult(
 		r.Context(),
 		service.HashRefreshToken(refreshToken),
-		uuid.New(),
 		newRefreshHash,
-		requestIP(r),
-		optionalString(r.UserAgent()),
-		h.now().UTC().Add(h.authConfig.AccessSessionTTL),
 		clientID,
+		operation,
+		func(session model.AuthSession) (string, error) {
+			client, _ := h.config.Registry.Client(clientID)
+			if !allowedOIDCScopes(strings.Join(session.OAuthScopes, " "), client.OIDCScopes) {
+				return "", db.ErrTokenNotFound
+			}
+			access, err := h.tokens.IssueAccessToken(session.SubjectID, session.ID, client)
+			if err != nil {
+				return "", err
+			}
+			raw, err := json.Marshal(
+				db.OIDCTokenSet{
+					AccessToken:  access,
+					RefreshToken: newRefreshToken,
+					ExpiresIn:    int64(h.authConfig.AccessTokenTTL / time.Second),
+					Scope:        strings.Join(session.OAuthScopes, " "),
+				},
+			)
+			if err != nil {
+				return "", err
+			}
+			return h.credentials.seal("refresh_result:"+clientID+":"+operation, raw)
+		},
 	)
 	if err != nil {
 		if errors.Is(err, db.ErrTokenNotFound) || errors.Is(err, db.ErrTokenExpired) ||
-			errors.Is(err, db.ErrTokenReuseDetected) || errors.Is(err, db.ErrUserNotFound) {
+			errors.Is(err, db.ErrTokenReuseDetected) ||
+			errors.Is(err, db.ErrUserNotFound) {
 			h.writeInvalidGrant(w)
 			return
 		}
-		h.audit("token", "error", "store")
 		h.writeOAuthError(w, newProtocolError("server_error", http.StatusInternalServerError))
 		return
 	}
-	accessToken, err := h.tokens.IssueAccessToken(session.SubjectID, session.ID)
+	raw, err := h.credentials.open("refresh_result:"+clientID+":"+operation, sealed)
 	if err != nil {
-		h.audit("token", "error", "signing")
 		h.writeOAuthError(w, newProtocolError("server_error", http.StatusInternalServerError))
 		return
 	}
-	h.writeTokenSet(w, db.OIDCTokenSet{
-		AccessToken:  accessToken,
-		RefreshToken: newRefreshToken,
-		ExpiresIn:    int64(h.authConfig.AccessTokenTTL / time.Second),
-	})
+	var tokens db.OIDCTokenSet
+	if json.Unmarshal(raw, &tokens) != nil {
+		h.writeOAuthError(w, newProtocolError("server_error", http.StatusInternalServerError))
+		return
+	}
+	h.writeTokenSet(w, tokens)
 }
 
 // Revoke authenticates the client and idempotently revokes the refresh-token family it owns.
+// @Summary Revoke an Auth session belonging to the authenticated client
+// @Description Unknown credentials and credentials belonging to another client are ignored without revoking that client's session.
+// @Tags oauth2
+// @Security OAuthClientAuth
+// @Accept x-www-form-urlencoded
+// @Param token formData string true "Auth refresh token"
+// @Param token_type_hint formData string false "refresh_token"
+// @Success 200
+// @Failure 400 {object} contract.OAuthErrorResponse
+// @Failure 401 {object} contract.OAuthErrorResponse
+// @Failure 500 {object} contract.OAuthErrorResponse
+// @Failure 503 {string} string
+// @Router /oauth2/revoke [post]
 func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 	setNoStore(w.Header())
-	clientID, clientSecret, ok := parseBasicCredentials(r)
-	if !ok || !constantTimeCredentialMatch(clientID, clientSecret, h.config.ClientID, h.config.ClientSecret) {
+	client, err := h.authenticatedClient(r)
+	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="oauth2/revoke"`)
 		h.writeOAuthError(w, newProtocolError("invalid_client", http.StatusUnauthorized))
 		return
 	}
+	clientID := client.ClientID
 	values, protocolErr := parseFormRequest(w, r, map[string]struct{}{"token": {}, "token_type_hint": {}})
 	if protocolErr != nil {
 		h.writeOAuthError(w, protocolErr)
@@ -616,7 +791,11 @@ func (h *Handler) audit(stage, outcome, errorClass string) {
 }
 
 // parseFormRequest strictly decodes a bounded OAuth form and rejects unknown or duplicate parameters.
-func parseFormRequest(w http.ResponseWriter, r *http.Request, allowed map[string]struct{}) (url.Values, *protocolError) {
+func parseFormRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	allowed map[string]struct{},
+) (url.Values, *protocolError) {
 	if r.URL.RawQuery != "" {
 		return nil, newProtocolError("invalid_request", http.StatusBadRequest)
 	}

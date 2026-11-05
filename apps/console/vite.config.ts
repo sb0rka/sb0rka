@@ -25,6 +25,16 @@ export default defineConfig(({ mode }) => {
     host: useMockApi,
     port: 3000,
     strictPort: true,
+    headers: {
+      "Content-Security-Policy": "frame-ancestors 'none'",
+      "Referrer-Policy": "no-referrer",
+    },
+  },
+  preview: {
+    headers: {
+      "Content-Security-Policy": "frame-ancestors 'none'",
+      "Referrer-Policy": "no-referrer",
+    },
   },
 }
 })

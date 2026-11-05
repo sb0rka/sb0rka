@@ -1,0 +1,836 @@
+basePath: /
+definitions:
+  auth.IntrospectionResponse:
+    properties:
+      active:
+        type: boolean
+      actor_subject_id:
+        type: string
+      aud:
+        type: string
+      client_id:
+        type: string
+      delegation_id:
+        type: string
+      delegation_version:
+        type: integer
+      exp:
+        type: integer
+      project_ids:
+        items:
+          type: string
+        type: array
+      scope:
+        type: string
+      session_expires_at:
+        type: integer
+      sid:
+        type: string
+      sk:
+        type: string
+      sub:
+        type: string
+    type: object
+  contract.DelegationConsentDecision:
+    properties:
+      csrf_token:
+        type: string
+      decision:
+        enum:
+        - approve
+        - deny
+        type: string
+      project_ids:
+        items:
+          type: string
+        type: array
+      request_id:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+    type: object
+  contract.DelegationConsentProject:
+    properties:
+      name:
+        type: string
+      public_id:
+        type: string
+    type: object
+  contract.DelegationConsentResponse:
+    properties:
+      audience:
+        type: string
+      client_id:
+        type: string
+      client_name:
+        type: string
+      csrf_token:
+        type: string
+      projects:
+        items:
+          $ref: '#/definitions/contract.DelegationConsentProject'
+        type: array
+      request_id:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+    type: object
+  contract.DelegationRequestResponse:
+    properties:
+      authorize_url:
+        type: string
+    type: object
+  contract.DelegationStatusResponse:
+    properties:
+      actor_subject_id:
+        type: string
+      audience:
+        type: string
+      connected:
+        type: boolean
+      delegation_id:
+        type: string
+      project_ids:
+        items:
+          type: string
+        type: array
+      scopes:
+        items:
+          type: string
+        type: array
+      version:
+        type: integer
+    type: object
+  contract.OAuthErrorResponse:
+    properties:
+      error:
+        type: string
+      error_description:
+        type: string
+    type: object
+  contract.OAuthTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      id_token:
+        type: string
+      issued_token_type:
+        type: string
+      refresh_token:
+        type: string
+      scope:
+        type: string
+      token_type:
+        type: string
+    type: object
+  contract.OIDCContinuationResponse:
+    properties:
+      redirect_to:
+        type: string
+    type: object
+  contract.OIDCDiscoveryResponse:
+    properties:
+      authorization_endpoint:
+        type: string
+      claims_supported:
+        items:
+          type: string
+        type: array
+      code_challenge_methods_supported:
+        items:
+          type: string
+        type: array
+      grant_types_supported:
+        items:
+          type: string
+        type: array
+      id_token_signing_alg_values_supported:
+        items:
+          type: string
+        type: array
+      introspection_endpoint:
+        type: string
+      introspection_endpoint_auth_methods_supported:
+        items:
+          type: string
+        type: array
+      issuer:
+        type: string
+      jwks_uri:
+        type: string
+      response_modes_supported:
+        items:
+          type: string
+        type: array
+      response_types_supported:
+        items:
+          type: string
+        type: array
+      revocation_endpoint:
+        type: string
+      scopes_supported:
+        items:
+          type: string
+        type: array
+      subject_types_supported:
+        items:
+          type: string
+        type: array
+      token_endpoint:
+        type: string
+      token_endpoint_auth_methods_supported:
+        items:
+          type: string
+        type: array
+    type: object
+  contract.OIDCJWKResponse:
+    properties:
+      alg:
+        type: string
+      crv:
+        type: string
+      e:
+        type: string
+      kid:
+        type: string
+      kty:
+        type: string
+      "n":
+        type: string
+      use:
+        type: string
+      x:
+        type: string
+    type: object
+  contract.OIDCJWKSResponse:
+    properties:
+      keys:
+        items:
+          $ref: '#/definitions/contract.OIDCJWKResponse'
+        type: array
+    type: object
+  contract.ReserveAgentRequest:
+    properties:
+      host_id:
+        type: string
+      subject_token:
+        type: string
+    type: object
+  contract.ReserveAgentResponse:
+    properties:
+      agent_subject_id:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Platform OIDC issuer, client registry policies, explicit delegation
+    and workload identity.
+  title: Sb0rka Auth API
+  version: "1.0"
+paths:
+  /.well-known/openid-configuration:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.OIDCDiscoveryResponse'
+      summary: Discover the platform issuer and OIDC endpoints
+      tags:
+      - oauth2
+  /oauth2/agents:
+    post:
+      consumes:
+      - application/json
+      description: Workload client authentication plus the user's login token for
+        the client that shares this service actor. Idempotent for the same host and
+        owner. The key is filled later by attestation.
+      parameters:
+      - description: Host to reserve
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.ReserveAgentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.ReserveAgentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - OAuthClientAuth: []
+      summary: Reserve an agent principal for a host
+      tags:
+      - oauth2
+  /oauth2/authorize:
+    get:
+      description: Redirect URI and scopes must match the client registry. Access
+        audience is fixed by the client profile; login creates no integration grants.
+      parameters:
+      - description: Registered login client
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: code
+        in: query
+        name: response_type
+        required: true
+        type: string
+      - description: Exact registered callback URI
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - description: Allowed OIDC scopes including openid
+        in: query
+        name: scope
+        required: true
+        type: string
+      - description: Client request binding
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: ID-token replay protection
+        in: query
+        name: nonce
+        required: true
+        type: string
+      - description: PKCE S256 challenge
+        in: query
+        name: code_challenge
+        required: true
+        type: string
+      - description: S256
+        in: query
+        name: code_challenge_method
+        required: true
+        type: string
+      responses:
+        "303":
+          description: Redirect to login or the registered callback
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      summary: Start OIDC login for a registered client
+      tags:
+      - oauth2
+  /oauth2/delegations/consent:
+    get:
+      description: Validates the pending request and redirects to the fixed Console
+        entrypoint. Consent UI is served entirely by Console.
+      parameters:
+      - description: Consent request UUID
+        in: query
+        name: request_id
+        required: true
+        type: string
+      responses:
+        "303":
+          description: Redirect to Console
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      summary: Open Console to select projects and capabilities for a registered application
+      tags:
+      - oauth2
+    post:
+      consumes:
+      - application/json
+      description: Requires the initiating user's live Console session, exact Console
+        Origin and session-bound CSRF. Callback codes are one-use and PKCE-bound.
+      parameters:
+      - description: Configured Console origin
+        in: header
+        name: Origin
+        required: true
+        type: string
+      - description: Consent decision
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/contract.DelegationConsentDecision'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.OIDCContinuationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Approve or deny a pending integration request from Console
+      tags:
+      - oauth2
+  /oauth2/delegations/consent/details:
+    get:
+      description: Requires the initiating user's live Console session and exact Console
+        Origin. Projects and scope identifiers are revalidated on approval; presentation
+        belongs to Console.
+      parameters:
+      - description: Configured Console origin
+        in: header
+        name: Origin
+        required: true
+        type: string
+      - description: Consent request UUID
+        in: query
+        name: request_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DelegationConsentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Read pending consent metadata for Console
+      tags:
+      - oauth2
+  /oauth2/delegations/request:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Target audience; defaults to sb0rka-api
+        in: formData
+        name: audience
+        type: string
+      - description: Registered client user access JWT
+        in: formData
+        name: subject_token
+        required: true
+        type: string
+      - description: Exact registered callback
+        in: formData
+        name: redirect_uri
+        required: true
+        type: string
+      - description: Client request binding
+        in: formData
+        name: state
+        required: true
+        type: string
+      - description: PKCE S256 challenge
+        in: formData
+        name: code_challenge
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DelegationRequestResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - OAuthClientAuth: []
+      summary: Start separate API integration consent
+      tags:
+      - oauth2
+  /oauth2/delegations/revoke:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Revocation applies across sessions and preserves application login.
+      parameters:
+      - description: Target audience; defaults to sb0rka-api
+        in: formData
+        name: audience
+        type: string
+      - description: Registered client user access JWT
+        in: formData
+        name: subject_token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - OAuthClientAuth: []
+      summary: Revoke the user's API integration grant
+      tags:
+      - oauth2
+  /oauth2/delegations/status:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Target audience; defaults to sb0rka-api
+        in: formData
+        name: audience
+        type: string
+      - description: Registered client user access JWT
+        in: formData
+        name: subject_token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.DelegationStatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - OAuthClientAuth: []
+      summary: Read the user's API integration grant
+      tags:
+      - oauth2
+  /oauth2/introspect:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Requires a registered confidential resource client. The caller
+        can inspect only its configured audience. Revoked tokens return active=false;
+        infrastructure failures return 503.
+      parameters:
+      - description: Access JWT
+        in: formData
+        name: token
+        required: true
+        type: string
+      - description: access_token
+        in: formData
+        name: token_type_hint
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.IntrospectionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - OAuthClientAuth: []
+      summary: Check the current state of a protected resource's access token
+      tags:
+      - oauth2
+  /oauth2/jwks:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.OIDCJWKSResponse'
+      summary: Read access JWT and OIDC ID-token public keys
+      tags:
+      - oauth2
+  /oauth2/login/continue:
+    get:
+      parameters:
+      - description: Opaque authorization request identifier
+        in: query
+        name: auth_request_id
+        required: true
+        type: string
+      responses:
+        "303":
+          description: Redirect to login or the registered callback
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      summary: Resume a client-bound browser authorization request
+      tags:
+      - oauth2
+    post:
+      consumes:
+      - application/json
+      description: Requires the live Auth browser session and the configured Console
+        Origin.
+      parameters:
+      - description: Configured Console origin
+        in: header
+        name: Origin
+        required: true
+        type: string
+      - description: Opaque authorization request identifier
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            auth_request_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.OIDCContinuationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      summary: Complete browser authorization after Console login
+      tags:
+      - oauth2
+  /oauth2/revoke:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Unknown credentials and credentials belonging to another client
+        are ignored without revoking that client's session.
+      parameters:
+      - description: Auth refresh token
+        in: formData
+        name: token
+        required: true
+        type: string
+      - description: refresh_token
+        in: formData
+        name: token_type_hint
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      security:
+      - OAuthClientAuth: []
+      summary: Revoke an Auth session belonging to the authenticated client
+      tags:
+      - oauth2
+  /oauth2/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Requires the registered confidential client. Delegation preserves
+        user identity and is bounded by live consent; agent issuance accepts only
+        a one-use server attestation.
+      parameters:
+      - description: Grant type
+        in: formData
+        name: grant_type
+        required: true
+        type: string
+      - description: One-use authorization or delegation code
+        in: formData
+        name: code
+        type: string
+      - description: Exact callback bound to the code
+        in: formData
+        name: redirect_uri
+        type: string
+      - description: Original PKCE verifier
+        in: formData
+        name: code_verifier
+        type: string
+      - description: Auth refresh token belonging to this client
+        in: formData
+        name: refresh_token
+        type: string
+      - description: Stable key for retrying a refresh operation
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Registered client user access JWT for token exchange
+        in: formData
+        name: subject_token
+        type: string
+      - description: urn:ietf:params:oauth:token-type:access_token
+        in: formData
+        name: subject_token_type
+        type: string
+      - description: urn:ietf:params:oauth:token-type:access_token
+        in: formData
+        name: requested_token_type
+        type: string
+      - description: Approved grant UUID
+        in: formData
+        name: delegation_id
+        type: string
+      - description: Space-separated requested scopes
+        in: formData
+        name: scope
+        type: string
+      - description: Registered target audience
+        in: formData
+        name: audience
+        type: string
+      - description: Opaque one-use workload attestation
+        in: formData
+        name: attestation
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.OAuthTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/contract.OAuthErrorResponse'
+      security:
+      - OAuthClientAuth: []
+      summary: Exchange authorization, refresh, delegation or agent credentials
+      tags:
+      - oauth2
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  OAuthClientAuth:
+    type: basic
+swagger: "2.0"

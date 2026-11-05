@@ -50,20 +50,24 @@ interface RequestOptions {
 }
 
 let refreshPromise: Promise<void> | null = null
+let refreshOperation: string | null = null
 
 async function refreshToken(): Promise<void> {
   authLog("refreshToken start", { url: `${AUTH_BASE_URL}/auth/refresh` })
   const res = await fetch(`${AUTH_BASE_URL}/auth/refresh`, {
     method: "POST",
     credentials: "include",
+    headers: { "Idempotency-Key": refreshOperation ??= crypto.randomUUID() },
   })
 
   if (!res.ok) {
     authLog("refreshToken failed", { status: res.status })
+    if (res.status === 401) refreshOperation = null
     throw new ApiError(res.status, await res.text())
   }
 
   const data = await res.json()
+  refreshOperation = null
   setToken(data.access_token)
   authLog("refreshToken success")
 }

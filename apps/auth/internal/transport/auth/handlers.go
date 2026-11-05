@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
@@ -163,35 +164,32 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	cookie, err := r.Cookie(h.deps.Cfg.AuthConfig.RefreshTokenCookieName)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Validate length of refresh token and get hash
+	// Validate length of refresh token
 
 	refreshToken, err := service.ValidateLengthOfRefreshToken(cookie.Value, h.deps.Cfg.AuthConfig)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
-	refreshTokenHash := service.HashRefreshToken(refreshToken)
-
-	clientIP := r.RemoteAddr
-	if host, _, splitErr := net.SplitHostPort(r.RemoteAddr); splitErr == nil {
-		clientIP = host
+	if h.deps.Cfg.OIDC == nil {
+		http.Error(w, "Unavailable", http.StatusServiceUnavailable)
+		return
 	}
 
-	userAgentRaw := r.UserAgent()
-	var userAgent *string
-	if userAgentRaw != "" {
-		userAgent = &userAgentRaw
-	}
+	// The idempotency key lets a retried refresh replay the sealed result of the first rotation
 
-	newSessionID := uuid.New()
-	expiresAt := time.Now().UTC().Add(h.deps.Cfg.AuthConfig.AccessSessionTTL)
+	operation := r.Header.Get("Idempotency-Key")
+	if len(operation) > 128 {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 	newRefreshToken, newRefreshTokenHash, err := service.CreateRefreshTokenPair(h.deps.Cfg.AuthConfig)
 	if err != nil {
 		h.deps.Log.Error("refresh_token_create_failed", "error", err)
@@ -199,7 +197,24 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newSession, err := h.deps.Database.RefreshAuthSession(r.Context(), refreshTokenHash, newSessionID, newRefreshTokenHash, clientIP, userAgent, expiresAt)
+	// Rotate the session and seal the response in one transaction
+
+	type refreshResult struct {
+		Access, Refresh string
+		Expires         time.Time
+	}
+	sealPurpose := "native:" + operation
+	sealed, err := h.deps.Database.RefreshOAuthResult(r.Context(), service.HashRefreshToken(refreshToken), newRefreshTokenHash, "", operation, func(session model.AuthSession) (string, error) {
+		access, err := service.CreateAccessToken(session.SubjectID, session.ID, session.SubjectKind, h.deps.Cfg.AuthConfig)
+		if err != nil {
+			return "", err
+		}
+		raw, err := json.Marshal(refreshResult{Access: access, Refresh: newRefreshToken, Expires: session.ExpiresAt})
+		if err != nil {
+			return "", err
+		}
+		return service.SealRefreshResult(h.deps.Cfg.OIDC.ProviderCryptoKey, sealPurpose, raw)
+	})
 	if err != nil {
 		if errors.Is(err, db.ErrTokenNotFound) || errors.Is(err, db.ErrTokenExpired) || errors.Is(err, db.ErrTokenReuseDetected) || errors.Is(err, db.ErrUserNotFound) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -209,27 +224,32 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to rotate auth session", http.StatusInternalServerError)
 		return
 	}
-
-	accessToken, err := service.CreateAccessToken(newSession.SubjectID, newSession.ID, newSession.SubjectKind, h.deps.Cfg.AuthConfig)
+	raw, err := service.OpenRefreshResult(h.deps.Cfg.OIDC.ProviderCryptoKey, sealPurpose, sealed)
 	if err != nil {
-		h.deps.Log.Error("refresh_access_token_create_failed", "error", err)
+		h.deps.Log.Error("refresh_result_open_failed", "error", err)
+		http.Error(w, "Failed to create access token", http.StatusInternalServerError)
+		return
+	}
+	var tokens refreshResult
+	if err = json.Unmarshal(raw, &tokens); err != nil {
+		h.deps.Log.Error("refresh_result_decode_failed", "error", err)
 		http.Error(w, "Failed to create access token", http.StatusInternalServerError)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.deps.Cfg.AuthConfig.RefreshTokenCookieName,
-		Value:    newRefreshToken,
+		Value:    tokens.Refresh,
 		Path:     h.deps.Cfg.AuthConfig.RefreshTokenCookiePath,
 		Domain:   h.deps.Cfg.AuthConfig.RefreshTokenCookieDomain,
-		Expires:  expiresAt,
+		Expires:  tokens.Expires,
 		HttpOnly: h.deps.Cfg.AuthConfig.RefreshTokenCookieHttpOnly,
 		Secure:   h.deps.Cfg.AuthConfig.RefreshTokenCookieSecure,
 		SameSite: h.deps.Cfg.AuthConfig.RefreshTokenCookieSameSite,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ToAuthLoginResponse(accessToken, ""))
+	_ = json.NewEncoder(w).Encode(ToAuthLoginResponse(tokens.Access, ""))
 }
 
 func (h *Handler) AuthLogout(w http.ResponseWriter, r *http.Request) {

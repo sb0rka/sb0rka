@@ -198,6 +198,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegation зарегистрированного клиента требует projects.read; результат ограничен актуальным consent и текущими ресурсными правами пользователя.",
                 "produces": [
                     "application/json"
                 ],
@@ -1553,7 +1554,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Возвращает метаданные секрета и versions.",
+                "description": "Возвращает метаданные секрета, versions и agent_subject_ids.",
                 "produces": [
                     "application/json"
                 ],
@@ -1741,6 +1742,139 @@ const docTemplate = `{
                     },
                     "422": {
                         "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{project_id}/resources/{resource_id}/secret/agents": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Агент уже должен быть участником проекта. Делегированный доступ не используется.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Выдать секрет агенту",
+                "parameters": [
+                    {
+                        "maxLength": 10,
+                        "minLength": 10,
+                        "type": "string",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "maxLength": 12,
+                        "minLength": 12,
+                        "type": "string",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
+                        "name": "resource_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Субъект агента",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/contract.GrantSecretAgentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{project_id}/resources/{resource_id}/secret/agents/{subject_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Снять секрет с агента",
+                "parameters": [
+                    {
+                        "maxLength": 10,
+                        "minLength": 10,
+                        "type": "string",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "maxLength": 12,
+                        "minLength": 12,
+                        "type": "string",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
+                        "name": "resource_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "UUID агента",
+                        "name": "subject_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "string"
                         }
@@ -2277,6 +2411,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.write and a writable secret ACL. It cannot modify existing shared tag metadata or supply color.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2494,7 +2629,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "payload_kind: text, json, binary. purpose=llm_key генерирует текст независимо от secret_value.",
+                "description": "payload_kind: text, json, binary. purpose=llm_key генерирует текст независимо от secret_value. purpose=agent_key привязывает секрет к agent_subject_id в той же транзакции; значение передаёт вызывающий.\nDelegated access requires secrets.create and purpose=agent_key for an agent attested by the actor. An agent token can create only its own key.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2572,6 +2707,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.write and includes only secrets bound to agents attested by the actor. An agent sees only its own keys. Values are never returned.",
                 "produces": [
                     "application/json"
                 ],
@@ -2749,6 +2885,9 @@ const docTemplate = `{
         "contract.CreateSecretRequest": {
             "type": "object",
             "properties": {
+                "agent_subject_id": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -2774,6 +2913,12 @@ const docTemplate = `{
         "contract.CreateSecretResponse": {
             "type": "object",
             "properties": {
+                "agent_subject_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -2922,6 +3067,14 @@ const docTemplate = `{
                 },
                 "secret": {
                     "$ref": "#/definitions/contract.SecretResponse"
+                }
+            }
+        },
+        "contract.GrantSecretAgentRequest": {
+            "type": "object",
+            "properties": {
+                "subject_id": {
+                    "type": "string"
                 }
             }
         },
@@ -3412,6 +3565,12 @@ const docTemplate = `{
         "contract.SecretResponse": {
             "type": "object",
             "properties": {
+                "agent_subject_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },

@@ -18,10 +18,11 @@ services:
   keygen:
     image: golang:1.25
     working_dir: /src
-    command: ["bash", "/src/deploy/dev/keygen.sh"]
+    command: ["bash", "/src/deploy/dev/gen_api_keys.sh"]
     volumes:
       - .:/src
       - keys:/keys
+      - api-keys:/api-keys
       - gomod:/go/pkg/mod
     restart: "no"
 
@@ -34,6 +35,7 @@ services:
     volumes:
       - ./db/migrations/platform:/migrations:ro
       - ./db/migrations/auth:/migrations-auth:ro
+      - ./db/migrations/seed:/migrations-seed:ro
       - ./deploy/dev/migrate.sh:/migrate.sh:ro
     restart: "no"
 
@@ -41,8 +43,13 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      additional_contexts:
+        contract: ./packages/contract
+        core: ./packages/core
     command: ["/app/api", "server"]
     depends_on:
+      auth:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       migrate:
@@ -52,7 +59,7 @@ services:
     env_file:
       - ./apps/api/.env
     volumes:
-      - keys:/keys:ro
+      - api-keys:/keys:ro
     ports:
       - "8080:8080"
 
@@ -60,6 +67,9 @@ services:
     build:
       context: .
       dockerfile: apps/auth/Dockerfile
+      additional_contexts:
+        contract: ./packages/contract
+        core: ./packages/core
     command: ["/app/auth", "server"]
     depends_on:
       postgres:
@@ -72,6 +82,11 @@ services:
       - ./apps/auth/.env
     volumes:
       - keys:/keys:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8020/ready || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
     ports:
       - "8020:8020"
 
@@ -79,6 +94,8 @@ services:
     build:
       context: .
       dockerfile: apps/drones/Dockerfile
+      additional_contexts:
+        core: ./packages/core
     command: ["/app/drone", "gc"]
     depends_on:
       postgres:
@@ -107,4 +124,5 @@ services:
 volumes:
   pgdata:
   keys:
+  api-keys:
   gomod:

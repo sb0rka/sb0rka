@@ -30,7 +30,7 @@ func (p *PsqlDB) CreateUser(ctx context.Context, userID uuid.UUID, isActive bool
 	}
 
 	const query = `
-		INSERT INTO users (id, is_active, username, email, password_hash, phone)
+		INSERT INTO user_principals (id, is_active, username, email, password_hash, phone)
 		VALUES ($1, $2, $3, $4, $5, NULLIF($6, 0))
 		RETURNING id, is_active, username, email, phone, password_hash, created_at, updated_at
 	`
@@ -75,10 +75,20 @@ func (p *PsqlDB) CreateUser(ctx context.Context, userID uuid.UUID, isActive bool
 	return user, nil
 }
 
+func (p *PsqlDB) StampEmailVerified(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error {
+	const query = `
+		UPDATE user_principals
+		SET email_verified_at = NOW()
+		WHERE id = $1 AND email_verified_at IS NULL
+	`
+	_, err := tx.Exec(ctx, query, userID)
+	return err
+}
+
 func (p *PsqlDB) GetUser(ctx context.Context, userID, username, email string) (model.User, error) {
 	const baseQuery = `
 		SELECT id, is_active, username, email, email_verified_at, phone, phone_verified_at, password_hash, created_at, updated_at
-		FROM users
+		FROM user_principals
 	`
 
 	conditions := make([]string, 0, 3)
@@ -137,7 +147,7 @@ func (p *PsqlDB) UpdateUser(ctx context.Context, userID uuid.UUID, username, ema
 	}
 
 	const query = `
-		UPDATE users
+		UPDATE user_principals
 		SET username = $2, email = $3, phone = NULLIF($4, 0)
 		WHERE id = $1 AND is_active = true
 		RETURNING id, is_active, username, email, phone, password_hash, created_at, updated_at
@@ -173,7 +183,7 @@ func (p *PsqlDB) UpdateUser(ctx context.Context, userID uuid.UUID, username, ema
 
 func (p *PsqlDB) UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
 	const query = `
-		UPDATE users
+		UPDATE user_principals
 		SET password_hash = $2
 		WHERE id = $1 AND is_active = true
 	`
@@ -195,7 +205,7 @@ func (p *PsqlDB) DeactivateUser(ctx context.Context, userID uuid.UUID) error {
 	defer tx.Rollback(ctx)
 
 	const deactivateQuery = `
-		UPDATE users
+		UPDATE user_principals
 		SET is_active = false
 		WHERE id = $1 AND is_active = true
 	`

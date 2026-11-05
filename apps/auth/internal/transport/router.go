@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
+	_ "github.com/sb0rka/sb0rka/apps/auth/internal/openapi"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/auth"
 	transportoidc "github.com/sb0rka/sb0rka/apps/auth/internal/transport/oidc"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
@@ -33,6 +36,8 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 
 	mux.HandleFunc("GET /ping", s.ping)
 	mux.HandleFunc("GET /health", s.health)
+	mux.HandleFunc("GET /ready", s.health)
+	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 
 	// Auth endpoints
 	mux.HandleFunc("POST /auth/login", s.auth.AuthLogin)
@@ -61,10 +66,18 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 			s.deps.Log,
 		)
 		routes = append(routes,
+			route.Route{Pattern: "POST /oauth2/delegations/request", Handler: oidcHandler.DelegationRequest, Access: route.Public},
+			route.Route{Pattern: "POST /oauth2/delegations/status", Handler: oidcHandler.DelegationStatus, Access: route.Public},
+			route.Route{Pattern: "POST /oauth2/delegations/revoke", Handler: oidcHandler.DelegationRevoke, Access: route.Public},
+			route.Route{Pattern: "GET /oauth2/delegations/consent", Handler: oidcHandler.DelegationConsent, Access: route.Public},
+			route.Route{Pattern: "GET /oauth2/delegations/consent/details", Handler: oidcHandler.DelegationConsentDetails, Access: route.LiveSession},
+			route.Route{Pattern: "POST /oauth2/delegations/consent", Handler: oidcHandler.DelegationConsentSubmit, Access: route.LiveSession},
 			route.Route{Pattern: "GET /.well-known/openid-configuration", Handler: oidcHandler.Discovery, Access: route.Public},
 			route.Route{Pattern: "GET /oauth2/jwks", Handler: oidcHandler.JWKS, Access: route.Public},
 			route.Route{Pattern: "GET /oauth2/authorize", Handler: oidcHandler.Authorize, Access: route.OptionalBrowserSession},
-			route.Route{Pattern: "POST /oauth2/token", Handler: oidcHandler.Token, Access: route.Public},
+			route.Route{Pattern: "POST /oauth2/token", Handler: oidcHandler.PlatformToken, Access: route.Public},
+			route.Route{Pattern: "POST /oauth2/agents", Handler: oidcHandler.ReserveAgent, Access: route.Public},
+			route.Route{Pattern: "POST /oauth2/introspect", Handler: oidcHandler.Introspect, Access: route.Public},
 			route.Route{Pattern: "POST /oauth2/revoke", Handler: oidcHandler.Revoke, Access: route.Public},
 			route.Route{Pattern: "GET /oauth2/login/continue", Handler: oidcHandler.ContinueBrowser, Access: route.OptionalBrowserSession},
 			route.Route{Pattern: "POST /oauth2/login/continue", Handler: oidcHandler.ContinueConsole, Access: route.LiveSession},

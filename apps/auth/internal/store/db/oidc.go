@@ -16,7 +16,6 @@ import (
 
 const (
 	expiredRequestCleanupBatch = 100
-	oidcCanonicalScopes        = "openid profile email offline_access"
 )
 
 var (
@@ -45,6 +44,7 @@ type OIDCClientRedirect struct {
 }
 
 type OIDCUserClaims struct {
+	Scopes             string
 	ID                 uuid.UUID
 	Username           string
 	Email              string
@@ -67,6 +67,7 @@ type OIDCExchangeRequest struct {
 }
 
 type OIDCTokenSet struct {
+	Scope        string
 	AccessToken  string
 	RefreshToken string
 	IDToken      string
@@ -148,8 +149,8 @@ func (p *PsqlDB) AuthorizeOIDC(
 		  AND request.expires_at > db_time.now
 		  AND $3 <= db_time.now
 		  AND EXISTS (
-			SELECT 1 FROM users
-			WHERE users.id = $2 AND users.is_active = true
+			SELECT 1 FROM user_principals
+			WHERE user_principals.id = $2 AND user_principals.is_active = true
 		  )
 		RETURNING request.redirect_uri, request.state
 	`
@@ -198,27 +199,7 @@ func (p *PsqlDB) GetOIDCSessionAuthenticationTime(
 	ctx context.Context,
 	sessionID, userID uuid.UUID,
 ) (time.Time, error) {
-	const query = `
-		WITH RECURSIVE session_family AS (
-			SELECT id, subject_id, family_id, created_at
-			FROM auth_sessions
-			WHERE id = $1
-			  AND subject_id = $2
-			  AND revoked_at IS NULL
-			  AND expires_at > clock_timestamp()
-
-			UNION
-
-			SELECT previous.id, previous.subject_id, previous.family_id, previous.created_at
-			FROM auth_sessions AS previous
-			JOIN session_family AS current
-			  ON previous.replaced_by = current.id
-			 AND previous.family_id = current.family_id
-			 AND previous.subject_id = current.subject_id
-		)
-		SELECT MIN(created_at)
-		FROM session_family
-	`
+	const query = `SELECT auth_time FROM auth_sessions WHERE id=$1 AND subject_id=$2 AND revoked_at IS NULL AND expires_at>now()`
 
 	var authenticationTime *time.Time
 	if err := p.pool.QueryRow(ctx, query, sessionID, userID).Scan(&authenticationTime); err != nil {
@@ -255,15 +236,17 @@ func (p *PsqlDB) ExchangeOIDCCode(
 		       request.authorized_at,
 		       request.consumed_at,
 		       request.expires_at,
-		       users.id,
-		       users.username,
-		       users.email,
-		       (users.email_verified_at IS NOT NULL),
-		       users.is_active
+		       user_principals.id,
+		       user_principals.username,
+		       user_principals.email,
+		       (user_principals.email_verified_at IS NOT NULL),
+		       user_principals.is_active
 		FROM oidc_auth_requests AS request
-		JOIN users ON users.id = request.user_id
-		WHERE request.code_hash = $1
-		FOR UPDATE OF request, users
+		JOIN user_principals ON user_principals.id = request.user_id
+ JOIN platform_clients client ON client.client_id = request.client_id
+		WHERE request.code_hash = $1 AND client.revoked_at IS NULL
+ AND NOT EXISTS (SELECT 1 FROM unnest(string_to_array(request.scopes, ' ')) scope WHERE NOT (client.policy->'oidc_scopes' ? scope))
+		FOR UPDATE OF request, user_principals
 	`
 	var (
 		requestID    uuid.UUID
@@ -308,7 +291,7 @@ func (p *PsqlDB) ExchangeOIDCCode(
 	}
 	exchangeTime = exchangeTime.UTC()
 	if clientID != request.ClientID || redirectURI != request.RedirectURI ||
-		scopes != oidcCanonicalScopes || authTime == nil || authorizedAt == nil ||
+		scopes == "" || authTime == nil || authorizedAt == nil ||
 		consumedAt != nil || !expiresAt.After(exchangeTime) || !active || !user.EmailVerified ||
 		request.SessionID == uuid.Nil || request.FamilyID == uuid.Nil || request.RefreshTokenHash == "" ||
 		!request.SessionExpiresAt.After(exchangeTime) {
@@ -318,26 +301,31 @@ func (p *PsqlDB) ExchangeOIDCCode(
 		return OIDCTokenSet{}, ErrOIDCInvalidGrant
 	}
 	user.AuthenticationTime = authTime.UTC()
+	user.Scopes = scopes
 	const createSessionQuery = `
 		INSERT INTO auth_sessions (
-			id, subject_id, family_id, oauth_client_id, refresh_token_hash,
-			created_ip, created_user_agent, expires_at
+			id, subject_id, family_id, oauth_client_id,
+			created_ip, created_user_agent, expires_at, auth_time, oauth_scopes
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	if _, err := tx.Exec(ctx, createSessionQuery,
 		request.SessionID,
 		user.ID,
 		request.FamilyID,
 		request.ClientID,
-		request.RefreshTokenHash,
 		request.CreatedIP,
 		request.CreatedUserAgent,
 		request.SessionExpiresAt.UTC(),
+		user.AuthenticationTime,
+		strings.Fields(scopes),
 	); err != nil {
 		return OIDCTokenSet{}, fmt.Errorf("create OAuth-bound auth session: %w", err)
 	}
 
+	if _, err := tx.Exec(ctx, `INSERT INTO auth_refresh_tokens(session_id,token_hash,expires_at) VALUES($1,$2,$3)`, request.SessionID, request.RefreshTokenHash, request.SessionExpiresAt); err != nil {
+		return OIDCTokenSet{}, err
+	}
 	tokens, err := issue(user, exchangeTime)
 	if err != nil {
 		return OIDCTokenSet{}, fmt.Errorf("issue OIDC tokens: %w", err)
@@ -369,7 +357,7 @@ func (p *PsqlDB) ExchangeOIDCCode(
 func (p *PsqlDB) GetOIDCActiveUser(ctx context.Context, userID uuid.UUID) (OIDCUserClaims, error) {
 	const query = `
 		SELECT id, username, email, (email_verified_at IS NOT NULL)
-		FROM users
+		FROM user_principals
 		WHERE id = $1 AND is_active = true
 	`
 	var user OIDCUserClaims

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	secrethook "github.com/sb0rka/sb0rka/apps/api/pkg/secret"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
@@ -110,7 +112,8 @@ func (h *Handler) encryptSecretValue(r *http.Request, projectID uuid.UUID, secre
 // @Produce  json
 // @Param    project_id  path      string                         true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
 // @Param    body        body      contract.CreateSecretRequest   true  "Параметры секрета"
-// @Description payload_kind: text, json, binary. purpose=llm_key генерирует текст независимо от secret_value.
+// @Description payload_kind: text, json, binary. purpose=llm_key генерирует текст независимо от secret_value. purpose=agent_key привязывает секрет к agent_subject_id в той же транзакции; значение передаёт вызывающий.
+// @Description Delegated access requires secrets.create and purpose=agent_key for an agent attested by the actor. An agent token can create only its own key.
 // @Success  201         {object}  contract.CreateSecretResponse
 // @Failure  400         {string}  string
 // @Failure  403         {string}  string
@@ -165,10 +168,66 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
-	value, err := h.prepareSecretValue(r.Context(), payloadKind, req.SecretValue, req.Purpose)
-	if err != nil {
-		coretransport.WriteHookError(w, err, h.deps.Log, "prepare_secret_value_failed")
-		return
+	identity, _ := authctx.IdentityFromContext(r.Context())
+	delegated := identity.ActorSubjectID != ""
+	agentCaller := identity.SubjectKind == coreauth.SubjectAgent
+	var agentSubjectID *uuid.UUID
+	var value string
+	if req.Purpose == "agent_key" || delegated || agentCaller {
+		if req.Purpose != "agent_key" {
+			http.Error(w, "agent_key purpose is required", http.StatusUnprocessableEntity)
+			return
+		}
+		value, err = service.ValidateSecretValue(req.SecretValue)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		rawAgent := strings.TrimSpace(req.AgentSubjectID)
+		if agentCaller {
+			if rawAgent != "" && rawAgent != identity.SubjectID {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			rawAgent = identity.SubjectID
+		}
+		parsedAgent, parseErr := uuid.Parse(rawAgent)
+		if parseErr != nil || parsedAgent == uuid.Nil {
+			http.Error(w, "agent_subject_id is required", http.StatusUnprocessableEntity)
+			return
+		}
+		if delegated {
+			actorID, actorErr := uuid.Parse(identity.ActorSubjectID)
+			attested := false
+			if actorErr == nil {
+				attested, err = h.deps.PlatformDatabase.AgentOwnedByUser(r.Context(), parsedAgent, actorID, subjectID)
+			}
+			if err != nil || actorErr != nil {
+				http.Error(w, "Authorization unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			if !attested {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+		} else if !agentCaller {
+			member, memberErr := h.deps.PlatformDatabase.IsProjectAgent(r.Context(), projectID, parsedAgent)
+			if memberErr != nil {
+				http.Error(w, "Authorization unavailable", http.StatusServiceUnavailable)
+				return
+			}
+			if !member {
+				http.Error(w, "Agent is not a member of the project", http.StatusForbidden)
+				return
+			}
+		}
+		agentSubjectID = &parsedAgent
+	} else {
+		value, err = h.prepareSecretValue(r.Context(), payloadKind, req.SecretValue, req.Purpose)
+		if err != nil {
+			coretransport.WriteHookError(w, err, h.deps.Log, "prepare_secret_value_failed")
+			return
+		}
 	}
 	secretID, err := h.deps.PlatformDatabase.GenerateResourceID(r.Context())
 	if err != nil {
@@ -182,7 +241,12 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var digest *contract.SecretVersionDigestResponse
+	hookPurpose := req.Purpose
+	if agentSubjectID != nil {
+		hookPurpose = ""
+	}
 	params := db.CreateSecretWithInitialVersionParams{
+		AgentSubjectID:        agentSubjectID,
 		ProjectID:             projectID,
 		SecretID:              secretID,
 		Name:                  name,
@@ -201,7 +265,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 		var hookErr error
 		digest, hookErr = h.deps.SecretHook.AfterVersion(ctx, tx, secrethook.Version{
 			ProjectID: projectID, SecretID: secretID, VersionNo: 1, Value: value,
-		}, req.Purpose)
+		}, hookPurpose)
 		return hookErr
 	}
 	secret, version, err := h.deps.PlatformDatabase.CreateSecretWithInitialVersion(r.Context(), params)
@@ -225,6 +289,7 @@ func (h *Handler) CreateSecret(w http.ResponseWriter, r *http.Request) {
 
 // ListSecrets godoc
 // @Summary  Список секретов проекта
+// @Description Delegated access requires secrets.write and includes only secrets bound to agents attested by the actor. An agent sees only its own keys. Values are never returned.
 // @Tags     secrets
 // @Produce  json
 // @Param    project_id  path      string                          true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
@@ -254,6 +319,23 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to list secrets", http.StatusInternalServerError)
 		return
 	}
+	if identity, delegated := authz.DelegatedIdentity(r.Context()); delegated {
+		accessible, err := h.deps.PlatformDatabase.ListUserAgentSecretIDs(r.Context(), projectPublicID, identity.ActorSubjectID, identity.SubjectID)
+		if err != nil {
+			h.deps.Log.Error("list_accessible_secrets_failed", "error", err)
+			http.Error(w, "Authorization unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		rows = slices.DeleteFunc(rows, func(s model.Secret) bool { return !slices.Contains(accessible, s.PublicID) })
+	} else if identity, ok := authctx.IdentityFromContext(r.Context()); ok && identity.SubjectKind == coreauth.SubjectAgent {
+		accessible, err := h.deps.PlatformDatabase.ListAgentSecretIDs(r.Context(), projectPublicID, identity.SubjectID)
+		if err != nil {
+			h.deps.Log.Error("list_agent_secrets_failed", "error", err)
+			http.Error(w, "Authorization unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		rows = slices.DeleteFunc(rows, func(s model.Secret) bool { return !slices.Contains(accessible, s.PublicID) })
+	}
 	out := make([]contract.SecretListItem, 0, len(rows))
 	for _, s := range rows {
 		out = append(out, toSecretListItem(s))
@@ -269,7 +351,7 @@ func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
 
 // GetSecret godoc
 // @Summary  Получить метаданные секрета
-// @Description Возвращает метаданные секрета и versions.
+// @Description Возвращает метаданные секрета, versions и agent_subject_ids.
 // @Tags     secrets
 // @Produce  json
 // @Param    project_id   path      string                    true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
@@ -310,6 +392,15 @@ func (h *Handler) GetSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := toSecretResponse(secret)
+	agentIDs, err := h.deps.PlatformDatabase.ListSecretAgentIDs(r.Context(), projectID, secret.ResourceID)
+	if err != nil {
+		h.writeSecretStoreError(w, "list_secret_agents_failed", projectID, secretPublicID, err)
+		return
+	}
+	out.AgentSubjectIDs = make([]string, 0, len(agentIDs))
+	for _, id := range agentIDs {
+		out.AgentSubjectIDs = append(out.AgentSubjectIDs, id.String())
+	}
 	out.Versions = make([]contract.SecretVersionResponse, 0, len(versions))
 	for _, version := range versions {
 		meta := toSecretVersionResponse(version)

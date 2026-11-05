@@ -13,8 +13,12 @@ type Identity struct {
 	JTI         string
 	ClientID    string
 
-	ActorSubjectID   string
-	ActorSubjectKind string
+	Scope             string
+	DelegationID      string
+	DelegationVersion int64
+	ProjectIDs        []string
+	ActorSubjectID    string
+	ActorSubjectKind  string
 }
 
 type identityKey struct{}

@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
@@ -54,7 +56,7 @@ func (s *Server) panicMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				s.deps.Log.Info("http_panic", "error", err)
-				http.Error(w, "Internal server error", 500)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
 			}
 		}()
 		// There will be a defer with panic handler in each next function
@@ -77,7 +79,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		if allowedOrigin != "" {
 			allowHeaders := "Content-Type"
 			if allowedOrigin != "*" {
-				allowHeaders += ", Authorization"
+				allowHeaders += ", Authorization, Idempotency-Key"
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 				// Don't allow credentials for wildcard
 			}
@@ -96,25 +98,52 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 
 // authMiddleware validates the access token JWT (stateless: signature, alg, typ, iss, aud, exp, claims)
 // and stores the extracted identity in the request context. No DB call is made here.
+//
+// Auth's own routes accept only a direct user login from an internal client
+// (console or consent). A delegated token shares aud=sb0rka-api, so actor and
+// scope are rejected here before the session check.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authorization := r.Header.Get("Authorization")
-		identity, err := service.ParseAndVerifyAccessTokenFromAuthHeader(authorization, s.deps.Cfg.AuthConfig)
+		identity, err := service.ParseAndVerifyAccessTokenFromAuthHeader(r.Context(), authorization, s.deps.Cfg.AuthConfig)
 		if err != nil {
 			s.deps.Log.Info("auth_unauthorized", "path", r.URL.Path, "error", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		if !s.directAPIClient(identity) {
+			s.deps.Log.Info("auth_forbidden", "path", r.URL.Path, "client_id", identity.ClientID)
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 
 		ctx := authctx.WithIdentity(r.Context(), authctx.Identity{
-			SubjectID:   identity.SubjectID,
-			SubjectKind: identity.SubjectKind,
-			SessionID:   identity.SessionID,
-			JTI:         identity.JTI,
-			ClientID:    identity.ClientID,
+			SubjectID:         identity.SubjectID,
+			SubjectKind:       identity.SubjectKind,
+			SessionID:         identity.SessionID,
+			JTI:               identity.JTI,
+			ClientID:          identity.ClientID,
+			Scope:             identity.Scope,
+			DelegationID:      identity.DelegationID,
+			DelegationVersion: identity.DelegationVersion,
+			ProjectIDs:        identity.ProjectIDs,
+			ActorSubjectID:    identity.ActorSubjectID,
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// directAPIClient is a non-delegated user token issued to an internal client
+// whose only audience is the platform API.
+func (s *Server) directAPIClient(identity service.AccessTokenIdentity) bool {
+	if identity.SubjectKind != coreauth.SubjectUser || identity.ActorSubjectID != "" || identity.Scope != "" {
+		return false
+	}
+	if s.deps.Cfg.OIDC == nil {
+		return false
+	}
+	client, ok := s.deps.Cfg.OIDC.Registry.Client(identity.ClientID)
+	return ok && client.Type == "internal" && client.AccessAudience == coreauth.AudienceAPI
 }
 
 // optionalBrowserSessionMiddleware resolves a browser cookie without rotating

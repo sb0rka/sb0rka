@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
 )
 
@@ -34,13 +36,10 @@ const (
 	DefaultSaltLen      int    = 16
 
 	// JWT defaults
-	DefaultAccessSessionTTL    time.Duration = 7 * 24 * time.Hour
-	DefaultAccessTokenTTL      time.Duration = 5 * time.Minute
-	DefaultAccessTokenIssuer                 = "auth.local"
-	DefaultAccessTokenAudience               = "api.local"
-	DefaultAccessTokenKid                    = "ed25519-v1" // TODO(kompotkot): Add rotation of access token kid logic
-	DefaultAccessTokenTyp                    = "access+jwt"
-	DefaultRefreshTokenLen     int           = 32
+	DefaultAccessSessionTTL  time.Duration = 7 * 24 * time.Hour
+	DefaultAccessTokenIssuer               = "http://localhost:8020"
+	DefaultAccessTokenKid                  = "ed25519-v1" // TODO(kompotkot): Add rotation of access token kid logic
+	DefaultRefreshTokenLen   int           = 32
 
 	DefaultRefreshTokenCookieName          = "__Host-refresh_token"
 	DefaultRefreshTokenCookieSecure   bool = true
@@ -106,11 +105,20 @@ func Load() (*Config, error) {
 	}
 
 	accessSessionTTL := coreconfig.GetDurationEnv("ACCESS_SESSION_TTL_SEC", DefaultAccessSessionTTL, time.Second)
-	accessTokenTTL := coreconfig.GetDurationEnv("ACCESS_TOKEN_TTL_SEC", DefaultAccessTokenTTL, time.Second)
-	accessTokenIssuer := coreconfig.GetStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
-	accessTokenAudience := coreconfig.GetStringEnv("ACCESS_TOKEN_AUDIENCE", DefaultAccessTokenAudience)
+	accessTokenTTL, err := coreconfig.GetDurationEnvStrict("ACCESS_TOKEN_TTL_SEC", coreauth.DefaultAccessTokenTTL, time.Second)
+	if err != nil {
+		return nil, err
+	}
+	accessTokenPolicy, err := coreauth.AccessTokenPolicyFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	if accessTokenTTL <= 0 || accessTokenTTL > accessTokenPolicy.MaxTTL {
+		return nil, fmt.Errorf("ACCESS_TOKEN_TTL_SEC must be positive and must not exceed MAX_ACCESS_TOKEN_TTL_SEC")
+	}
+	accessTokenIssuer := coreconfig.GetStringEnv("JWT_ISSUER", DefaultAccessTokenIssuer)
+	accessTokenAudience := coreauth.AudienceAPI
 	accessTokenKid := coreconfig.GetStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
-	accessTokenTyp := coreconfig.GetStringEnv("ACCESS_TOKEN_TYP", DefaultAccessTokenTyp)
 	refreshTokenLen := coreconfig.GetIntEnv("REFRESH_TOKEN_LEN", DefaultRefreshTokenLen)
 
 	refreshTokenCookieName := coreconfig.GetStringEnv("REFRESH_TOKEN_COOKIE_NAME", DefaultRefreshTokenCookieName)
@@ -130,6 +138,34 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("load OIDC configuration: %w", err)
 	}
 
+	if oidcConfig == nil {
+		return nil, fmt.Errorf("OIDC configuration is required for platform Auth")
+	}
+	if oidcConfig != nil && oidcConfig.Issuer != accessTokenIssuer {
+		return nil, fmt.Errorf("OIDC issuer must equal JWT_ISSUER")
+	}
+	var previousKeys map[string]ed25519.PublicKey
+	if !validKeyID(accessTokenKid) || accessTokenKid == oidcConfig.SigningKeyID {
+		return nil, fmt.Errorf("access and ID-token kid must be valid and distinct")
+	}
+	if len(oidcConfig.PreviousAccessJWKS) > 0 {
+		var previous struct{ Keys []struct{ KID string } }
+		if json.Unmarshal(oidcConfig.PreviousAccessJWKS, &previous) != nil {
+			return nil, fmt.Errorf("invalid previous JWKS")
+		}
+		for _, key := range previous.Keys {
+			if key.KID == accessTokenKid || key.KID == oidcConfig.SigningKeyID {
+				return nil, fmt.Errorf("previous JWKS duplicates active kid")
+			}
+		}
+		previousKeys, err = coreauth.AccessPublicKeys(oidcConfig.PreviousAccessJWKS)
+		if err != nil {
+			return nil, fmt.Errorf("invalid previous public JWKS: %w", err)
+		}
+		if _, exists := previousKeys[accessTokenKid]; exists {
+			return nil, fmt.Errorf("previous JWKS duplicates active access kid")
+		}
+	}
 	cfg = Config{
 		Logger: LoggerConfig{
 			Level:  logLevelEnv,
@@ -157,14 +193,15 @@ func Load() (*Config, error) {
 				ArgonKeyLen:  DefaultArgonKeyLen,
 				SaltLen:      DefaultSaltLen,
 
-				AccessSessionTTL:      accessSessionTTL,
-				AccessTokenPrivateKey: accessTokenPrivateKey,
-				AccessTokenTTL:        accessTokenTTL,
-				AccessTokenIssuer:     accessTokenIssuer,
-				AccessTokenAudience:   accessTokenAudience,
-				AccessTokenKid:        accessTokenKid,
-				AccessTokenTyp:        accessTokenTyp,
-				RefreshTokenLen:       refreshTokenLen,
+				AccessSessionTTL:         accessSessionTTL,
+				AccessTokenPrivateKey:    accessTokenPrivateKey,
+				PreviousAccessPublicKeys: previousKeys,
+				AccessTokenTTL:           accessTokenTTL,
+				AccessTokenPolicy:        accessTokenPolicy,
+				AccessTokenIssuer:        accessTokenIssuer,
+				AccessTokenAudience:      accessTokenAudience,
+				AccessTokenKid:           accessTokenKid,
+				RefreshTokenLen:          refreshTokenLen,
 
 				RefreshTokenCookieName:     refreshTokenCookieName,
 				RefreshTokenCookieSecure:   refreshTokenCookieSecure,

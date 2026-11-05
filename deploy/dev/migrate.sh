@@ -19,4 +19,10 @@ for f in /migrations-auth/*.sql; do
   "${PSQL[@]}" -v DB_AUTH_SCHEMA_NAME=auth -f "$f"
 done
 
+echo "[migrate] applying seed..."
+for f in /migrations-seed/*.sql; do
+  echo "[migrate]   -> $(basename "$f")"
+  "${PSQL[@]}" -v DB_API_SCHEMA_NAME=api -v DB_AUTH_SCHEMA_NAME=auth -f "$f"
+done
+
 echo "[migrate] done"
