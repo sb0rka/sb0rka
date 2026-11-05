@@ -20,9 +20,12 @@ import {
   getDatabaseUri,
   runDatabaseQuery,
   deleteDatabase,
+  getSecret,
   createSecret,
   updateSecretValue,
   revealSecretValue,
+  disableSecret,
+  revealSecretVersion,
   listResources,
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
@@ -47,6 +50,7 @@ import type {
   ProjectTagListResponse,
   DatabaseResponse,
   UpdateDatabaseRequest,
+  SecretResponse,
   RevealSecretValueResponse,
   ProjectResourceListResponse,
   ObservabilityMetricPoint,
@@ -582,6 +586,16 @@ export function useResources(projectId: string) {
   })
 }
 
+export function useSecret(projectId: string, secretId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<SecretResponse>({
+    queryKey: ["projects", projectId, "secrets", secretId],
+    queryFn: () => getSecret(projectId, secretId),
+    enabled: isAuthenticated && !!projectId && !!secretId,
+  })
+}
+
 export function useRevealSecretValue(projectId: string, resourceId?: string) {
   const qc = useQueryClient()
 
@@ -618,6 +632,33 @@ export function useSecretValue(projectId: string, resourceId?: string) {
       return res
     },
     enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+  })
+}
+
+export function useDisableSecret(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationKey: ["projects", projectId, "secrets", secretId, "disable"],
+    mutationFn: (versionNo: number) => disableSecret(projectId, secretId, versionNo),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
+    },
+  })
+}
+
+export function useSecretVersionValue(
+  projectId: string,
+  secretId: string,
+  versionNo: number,
+  enabled: boolean,
+) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<RevealSecretValueResponse>({
+    queryKey: ["projects", projectId, "secrets", secretId, "versions", versionNo, "value"],
+    queryFn: () => revealSecretVersion(projectId, secretId, versionNo),
+    enabled: enabled && isAuthenticated && !!projectId && !!secretId,
   })
 }
 

@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react"
-import { Copy, KeyRound, X } from "lucide-react"
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
+import { Copy, Eye, EyeOff, KeyRound, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
 import {
@@ -32,12 +32,15 @@ import {
   useResourceTags,
   useSecretValue,
   useUpdateSecretValue,
+  useSecret,
+  useDisableSecret,
+  useSecretVersionValue,
 } from "../hooks"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import { AddTagDialog } from "./add-tag-dialog"
 import type { SecretRow } from "./project-detail-tab-types"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-import type { TagResponse } from "../api"
+import type { SecretVersionResponse, TagResponse } from "../api"
 
 interface SecretDetailsProps {
   projectId: string
@@ -61,6 +64,166 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+function useCopyHint() {
+  const { t } = useTranslation()
+  const [message, setMessage] = useState<string | null>(null)
+  const timeoutRef = useRef<number | null>(null)
+
+  const clear = useCallback(() => {
+    if (timeoutRef.current != null) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    setMessage(null)
+  }, [])
+
+  useEffect(() => clear, [clear])
+
+  const copy = useCallback(
+    async (text: string | undefined) => {
+      if (!text) return
+      const show = (next: string, durationMs: number) => {
+        if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current)
+        setMessage(next)
+        timeoutRef.current = window.setTimeout(() => {
+          setMessage(null)
+          timeoutRef.current = null
+        }, durationMs)
+      }
+      try {
+        await navigator.clipboard.writeText(text)
+        show(t("common.messages.copied"), 2000)
+      } catch {
+        show(t("common.messages.copyFailed"), 3000)
+      }
+    },
+    [t],
+  )
+
+  return { message, copy, clear }
+}
+
+function SecretVersionRow({
+  projectId,
+  secretId,
+  secretName,
+  version,
+}: {
+  projectId: string
+  secretId: string
+  secretName: string
+  version: SecretVersionResponse
+}) {
+  const { t } = useTranslation()
+  const locale = getResolvedLanguage()
+
+  const disableSecret = useDisableSecret(projectId, secretId)
+  const { showSuccess, showError } = useToast()
+  const { message: copyMessage, copy } = useCopyHint()
+
+  const [requested, setRequested] = useState(false)
+  const [visible, setVisible] = useState(false)
+  const secretVersionValueQuery = useSecretVersionValue(
+    projectId,
+    secretId,
+    version.version_no,
+    requested,
+  )
+
+  async function handleDisableSecret(versionNo: number) {
+    if (disableSecret.isPending) return
+
+    try {
+      await disableSecret.mutateAsync(versionNo)
+      showSuccess(t("secrets.disabled", { name: secretName, version: versionNo }))
+    } catch (error) {
+      showError(getErrorMessage(error, t("secrets.disableError")))
+    }
+  }
+
+  useEffect(() => {
+    if (requested && secretVersionValueQuery.data?.value) setVisible(true)
+  }, [requested, secretVersionValueQuery.data?.value])
+
+  const maskedValue = "•••••••••••••••••••••••"
+  const plaintext = secretVersionValueQuery.data?.value
+  const displayedValue = visible && plaintext ? plaintext : maskedValue
+  const isActive = version.state === "active"
+
+  function handleToggleSecretValue() {
+    if (visible) {
+      setVisible(false)
+      return
+    }
+
+    setRequested(true)
+    if (secretVersionValueQuery.data?.value) setVisible(true)
+  }
+
+  function handleCopySecretValue() {
+    if (!plaintext || secretVersionValueQuery.isFetching) return
+    void copy(plaintext)
+  }
+
+  return (
+    <li className="grid grid-cols-1 gap-2 py-3 lg:grid-cols-[7.5rem_11.5rem_minmax(0,1fr)] lg:items-center lg:gap-x-4">
+      <div className="flex items-center justify-between gap-3 lg:contents">
+        <Badge className="w-fit shrink-0" variant={isActive ? "active" : "inactive"}>
+          {t("secrets.versionLabel", { version: version.version_no })}
+        </Badge>
+        <p className="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
+          {formatDateTime(version.created_at, locale)}
+        </p>
+      </div>
+      {isActive ? (
+        <div className="relative flex min-w-0 items-center gap-2">
+          <p className="min-h-9 min-w-0 flex-1 truncate rounded-md bg-secondary px-2.5 py-2 text-right font-mono text-xs font-semibold leading-5 text-muted-foreground">
+            {displayedValue}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={handleCopySecretValue}
+            disabled={!plaintext || secretVersionValueQuery.isFetching}
+            title={t("secrets.copySecret")}
+            aria-label={t("secrets.copySecret")}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => handleToggleSecretValue()}
+            disabled={secretVersionValueQuery.isFetching}
+            aria-label={visible ? t("common.actions.hide") : t("common.actions.show")}
+          >
+            {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => void handleDisableSecret(version.version_no)}
+            disabled={disableSecret.isPending}
+            title={t("secrets.disableVersion")}
+            aria-label={t("secrets.disableVersion")}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <FloatingHint message={copyMessage} placement="bottom" align="end" />
+        </div>
+      ) : (
+        <div className="hidden lg:block" />
+      )}
+    </li>
+  )
+}
+
 export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps) {
   const { t } = useTranslation()
   const locale = getResolvedLanguage()
@@ -69,6 +232,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const tagsQuery = useResourceTags(projectId, secret.id)
   const attachResourceTag = useAttachResourceTag(projectId)
   const detachResourceTag = useDetachResourceTag(projectId)
+  const secretQuery = useSecret(projectId, secret.id)
   const secretValueQuery = useSecretValue(projectId, secret.id)
   const deleteSecret = useDeleteSecret(projectId, secret.id)
   const updateSecretValue = useUpdateSecretValue(projectId)
@@ -77,20 +241,20 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false)
   const [updateValueDraft, setUpdateValueDraft] = useState("")
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
-  const [copySecretMessage, setCopySecretMessage] = useState<string | null>(null)
+  const { message: copySecretMessage, copy: copyText, clear: clearCopyHint } = useCopyHint()
 
   useEffect(() => {
     setIsValueVisible(false)
     setIsUpdateDialogOpen(false)
     setUpdateValueDraft("")
     setIsTagModalOpen(false)
-    setCopySecretMessage(null)
-  }, [secret.id])
+    clearCopyHint()
+  }, [secret.id, clearCopyHint])
 
   function handleToggleSecretValue() {
     if (isValueVisible) {
       setIsValueVisible(false)
-      setCopySecretMessage(null)
+      clearCopyHint()
       return
     }
 
@@ -104,18 +268,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       if (result.data?.value) setIsValueVisible(true)
     })
   }
-
-  async function handleCopySecretValue() {
-    const value = secretValueQuery.data?.value
-    if (!value || secretValueQuery.isFetching) return
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopySecretMessage(t("secrets.copied"))
-      window.setTimeout(() => setCopySecretMessage(null), 2000)
-    } catch {
-      setCopySecretMessage(t("common.messages.copyFailed"))
-      window.setTimeout(() => setCopySecretMessage(null), 3000)
-    }
+  
+  function handleCopySecretValue() {
+    if (!plaintext || secretValueQuery.isFetching) return
+    void copyText(plaintext)
   }
 
   function handleUpdateDialogOpenChange(next: boolean) {
@@ -139,7 +295,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       })
       handleUpdateDialogOpenChange(false)
       setIsValueVisible(false)
-      setCopySecretMessage(null)
+      clearCopyHint()
       showSuccess(t("secrets.updateValueSuccess"))
     } catch (error) {
       showError(getErrorMessage(error, t("secrets.updateValueError")))
@@ -182,6 +338,13 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const displayedValue = isValueVisible && plaintext ? plaintext : maskedValue
   const revealErrorMessage = secretValueQuery.isError
     ? getErrorMessage(secretValueQuery.error, t("secrets.revealError"))
+    : null
+
+  const versions = [...(secretQuery.data?.versions ?? [])].sort(
+    (left, right) => right.version_no - left.version_no,
+  )
+  const versionsErrorMessage = secretQuery.isError
+    ? getErrorMessage(secretQuery.error, t("secrets.versionsError"))
     : null
 
   return (
@@ -241,95 +404,128 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       </SlideIn>
 
       <SlideIn className="hidden md:block">
-      <Card className="overflow-hidden">
-        <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+        <Card className="overflow-hidden">
+          <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
             <p className="text-base text-muted-foreground">{formatDateTime(secret.createdAt, locale)}</p>
-          </div>
-          <div className="flex flex-col gap-1.5">
+            </div>
+            <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
             <p className="text-base text-muted-foreground">{formatDateTime(secret.updatedAt, locale)}</p>
-          </div>
-        </CardContent>
-      </Card>
-      </SlideIn>
-
-      <SlideIn>
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.key")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5 pb-6">
-          <div className="relative">
-            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-              <div className="min-w-0 w-full rounded-md bg-secondary px-3.5 py-2.5 md:flex-1">
-                <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
-                  {displayedValue}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void handleCopySecretValue()}
-                  disabled={!plaintext || secretValueQuery.isFetching}
-                  title={t("secrets.copySecret")}
-                  aria-label={t("secrets.copySecret")}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-w-[70.25px]"
-                  onClick={() => handleUpdateDialogOpenChange(true)}
-                  disabled={secretValueQuery.isFetching || updateSecretValue.isPending}
-                >
-                  {t("secrets.updateValue")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-w-[70.25px]"
-                  onClick={() => handleToggleSecretValue()}
-                  disabled={secretValueQuery.isFetching}
-                >
-                  {isValueVisible ? t("common.actions.hide") : t("common.actions.show")}
-                </Button>
-              </div>
             </div>
-            <FloatingHint message={copySecretMessage} placement="bottom" align="end" />
-          </div>
-          {revealErrorMessage ? (
-            <p className="text-sm text-destructive">{revealErrorMessage}</p>
-          ) : null}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       </SlideIn>
 
       <SlideIn>
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border pb-6">
+        <Card>
+          <CardHeader className="pb-4">
+          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.key")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5 pb-6">
+            <div className="relative">
+              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+                <div className="min-w-0 w-full rounded-md bg-secondary px-3.5 py-2.5 md:flex-1">
+                  <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
+                    {displayedValue}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => void handleCopySecretValue()}
+                    disabled={!plaintext || secretValueQuery.isFetching}
+                    title={t("secrets.copySecret")}
+                    aria-label={t("secrets.copySecret")}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-w-[70.25px]"
+                    onClick={() => handleUpdateDialogOpenChange(true)}
+                    disabled={secretValueQuery.isFetching || updateSecretValue.isPending}
+                  >
+                    {t("secrets.updateValue")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-w-[70.25px]"
+                    onClick={() => handleToggleSecretValue()}
+                    disabled={secretValueQuery.isFetching}
+                  >
+                    {isValueVisible ? t("common.actions.hide") : t("common.actions.show")}
+                  </Button>
+                </div>
+              </div>
+              <FloatingHint message={copySecretMessage} placement="bottom" align="end" />
+            </div>
+            {revealErrorMessage ? (
+              <p className="text-sm text-destructive">{revealErrorMessage}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      </SlideIn>
+
+      <SlideIn>
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-[20px] font-semibold tracking-tight">
+              {t("secrets.versionsTitle")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            {secretQuery.isPending ? (
+              <p className="pb-4 text-sm text-muted-foreground">{t("common.loading")}</p>
+            ) : versionsErrorMessage ? (
+              <p className="pb-4 text-sm text-destructive">{versionsErrorMessage}</p>
+            ) : versions.length === 0 ? (
+              <p className="pb-4 text-sm text-muted-foreground">
+                {t("secrets.versionsEmpty")}
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {versions.map((version) => (
+                  <SecretVersionRow
+                    key={version.version_no}
+                    projectId={projectId}
+                    secretId={secret.id}
+                    secretName={secret.name}
+                    version={version}
+                  />
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </SlideIn>
+
+      <SlideIn>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border pb-6">
           <CardTitle className="text-[20px] font-semibold tracking-tight">{t("projects.settings.dangerTitle")}</CardTitle>
           <CardDescription>
             {t("secrets.dangerDescription")}
           </CardDescription>
-        </CardHeader>
-        <CardFooter className="pt-6">
-          <div className="flex flex-col gap-2">
-            <Button
-              className="self-start"
-              variant="delete"
-              onClick={() => void handleDeleteSecret()}
-              disabled={deleteSecret.isPending}
-            >
-              {deleteSecret.isPending ? t("common.deleting") : t("secrets.deleteButton")}
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
+          </CardHeader>
+          <CardFooter className="pt-6">
+            <div className="flex flex-col gap-2">
+              <Button
+                className="self-start"
+                variant="delete"
+                onClick={() => void handleDeleteSecret()}
+                disabled={deleteSecret.isPending}
+              >
+                {deleteSecret.isPending ? t("common.deleting") : t("secrets.deleteButton")}
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
       </SlideIn>
 
       <Dialog open={isUpdateDialogOpen} onOpenChange={handleUpdateDialogOpenChange}>
