@@ -31,6 +31,20 @@ definitions:
       sub:
         type: string
     type: object
+  contract.AuthLoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  contract.AuthLoginResponse:
+    properties:
+      access_token:
+        type: string
+    type: object
   contract.DelegationConsentDecision:
     properties:
       csrf_token:
@@ -246,6 +260,73 @@ paths:
       summary: Discover the platform issuer and OIDC endpoints
       tags:
       - oauth2
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Browser requests require an explicitly trusted Origin. Responses
+        are not cacheable.
+      parameters:
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/contract.AuthLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.AuthLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "415":
+          description: Unsupported Media Type
+          schema:
+            type: string
+      summary: Authenticate a user and create a native session
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Browser requests require an explicitly trusted Origin. A JSON body
+        may be empty.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.AuthLoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "415":
+          description: Unsupported Media Type
+          schema:
+            type: string
+      summary: Rotate a native refresh cookie
+      tags:
+      - auth
   /oauth2/agents:
     post:
       consumes:

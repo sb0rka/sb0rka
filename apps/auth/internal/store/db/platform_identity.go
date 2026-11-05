@@ -33,6 +33,7 @@ type DelegationGrant struct {
 
 type DelegationRequest struct {
 	ID, SubjectID                               uuid.UUID
+	SourceSessionID                             uuid.UUID
 	ClientID, RedirectURI, State, CodeChallenge string
 	Audience                                    string
 }
@@ -78,11 +79,22 @@ func (p *PsqlDB) PlatformClient(ctx context.Context, clientID string) (PlatformC
 }
 
 func (p *PsqlDB) CreateDelegationRequest(ctx context.Context, request DelegationRequest) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = lockAuthenticationUser(ctx, tx, request.SubjectID); err != nil {
+		return err
+	}
+	if err = lockAuthenticationSession(ctx, tx, request.SourceSessionID, request.SubjectID); err != nil {
+		return err
+	}
 	const query = `
-		INSERT INTO delegation_requests (id, user_id, client_id, redirect_uri, state, code_challenge, audience, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, now() + interval '15 minutes')
+		INSERT INTO delegation_requests (id, user_id, client_id, redirect_uri, state, code_challenge, audience, source_session_id, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + interval '15 minutes')
 	`
-	_, err := p.pool.Exec(
+	_, err = tx.Exec(
 		ctx,
 		query,
 		request.ID,
@@ -92,8 +104,12 @@ func (p *PsqlDB) CreateDelegationRequest(ctx context.Context, request Delegation
 		request.State,
 		request.CodeChallenge,
 		request.Audience,
+		request.SourceSessionID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // DelegationRequest returns a pending consent request that has not expired or been decided.
@@ -144,7 +160,7 @@ func (p *PsqlDB) DelegationGrant(
 // grant version, which invalidates tokens issued under the previous scopes and projects.
 func (p *PsqlDB) ApproveDelegation(
 	ctx context.Context,
-	requestID, subjectID uuid.UUID,
+	requestID, subjectID, consentSessionID uuid.UUID,
 	scopes, projectIDs []string,
 	codeHash []byte,
 ) (DelegationGrant, error) {
@@ -154,8 +170,11 @@ func (p *PsqlDB) ApproveDelegation(
 	}
 	defer tx.Rollback(ctx)
 
+	if _, err = lockAuthenticationUser(ctx, tx, subjectID); err != nil {
+		return DelegationGrant{}, err
+	}
 	const selectRequestQuery = `
-		SELECT r.client_id, c.actor_subject_id, r.audience, ARRAY(SELECT jsonb_array_elements_text(c.policy->'delegation_policies'->r.audience))
+		SELECT r.client_id, c.actor_subject_id, r.audience, r.source_session_id, ARRAY(SELECT jsonb_array_elements_text(c.policy->'delegation_policies'->r.audience))
 		FROM delegation_requests r
 		JOIN platform_clients c ON c.client_id = r.client_id
 		WHERE r.id = $1
@@ -169,12 +188,22 @@ func (p *PsqlDB) ApproveDelegation(
 		FOR UPDATE OF r, c
 	`
 	var clientID, audience string
+	var sourceSessionID *uuid.UUID
 	var actorID uuid.UUID
 	var allowedScopes []string
 	err = tx.QueryRow(ctx, selectRequestQuery, requestID, subjectID).
-		Scan(&clientID, &actorID, &audience, &allowedScopes)
+		Scan(&clientID, &actorID, &audience, &sourceSessionID, &allowedScopes)
 	if err != nil {
 		return DelegationGrant{}, err
+	}
+	if sourceSessionID == nil {
+		return DelegationGrant{}, ErrOIDCInvalidGrant
+	}
+	if err = lockAuthenticationSession(ctx, tx, *sourceSessionID, subjectID); err != nil {
+		return DelegationGrant{}, ErrOIDCInvalidGrant
+	}
+	if err = lockAuthenticationSession(ctx, tx, consentSessionID, subjectID); err != nil {
+		return DelegationGrant{}, ErrOIDCInvalidGrant
 	}
 	for _, scope := range scopes {
 		if !slices.Contains(allowedScopes, scope) {
@@ -217,8 +246,15 @@ func (p *PsqlDB) RedeemDelegation(
 	}
 	defer tx.Rollback(ctx)
 
+	var subjectID uuid.UUID
+	if err = tx.QueryRow(ctx, `SELECT user_id FROM delegation_requests WHERE code_hash=$1`, codeHash).Scan(&subjectID); err != nil {
+		return DelegationGrant{}, err
+	}
+	if _, err = lockAuthenticationUser(ctx, tx, subjectID); err != nil {
+		return DelegationGrant{}, err
+	}
 	const selectRequestQuery = `
-		SELECT id, grant_id, code_challenge
+		SELECT id, grant_id, code_challenge, source_session_id
 		FROM delegation_requests
 		WHERE code_hash = $1
 			AND client_id = $2
@@ -228,9 +264,16 @@ func (p *PsqlDB) RedeemDelegation(
 		FOR UPDATE
 	`
 	var requestID, grantID uuid.UUID
+	var sourceSessionID *uuid.UUID
 	var challenge string
-	if err = tx.QueryRow(ctx, selectRequestQuery, codeHash, clientID, redirectURI).Scan(&requestID, &grantID, &challenge); err != nil {
+	if err = tx.QueryRow(ctx, selectRequestQuery, codeHash, clientID, redirectURI).Scan(&requestID, &grantID, &challenge, &sourceSessionID); err != nil {
 		return DelegationGrant{}, err
+	}
+	if sourceSessionID == nil {
+		return DelegationGrant{}, ErrOIDCInvalidGrant
+	}
+	if err = lockAuthenticationSession(ctx, tx, *sourceSessionID, subjectID); err != nil {
+		return DelegationGrant{}, ErrOIDCInvalidGrant
 	}
 	if err = validateOIDCPKCEVerifier(codeVerifier, challenge); err != nil {
 		return DelegationGrant{}, err

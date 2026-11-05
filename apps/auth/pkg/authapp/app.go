@@ -15,6 +15,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/verification"
+	"github.com/sb0rka/sb0rka/packages/core/buildinfo"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -38,6 +39,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	slog.SetDefault(log)
 	log.Info("logger initialized")
+	buildinfo.Log(log)
 
 	log.Info("initializing database connection")
 	database, err := store.CreateDatabase(

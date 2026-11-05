@@ -1,5 +1,5 @@
 ## Build context = repository root.
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 RUN apk add --no-cache git
 ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/contract,github.com/sb0rka/sb0rka/packages/core
@@ -20,8 +20,9 @@ COPY apps/auth/cmd ./cmd
 COPY apps/auth/internal ./internal
 COPY apps/auth/pkg ./pkg
 
+ARG BUILD_REVISION=unknown
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOWORK=off \
-    go build -trimpath -ldflags="-s -w" -o /out/auth ./cmd/auth
+    go build -trimpath -ldflags="-s -w -X github.com/sb0rka/sb0rka/packages/core/buildinfo.Revision=${BUILD_REVISION}" -o /out/auth ./cmd/auth
 
 FROM alpine:3.21
 

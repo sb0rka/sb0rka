@@ -36,7 +36,6 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 
 	mux.HandleFunc("GET /ping", s.ping)
 	mux.HandleFunc("GET /health", s.health)
-	mux.HandleFunc("GET /ready", s.health)
 	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))
 
 	// Auth endpoints

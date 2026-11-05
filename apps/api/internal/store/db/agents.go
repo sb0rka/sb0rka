@@ -130,9 +130,9 @@ func (p *PsqlDB) ListSecretAgentIDs(ctx context.Context, projectID, secretID uui
 	return ids, rows.Err()
 }
 
-func (p *PsqlDB) IsLiveAgent(ctx context.Context, subjectID, hostID uuid.UUID) (bool, error) {
+func (p *PsqlDB) IsLiveAgent(ctx context.Context, subjectID, hostID uuid.UUID, clientID, thumbprint string) (bool, error) {
 	var live bool
-	err := p.pool.QueryRow(ctx, `SELECT auth.is_live_agent($1, $2)`, subjectID, hostID).Scan(&live)
+	err := p.pool.QueryRow(ctx, `SELECT auth.is_live_agent($1, $2, $3, $4)`, subjectID, hostID, clientID, thumbprint).Scan(&live)
 	return live, err
 }
 

@@ -181,20 +181,29 @@ func (p *PsqlDB) UpdateUser(ctx context.Context, userID uuid.UUID, username, ema
 	return user, nil
 }
 
-func (p *PsqlDB) UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
-	const query = `
-		UPDATE user_principals
-		SET password_hash = $2
-		WHERE id = $1 AND is_active = true
-	`
-	tag, err := p.pool.Exec(ctx, query, userID, passwordHash)
+func (p *PsqlDB) UpdateUserPassword(ctx context.Context, userID, sessionID uuid.UUID, expectedHash, passwordHash string) error {
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrUserNotFound
+	defer tx.Rollback(ctx)
+	hash, err := lockAuthenticationUser(ctx, tx, userID)
+	if err != nil {
+		return err
 	}
-	return nil
+	if hash != expectedHash {
+		return ErrTokenExpired
+	}
+	if err = lockAuthenticationSession(ctx, tx, sessionID, userID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE user_principals SET password_hash=$2 WHERE id=$1`, userID, passwordHash); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,clock_timestamp()), revoke_reason=COALESCE(revoke_reason,'password_changed') WHERE subject_id=$1`, userID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (p *PsqlDB) DeactivateUser(ctx context.Context, userID uuid.UUID) error {

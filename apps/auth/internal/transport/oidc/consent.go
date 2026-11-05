@@ -267,7 +267,7 @@ func (h *Handler) DelegationConsentSubmit(w http.ResponseWriter, r *http.Request
 		h.writeConsentStoreError(w, err)
 		return
 	}
-	grant, err := h.database.ApproveDelegation(r.Context(), decision.RequestID, consent.userID, decision.Scopes, decision.ProjectIDs, hash)
+	grant, err := h.database.ApproveDelegation(r.Context(), decision.RequestID, consent.userID, consent.sessionID, decision.Scopes, decision.ProjectIDs, hash)
 	if err != nil {
 		h.writeConsentStoreError(w, err)
 		return

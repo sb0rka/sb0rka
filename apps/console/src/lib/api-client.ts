@@ -1,17 +1,17 @@
-import { getToken, setToken, clearToken, registerRefreshHandler } from "./auth-store"
+import { getToken, setToken, clearToken, registerRefreshHandler, getAuthGeneration } from "./auth-store"
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === "true"
 const AUTH_BASE_URL = USE_MOCK_API
   ? ""
-  : (import.meta.env.VITE_API_BASE_URL ?? "https://auth.sb0rka.ru")
+  : (import.meta.env.VITE_AUTH_BASE_URL ?? "https://auth.sb0rka.ru")
 const RESOURCE_BASE_URL = USE_MOCK_API
   ? ""
-  : (import.meta.env.VITE_RESOURCE_API_BASE_URL ?? "https://api.sb0rka.ru")
+  : (import.meta.env.VITE_API_BASE_URL ?? "https://api.sb0rka.ru")
 const QUERY_RUNNER_BASE_URL =
 import.meta.env.VITE_QUERY_RUNNER_BASE_URL ?? "https://psql-executor.proxy.sb0rka.ru"
 
 
-const COOKIE_PATHS = ["/auth/login", "/auth/refresh", "/auth/logout"]
+const COOKIE_PATHS = ["/auth/login", "/auth/refresh", "/auth/logout", "/identity/users/current/password"]
 
 const FORM_PATHS = [
   "/auth/login",
@@ -51,15 +51,31 @@ interface RequestOptions {
 
 let refreshPromise: Promise<void> | null = null
 let refreshOperation: string | null = null
+let refreshController: AbortController | null = null
+window.addEventListener("auth-cleared", () => {
+  refreshController?.abort()
+  refreshController = null
+  refreshOperation = null
+  refreshPromise = null
+})
+function requireCurrentAuth(generation: number): void {
+  if (generation !== getAuthGeneration()) throw new ApiError(401, "Session ended")
+}
 
 async function refreshToken(): Promise<void> {
+  const generation = getAuthGeneration()
+  const controller = new AbortController()
+  refreshController = controller
   authLog("refreshToken start", { url: `${AUTH_BASE_URL}/auth/refresh` })
   const res = await fetch(`${AUTH_BASE_URL}/auth/refresh`, {
     method: "POST",
     credentials: "include",
-    headers: { "Idempotency-Key": refreshOperation ??= crypto.randomUUID() },
+    headers: { "Content-Type": "application/json", "Idempotency-Key": refreshOperation ??= crypto.randomUUID() },
+    body: "{}",
+    signal: controller.signal,
   })
 
+  requireCurrentAuth(generation)
   if (!res.ok) {
     authLog("refreshToken failed", { status: res.status })
     if (res.status === 401) refreshOperation = null
@@ -67,6 +83,7 @@ async function refreshToken(): Promise<void> {
   }
 
   const data = await res.json()
+  requireCurrentAuth(generation)
   refreshOperation = null
   setToken(data.access_token)
   authLog("refreshToken success")
@@ -75,10 +92,11 @@ async function refreshToken(): Promise<void> {
 function deduplicatedRefresh(): Promise<void> {
   if (!refreshPromise) {
     authLog("deduplicatedRefresh: create new promise")
-    refreshPromise = refreshToken().finally(() => {
+    const pending = refreshToken().finally(() => {
       authLog("deduplicatedRefresh: clear promise")
-      refreshPromise = null
+      if (refreshPromise === pending) refreshPromise = null
     })
+    refreshPromise = pending
   } else {
     authLog("deduplicatedRefresh: reuse in-flight promise")
   }
@@ -114,19 +132,25 @@ function buildFetchInit(opts: RequestOptions): RequestInit {
 export async function apiRequest<T = unknown>(
   opts: RequestOptions,
 ): Promise<T> {
+  const generation = getAuthGeneration()
   const res = await performRequest(opts)
-
+  requireCurrentAuth(generation)
   if (res.status === 204) return undefined as T
-
-  return res.json()
+  const data = await res.json()
+  requireCurrentAuth(generation)
+  return data as T
 }
 
 export async function apiRequestText(opts: RequestOptions): Promise<string> {
+  const generation = getAuthGeneration()
   const res = await performRequest(opts)
-  return res.text()
+  const data = await res.text()
+  requireCurrentAuth(generation)
+  return data
 }
 
 async function performRequest(opts: RequestOptions): Promise<Response> {
+  const generation = getAuthGeneration()
   const baseUrl =
     opts.base === "resource"
       ? RESOURCE_BASE_URL
@@ -136,6 +160,7 @@ async function performRequest(opts: RequestOptions): Promise<Response> {
   const url = `${baseUrl}${opts.path}`
   let res = await fetch(url, buildFetchInit(opts))
 
+  requireCurrentAuth(generation)
   if (res.status === 401 && opts.auth !== false && opts.path !== "/auth/refresh") {
     authLog("protected request returned 401; attempting refresh", { path: opts.path })
     try {
@@ -158,6 +183,7 @@ async function performRequest(opts: RequestOptions): Promise<Response> {
     }
   }
 
+  requireCurrentAuth(generation)
   if (!res.ok) {
     throw new ApiError(res.status, await res.text())
   }

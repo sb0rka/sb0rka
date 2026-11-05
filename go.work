@@ -1,5 +1,7 @@
 go 1.25.5
 
+toolchain go1.26.10
+
 // apps/proxy-ql-executor is not in the workspace: it deploys to Cloud Functions
 // (max Go 1.23) and pins pgx 5.7.6 — the workspace would pull versions up to 5.9.2/Go 1.25.
 use (

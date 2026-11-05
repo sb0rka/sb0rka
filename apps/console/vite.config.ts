@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
   },
   server: {
     host: useMockApi,
-    port: 3000,
+    port: 5173,
     strictPort: true,
     headers: {
       "Content-Security-Policy": "frame-ancestors 'none'",

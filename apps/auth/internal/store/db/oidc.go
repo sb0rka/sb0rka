@@ -123,17 +123,34 @@ func (p *PsqlDB) CreateOIDCPending(ctx context.Context, request OIDCPendingReque
 // store.
 func (p *PsqlDB) AuthorizeOIDC(
 	ctx context.Context,
-	requestID, userID uuid.UUID,
+	requestID, userID, sourceSessionID uuid.UUID,
 	authTime time.Time,
 	codeHash []byte,
 	_ time.Time,
 ) (OIDCClientRedirect, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return OIDCClientRedirect{}, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = lockAuthenticationUser(ctx, tx, userID); err != nil {
+		return OIDCClientRedirect{}, err
+	}
+	// Lock the request before its source session; password changes take the user lock first.
+	var locked uuid.UUID
+	if err = tx.QueryRow(ctx, `SELECT id FROM oidc_auth_requests WHERE id=$1 FOR UPDATE`, requestID).Scan(&locked); err != nil {
+		return OIDCClientRedirect{}, ErrOIDCAuthRequestNotFound
+	}
+	if err = lockAuthenticationSession(ctx, tx, sourceSessionID, userID); err != nil {
+		return OIDCClientRedirect{}, err
+	}
 	const query = `
 		WITH db_time AS (
 			SELECT clock_timestamp() AS now
 		)
 		UPDATE oidc_auth_requests AS request
 		SET user_id = $2,
+ source_session_id = $5,
 			auth_time = $3,
 			code_hash = $4,
 			authorized_at = db_time.now,
@@ -155,11 +172,12 @@ func (p *PsqlDB) AuthorizeOIDC(
 		RETURNING request.redirect_uri, request.state
 	`
 	var redirect OIDCClientRedirect
-	err := p.pool.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, query,
 		requestID,
 		userID,
 		authTime.UTC(),
 		codeHash,
+		sourceSessionID,
 	).Scan(&redirect.RedirectURI, &redirect.State)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return OIDCClientRedirect{}, ErrOIDCAuthRequestNotFound
@@ -167,7 +185,7 @@ func (p *PsqlDB) AuthorizeOIDC(
 	if err != nil {
 		return OIDCClientRedirect{}, fmt.Errorf("authorize OIDC request: %w", err)
 	}
-	return redirect, nil
+	return redirect, tx.Commit(ctx)
 }
 
 // Cancel removes a still-pending request and returns its already-validated
@@ -225,6 +243,16 @@ func (p *PsqlDB) ExchangeOIDCCode(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	var subjectID uuid.UUID
+	if err = tx.QueryRow(ctx, `SELECT user_id FROM oidc_auth_requests WHERE code_hash=$1`, request.CodeHash).Scan(&subjectID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OIDCTokenSet{}, ErrOIDCInvalidGrant
+		}
+		return OIDCTokenSet{}, err
+	}
+	if _, err = lockAuthenticationUser(ctx, tx, subjectID); err != nil {
+		return OIDCTokenSet{}, ErrOIDCInvalidGrant
+	}
 	const lockQuery = `
 		SELECT request.id,
 		       request.client_id,
@@ -236,6 +264,7 @@ func (p *PsqlDB) ExchangeOIDCCode(
 		       request.authorized_at,
 		       request.consumed_at,
 		       request.expires_at,
+ request.source_session_id,
 		       user_principals.id,
 		       user_principals.username,
 		       user_principals.email,
@@ -246,20 +275,21 @@ func (p *PsqlDB) ExchangeOIDCCode(
  JOIN platform_clients client ON client.client_id = request.client_id
 		WHERE request.code_hash = $1 AND client.revoked_at IS NULL
  AND NOT EXISTS (SELECT 1 FROM unnest(string_to_array(request.scopes, ' ')) scope WHERE NOT (client.policy->'oidc_scopes' ? scope))
-		FOR UPDATE OF request, user_principals
+		FOR UPDATE OF request
 	`
 	var (
-		requestID    uuid.UUID
-		clientID     string
-		redirectURI  string
-		scopes       string
-		challenge    string
-		authTime     *time.Time
-		authorizedAt *time.Time
-		consumedAt   *time.Time
-		expiresAt    time.Time
-		user         OIDCUserClaims
-		active       bool
+		requestID       uuid.UUID
+		sourceSessionID *uuid.UUID
+		clientID        string
+		redirectURI     string
+		scopes          string
+		challenge       string
+		authTime        *time.Time
+		authorizedAt    *time.Time
+		consumedAt      *time.Time
+		expiresAt       time.Time
+		user            OIDCUserClaims
+		active          bool
 	)
 	err = tx.QueryRow(ctx, lockQuery, request.CodeHash).Scan(
 		&requestID,
@@ -272,6 +302,7 @@ func (p *PsqlDB) ExchangeOIDCCode(
 		&authorizedAt,
 		&consumedAt,
 		&expiresAt,
+		&sourceSessionID,
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -285,6 +316,12 @@ func (p *PsqlDB) ExchangeOIDCCode(
 		return OIDCTokenSet{}, fmt.Errorf("lock OIDC authorization code: %w", err)
 	}
 
+	if sourceSessionID == nil {
+		return OIDCTokenSet{}, ErrOIDCInvalidGrant
+	}
+	if err = lockAuthenticationSession(ctx, tx, *sourceSessionID, user.ID); err != nil {
+		return OIDCTokenSet{}, ErrOIDCInvalidGrant
+	}
 	var exchangeTime time.Time
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&exchangeTime); err != nil {
 		return OIDCTokenSet{}, fmt.Errorf("read OIDC exchange time: %w", err)

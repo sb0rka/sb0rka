@@ -32,13 +32,20 @@ func scanSession(row pgx.Row) (model.AuthSession, error) {
 }
 
 // CreateAuthSession creates a session and its first refresh token after login
-func (p *PsqlDB) CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error) {
+func (p *PsqlDB) CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedPasswordHash string) (model.AuthSession, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return model.AuthSession{}, err
 	}
 	defer tx.Rollback(ctx)
 
+	hash, err := lockAuthenticationUser(ctx, tx, subjectID)
+	if err != nil {
+		return model.AuthSession{}, err
+	}
+	if expectedPasswordHash == "" || hash != expectedPasswordHash {
+		return model.AuthSession{}, ErrTokenExpired
+	}
 	const insertSessionQuery = `
 		INSERT INTO auth_sessions (id, subject_id, family_id, created_ip, created_user_agent, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -180,30 +187,28 @@ func (p *PsqlDB) refreshAuthSession(ctx context.Context, oldRefreshTokenHash str
 // client binding matches, the session and token are still valid and the user is active.
 // The returned flag reports whether the token was already consumed.
 func lockRefresh(ctx context.Context, tx pgx.Tx, refreshTokenHash string, expectedOAuthClientID *string) (model.AuthSession, uuid.UUID, bool, error) {
-	var tokenID, sessionID uuid.UUID
-	var consumedAt *time.Time
-	var tokenExpiresAt time.Time
-	const selectTokenQuery = `
-		SELECT id, session_id, consumed_at, expires_at
-		FROM auth_refresh_tokens
-		WHERE token_hash = $1
-		FOR UPDATE
-	`
-	err := tx.QueryRow(ctx, selectTokenQuery, refreshTokenHash).Scan(&tokenID, &sessionID, &consumedAt, &tokenExpiresAt)
+	// Resolve without a lock, then re-read under user -> session -> token locks.
+	var subjectID, sessionID, tokenID uuid.UUID
+	err := tx.QueryRow(ctx, `SELECT s.subject_id,s.id FROM auth_refresh_tokens t JOIN auth_sessions s ON s.id=t.session_id WHERE t.token_hash=$1`, refreshTokenHash).Scan(&subjectID, &sessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.AuthSession{}, tokenID, false, ErrTokenNotFound
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.AuthSession{}, tokenID, false, ErrTokenNotFound
-		}
 		return model.AuthSession{}, tokenID, false, err
 	}
-
-	session, err := scanSession(tx.QueryRow(ctx, `
-		SELECT `+sessionColumns+`
-		FROM auth_sessions s
-		JOIN subjects u ON u.id = s.subject_id
-		WHERE s.id = $1
-		FOR UPDATE OF s
-	`, sessionID))
+	if _, err = lockAuthenticationUser(ctx, tx, subjectID); err != nil {
+		return model.AuthSession{}, tokenID, false, err
+	}
+	session, err := scanSession(tx.QueryRow(ctx, `SELECT `+sessionColumns+` FROM auth_sessions s JOIN subjects u ON u.id=s.subject_id WHERE s.id=$1 FOR UPDATE OF s`, sessionID))
+	if err != nil {
+		return session, tokenID, false, err
+	}
+	var consumedAt *time.Time
+	var tokenExpiresAt time.Time
+	err = tx.QueryRow(ctx, `SELECT id,consumed_at,expires_at FROM auth_refresh_tokens WHERE token_hash=$1 AND session_id=$2 FOR UPDATE`, refreshTokenHash, sessionID).Scan(&tokenID, &consumedAt, &tokenExpiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return session, tokenID, false, ErrTokenNotFound
+	}
 	if err != nil {
 		return session, tokenID, false, err
 	}
@@ -331,17 +336,36 @@ func (p *PsqlDB) RevokeOAuthSessionFamily(ctx context.Context, refreshTokenHash,
 	if oauthClientID == "" {
 		return nil
 	}
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var subjectID uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT s.subject_id FROM auth_sessions s JOIN auth_refresh_tokens t ON t.session_id=s.id WHERE t.token_hash=$1 AND s.oauth_client_id=$2`, refreshTokenHash, oauthClientID).Scan(&subjectID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err = lockRevocationUser(ctx, tx, subjectID); err != nil {
+		return err
+	}
 	const query = `
 		UPDATE auth_sessions s
-		SET revoked_at = COALESCE(s.revoked_at, NOW()),
+		SET revoked_at = COALESCE(s.revoked_at, clock_timestamp()),
 			revoke_reason = COALESCE(s.revoke_reason, 'oauth_client_revoke')
 		FROM auth_refresh_tokens t
 		WHERE t.session_id = s.id
 			AND t.token_hash = $1
 			AND s.oauth_client_id = $2
 	`
-	_, err := p.pool.Exec(ctx, query, refreshTokenHash, oauthClientID)
-	return err
+	_, err = tx.Exec(ctx, query, refreshTokenHash, oauthClientID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (p *PsqlDB) ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error) {
@@ -375,31 +399,50 @@ func (p *PsqlDB) ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]m
 }
 
 func (p *PsqlDB) RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err = lockRevocationUser(ctx, tx, subjectID); err != nil {
+		return err
+	}
 	const query = `
 		UPDATE auth_sessions
 		SET
-			revoked_at = COALESCE(revoked_at, NOW()),
+			revoked_at = COALESCE(revoked_at, clock_timestamp()),
 			revoke_reason = COALESCE(revoke_reason, $2),
 			replaced_by = COALESCE(replaced_by, $3)
 		WHERE id = $1
 			AND subject_id = $4
 	`
-	tag, err := p.pool.Exec(ctx, query, sessionID, reason, replacedBy, subjectID)
+	tag, err := tx.Exec(ctx, query, sessionID, reason, replacedBy, subjectID)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrTokenNotFound
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (p *PsqlDB) RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err = lockRevocationUser(ctx, tx, subjectID); err != nil {
+		return err
+	}
 	const query = `
 		UPDATE auth_sessions
-		SET revoked_at = NOW(), revoke_reason = 'logout'
+		SET revoked_at = clock_timestamp(), revoke_reason = 'logout'
 		WHERE subject_id = $1 AND revoked_at IS NULL
 	`
-	_, err := p.pool.Exec(ctx, query, subjectID)
-	return err
+	_, err = tx.Exec(ctx, query, subjectID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

@@ -35,7 +35,7 @@ type Database interface {
 	GrantSecretAgent(ctx context.Context, projectID uuid.UUID, secretPublicID string, agentSubjectID uuid.UUID) error
 	RevokeSecretAgent(ctx context.Context, projectID uuid.UUID, secretPublicID string, agentSubjectID uuid.UUID) error
 	ListSecretAgentIDs(ctx context.Context, projectID, secretID uuid.UUID) ([]uuid.UUID, error)
-	IsLiveAgent(ctx context.Context, subjectID, hostID uuid.UUID) (bool, error)
+	IsLiveAgent(ctx context.Context, subjectID, hostID uuid.UUID, clientID, thumbprint string) (bool, error)
 	AgentOwnedByUser(ctx context.Context, agentSubjectID, actorSubjectID, userSubjectID uuid.UUID) (bool, error)
 	SecretBoundToAgent(ctx context.Context, projectPublicID, resourcePublicID, agentSubjectID string) (bool, error)
 	SecretBoundToUserAgent(ctx context.Context, projectPublicID, resourcePublicID, actorSubjectID, userSubjectID string) (bool, error)

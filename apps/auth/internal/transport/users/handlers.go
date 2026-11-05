@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -120,7 +121,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.deps.Database.GetUser(r.Context(), subjectID, "", "")
 	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
+		if errors.Is(err, db.ErrUserNotFound) || errors.Is(err, db.ErrTokenExpired) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -253,7 +254,7 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.deps.Database.GetUser(r.Context(), subjectIDRaw, "", "")
 	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
+		if errors.Is(err, db.ErrUserNotFound) || errors.Is(err, db.ErrTokenExpired) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -284,6 +285,12 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessionRaw, _ := authctx.SessionIDFromContext(r.Context())
+	sessionID, sessionErr := uuid.Parse(sessionRaw)
+	if sessionErr != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	userID := user.ID
 	if userID == uuid.Nil {
 		h.deps.Log.Error("user_password_empty_user_id", "subject_id", subjectIDRaw)
@@ -291,8 +298,8 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.Database.UpdateUserPassword(r.Context(), userID, passwordHash); err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
+	if err := h.deps.Database.UpdateUserPassword(r.Context(), userID, sessionID, user.PasswordHash, passwordHash); err != nil {
+		if errors.Is(err, db.ErrUserNotFound) || errors.Is(err, db.ErrTokenExpired) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -301,6 +308,8 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
+	http.SetCookie(w, &http.Cookie{Name: h.deps.Cfg.AuthConfig.RefreshTokenCookieName, Value: "", Path: h.deps.Cfg.AuthConfig.RefreshTokenCookiePath, Domain: h.deps.Cfg.AuthConfig.RefreshTokenCookieDomain, MaxAge: -1, Expires: time.Unix(1, 0), HttpOnly: h.deps.Cfg.AuthConfig.RefreshTokenCookieHttpOnly, Secure: h.deps.Cfg.AuthConfig.RefreshTokenCookieSecure, SameSite: h.deps.Cfg.AuthConfig.RefreshTokenCookieSameSite})
 	w.WriteHeader(http.StatusNoContent)
 }
 

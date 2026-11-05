@@ -132,6 +132,7 @@ export function LoginPage({ onLoginSuccess }: { onLoginSuccess?: () => void | Pr
           </CardHeader>
 
           <CardContent>
+          {searchParams.get("password_changed") === "1" && <p role="status" className="mb-4 text-sm">{t("profile.passwordReauthentication")}</p>}
             <form id="login-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="login">{t("auth.login.loginLabel")}</Label>

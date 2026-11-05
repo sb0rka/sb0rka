@@ -302,6 +302,11 @@ func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (strin
 		}
 		return h.config.Issuer + "/oauth2/delegations/consent?request_id=" + requestID.String(), nil
 	}
+	sourceRaw, sourceOK := authctx.SessionIDFromContext(r.Context())
+	sourceSessionID, sourceErr := uuid.Parse(sourceRaw)
+	if !sourceOK || sourceErr != nil {
+		return "", newProtocolError("invalid_token", http.StatusUnauthorized)
+	}
 	authTime, ok := authctx.AuthenticationTimeFromContext(r.Context())
 	if !ok || authTime.IsZero() {
 		sessionIDRaw, sessionOK := authctx.SessionIDFromContext(r.Context())
@@ -333,7 +338,7 @@ func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (strin
 	if err != nil {
 		return "", newProtocolError("server_error", http.StatusInternalServerError)
 	}
-	redirect, err := h.database.AuthorizeOIDC(r.Context(), requestID, userID, authTime.UTC(), codeHash, h.now().UTC())
+	redirect, err := h.database.AuthorizeOIDC(r.Context(), requestID, userID, sourceSessionID, authTime.UTC(), codeHash, h.now().UTC())
 	if err != nil {
 		if errors.Is(err, db.ErrOIDCAuthRequestNotFound) || errors.Is(err, db.ErrOIDCAuthRequestExpired) {
 			return "", newProtocolError("invalid_request", http.StatusBadRequest)

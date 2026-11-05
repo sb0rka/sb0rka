@@ -81,7 +81,7 @@ func (s *Server) authorizeAgent(w http.ResponseWriter, r *http.Request, id corea
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return false
 	}
-	live, err := s.deps.PlatformDatabase.IsLiveAgent(r.Context(), subjectID, hostID)
+	live, err := s.deps.PlatformDatabase.IsLiveAgent(r.Context(), subjectID, hostID, id.ClientID, id.KeyThumbprint)
 	if err != nil {
 		http.Error(w, "Authorization unavailable", http.StatusServiceUnavailable)
 		return false

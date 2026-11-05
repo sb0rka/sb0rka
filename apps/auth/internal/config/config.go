@@ -116,7 +116,7 @@ func Load() (*Config, error) {
 	if accessTokenTTL <= 0 || accessTokenTTL > accessTokenPolicy.MaxTTL {
 		return nil, fmt.Errorf("ACCESS_TOKEN_TTL_SEC must be positive and must not exceed MAX_ACCESS_TOKEN_TTL_SEC")
 	}
-	accessTokenIssuer := coreconfig.GetStringEnv("JWT_ISSUER", DefaultAccessTokenIssuer)
+	accessTokenIssuer := coreconfig.GetStringEnv("AUTH_BASE_URL", DefaultAccessTokenIssuer)
 	accessTokenAudience := coreauth.AudienceAPI
 	accessTokenKid := coreconfig.GetStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
 	refreshTokenLen := coreconfig.GetIntEnv("REFRESH_TOKEN_LEN", DefaultRefreshTokenLen)
@@ -142,7 +142,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("OIDC configuration is required for platform Auth")
 	}
 	if oidcConfig != nil && oidcConfig.Issuer != accessTokenIssuer {
-		return nil, fmt.Errorf("OIDC issuer must equal JWT_ISSUER")
+		return nil, fmt.Errorf("OIDC issuer must equal AUTH_BASE_URL")
 	}
 	var previousKeys map[string]ed25519.PublicKey
 	if !validKeyID(accessTokenKid) || accessTokenKid == oidcConfig.SigningKeyID {

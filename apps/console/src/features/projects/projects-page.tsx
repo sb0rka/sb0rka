@@ -23,6 +23,7 @@ import { MobileProjectCard } from "./components/mobile-project-card"
 import { EmailVerificationDialog } from "./email-verification-dialog"
 import { initializeAccount, verifyEmailCheck } from "../auth/api"
 import { useAuth } from "../auth/auth-provider"
+import { useEnsureAccountPlan } from "../subscription/hooks"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
@@ -120,6 +121,7 @@ export function ProjectsPage() {
   const [emailVerifiedOpen, setEmailVerifiedOpen] = useState(false)
   const [alphaToastOpen, setAlphaToastOpen] = useState(false)
   const { data, isLoading } = useProjects()
+  useEnsureAccountPlan()
   const projects = data?.projects ?? []
 
   async function handleEmailVerified() {

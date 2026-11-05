@@ -49,7 +49,7 @@ services:
     command: ["/app/api", "server"]
     depends_on:
       auth:
-        condition: service_healthy
+        condition: service_started
       postgres:
         condition: service_healthy
       migrate:
@@ -82,11 +82,6 @@ services:
       - ./apps/auth/.env
     volumes:
       - keys:/keys:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8020/ready || exit 1"]
-      interval: 3s
-      timeout: 3s
-      retries: 30
     ports:
       - "8020:8020"
 

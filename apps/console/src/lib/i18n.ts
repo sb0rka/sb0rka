@@ -500,6 +500,7 @@ const resources = {
         passwordMismatch: "Пароли не совпадают",
         passwordSaveError: "Не удалось сменить пароль",
         passwordUpdated: "Пароль обновлён",
+        passwordReauthentication: "Пароль изменён. Все сессии завершены. Войдите с новым паролем.",
 
         accountTitle: "Опасная зона",
         accountDescription: "Безвозвратно удалить вашу учетную запись и все связанные с ней данные",
@@ -1002,6 +1003,7 @@ const resources = {
         passwordMismatch: "Passwords do not match",
         passwordSaveError: "Unable to update password",
         passwordUpdated: "Password updated",
+        passwordReauthentication: "Password changed. All sessions ended. Sign in with your new password.",
 
         accountTitle: "Account",
         accountDescription: "Permanently delete your account and all data related to it",

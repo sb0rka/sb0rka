@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
@@ -21,14 +23,44 @@ import (
 )
 
 type Handler struct {
-	deps runtime.Dependencies
+	deps           runtime.Dependencies
+	dummyHash      string
+	dummyError     error
+	verifyPassword func(string, string, config.AuthConfig) (bool, error)
 }
 
 func NewHandler(deps runtime.Dependencies) *Handler {
-	return &Handler{deps: deps}
+	var hash string
+	var err error
+	if deps.Cfg.AuthConfig.ArgonTime == 0 || deps.Cfg.AuthConfig.ArgonThreads == 0 {
+		err = fmt.Errorf("invalid password configuration")
+	} else {
+		hash, err = service.HashPassword("dummy-password-verification", deps.Cfg.AuthConfig)
+	}
+	return &Handler{deps: deps, dummyHash: hash, dummyError: err, verifyPassword: service.VerifyPassword}
 }
 
+// AuthLogin godoc
+// @Summary Authenticate a user and create a native session
+// @Description Browser requests require an explicitly trusted Origin. Responses are not cacheable.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body contract.AuthLoginRequest true "Credentials"
+// @Success 200 {object} contract.AuthLoginResponse
+// @Failure 400 {string} string
+// @Failure 401 {string} string
+// @Failure 403 {string} string
+// @Failure 415 {string} string
+// @Router /auth/login [post]
 func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
+	if !h.cookieRequest(w, r) {
+		return
+	}
+	if h.dummyError != nil {
+		http.Error(w, "Authentication unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	var req contract.AuthLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -77,30 +109,24 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	// Get user by username or email
 
 	user, err := h.deps.Database.GetUser(r.Context(), "", username, email)
-	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-			return
-		}
+	exists := err == nil
+	if err != nil && !errors.Is(err, db.ErrUserNotFound) {
 		h.deps.Log.Error("login_get_user_failed", "error", err)
-		http.Error(w, "Failed to get user", http.StatusInternalServerError)
+		http.Error(w, "Authentication unavailable", http.StatusInternalServerError)
 		return
 	}
-
-	if !user.IsActive {
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-		return
+	hash := h.dummyHash
+	if exists && user.IsActive {
+		hash = user.PasswordHash
 	}
-
-	// Verify password
-
-	ok, err := service.VerifyPassword(password, user.PasswordHash, h.deps.Cfg.AuthConfig)
+	// Every well-formed credential attempt performs the same password work.
+	ok, err := h.verifyPassword(password, hash, h.deps.Cfg.AuthConfig)
 	if err != nil {
 		h.deps.Log.Error("login_verify_password_failed", "error", err)
 		http.Error(w, "Failed to verify password", http.StatusInternalServerError)
 		return
 	}
-	if !ok {
+	if !ok || !exists || !user.IsActive {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -132,8 +158,12 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	expiresAt := time.Now().UTC().Add(h.deps.Cfg.AuthConfig.AccessSessionTTL)
 
-	session, err := h.deps.Database.CreateAuthSession(r.Context(), sessionID, user.ID, familyID, refreshTokenHash, clientIP, userAgent, expiresAt)
+	session, err := h.deps.Database.CreateAuthSession(r.Context(), sessionID, user.ID, familyID, refreshTokenHash, clientIP, userAgent, expiresAt, user.PasswordHash)
 	if err != nil {
+		if errors.Is(err, db.ErrTokenExpired) || errors.Is(err, db.ErrUserNotFound) {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
 		h.deps.Log.Error("login_create_session_failed", "error", err)
 		http.Error(w, "Failed to create auth session", http.StatusInternalServerError)
 		return
@@ -163,8 +193,21 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ToAuthLoginResponse(accessToken, ""))
 }
 
+// AuthRefresh godoc
+// @Summary Rotate a native refresh cookie
+// @Description Browser requests require an explicitly trusted Origin. A JSON body may be empty.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} contract.AuthLoginResponse
+// @Failure 401 {string} string
+// @Failure 403 {string} string
+// @Failure 415 {string} string
+// @Router /auth/refresh [post]
 func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
+	if !h.cookieRequest(w, r) {
+		return
+	}
 	cookie, err := r.Cookie(h.deps.Cfg.AuthConfig.RefreshTokenCookieName)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

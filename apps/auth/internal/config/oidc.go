@@ -75,7 +75,7 @@ func loadOIDCConfig() (OIDCConfig, error) {
 	}
 
 	issuer := strings.TrimSuffix(
-		strings.TrimSpace(coreconfig.GetStringEnv("JWT_ISSUER", DefaultAccessTokenIssuer)),
+		strings.TrimSpace(coreconfig.GetStringEnv("AUTH_BASE_URL", DefaultAccessTokenIssuer)),
 		"/",
 	)
 	signingPEM, err := readBinarySecret("OIDC_SIGNING_PRIVATE_KEY_FILE_PATH")
@@ -104,7 +104,7 @@ func loadOIDCConfig() (OIDCConfig, error) {
 	}
 	cfg := OIDCConfig{
 		PlatformAPIBaseURL: coreconfig.GetStringEnv(
-			"PLATFORM_API_BASE_URL",
+			"API_BASE_URL",
 			"http://localhost:8080",
 		), PreviousAccessJWKS: previous,
 		Issuer:                  issuer,
@@ -124,25 +124,25 @@ func loadOIDCConfig() (OIDCConfig, error) {
 func (c OIDCConfig) validate() error {
 	issuer, err := url.Parse(c.Issuer)
 	if err != nil || issuer.Scheme == "" || issuer.Host == "" {
-		return errors.New("JWT_ISSUER must be an absolute URL")
+		return errors.New("AUTH_BASE_URL must be an absolute URL")
 	}
 	if issuer.User != nil || issuer.ForceQuery || issuer.RawQuery != "" ||
 		issuer.Fragment != "" || strings.Contains(c.Issuer, "#") {
-		return errors.New("JWT_ISSUER must not contain userinfo, query, or fragment")
+		return errors.New("AUTH_BASE_URL must not contain userinfo, query, or fragment")
 	}
 	if issuer.Path != "" {
-		return errors.New("JWT_ISSUER must not contain a path or trailing slash")
+		return errors.New("AUTH_BASE_URL must not contain a path or trailing slash")
 	}
 	switch issuer.Scheme {
 	case "https":
 	case "http":
 		if !c.AllowInsecureHTTPIssuer || !isLocalDevHTTPHost(issuer.Hostname()) {
 			return errors.New(
-				"HTTP JWT_ISSUER requires OIDC_ALLOW_INSECURE_HTTP_ISSUER=true and a loopback or private-network hostname",
+				"HTTP AUTH_BASE_URL requires OIDC_ALLOW_INSECURE_HTTP_ISSUER=true and a loopback, private-network, or Compose service hostname",
 			)
 		}
 	default:
-		return errors.New("JWT_ISSUER scheme must be https")
+		return errors.New("AUTH_BASE_URL scheme must be https")
 	}
 	if err := validateLoginURL(c.LoginURL); err != nil {
 		return fmt.Errorf("invalid OIDC_LOGIN_URL: %w", err)
@@ -150,7 +150,7 @@ func (c OIDCConfig) validate() error {
 	api, err := url.Parse(c.PlatformAPIBaseURL)
 	if err != nil || api.Host == "" || api.User != nil || api.Path != "" || api.RawQuery != "" || api.Fragment != "" ||
 		(api.Scheme != "https" && api.Scheme != "http") {
-		return errors.New("PLATFORM_API_BASE_URL must be an HTTP(S) origin")
+		return errors.New("API_BASE_URL must be an HTTP(S) origin")
 	}
 	if c.SigningPrivateKey == nil {
 		return errors.New("OIDC signing private key is required")
@@ -251,11 +251,15 @@ func isLoopbackHost(host string) bool {
 }
 
 func isLocalDevHTTPHost(host string) bool {
-	if isLoopbackHost(host) {
+	if isLoopbackHost(host) || strings.EqualFold(host, "host.docker.internal") {
 		return true
 	}
 	ip := net.ParseIP(host)
-	return ip != nil && ip.IsPrivate()
+	if ip != nil && ip.IsPrivate() {
+		return true
+	}
+	// Compose DNS name ("auth"): the API container fetches JWKS from this issuer.
+	return host != "" && !strings.Contains(host, ".")
 }
 
 func validKeyID(kid string) bool {

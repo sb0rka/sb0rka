@@ -388,7 +388,7 @@ func (h *Handler) DelegationRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := uuid.New()
-	if err = h.database.CreateDelegationRequest(r.Context(), db.DelegationRequest{ID: id, SubjectID: uuid.MustParse(identity.SubjectID), ClientID: client.ClientID, RedirectURI: redirect, State: state, CodeChallenge: challenge, Audience: audience}); err != nil {
+	if err = h.database.CreateDelegationRequest(r.Context(), db.DelegationRequest{ID: id, SourceSessionID: uuid.MustParse(identity.SessionID), SubjectID: uuid.MustParse(identity.SubjectID), ClientID: client.ClientID, RedirectURI: redirect, State: state, CodeChallenge: challenge, Audience: audience}); err != nil {
 		h.writeOAuthError(w, newProtocolError("server_error", http.StatusInternalServerError))
 		return
 	}

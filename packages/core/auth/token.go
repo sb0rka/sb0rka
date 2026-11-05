@@ -115,6 +115,13 @@ func VerifyAccessToken(ctx context.Context, raw string, cfg VerificationConfig) 
 		if token.Method != jwt.SigningMethodEdDSA {
 			return nil, fmt.Errorf("%w: unexpected signing method", ErrUnauthorized)
 		}
+		// This token profile implements no critical JOSE extensions.
+		if _, present := token.Header["crit"]; present {
+			return nil, fmt.Errorf("%w: unsupported critical header", ErrUnauthorized)
+		}
+		if b64, present := token.Header["b64"]; present && b64 != true {
+			return nil, fmt.Errorf("%w: unsupported payload encoding", ErrUnauthorized)
+		}
 		kid, ok := token.Header["kid"].(string)
 		if !ok || kid == "" || len(kid) > 128 {
 			return nil, fmt.Errorf("%w: untrusted kid", ErrUnauthorized)

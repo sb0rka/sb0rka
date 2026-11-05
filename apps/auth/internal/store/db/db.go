@@ -34,7 +34,7 @@ type Database interface {
 	CreateDelegationRequest(ctx context.Context, request DelegationRequest) error
 	DelegationRequest(ctx context.Context, requestID uuid.UUID) (DelegationRequest, error)
 	DelegationGrant(ctx context.Context, subjectID uuid.UUID, clientID, audience string) (DelegationGrant, error)
-	ApproveDelegation(ctx context.Context, requestID, subjectID uuid.UUID, scopes, projectIDs []string, codeHash []byte) (DelegationGrant, error)
+	ApproveDelegation(ctx context.Context, requestID, subjectID, consentSessionID uuid.UUID, scopes, projectIDs []string, codeHash []byte) (DelegationGrant, error)
 	DenyDelegation(ctx context.Context, requestID, subjectID uuid.UUID) error
 	RedeemDelegation(ctx context.Context, codeHash []byte, clientID, redirectURI, codeVerifier string) (DelegationGrant, error)
 	RevokeDelegation(ctx context.Context, subjectID uuid.UUID, clientID, audience string) error
@@ -56,12 +56,12 @@ type Database interface {
 	StampEmailVerified(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error
 	GetUser(ctx context.Context, userID, username, email string) (model.User, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, username, email, phone string) (model.User, error)
-	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
+	UpdateUserPassword(ctx context.Context, userID, sessionID uuid.UUID, expectedHash, passwordHash string) error
 	DeactivateUser(ctx context.Context, userID uuid.UUID) error
 
 	// --- Auth sessions ---
 
-	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
+	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedPasswordHash string) (model.AuthSession, error)
 	GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error)
 	ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error)
 	RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
@@ -75,7 +75,7 @@ type Database interface {
 	// --- OAuth/OIDC ---
 
 	CreateOIDCPending(ctx context.Context, request OIDCPendingRequest) error
-	AuthorizeOIDC(ctx context.Context, requestID, userID uuid.UUID, authTime time.Time, codeHash []byte, now time.Time) (OIDCClientRedirect, error)
+	AuthorizeOIDC(ctx context.Context, requestID, userID, sourceSessionID uuid.UUID, authTime time.Time, codeHash []byte, now time.Time) (OIDCClientRedirect, error)
 	CancelOIDC(ctx context.Context, requestID uuid.UUID, now time.Time) (OIDCClientRedirect, error)
 	GetOIDCSessionAuthenticationTime(ctx context.Context, sessionID, userID uuid.UUID) (time.Time, error)
 	ExchangeOIDCCode(ctx context.Context, request OIDCExchangeRequest, issue IssueOIDCTokensFunc) (OIDCTokenSet, error)

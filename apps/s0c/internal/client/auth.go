@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/mail"
-	"net/url"
 	"strings"
 	"time"
 
@@ -35,22 +34,25 @@ func (c *Client) Login(ctx context.Context, usernameOrEmail string, password str
 		return "", "", nil, fmt.Errorf("password is required")
 	}
 
-	form := url.Values{}
+	payloadRequest := contract.AuthLoginRequest{Password: password}
 	if looksLikeEmail(usernameOrEmail) {
-		form.Set("email", usernameOrEmail)
+		payloadRequest.Email = &usernameOrEmail
 	} else {
-		form.Set("username", usernameOrEmail)
+		payloadRequest.Username = &usernameOrEmail
 	}
-	form.Set("password", password)
+	requestBody, err := json.Marshal(payloadRequest)
+	if err != nil {
+		return "", "", nil, err
+	}
 
 	respBody, httpResp, err := c.doRequest(
 		ctx,
 		http.MethodPost,
 		RouteAuthLogin,
-		strings.NewReader(form.Encode()),
+		bytes.NewReader(requestBody),
 		requestOptions{
 			accept:      "application/json",
-			contentType: "application/x-www-form-urlencoded",
+			contentType: "application/json",
 		},
 	)
 	if err != nil {

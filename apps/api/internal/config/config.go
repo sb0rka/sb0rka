@@ -120,9 +120,9 @@ func Load() (*Config, error) {
 
 	serverCORSAllowedDefaultMethodsEnv := getStringEnv("SERVER_CORS_ALLOWED_DEFAULT_METHODS", DefaultCORSAllowedDefaultMethods)
 
-	accessTokenIssuer := strings.TrimSpace(os.Getenv("SB0RKA_AUTH_BASE_URL"))
+	accessTokenIssuer := strings.TrimSpace(os.Getenv("AUTH_BASE_URL"))
 	if accessTokenIssuer == "" {
-		return nil, fmt.Errorf("SB0RKA_AUTH_BASE_URL should be set")
+		return nil, fmt.Errorf("AUTH_BASE_URL should be set")
 	}
 	accessTokenPolicy, err := coreauth.AccessTokenPolicyFromEnv()
 	if err != nil {
@@ -137,7 +137,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if err := coreauth.ValidateServiceOrigin(accessTokenIssuer, allowInsecureHTTP); err != nil {
-		return nil, fmt.Errorf("SB0RKA_AUTH_BASE_URL: %w", err)
+		return nil, fmt.Errorf("AUTH_BASE_URL: %w", err)
 	}
 	verificationKeys, err := coreauth.NewJWKSCache(accessTokenIssuer)
 	if err != nil {
