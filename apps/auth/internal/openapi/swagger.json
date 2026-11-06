@@ -29,7 +29,7 @@
         },
         "/auth/login": {
             "post": {
-                "description": "Browser requests require an explicitly trusted Origin. Responses are not cacheable.",
+                "description": "JSON body is limited to 16 KiB. PostgreSQL-backed account and peer quotas return 429 with Retry-After; unavailable quota storage returns 503. Responses are not cacheable.",
                 "consumes": [
                     "application/json"
                 ],
@@ -76,8 +76,32 @@
                             "type": "string"
                         }
                     },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "415": {
                         "description": "Unsupported Media Type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "type": "string",
+                                "description": "Seconds until the next attempt"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "type": "string"
                         }

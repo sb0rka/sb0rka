@@ -70,6 +70,9 @@ type VerificationConfig struct {
 }
 
 func ParseBearerToken(authorizationHeader string) (string, error) {
+	if len(authorizationHeader) > 16384+32 {
+		return "", fmt.Errorf("%w: bearer header too large", ErrUnauthorized)
+	}
 	parts := strings.Fields(strings.TrimSpace(authorizationHeader))
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
 		return "", fmt.Errorf("%w: malformed bearer header", ErrUnauthorized)
@@ -88,6 +91,9 @@ func ParseAndVerifyAccessToken(ctx context.Context, authorizationHeader string, 
 func VerifyAccessToken(ctx context.Context, raw string, cfg VerificationConfig) (AccessTokenIdentity, error) {
 	if strings.TrimSpace(raw) == "" || len(raw) > 16384 || cfg.Issuer == "" || cfg.Audience == "" || (cfg.Keys == nil && len(cfg.PublicKey) != ed25519.PublicKeySize) {
 		return AccessTokenIdentity{}, fmt.Errorf("%w: invalid token or verification key", ErrUnauthorized)
+	}
+	if err := validateCompactAccessToken(raw); err != nil {
+		return AccessTokenIdentity{}, fmt.Errorf("%w: invalid compact token", ErrUnauthorized)
 	}
 	policy := DefaultAccessTokenPolicy()
 	if cfg.Policy != nil {

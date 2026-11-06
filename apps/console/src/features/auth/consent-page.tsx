@@ -9,6 +9,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Checkbox,
+  Label,
   ThemeToggle,
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -116,20 +118,28 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
                 <legend className="mb-2 font-medium">{t("auth.consent.projects")}</legend>
                 {data.projects.length === 0 && <p className="text-sm text-muted-foreground">{t("auth.consent.noProjects")}</p>}
                 {data.projects.map((project) => (
-                  <label key={project.public_id} className="flex cursor-pointer items-start gap-3 text-sm">
-                    <input type="checkbox" className="mt-0.5" checked={projects.includes(project.public_id)}
-                      onChange={(event) => setProjects((current) => toggle(current, project.public_id, event.target.checked))} />
-                    <span className="break-all">{project.name}</span>
-                  </label>
+                  <div key={project.public_id} className="flex items-start gap-3">
+                    <Checkbox
+                      id={`consent-project-${project.public_id}`}
+                      className="mt-0.5"
+                      checked={projects.includes(project.public_id)}
+                      onCheckedChange={(checked) => setProjects((current) => toggle(current, project.public_id, checked === true))}
+                    />
+                    <Label htmlFor={`consent-project-${project.public_id}`} className="cursor-pointer font-normal leading-5 break-all">
+                      {project.name}
+                    </Label>
+                  </div>
                 ))}
               </fieldset>
               <fieldset disabled={busy} className="space-y-3">
                 <legend className="mb-2 font-medium">{t("auth.consent.permissions")}</legend>
                 {data.scopes.map((scope) => (
-                  <label key={scope} className="flex items-start gap-3 text-sm">
-                    <input type="checkbox" className="mt-0.5" checked disabled onChange={() => {}} />
-                    <span>{scopeLabels[scope] ? t(scopeLabels[scope]) : scope}</span>
-                  </label>
+                  <div key={scope} className="flex items-start gap-3">
+                    <Checkbox id={`consent-scope-${scope}`} className="mt-0.5 disabled:opacity-100" checked disabled />
+                    <Label htmlFor={`consent-scope-${scope}`} className="font-normal leading-5 peer-disabled:cursor-default peer-disabled:opacity-100">
+                      {scopeLabels[scope] ? t(scopeLabels[scope]) : scope}
+                    </Label>
+                  </div>
                 ))}
               </fieldset>
               <p className="text-sm text-muted-foreground">{t("auth.consent.selectionHint")}</p>

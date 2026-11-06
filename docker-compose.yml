@@ -32,6 +32,15 @@ services:
     extends:
       file: docker-compose.base.yml
       service: auth
+    environment:
+      SSL_CERT_DIR: /etc/ssl/certs:/run/dev-ca
+    volumes:
+      - type: bind
+        source: ./deploy/dev/certs
+        target: /run/dev-ca
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       postgres:
         condition: service_healthy

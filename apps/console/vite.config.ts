@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
     alias: {
       "@": "/src",
     },
+    dedupe: ["react", "react-dom"],
   },
   server: {
     host: useMockApi,

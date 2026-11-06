@@ -60,6 +60,7 @@ type Database interface {
 	DeactivateUser(ctx context.Context, userID uuid.UUID) error
 
 	// --- Auth sessions ---
+	AuthenticationAttempt(ctx context.Context, bucket string, limit int, window time.Duration) (time.Duration, error)
 
 	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedPasswordHash string) (model.AuthSession, error)
 	GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error)

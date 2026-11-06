@@ -21,18 +21,18 @@ import (
 )
 
 type Handler struct {
-	deps runtime.Dependencies
+	deps          runtime.Dependencies
+	passwordSlots chan struct{}
 }
 
 func NewHandler(deps runtime.Dependencies) *Handler {
-	return &Handler{deps: deps}
+	return &Handler{deps: deps, passwordSlots: make(chan struct{}, 4)}
 }
 
 // RegisterUser handles POST /identity/users — creates a new user-backed subject.
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req contract.RegisterUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 
@@ -69,6 +69,11 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	release := h.passwordWork(w, r, "register:"+credentialPeer(r), 30, time.Hour)
+	if release == nil {
+		return
+	}
+	defer release()
 	passwordHash, err := service.HashPassword(password, h.deps.Cfg.AuthConfig)
 	if err != nil {
 		h.deps.Log.Error("register_hash_password_failed", "error", err)
@@ -147,8 +152,7 @@ func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req contract.UserUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 	if req.Username == nil && req.Email == nil && req.Phone == nil {
@@ -232,8 +236,7 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req contract.UserPasswordUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 	if req.CurrentPassword == "" || req.NewPassword == "" {
@@ -251,6 +254,11 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	release := h.passwordWork(w, r, "password-proof:"+subjectIDRaw, 10, 15*time.Minute)
+	if release == nil {
+		return
+	}
+	defer release()
 
 	user, err := h.deps.Database.GetUser(r.Context(), subjectIDRaw, "", "")
 	if err != nil {

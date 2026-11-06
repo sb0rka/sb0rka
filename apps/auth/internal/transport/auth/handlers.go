@@ -27,6 +27,7 @@ type Handler struct {
 	dummyHash      string
 	dummyError     error
 	verifyPassword func(string, string, config.AuthConfig) (bool, error)
+	passwordSlots  chan struct{}
 }
 
 func NewHandler(deps runtime.Dependencies) *Handler {
@@ -37,12 +38,12 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 	} else {
 		hash, err = service.HashPassword("dummy-password-verification", deps.Cfg.AuthConfig)
 	}
-	return &Handler{deps: deps, dummyHash: hash, dummyError: err, verifyPassword: service.VerifyPassword}
+	return &Handler{deps: deps, dummyHash: hash, dummyError: err, verifyPassword: service.VerifyPassword, passwordSlots: make(chan struct{}, 4)}
 }
 
 // AuthLogin godoc
 // @Summary Authenticate a user and create a native session
-// @Description Browser requests require an explicitly trusted Origin. Responses are not cacheable.
+// @Description JSON body is limited to 16 KiB. PostgreSQL-backed account and peer quotas return 429 with Retry-After; unavailable quota storage returns 503. Responses are not cacheable.
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -51,7 +52,11 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 // @Failure 400 {string} string
 // @Failure 401 {string} string
 // @Failure 403 {string} string
+// @Failure 413 {string} string
 // @Failure 415 {string} string
+// @Failure 429 {string} string
+// @Header 429 {string} Retry-After "Seconds until the next attempt"
+// @Failure 503 {string} string
 // @Router /auth/login [post]
 func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	if !h.cookieRequest(w, r) {
@@ -62,8 +67,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req contract.AuthLoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 
@@ -105,6 +109,13 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	peer := r.RemoteAddr
+	if host, _, splitErr := net.SplitHostPort(peer); splitErr == nil {
+		peer = host
+	}
+	if !h.allowPasswordAttempt(w, r, "peer:"+peer, 300, time.Minute) {
+		return
+	}
 
 	// Get user by username or email
 
@@ -115,12 +126,30 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Authentication unavailable", http.StatusInternalServerError)
 		return
 	}
+	account := "identifier:" + strings.ToLower(username) + ":" + strings.ToLower(email)
+	if exists {
+		// Bind aliases (username/email) to the same budget once resolved.
+		account = "subject:" + user.ID.String()
+	}
+	if !h.allowPasswordAttempt(w, r, account, 10, 15*time.Minute) {
+		return
+	}
 	hash := h.dummyHash
 	if exists && user.IsActive {
 		hash = user.PasswordHash
 	}
 	// Every well-formed credential attempt performs the same password work.
-	ok, err := h.verifyPassword(password, hash, h.deps.Cfg.AuthConfig)
+	select {
+	case h.passwordSlots <- struct{}{}:
+	default:
+		w.Header().Set("Retry-After", "1")
+		http.Error(w, "Too many authentication attempts", http.StatusTooManyRequests)
+		return
+	}
+	ok, err := func() (bool, error) {
+		defer func() { <-h.passwordSlots }()
+		return h.verifyPassword(password, hash, h.deps.Cfg.AuthConfig)
+	}()
 	if err != nil {
 		h.deps.Log.Error("login_verify_password_failed", "error", err)
 		http.Error(w, "Failed to verify password", http.StatusInternalServerError)

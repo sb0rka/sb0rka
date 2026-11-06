@@ -264,8 +264,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Browser requests require an explicitly trusted Origin. Responses
-        are not cacheable.
+      description: JSON body is limited to 16 KiB. PostgreSQL-backed account and peer
+        quotas return 429 with Retry-After; unavailable quota storage returns 503.
+        Responses are not cacheable.
       parameters:
       - description: Credentials
         in: body
@@ -292,8 +293,24 @@ paths:
           description: Forbidden
           schema:
             type: string
+        "413":
+          description: Request Entity Too Large
+          schema:
+            type: string
         "415":
           description: Unsupported Media Type
+          schema:
+            type: string
+        "429":
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds until the next attempt
+              type: string
+          schema:
+            type: string
+        "503":
+          description: Service Unavailable
           schema:
             type: string
       summary: Authenticate a user and create a native session

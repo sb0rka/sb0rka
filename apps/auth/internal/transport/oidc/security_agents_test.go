@@ -69,6 +69,10 @@ func TestSecurityAgentAttestationBoundary(t *testing.T) {
 		status int
 	}{
 		{"valid_issue", nil, 200},
+		{"reserved_first_issue", func(a *contract.AgentAttestation, s *securityAgentStore) {
+			s.identity.PublicKey = nil
+			s.identity.Thumbprint = ""
+		}, 200},
 		{"enroll", func(a *contract.AgentAttestation, s *securityAgentStore) { a.Purpose = "enroll"; a.SubjectID = nil }, 200},
 		{"revoke", func(a *contract.AgentAttestation, s *securityAgentStore) { a.Purpose = "revoke" }, 204},
 		{"expired", func(a *contract.AgentAttestation, s *securityAgentStore) { a.ExpiresAt = time.Now().Unix() - 1 }, 400},

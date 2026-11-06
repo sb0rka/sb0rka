@@ -139,7 +139,7 @@ VALUES
             "delegation_policies": {},
             "introspection_audiences": [],
             "can_attest": true,
-            "attestation_consume_url": "https://som.sb0rka.internal/v1/agent/auth/attestations/consume"
+            "attestation_consume_url": "https://api.som.internal/v1/agent/auth/attestations/consume"
         }$policy$::jsonb
     ),
     (

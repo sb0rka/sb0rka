@@ -673,6 +673,25 @@ func (h *Handler) agentToken(w http.ResponseWriter, r *http.Request, values url.
 			return
 		}
 	}
+	audience := coreauth.AudienceRelay
+	scope := coreauth.ScopeRelayConnect
+	rawAudience, audienceOK := optionalSingleValue(values, "audience")
+	if !audienceOK {
+		h.writeOAuthError(w, newProtocolError("invalid_request", http.StatusBadRequest))
+		return
+	}
+	if rawAudience != "" {
+		switch rawAudience {
+		case coreauth.AudienceRelay:
+		case coreauth.AudienceAPI:
+			audience = coreauth.AudienceAPI
+			scope = coreauth.AgentAPIScope
+		default:
+			h.writeOAuthError(w, newProtocolError("invalid_request", http.StatusBadRequest))
+			return
+		}
+	}
+
 	registered, _ := h.config.Registry.Client(client.ClientID)
 	body, _ := json.Marshal(map[string]string{"attestation": values.Get("attestation")})
 	req, err := http.NewRequestWithContext(
@@ -752,24 +771,6 @@ func (h *Handler) agentToken(w http.ResponseWriter, r *http.Request, values url.
 		!bytes.Equal(identity.PublicKey, pub) {
 		h.writeInvalidGrant(w)
 		return
-	}
-	audience := coreauth.AudienceRelay
-	scope := coreauth.ScopeRelayConnect
-	rawAudience, audienceOK := optionalSingleValue(values, "audience")
-	if !audienceOK {
-		h.writeOAuthError(w, newProtocolError("invalid_request", http.StatusBadRequest))
-		return
-	}
-	if rawAudience != "" {
-		switch rawAudience {
-		case coreauth.AudienceRelay:
-		case coreauth.AudienceAPI:
-			audience = coreauth.AudienceAPI
-			scope = coreauth.AgentAPIScope
-		default:
-			h.writeOAuthError(w, newProtocolError("invalid_request", http.StatusBadRequest))
-			return
-		}
 	}
 	jti := uuid.New()
 	token, err := h.signPlatform(coreauth.AccessTokenClaims{

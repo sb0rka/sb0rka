@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
@@ -20,6 +21,10 @@ type loginDatabase struct {
 	user  model.User
 	err   error
 	calls int
+}
+
+func (d *loginDatabase) AuthenticationAttempt(context.Context, string, int, time.Duration) (time.Duration, error) {
+	return 0, nil
 }
 
 func (d *loginDatabase) GetUser(context.Context, string, string, string) (model.User, error) {

@@ -91,6 +91,10 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 // delegatedScope is the scope delegated tokens need on this route; "" rejects delegation.
 func (s *Server) authMiddleware(next http.Handler, delegatedScope string, allowAgent bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(r.Header.Values("Authorization")) != 1 {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 		authorization := r.Header.Get("Authorization")
 		identity, err := service.ParseAndVerifyAccessTokenFromAuthHeader(r.Context(), authorization, s.deps.Cfg.AuthConfig)
 		if err != nil {

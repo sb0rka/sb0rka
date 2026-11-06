@@ -151,6 +151,8 @@ CREATE TABLE IF NOT EXISTS oidc_auth_requests (
     id UUID DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
 
     user_id UUID REFERENCES user_principals (id) ON DELETE CASCADE,
+    -- Password changes revoke the session and cascade to in-flight authorization.
+    source_session_id UUID REFERENCES auth_sessions (id) ON DELETE CASCADE,
 
     client_id VARCHAR(128) NOT NULL,
     redirect_uri TEXT NOT NULL,
@@ -181,6 +183,9 @@ CREATE TRIGGER trg_oidc_auth_requests_set_updated_at
 
 CREATE INDEX IF NOT EXISTS ix_oidc_auth_requests_expires_at
     ON oidc_auth_requests (expires_at);
+
+CREATE INDEX IF NOT EXISTS ix_oidc_source_session
+    ON oidc_auth_requests (source_session_id);
 
 -- Platform Clients
 
@@ -269,6 +274,8 @@ CREATE TABLE IF NOT EXISTS delegation_requests (
     id UUID DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
 
     user_id UUID NOT NULL REFERENCES user_principals (id) ON DELETE CASCADE,
+    -- Password changes revoke the session and cascade to in-flight authorization.
+    source_session_id UUID REFERENCES auth_sessions (id) ON DELETE CASCADE,
     client_id VARCHAR(128) NOT NULL REFERENCES platform_clients (client_id) ON DELETE CASCADE,
     grant_id UUID REFERENCES delegation_grants (id) ON DELETE CASCADE,
 
@@ -291,6 +298,9 @@ BEFORE UPDATE ON delegation_requests
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+CREATE INDEX IF NOT EXISTS ix_delegation_source_session
+    ON delegation_requests (source_session_id);
+
 -- Audit
 
 CREATE TABLE IF NOT EXISTS platform_auth_audit (
@@ -307,6 +317,20 @@ CREATE TABLE IF NOT EXISTS platform_auth_audit (
 
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
+
+-- Durable counters so password-attempt limits survive restarts and stay atomic across replicas.
+-- The bucket key is a hash: no password, raw IP or account identifier is stored.
+CREATE TABLE IF NOT EXISTS authentication_attempts (
+    bucket_hash BYTEA NOT NULL,
+    attempts INTEGER NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT pk_authentication_attempts PRIMARY KEY (bucket_hash),
+    CONSTRAINT ck_authentication_attempts_hash CHECK (octet_length(bucket_hash) = 32),
+    CONSTRAINT ck_authentication_attempts_count CHECK (attempts > 0)
+);
+
+CREATE INDEX IF NOT EXISTS ix_authentication_attempts_expiry
+    ON authentication_attempts (expires_at);
 
 -- FUNCTIONS
 
@@ -364,7 +388,8 @@ SET search_path = :"DB_AUTH_SCHEMA_NAME", pg_temp AS $$
     );
 $$;
 
--- An agent may call the API only after its key has been enrolled and it has not been revoked.
+-- An agent may call the API only while its key is enrolled and its attester is a live
+-- confidential client that is still allowed to attest.
 CREATE OR REPLACE FUNCTION is_live_agent(p_sub uuid, p_host uuid)
 RETURNS boolean LANGUAGE sql SECURITY DEFINER
 SET search_path = :"DB_AUTH_SCHEMA_NAME", pg_temp AS $$
@@ -372,11 +397,52 @@ SET search_path = :"DB_AUTH_SCHEMA_NAME", pg_temp AS $$
         SELECT 1
         FROM agent_principals d
         JOIN subjects s ON s.id = d.subject_id AND s.kind = 'agent'
+        JOIN platform_clients c ON c.client_id = d.attester_client_id
         WHERE d.subject_id = p_sub
           AND d.host_id = p_host
           AND d.revoked_at IS NULL
           AND d.public_key IS NOT NULL
+          AND d.key_thumbprint IS NOT NULL
+          AND c.revoked_at IS NULL
+          AND c.can_attest_agent
+          AND c.policy @> '{"enabled":true,"can_attest":true,"type":"confidential"}'::jsonb
+          AND c.policy->'grant_types' ? 'urn:sb0rka:params:oauth:grant-type:agent'
     );
+$$;
+
+-- The token must name the same attester client and key thumbprint.
+CREATE OR REPLACE FUNCTION is_live_agent(p_sub uuid, p_host uuid, p_client text, p_thumbprint text)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER
+SET search_path = :"DB_AUTH_SCHEMA_NAME", pg_temp AS $$
+    SELECT is_live_agent(p_sub, p_host) AND EXISTS (
+        SELECT 1
+        FROM agent_principals d
+        WHERE d.subject_id = p_sub
+          AND d.attester_client_id = p_client
+          AND d.key_thumbprint = p_thumbprint
+    );
+$$;
+
+-- A new overload must not acquire broader EXECUTE rights than the two-argument predicate.
+DO $$
+DECLARE permission record;
+BEGIN
+    REVOKE EXECUTE ON FUNCTION is_live_agent(uuid, uuid, text, text) FROM PUBLIC;
+    FOR permission IN
+        SELECT grantee, is_grantable
+        FROM aclexplode(COALESCE(
+            (SELECT proacl FROM pg_proc WHERE oid = 'is_live_agent(uuid,uuid)'::regprocedure),
+            acldefault('f', (SELECT proowner FROM pg_proc WHERE oid = 'is_live_agent(uuid,uuid)'::regprocedure))))
+        WHERE privilege_type = 'EXECUTE'
+    LOOP
+        EXECUTE format(
+            'GRANT EXECUTE ON FUNCTION %I.is_live_agent(uuid, uuid, text, text) TO %s%s',
+            current_schema(),
+            CASE WHEN permission.grantee = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(permission.grantee)) END,
+            CASE WHEN permission.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END
+        );
+    END LOOP;
+END;
 $$;
 
 -- A delegated user may manage an agent only when this actor's client attested it
