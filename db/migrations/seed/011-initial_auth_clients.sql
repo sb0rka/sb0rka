@@ -77,7 +77,7 @@ VALUES
                 "urn:ietf:params:oauth:grant-type:token-exchange",
                 "urn:sb0rka:params:oauth:grant-type:delegation"
             ],
-            "redirect_uris": ["http://localhost:3000/v1/oauth/sb0rka/callback"],
+            "redirect_uris": ["https://api.som.internal/v1/oauth/sb0rka/callback"],
             "oidc_scopes": ["openid", "profile", "email", "offline_access"],
             "delegation_policies": {
                 "sb0rka-api": ["projects.read", "resources.read", "secrets.create", "secrets.write"]

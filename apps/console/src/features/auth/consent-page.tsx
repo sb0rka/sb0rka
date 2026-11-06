@@ -65,7 +65,6 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
   const consent = useDelegationConsent(requestId, userId)
   const decision = useConsentDecision()
   const [projects, setProjects] = useState<string[]>([])
-  const [scopes, setScopes] = useState<string[]>([])
 
   function errorMessage(error: unknown) {
     if (error instanceof ApiError) {
@@ -93,7 +92,7 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
       csrf_token: data.csrf_token,
       decision: value,
       project_ids: value === "approve" ? projects : [],
-      scopes: value === "approve" ? scopes : [],
+      scopes: value === "approve" ? data.scopes : [],
     })
   }
 
@@ -103,8 +102,10 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
       <Card className="my-14 w-full max-w-lg">
         <CardHeader>
           <CardTitle>{data ? t("auth.consent.title", { client: data.client_name }) : t(error ? "auth.consent.errorTitle" : "auth.consent.loading")}</CardTitle>
-          <CardDescription>{t("auth.consent.description")}</CardDescription>
-          {data && <p className="break-all text-sm text-muted-foreground">{data.client_id} · {data.audience}</p>}
+          <CardDescription>
+            {t("auth.consent.description")}
+            {data && <> <strong className="font-bold text-foreground">{data.client_id} · {data.audience}</strong></>}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {consent.isPending && <p role="status">{t("common.loading")}</p>}
@@ -125,9 +126,8 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
               <fieldset disabled={busy} className="space-y-3">
                 <legend className="mb-2 font-medium">{t("auth.consent.permissions")}</legend>
                 {data.scopes.map((scope) => (
-                  <label key={scope} className="flex cursor-pointer items-start gap-3 text-sm">
-                    <input type="checkbox" className="mt-0.5" checked={scopes.includes(scope)}
-                      onChange={(event) => setScopes((current) => toggle(current, scope, event.target.checked))} />
+                  <label key={scope} className="flex items-start gap-3 text-sm">
+                    <input type="checkbox" className="mt-0.5" checked disabled onChange={() => {}} />
                     <span>{scopeLabels[scope] ? t(scopeLabels[scope]) : scope}</span>
                   </label>
                 ))}
@@ -139,7 +139,7 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
         <CardFooter className="flex flex-wrap gap-3">
           {data && !closed && (
             <>
-              <Button disabled={busy || projects.length === 0 || scopes.length === 0} onClick={() => submit("approve")}>
+              <Button disabled={busy || projects.length === 0 || data.scopes.length === 0} onClick={() => submit("approve")}>
                 {busy ? t("auth.consent.submitting") : t("auth.consent.approve")}
               </Button>
               <Button variant="outline" disabled={busy} onClick={() => submit("deny")}>{t("auth.consent.deny")}</Button>
@@ -149,7 +149,6 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
             <Button variant="outline" onClick={() => {
               decision.reset()
               setProjects([])
-              setScopes([])
               void consent.refetch()
             }}>{t("auth.login.continueRetry")}</Button>
           )}
