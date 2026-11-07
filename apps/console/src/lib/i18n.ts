@@ -430,6 +430,8 @@ const resources = {
         disabled: "Секрет {{name}} версия {{version}} отключена",
         disableError: "Не удалось отключить секрет",
         disableVersion: "Отключить версию",
+        disableVersionTitle: "Отключить версию {{version}}",
+        disableVersionDescription: "Вы уверены, что хотите отключить эту версию? Это действие не может быть отменено.",
       },
       tables: {
         columns: "Колонки",
@@ -912,6 +914,8 @@ const resources = {
         disabled: "Secret {{name}} version {{version}} disabled",
         disableError: "Unable to disable secret",
         disableVersion: "Disable version",
+        disableVersionTitle: "Disable version {{version}}",
+        disableVersionDescription: "Are you sure you want to disable this version? This action cannot be undone.",
       },
       tables: {
         columns: "Columns",

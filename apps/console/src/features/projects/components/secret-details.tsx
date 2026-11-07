@@ -115,6 +115,7 @@ function SecretVersionRow({
   version: SecretVersionResponse
 }) {
   const { t } = useTranslation()
+  const confirm = useConfirmDialog()
   const locale = getResolvedLanguage()
 
   const disableSecret = useDisableSecret(projectId, secretId)
@@ -132,6 +133,12 @@ function SecretVersionRow({
 
   async function handleDisableSecret(versionNo: number) {
     if (disableSecret.isPending) return
+
+    const confirmed = await confirm({
+      title: t("secrets.disableVersionTitle", {version: version.version_no}),
+      description: t("secrets.disableVersionDescription"),
+    })
+    if (!confirmed) return
 
     try {
       await disableSecret.mutateAsync(versionNo)
