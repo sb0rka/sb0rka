@@ -4,6 +4,7 @@ import "time"
 
 type LLMModelResponse struct {
 	ID            string                   `json:"id" format:"uuid"`
+	Slug          string                   `json:"slug"`
 	Name          string                   `json:"name"`
 	DescriptionEN *string                  `json:"description_en" extensions:"x-nullable"`
 	DescriptionRU *string                  `json:"description_ru" extensions:"x-nullable"`
