@@ -69,7 +69,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	release := h.passwordWork(w, r, "register:"+credentialPeer(r), 30, time.Hour)
+	release := h.passwordWork(w, r, "register:"+credentialPeer(r, h.deps.Cfg.TrustedProxies), 30, time.Hour)
 	if release == nil {
 		return
 	}

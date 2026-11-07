@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -65,11 +66,14 @@ func Load() (*Config, error) {
 	isPhoneRequired := coreconfig.GetBoolEnv("IS_PHONE_REQUIRED", DefaultIsPhoneRequired)
 
 	corsWhitelist := coreconfig.ParseCORSWhitelist(os.Getenv("SERVER_CORS_WHITELIST"))
+	trustedProxies, err := parseTrustedProxies(os.Getenv("SERVER_TRUSTED_PROXY_CIDRS"))
+	if err != nil {
+		return nil, err
+	}
 
 	serverCORSAllowedDefaultMethodsEnv := coreconfig.GetStringEnv("SERVER_CORS_ALLOWED_DEFAULT_METHODS", DefaultCORSAllowedDefaultMethods)
 
 	var accessTokenPrivateKeyRaw []byte
-	var err error
 	accessTokenPrivateKeyFilePathEnv := coreconfig.GetStringEnv("ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH", "")
 	if accessTokenPrivateKeyFilePathEnv != "" {
 		accessTokenPrivateKeyRaw, err = os.ReadFile(accessTokenPrivateKeyFilePathEnv)
@@ -185,6 +189,7 @@ func Load() (*Config, error) {
 
 			CORSWhitelist:             corsWhitelist,
 			CORSAllowedDefaultMethods: serverCORSAllowedDefaultMethodsEnv,
+			TrustedProxies:            trustedProxies,
 
 			AuthConfig: AuthConfig{
 				ArgonTime:    DefaultArgonTime,
@@ -214,4 +219,20 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func parseTrustedProxies(raw string) ([]*net.IPNet, error) {
+	var parsed []*net.IPNet
+	for _, value := range strings.Split(raw, ",") {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		_, network, err := net.ParseCIDR(value)
+		if err != nil {
+			return nil, fmt.Errorf("SERVER_TRUSTED_PROXY_CIDRS contains invalid CIDR %q", value)
+		}
+		parsed = append(parsed, network)
+	}
+	return parsed, nil
 }

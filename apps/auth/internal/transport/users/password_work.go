@@ -5,17 +5,16 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
-func credentialPeer(r *http.Request) string {
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host
-	}
-	return r.RemoteAddr
+func credentialPeer(r *http.Request, trusted []*net.IPNet) string {
+	return coretransport.ClientPeer(r, trusted)
 }
 
 // Bound both guessing and concurrent Argon2 allocations. Forwarded headers
-// are deliberately not trusted as a source of an authentication quota key.
+// are a quota key only when the immediate peer is a configured trusted proxy.
 func (h *Handler) passwordWork(w http.ResponseWriter, r *http.Request, bucket string, limit int, window time.Duration) func() {
 	retry, err := h.deps.Database.AuthenticationAttempt(r.Context(), bucket, limit, window)
 	if err != nil {

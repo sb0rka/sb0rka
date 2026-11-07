@@ -47,7 +47,7 @@ func TestPasswordWorkCapsParallelHashing(t *testing.T) {
 		release()
 	}
 	r.Header.Set("X-Forwarded-For", "203.0.113.99")
-	if credentialPeer(r) != "192.0.2.1" {
+	if credentialPeer(r, nil) != "192.0.2.1" {
 		t.Fatal("untrusted forwarded header changed quota peer")
 	}
 }

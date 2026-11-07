@@ -19,6 +19,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
@@ -109,10 +110,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	peer := r.RemoteAddr
-	if host, _, splitErr := net.SplitHostPort(peer); splitErr == nil {
-		peer = host
-	}
+	peer := coretransport.ClientPeer(r, h.deps.Cfg.TrustedProxies)
 	if !h.allowPasswordAttempt(w, r, "peer:"+peer, 300, time.Minute) {
 		return
 	}
@@ -171,10 +169,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Parse client IP, user agent and create auth session
 
-	clientIP := r.RemoteAddr
-	if host, _, splitErr := net.SplitHostPort(r.RemoteAddr); splitErr == nil {
-		clientIP = host
-	}
+	clientIP := coretransport.ClientPeer(r, h.deps.Cfg.TrustedProxies)
 
 	userAgentRaw := r.UserAgent()
 	var userAgent *string

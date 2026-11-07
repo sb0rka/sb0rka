@@ -2,6 +2,7 @@ package config
 
 import (
 	"crypto/ed25519"
+	"net"
 	"net/http"
 	"time"
 
@@ -50,6 +51,7 @@ type ServerConfig struct {
 
 	CORSWhitelist             map[string]bool
 	CORSAllowedDefaultMethods string
+	TrustedProxies            []*net.IPNet
 
 	AuthConfig AuthConfig
 }

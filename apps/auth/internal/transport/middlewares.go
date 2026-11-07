@@ -39,6 +39,7 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 			"status", wrapped.status,
 			"duration_ms", duration.Milliseconds(),
 			"remote_addr", r.RemoteAddr,
+			"client_peer", coretransport.ClientPeer(r, s.deps.Cfg.TrustedProxies),
 		}
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			args = append(args, "x_forwarded_for", xff)

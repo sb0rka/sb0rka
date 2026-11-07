@@ -135,8 +135,8 @@ function ConsentPage({ requestId, userId }: { requestId: string; userId: string 
                 <legend className="mb-2 font-medium">{t("auth.consent.permissions")}</legend>
                 {data.scopes.map((scope) => (
                   <div key={scope} className="flex items-start gap-3">
-                    <Checkbox id={`consent-scope-${scope}`} className="mt-0.5 disabled:opacity-100" checked disabled />
-                    <Label htmlFor={`consent-scope-${scope}`} className="font-normal leading-5 peer-disabled:cursor-default peer-disabled:opacity-100">
+                    <Checkbox id={`consent-scope-${scope}`} className="mt-0.5" checked disabled />
+                    <Label htmlFor={`consent-scope-${scope}`} className="font-normal leading-5">
                       {scopeLabels[scope] ? t(scopeLabels[scope]) : scope}
                     </Label>
                   </div>
