@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { ArrowDown, ArrowUp } from "lucide-react"
@@ -132,6 +132,119 @@ function renderHighlightedText(value: string, query: string): React.ReactNode {
       </span>
     )
   })
+}  
+
+function readFlexGap(element: HTMLElement): number {
+  const value = Number.parseFloat(getComputedStyle(element).columnGap)
+  return Number.isFinite(value) ? value : 0
+}
+
+function countVisibleTags(
+  available: number,
+  tagWidths: number[],
+  ellipsisWidth: number,
+  gap: number,
+): number {
+  if (available <= 0) return tagWidths.length
+
+  let used = 0
+  let count = 0
+
+  for (let index = 0; index < tagWidths.length; index += 1) {
+    const width = tagWidths[index]
+    const gapBefore = count > 0 ? gap : 0
+    const hasHiddenAfter = index < tagWidths.length - 1
+    const reserve = hasHiddenAfter ? gap + ellipsisWidth : 0
+    if (used + gapBefore + width + reserve > available) break
+    used += gapBefore + width
+    count += 1
+  }
+
+  return count
+}
+
+function SecretTagBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <Badge
+      className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold leading-4 text-secondary-foreground hover:bg-secondary"
+    >
+      {children}
+    </Badge>
+  )
+}
+
+function SecretTagsCell({
+  tags,
+  searchQuery,
+}: {
+  tags: TagResponse[]
+  searchQuery: string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [visibleCount, setVisibleCount] = useState(tags.length)
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    const measure = measureRef.current
+    if (!container || !measure || tags.length === 0) {
+      setVisibleCount((current) => (current === tags.length ? current : tags.length))
+      return
+    }
+
+    const update = () => {
+      const children = Array.from(measure.children) as HTMLElement[]
+      const ellipsis = children[children.length - 1]
+      const tagNodes = children.slice(0, -1)
+      const count = countVisibleTags(
+        container.clientWidth,
+        tagNodes.map((node) => node.offsetWidth),
+        ellipsis?.offsetWidth ?? 0,
+        readFlexGap(measure),
+      )
+      setVisibleCount((current) => (current === count ? current : count))
+    }
+
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [tags])
+
+  const visibleTags = tags.slice(0, visibleCount)
+  const hasOverflow = visibleCount < tags.length
+
+  return (
+    <div className="relative flex min-h-14 min-w-0 items-center overflow-hidden px-4 py-4">
+      <div
+        ref={containerRef}
+        className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden"
+      >
+        {tags.length === 0 ? (
+          <span className="text-sm text-muted-foreground">—</span>
+        ) : (
+          <>
+            {visibleTags.map((tag) => (
+              <SecretTagBadge key={tag.id}>
+                {renderHighlightedText(buildTagLabel(tag), searchQuery)}
+              </SecretTagBadge>
+            ))}
+            {hasOverflow ? <SecretTagBadge>...</SecretTagBadge> : null}
+          </>
+        )}
+      </div>
+      <div
+        ref={measureRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute flex w-max flex-nowrap items-center gap-2"
+      >
+        {tags.map((tag) => (
+          <SecretTagBadge key={tag.id}>{buildTagLabel(tag)}</SecretTagBadge>
+        ))}
+        <SecretTagBadge>...</SecretTagBadge>
+      </div>
+    </div>
+  )
 }
 
 function SecretDetailsTableRow({
@@ -175,20 +288,7 @@ function SecretDetailsTableRow({
           {renderHighlightedText(row.name, searchQuery)}
         </p>
       </div>
-      <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 py-4">
-        {tags.length ? (
-          tags.map((tag) => (
-            <Badge
-              key={tag.id}
-              className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold leading-4 text-secondary-foreground hover:bg-secondary"
-            >
-              {renderHighlightedText(buildTagLabel(tag), searchQuery)}
-            </Badge>
-          ))
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
-      </div>
+      <SecretTagsCell tags={tags} searchQuery={searchQuery} />
       <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
         {formatLocalDateTime(row.createdAt)}
       </div>
@@ -303,7 +403,7 @@ export function SecretDetailsTable({
         </div>
 
         <ScrollArea type="always" className="hidden h-0 min-h-0 flex-1 md:block">
-          <div className="min-w-[820px]">
+          <div className="min-w-[820px] w-full">
             <div
               className={cn(
                 SECRET_DETAILS_TABLE_GRID_CLASS,
