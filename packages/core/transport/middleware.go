@@ -28,6 +28,10 @@ type Recorder struct {
 func (rec *Recorder) Status() int   { return rec.status }
 func (rec *Recorder) Written() bool { return rec.written }
 
+// Unwrap lets http.ResponseController reach Flush, Hijack and deadlines of
+// the underlying writer.
+func (rec *Recorder) Unwrap() http.ResponseWriter { return rec.ResponseWriter }
+
 func (rec *Recorder) WriteHeader(status int) {
 	if rec.written {
 		return
