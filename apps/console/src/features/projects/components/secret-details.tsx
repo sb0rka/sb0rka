@@ -20,6 +20,7 @@ import {
   FloatingHint,
   Input,
   Label,
+  ScrollArea,
   cn,
 } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
@@ -173,60 +174,83 @@ function SecretVersionRow({
   }
 
   return (
-    <li className="grid grid-cols-1 gap-2 py-3 lg:grid-cols-[7.5rem_11.5rem_minmax(0,1fr)] lg:items-center lg:gap-x-4">
-      <div className="flex items-center justify-between gap-3 lg:contents">
-        <Badge className="w-fit shrink-0" variant={isActive ? "active" : "inactive"}>
-          {t("secrets.versionLabel", { version: version.version_no })}
-        </Badge>
-        <p className="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
-          {formatDateTime(version.created_at, locale)}
+    <li
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3",
+        isActive
+          ? "[grid-template-areas:'meta_date'_'value_value'_'actions_actions']"
+          : "[grid-template-areas:'meta_date']",
+        "lg:grid-cols-[1rem_minmax(0,1fr)_auto_7.5rem_11.5rem] lg:gap-x-4 lg:[grid-template-areas:'num_value_actions_status_date']",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3 [grid-area:meta] lg:contents">
+        <p className="text-sm font-medium tabular-nums text-foreground lg:[grid-area:num]">
+          {version.version_no}
         </p>
+        <Badge
+          className="w-fit shrink-0 lg:justify-self-center lg:[grid-area:status]"
+          variant={isActive ? "active" : "inactive"}
+        >
+          {isActive ? t("secrets.active") : t("secrets.inactive")}
+        </Badge>
       </div>
-      {isActive ? (
-        <div className="relative flex min-w-0 items-center gap-2">
-          <p className="min-h-9 min-w-0 flex-1 truncate rounded-md bg-secondary px-2.5 py-2 text-right font-mono text-xs font-semibold leading-5 text-muted-foreground">
+      <div className={cn("min-w-0 [grid-area:value]", !isActive && "hidden lg:block")}>
+        {isActive ? (
+          <p className="min-h-9 truncate rounded-md bg-secondary px-2.5 py-2 text-left font-mono text-xs font-semibold leading-5 text-muted-foreground">
             {displayedValue}
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={handleCopySecretValue}
-            disabled={!plaintext || secretVersionValueQuery.isFetching}
-            title={t("secrets.copySecret")}
-            aria-label={t("secrets.copySecret")}
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() => handleToggleSecretValue()}
-            disabled={secretVersionValueQuery.isFetching}
-            aria-label={visible ? t("common.actions.hide") : t("common.actions.show")}
-          >
-            {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() => void handleDisableSecret(version.version_no)}
-            disabled={disableSecret.isPending}
-            title={t("secrets.disableVersion")}
-            aria-label={t("secrets.disableVersion")}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <FloatingHint message={copyMessage} placement="bottom" align="end" />
-        </div>
-      ) : (
-        <div className="hidden lg:block" />
-      )}
+        ) : null}
+      </div>
+      <div
+        className={cn(
+          "relative flex items-center gap-2 [grid-area:actions]",
+          !isActive && "hidden lg:block",
+        )}
+      >
+        {isActive ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={handleCopySecretValue}
+              disabled={!plaintext || secretVersionValueQuery.isFetching}
+              title={t("secrets.copySecret")}
+              aria-label={t("secrets.copySecret")}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={() => handleToggleSecretValue()}
+              disabled={secretVersionValueQuery.isFetching}
+              aria-label={visible ? t("common.actions.hide") : t("common.actions.show")}
+            >
+              {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={() => void handleDisableSecret(version.version_no)}
+              disabled={disableSecret.isPending}
+              title={t("secrets.disableVersion")}
+              aria-label={t("secrets.disableVersion")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <FloatingHint message={copyMessage} placement="bottom" align="end" />
+          </>
+        ) : null}
+      </div>
+      <p className="justify-self-end whitespace-nowrap text-xs text-muted-foreground [grid-area:date] sm:text-sm">
+        {formatDateTime(version.created_at, locale)}
+      </p>
     </li>
   )
 }
@@ -347,9 +371,9 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     ? getErrorMessage(secretValueQuery.error, t("secrets.revealError"))
     : null
 
-  const versions = [...(secretQuery.data?.versions ?? [])].sort(
-    (left, right) => right.version_no - left.version_no,
-  )
+  const versions = [...(secretQuery.data?.versions ?? [])]
+    .filter((version) => version.version_no !== secretQuery.data?.current_version_no)
+    .sort((left, right) => right.version_no - left.version_no)
   const versionsErrorMessage = secretQuery.isError
     ? getErrorMessage(secretQuery.error, t("secrets.versionsError"))
     : null
@@ -428,7 +452,14 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       <SlideIn>
         <Card>
           <CardHeader className="pb-4">
-          <CardTitle className="text-[20px] font-semibold tracking-tight">{t("secrets.key")}</CardTitle>
+            <CardTitle className="text-[20px] font-semibold tracking-tight">
+              {t("secrets.key")}
+              {secretQuery.data?.current_version_no ? (
+                <Badge variant="active" className="ml-2">
+                  {t("secrets.currentVersion")}: {secretQuery.data?.current_version_no}
+                </Badge>
+              ) : null}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5 pb-6">
             <div className="relative">
@@ -496,17 +527,22 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                 {t("secrets.versionsEmpty")}
               </p>
             ) : (
-              <ul className="divide-y divide-border">
-                {versions.map((version) => (
-                  <SecretVersionRow
-                    key={version.version_no}
-                    projectId={projectId}
-                    secretId={secret.id}
-                    secretName={secret.name}
-                    version={version}
-                  />
-                ))}
-              </ul>
+              <ScrollArea 
+                type="always"
+                className="max-h-[360px] [&_[data-radix-scroll-area-viewport]]:max-h-[360px]"
+              >
+                <ul className="w-full pr-3 divide-y divide-border">
+                  {versions.map((version) => (
+                    <SecretVersionRow
+                      key={version.version_no}
+                      projectId={projectId}
+                      secretId={secret.id}
+                      secretName={secret.name}
+                      version={version}
+                    />
+                  ))}
+                </ul>
+              </ScrollArea>
             )}
           </CardContent>
         </Card>
