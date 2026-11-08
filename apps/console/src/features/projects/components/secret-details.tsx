@@ -21,6 +21,7 @@ import {
   Input,
   Label,
   ScrollArea,
+  Textarea,
   cn,
 } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
@@ -36,6 +37,7 @@ import {
   useSecret,
   useDisableSecret,
   useSecretVersionValue,
+  useUpdateSecretMetadata,
 } from "../hooks"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import { AddTagDialog } from "./add-tag-dialog"
@@ -265,6 +267,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const detachResourceTag = useDetachResourceTag(projectId)
   const secretQuery = useSecret(projectId, secret.id)
   const secretValueQuery = useSecretValue(projectId, secret.id)
+  const updateSecretMetadata = useUpdateSecretMetadata(projectId, secret.id)
   const deleteSecret = useDeleteSecret(projectId, secret.id)
   const updateSecretValue = useUpdateSecretValue(projectId)
 
@@ -273,6 +276,11 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const [updateValueDraft, setUpdateValueDraft] = useState("")
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const { message: copySecretMessage, copy: copyText, clear: clearCopyHint } = useCopyHint()
+  const [secretDescription, setSecretDescription] = useState(secretQuery.data?.description)
+  
+  useEffect(() => {
+    setSecretDescription(secretQuery.data?.description)
+  }, [secretQuery.data?.description])
 
   useEffect(() => {
     setIsValueVisible(false)
@@ -364,6 +372,21 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     }
   }
 
+  const savedDescription = secretQuery.data?.description ?? ""
+  const descriptionDraft = secretDescription ?? ""
+  const descriptionChanged = descriptionDraft !== savedDescription
+
+  async function updateSecretDescription() {
+    if (!descriptionChanged || updateSecretMetadata.isPending) return
+
+    try {
+      await updateSecretMetadata.mutateAsync({ description: descriptionDraft })
+      showSuccess(t("secrets.updateDescriptionSuccess"))
+    } catch (error) {
+      showError(getErrorMessage(error, t("secrets.updateDescriptionError")))
+    }
+  }
+
   const maskedValue = "•••••••••••••••••••••••"
   const plaintext = secretValueQuery.data?.value
   const displayedValue = isValueVisible && plaintext ? plaintext : maskedValue
@@ -436,14 +459,50 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
       <SlideIn className="hidden md:block">
         <Card className="overflow-hidden">
-          <CardContent className="grid gap-6 px-6 py-6 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
-            <p className="text-base text-muted-foreground">{formatDateTime(secret.createdAt, locale)}</p>
+          <CardContent className="grid grid-cols-1 items-start gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-6 sm:p-6 lg:grid-cols-4">
+            <div className="col-start-1 row-start-1 flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("secrets.secretDescription")}</p>
+              <Textarea
+                value={descriptionDraft}
+                onChange={(event) => setSecretDescription(event.target.value)}
+              />
+            </div>
+            <div className="col-start-1 row-start-2">
+              <Button type="button" onClick={() => void updateSecretDescription()}>
+                {t("secrets.updateDescription")}
+              </Button>
             </div>
             <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
-            <p className="text-base text-muted-foreground">{formatDateTime(secret.updatedAt, locale)}</p>
+              <p className="text-sm font-medium text-foreground">{t("secrets.purpose")}</p>
+              <p className="text-base text-muted-foreground">{"—"}</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("secrets.createdBy")}</p>
+              <p className="text-base text-muted-foreground">
+                {secretQuery.data?.created_by_subject_id || "—"}
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
+              <p className="text-base text-muted-foreground">
+                {formatDateTime(secretQuery.data?.created_at, locale)}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("secrets.payloadKind")}</p>
+              <p className="text-base text-muted-foreground">{secretQuery.data?.payload_kind || "—"}</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("secrets.scheduledDestroyAt")}</p>
+              <p className="text-base text-muted-foreground">
+                {formatDateTime(secretQuery.data?.scheduled_destroy_at, locale) || "—"}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
+              <p className="text-base text-muted-foreground">
+                {formatDateTime(secretQuery.data?.updated_at, locale) || "—"}
+              </p>
             </div>
           </CardContent>
         </Card>

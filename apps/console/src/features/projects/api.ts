@@ -1673,6 +1673,10 @@ export interface RevealSecretValueResponse {
   value: string
 }
 
+export interface UpdateSecretMetadataRequest {
+  description: string
+}
+
 export interface AttachResourceTagRequest {
   tag_key: string
   tag_value: string
@@ -1812,6 +1816,19 @@ export async function revealSecretVersion(
   return apiRequest<RevealSecretValueResponse>({
     method: "POST",
     path: `/projects/${projectId}/resources/${secretId}/secret/versions/${secretVersionNum}/reveal`,
+    base: "resource",
+  })
+}
+
+export async function updateSecretMetadata(
+  projectId: string,
+  secretId: string,
+  data: UpdateSecretMetadataRequest,
+): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${secretId}/secret`,
+    json: data,
     base: "resource",
   })
 }

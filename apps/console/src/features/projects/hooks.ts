@@ -30,6 +30,7 @@ import {
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
   deleteSecret,
+  updateSecretMetadata,
 } from "./api"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import {
@@ -57,6 +58,7 @@ import type {
   ResourceMetricTimeseries,
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
+  UpdateSecretMetadataRequest,
 } from "./api"
 import { useToast } from "@sb0rka/ui"
 
@@ -659,6 +661,17 @@ export function useSecretVersionValue(
     queryKey: ["projects", projectId, "secrets", secretId, "versions", versionNo, "value"],
     queryFn: () => revealSecretVersion(projectId, secretId, versionNo),
     enabled: enabled && isAuthenticated && !!projectId && !!secretId,
+  })
+}
+
+export function useUpdateSecretMetadata(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation<SecretResponse, Error, UpdateSecretMetadataRequest>({
+    mutationFn: (data: UpdateSecretMetadataRequest) => updateSecretMetadata(projectId, secretId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
+    },  
   })
 }
 
