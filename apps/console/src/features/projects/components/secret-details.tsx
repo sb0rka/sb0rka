@@ -459,7 +459,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
       <SlideIn className="hidden md:block">
         <Card className="overflow-hidden">
-          <CardContent className="grid grid-cols-1 items-start gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-6 sm:p-6 lg:grid-cols-4">
+          <CardContent className="grid grid-cols-1 items-start gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-8 sm:p-6 lg:grid-cols-4">
             <div className="col-start-1 row-start-1 flex flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("secrets.secretDescription")}</p>
               <Textarea
@@ -468,7 +468,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               />
             </div>
             <div className="col-start-1 row-start-2">
-              <Button type="button" onClick={() => void updateSecretDescription()}>
+              <Button type="button" className="w-full" onClick={() => void updateSecretDescription()}>
                 {t("secrets.updateDescription")}
               </Button>
             </div>
