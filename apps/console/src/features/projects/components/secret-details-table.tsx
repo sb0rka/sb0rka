@@ -15,9 +15,9 @@ import { MobileSecretsList } from "./mobile-secrets-list"
 import type { SecretRow } from "./project-detail-tab-types"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
-  "grid grid-cols-[400px_minmax(220px,1fr)_160px_160px] items-stretch"
+  "grid grid-cols-[400px_minmax(220px,1fr)_170px_180px_180px] items-stretch"
 
-type SortColumn = "name" | "tags" | "createdAt" | "updatedAt"
+type SortColumn = "name" | "tags" | "version" | "createdAt" | "updatedAt"
 type SortDirection = "asc" | "desc"
 
 interface SecretDetailsTableProps {
@@ -290,6 +290,9 @@ function SecretDetailsTableRow({
       </div>
       <SecretTagsCell tags={tags} searchQuery={searchQuery} />
       <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
+        {row.currentVersionNo || "—"}
+      </div>
+      <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
         {formatLocalDateTime(row.createdAt)}
       </div>
       <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
@@ -348,6 +351,10 @@ export function SecretDetailsTable({
           const rightTags = buildTagsSortKey(tagsByRowId.get(right.id) ?? [])
           return compareText(leftTags, rightTags, sort.direction)
         }
+        case "version": {
+          const result = left.currentVersionNo - right.currentVersionNo
+          return sort.direction === "asc" ? result : -result
+        }
         case "createdAt":
           return compareTimestamps(left.createdAt, right.createdAt, sort.direction)
         case "updatedAt":
@@ -403,7 +410,7 @@ export function SecretDetailsTable({
         </div>
 
         <ScrollArea type="always" className="hidden h-0 min-h-0 flex-1 md:block">
-          <div className="min-w-[820px] w-full">
+          <div className="w-full min-w-[1150px]">
             <div
               className={cn(
                 SECRET_DETAILS_TABLE_GRID_CLASS,
@@ -422,6 +429,14 @@ export function SecretDetailsTable({
                 column="tags"
                 activeColumn={sort.column}
                 direction={sort.direction}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label={t("secrets.currentVersion")}
+                column="version"
+                activeColumn={sort.column}
+                direction={sort.direction}
+                align="end"
                 onSort={handleSort}
               />
               <SortableColumnHeader
