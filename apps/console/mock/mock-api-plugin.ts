@@ -31,7 +31,7 @@ export function mockApiPlugin(enabled: boolean): Plugin {
 
       server.httpServer?.once("listening", () => {
         const address = server.httpServer?.address()
-        const host = typeof address === "object" && address ? address.port : 3000
+        const host = typeof address === "object" && address ? address.port : 5173
         console.log("")
         console.log("  Mock API enabled (auth + platform)")
         console.log("  Login with any credentials, e.g. demo / demo")

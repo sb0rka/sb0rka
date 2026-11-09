@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { clearToken } from "@/lib/auth-store"
 import { useAuth } from "@/features/auth/auth-provider"
 import { getUser, updateProfile, changePassword } from "./api"
 import type { User, ProfileUpdate, PasswordChange } from "./api"
@@ -48,5 +49,9 @@ export function useUpdateProfile() {
 export function useChangePassword() {
   return useMutation({
     mutationFn: (data: PasswordChange) => changePassword(data),
+    onSuccess: () => {
+      clearToken()
+      window.location.replace("/login?password_changed=1")
+    },
   })
 }
