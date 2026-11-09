@@ -1,5 +1,5 @@
 ## Build context = repository root.
-FROM golang:1.26.10-alpine AS builder
+FROM golang:1.27.3-alpine AS builder
 
 RUN apk add --no-cache git
 ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/contract,github.com/sb0rka/sb0rka/packages/core
