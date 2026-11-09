@@ -652,7 +652,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   data-lpignore="true"
                   data-1p-ignore="true"
                   data-form-type="other"
-                  className="[-webkit-text-security:disc]"
                   placeholder={t("secrets.valuePlaceholder")}
                   value={updateValueDraft}
                   onChange={(e) => setUpdateValueDraft(e.target.value)}
