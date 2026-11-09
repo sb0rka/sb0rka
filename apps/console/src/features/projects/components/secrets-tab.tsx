@@ -87,7 +87,7 @@ export function SecretsTab({
       await onCreateSecret({
         name: newSecretName.trim(),
         description: newSecretDescription.trim() || undefined,
-        secret_value: newSecretValue,
+        secret_value: newSecretValue.trim(),
         payload_kind: "text"
       })
       handleCreateDialogOpenChange(false)

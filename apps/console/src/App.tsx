@@ -20,19 +20,11 @@ import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
-import { ConsentEntry } from "@/features/auth/consent-page"
 import { MobileDataExplorerPage } from "./features/projects/mobile-data-explorer-page"
 import "@/lib/i18n"
 
 export default function App() {
   const { t } = useTranslation()
-  const consentRequested = window.location.pathname === "/" &&
-    new URLSearchParams(window.location.search).has("consent_request_id")
-
-  // Static hosting cannot set frame-ancestors; framed consent never mounts or loads data.
-  if (consentRequested && window.top !== window.self) {
-    return <p role="alert" className="p-6">{t("auth.consent.framed")}</p>
-  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -50,7 +42,6 @@ export default function App() {
                 <ConfirmDialogProvider>
                   <BrowserRouter>
                     <Routes>
-                      <Route path="/" element={<ConsentEntry />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route element={<RequireAuth />}>

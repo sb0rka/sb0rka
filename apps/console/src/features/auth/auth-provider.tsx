@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { Navigate, Outlet } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
 import { ApiError } from "@/lib/api-client"
-import { clearToken, getToken, getAuthGeneration } from "@/lib/auth-store"
+import { clearToken, getToken } from "@/lib/auth-store"
 import { bootstrapAuth } from "./api"
 import type { User } from "./api"
 const AUTH_DEBUG = false
@@ -44,17 +44,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const bootstrap = useCallback(async () => {
     if (bootstrapRef.current) return bootstrapRef.current
 
-    const generation = getAuthGeneration()
     const run = (async () => {
       try {
         authLog("bootstrap run start")
         const user = await bootstrapAuth()
-        if (generation !== getAuthGeneration()) return
         qc.setQueryData(["user"], user)
         authLog("bootstrap success; setting authenticated state", { userId: user.id })
         setState({ isAuthenticated: true, isLoading: false, user })
       } catch (err) {
-        if (generation !== getAuthGeneration()) return
         if (err instanceof ApiError && err.status === 401) {
           authLog("bootstrap got 401; forcing logged-out state")
           clearToken()
@@ -71,16 +68,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bootstrapRef.current = run
     run.finally(() => { bootstrapRef.current = null })
     return run
-  }, [qc])
-
-  useEffect(() => {
-    const reset = () => {
-      setState({ isAuthenticated: false, isLoading: false, user: null })
-      void qc.cancelQueries()
-      qc.clear()
-    }
-    window.addEventListener("auth-cleared", reset)
-    return () => window.removeEventListener("auth-cleared", reset)
   }, [qc])
 
   useEffect(() => {

@@ -20,22 +20,11 @@ export default defineConfig(({ mode }) => {
     alias: {
       "@": "/src",
     },
-    dedupe: ["react", "react-dom"],
   },
   server: {
     host: useMockApi,
-    port: 5173,
+    port: 3000,
     strictPort: true,
-    headers: {
-      "Content-Security-Policy": "frame-ancestors 'none'",
-      "Referrer-Policy": "no-referrer",
-    },
-  },
-  preview: {
-    headers: {
-      "Content-Security-Policy": "frame-ancestors 'none'",
-      "Referrer-Policy": "no-referrer",
-    },
   },
 }
 })

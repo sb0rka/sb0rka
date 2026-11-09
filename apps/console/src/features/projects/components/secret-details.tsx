@@ -135,7 +135,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     try {
       await updateSecretValue.mutateAsync({
         resourceId: secret.id,
-        secret_value: updateValueDraft,
+        secret_value: trimmed,
       })
       handleUpdateDialogOpenChange(false)
       setIsValueVisible(false)

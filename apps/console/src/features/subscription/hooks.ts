@@ -1,42 +1,16 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { initializeAccount } from "@/features/auth/api"
+import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/features/auth/auth-provider"
 import { listDatabases, listProjects, listSecrets } from "@/features/projects/api"
-import { ApiError } from "@/lib/api-client"
 import { getCurrentPlan, listPlans } from "./api"
 import type { PlanListResponse, PlanResponse } from "./api"
-
-const CURRENT_PLAN_KEY = ["subscription", "current-plan"] as const
 
 export function useCurrentPlan() {
   const { isAuthenticated } = useAuth()
 
   return useQuery<PlanResponse>({
-    queryKey: CURRENT_PLAN_KEY,
+    queryKey: ["subscription", "current-plan"],
     queryFn: getCurrentPlan,
     enabled: isAuthenticated,
-  })
-}
-
-export function useEnsureAccountPlan() {
-  const { isAuthenticated, user } = useAuth()
-  const queryClient = useQueryClient()
-
-  return useQuery({
-    queryKey: ["subscription", "account-initialized", user?.id],
-    enabled: isAuthenticated && Boolean(user?.id),
-    queryFn: async () => {
-      try {
-        await getCurrentPlan()
-        return true
-      } catch (err) {
-        if (!(err instanceof ApiError) || err.status !== 404) throw err
-      }
-
-      await initializeAccount()
-      await queryClient.invalidateQueries({ queryKey: CURRENT_PLAN_KEY })
-      return true
-    },
   })
 }
 
