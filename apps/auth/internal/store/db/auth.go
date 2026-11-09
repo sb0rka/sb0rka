@@ -5,108 +5,118 @@ import (
 	"errors"
 	"time"
 
-	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 )
 
-// CreateAuthSession creates a session after login
-func (p *PsqlDB) CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error) {
-	const query = `
-		INSERT INTO auth_sessions (id, subject_id, family_id, refresh_token_hash, created_ip, created_user_agent, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id, subject_id, (SELECT kind FROM subjects WHERE subjects.id = auth_sessions.subject_id), family_id, oauth_client_id, refresh_token_hash, created_ip, created_user_agent, revoke_reason, revoked_at, created_at, expires_at, replaced_by
-	`
-	var as model.AuthSession
-	err := p.pool.QueryRow(ctx, query, sessionID, subjectID, familyID, refreshTokenHash, createdIP, createdUserAgent, expiresAt).Scan(
-		&as.ID, &as.SubjectID, &as.SubjectKind, &as.FamilyID, &as.OAuthClientID, &as.RefreshTokenHash, &as.CreatedIP, &as.CreatedUserAgent,
-		&as.RevokeReason, &as.RevokedAt, &as.CreatedAt, &as.ExpiresAt, &as.ReplacedBy,
+// pgForeignKeyViolation is the PostgreSQL SQLSTATE for foreign_key_violation.
+const pgForeignKeyViolation = "23503"
+
+// sessionColumns is the auth_sessions projection scanned by scanSession; the
+// session row is joined as "s" and its subject as "u".
+const sessionColumns = `
+	s.id, s.subject_id, u.kind, s.family_id, s.oauth_client_id,
+	s.created_ip, s.created_user_agent,
+	s.revoke_reason, s.revoked_at, s.created_at, s.expires_at, s.replaced_by, s.oauth_scopes`
+
+func scanSession(row pgx.Row) (model.AuthSession, error) {
+	var s model.AuthSession
+	err := row.Scan(
+		&s.ID, &s.SubjectID, &s.SubjectKind, &s.FamilyID, &s.OAuthClientID,
+		&s.CreatedIP, &s.CreatedUserAgent, &s.RevokeReason, &s.RevokedAt, &s.CreatedAt, &s.ExpiresAt, &s.ReplacedBy, &s.OAuthScopes,
 	)
+	return s, err
+}
+
+// CreateAuthSession creates a session and its first refresh token after login
+func (p *PsqlDB) CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedPasswordHash string) (model.AuthSession, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return model.AuthSession{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	hash, err := lockAuthenticationUser(ctx, tx, subjectID)
+	if err != nil {
+		return model.AuthSession{}, err
+	}
+	if expectedPasswordHash == "" || hash != expectedPasswordHash {
+		return model.AuthSession{}, ErrTokenExpired
+	}
+	const insertSessionQuery = `
+		INSERT INTO auth_sessions (id, subject_id, family_id, created_ip, created_user_agent, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	if _, err = tx.Exec(ctx, insertSessionQuery, sessionID, subjectID, familyID, createdIP, createdUserAgent, expiresAt); err != nil {
+		var pgErr *pgconn.PgError
+		// subject_id references subjects(id) foreign_key_violation
+		if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolation {
+			return model.AuthSession{}, ErrUserNotFound
+		}
+		return model.AuthSession{}, err
+	}
+
+	const insertRefreshTokenQuery = `
+		INSERT INTO auth_refresh_tokens (session_id, token_hash, expires_at)
+		VALUES ($1, $2, $3)
+	`
+	if _, err = tx.Exec(ctx, insertRefreshTokenQuery, sessionID, refreshTokenHash, expiresAt); err != nil {
+		return model.AuthSession{}, err
+	}
+
+	session, err := scanSession(tx.QueryRow(ctx, `
+		SELECT `+sessionColumns+`
+		FROM auth_sessions s
+		JOIN subjects u ON u.id = s.subject_id
+		WHERE s.id = $1
+	`, sessionID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.AuthSession{}, ErrUnexpectedEmptyReturn
 		}
-
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			// subject_id references subjects(id) foreign_key_violation
-			if pgErr.Code == "23503" {
-				return model.AuthSession{}, ErrUserNotFound
-			}
-		}
-
 		return model.AuthSession{}, err
 	}
-	return as, nil
+	if err = tx.Commit(ctx); err != nil {
+		return model.AuthSession{}, err
+	}
+	return session, nil
 }
 
 func (p *PsqlDB) GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error) {
-	const query = `
-			SELECT a.id, a.subject_id, s.kind, a.family_id, a.oauth_client_id, a.refresh_token_hash, a.created_ip, a.created_user_agent, a.revoke_reason, a.revoked_at, a.created_at, a.expires_at, a.replaced_by
-		FROM auth_sessions a
-		JOIN subjects s ON s.id = a.subject_id
-		WHERE a.id = $1
-	`
-
-	var as model.AuthSession
-	err := p.pool.QueryRow(ctx, query, sessionID).Scan(
-		&as.ID, &as.SubjectID, &as.SubjectKind, &as.FamilyID, &as.OAuthClientID, &as.RefreshTokenHash, &as.CreatedIP, &as.CreatedUserAgent,
-		&as.RevokeReason, &as.RevokedAt, &as.CreatedAt, &as.ExpiresAt, &as.ReplacedBy,
-	)
+	session, err := scanSession(p.pool.QueryRow(ctx, `
+		SELECT `+sessionColumns+`
+		FROM auth_sessions s
+		JOIN subjects u ON u.id = s.subject_id
+		WHERE s.id = $1
+	`, sessionID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.AuthSession{}, ErrTokenNotFound
 		}
 		return model.AuthSession{}, err
 	}
-	return as, nil
+	return session, nil
 }
 
 // ResolveBrowserSession resolves a current refresh cookie without rotating or
-// otherwise mutating its session family. The recursive leg walks predecessor
-// rows so authentication time remains stable across refresh rotations.
+// otherwise mutating its session. Refresh rotation only replaces the token row
+// and keeps the session, so auth_time stays stable across rotations.
 func (p *PsqlDB) ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error) {
-	// Each refresh inserts a new auth_sessions row and links the old one via
-	// replaced_by, so the live cookie's created_at is the last rotation, not
-	// the login. Walk predecessors in the same family and take MIN(created_at)
-	// for a stable OIDC auth_time; keep returning the current session id.
 	const query = `
-		WITH RECURSIVE session_family AS (
-			SELECT
-				a.id AS current_session_id,
-				a.id,
-				a.subject_id,
-				a.family_id,
-				a.created_at
-			FROM auth_sessions a
-			JOIN subjects s ON s.id = a.subject_id
-			JOIN users u ON u.id = a.subject_id
-				WHERE a.refresh_token_hash = $1
-					AND a.revoked_at IS NULL
-					AND a.expires_at > NOW()
-					AND a.oauth_client_id IS NULL
-				AND s.kind = 'user'
-				AND u.is_active = true
-
-			UNION
-
-			SELECT
-				family.current_session_id,
-				previous.id,
-				previous.subject_id,
-				previous.family_id,
-				previous.created_at
-			FROM auth_sessions previous
-			JOIN session_family family
-				ON previous.replaced_by = family.id
-				AND previous.family_id = family.family_id
-				AND previous.subject_id = family.subject_id
-		)
-		SELECT current_session_id, subject_id, MIN(created_at)
-		FROM session_family
-		GROUP BY current_session_id, subject_id
+		SELECT s.id, s.subject_id, s.auth_time
+		FROM auth_sessions s
+		JOIN auth_refresh_tokens t ON t.session_id = s.id
+		JOIN user_principals u ON u.id = s.subject_id
+		WHERE t.token_hash = $1
+			AND t.consumed_at IS NULL
+			AND t.expires_at > NOW()
+			AND s.revoked_at IS NULL
+			AND s.expires_at > NOW()
+			AND s.oauth_client_id IS NULL
+			AND u.is_active
 	`
 
 	var session model.BrowserSession
@@ -135,198 +145,239 @@ func (p *PsqlDB) RefreshOAuthSession(ctx context.Context, oldRefreshTokenHash st
 	return p.refreshAuthSession(ctx, oldRefreshTokenHash, newSessionID, newRefreshTokenHash, createdIP, createdUserAgent, expiresAt, &oauthClientID)
 }
 
-func (p *PsqlDB) refreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedOAuthClientID *string) (model.AuthSession, error) {
-	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
+func (p *PsqlDB) refreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newTokenID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedOAuthClientID *string) (model.AuthSession, error) {
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return model.AuthSession{}, err
 	}
 	defer tx.Rollback(ctx)
 
-	const selectForUpdateQuery = `
-			SELECT a.id, a.subject_id, s.kind, a.family_id, a.oauth_client_id, a.refresh_token_hash, a.created_ip, a.created_user_agent, a.revoke_reason, a.revoked_at, a.created_at, a.expires_at, a.replaced_by
-		FROM auth_sessions a
-		JOIN subjects s ON s.id = a.subject_id
-		WHERE a.refresh_token_hash = $1
-		FOR UPDATE
-	`
-
-	var oldSession model.AuthSession
-	err = tx.QueryRow(ctx, selectForUpdateQuery, oldRefreshTokenHash).Scan(
-		&oldSession.ID, &oldSession.SubjectID, &oldSession.SubjectKind, &oldSession.FamilyID, &oldSession.OAuthClientID, &oldSession.RefreshTokenHash, &oldSession.CreatedIP, &oldSession.CreatedUserAgent,
-		&oldSession.RevokeReason, &oldSession.RevokedAt, &oldSession.CreatedAt, &oldSession.ExpiresAt, &oldSession.ReplacedBy,
-	)
+	session, oldTokenID, consumed, err := lockRefresh(ctx, tx, oldRefreshTokenHash, expectedOAuthClientID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.AuthSession{}, ErrTokenNotFound
-		}
-		return model.AuthSession{}, err
-	}
-	if expectedOAuthClientID == nil {
-		if oldSession.OAuthClientID != nil {
-			return model.AuthSession{}, ErrTokenNotFound
-		}
-	} else if oldSession.OAuthClientID == nil || *oldSession.OAuthClientID != *expectedOAuthClientID {
-		return model.AuthSession{}, ErrTokenNotFound
+		return session, err
 	}
 
-	// Check if the session is revoked
+	// A consumed refresh token presented again means it leaked: revoke the session
 
-	if oldSession.RevokedAt != nil {
-		const revokeFamilyQuery = `
+	if consumed {
+		const revokeReusedQuery = `
 			UPDATE auth_sessions
-			SET revoked_at = NOW(), revoke_reason = 'reuse_detected'
-			WHERE family_id = $1 AND revoked_at IS NULL
+			SET revoked_at = COALESCE(revoked_at, NOW()), revoke_reason = 'reuse_detected'
+			WHERE id = $1
 		`
-		if _, err = tx.Exec(ctx, revokeFamilyQuery, oldSession.FamilyID); err != nil {
-			return model.AuthSession{}, err
+		if _, err = tx.Exec(ctx, revokeReusedQuery, session.ID); err != nil {
+			return session, err
 		}
 		if err = tx.Commit(ctx); err != nil {
-			return model.AuthSession{}, err
+			return session, err
 		}
-		return model.AuthSession{}, ErrTokenReuseDetected
+		return session, ErrTokenReuseDetected
 	}
 
-	// Check if the session is expired
-
-	now := time.Now().UTC()
-	if !oldSession.ExpiresAt.After(now) {
-		const markExpiredQuery = `
-			UPDATE auth_sessions
-			SET revoked_at = NOW(), revoke_reason = 'expired'
-			WHERE id = $1 AND revoked_at IS NULL
-		`
-		if _, err = tx.Exec(ctx, markExpiredQuery, oldSession.ID); err != nil {
-			return model.AuthSession{}, err
-		}
-		if err = tx.Commit(ctx); err != nil {
-			return model.AuthSession{}, err
-		}
-		return model.AuthSession{}, ErrTokenExpired
+	if err = rotateRefresh(ctx, tx, session, oldTokenID, newTokenID, newRefreshTokenHash); err != nil {
+		return session, err
 	}
-
-	// Check if the user-backed subject is active
-
-	const checkActiveUserQuery = `
-		SELECT u.is_active
-		FROM users u
-		JOIN subjects s ON s.id = u.id
-		WHERE u.id = $1
-			AND s.kind = 'user'
-	`
-	var isUserActive bool
-	err = tx.QueryRow(ctx, checkActiveUserQuery, oldSession.SubjectID).Scan(&isUserActive)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.AuthSession{}, ErrUserNotFound
-		}
-		return model.AuthSession{}, err
-	}
-	if !isUserActive {
-		return model.AuthSession{}, ErrUserNotFound
-	}
-
-	// Step 1: Revoke the old session without setting replaced_by yet.
-	// replaced_by references auth_sessions(id), so the new session must exist first.
-	// Revoking here clears the unique partial index (family_id WHERE revoked_at IS NULL)
-	// so the subsequent INSERT does not violate uq_auth_sess_family_active.
-
-	const revokeRotatedQuery = `
-		UPDATE auth_sessions
-		SET revoked_at = NOW(), revoke_reason = 'rotated'
-		WHERE id = $1 AND revoked_at IS NULL
-	`
-	tag, err := tx.Exec(ctx, revokeRotatedQuery, oldSession.ID)
-	if err != nil {
-		return model.AuthSession{}, err
-	}
-	if tag.RowsAffected() != 1 {
-		return model.AuthSession{}, ErrTokenNotFound
-	}
-
-	// Step 2: Insert the new session. The family slot is now free.
-
-	const createNewSessionQuery = `
-			INSERT INTO auth_sessions (id, subject_id, family_id, oauth_client_id, refresh_token_hash, created_ip, created_user_agent, expires_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			RETURNING id, subject_id, (SELECT kind FROM subjects WHERE subjects.id = auth_sessions.subject_id), family_id, oauth_client_id, refresh_token_hash, created_ip, created_user_agent, revoke_reason, revoked_at, created_at, expires_at, replaced_by
-	`
-	var newSession model.AuthSession
-	err = tx.QueryRow(ctx, createNewSessionQuery, newSessionID, oldSession.SubjectID, oldSession.FamilyID, oldSession.OAuthClientID, newRefreshTokenHash, createdIP, createdUserAgent, expiresAt).Scan(
-		&newSession.ID, &newSession.SubjectID, &newSession.SubjectKind, &newSession.FamilyID, &newSession.OAuthClientID, &newSession.RefreshTokenHash, &newSession.CreatedIP, &newSession.CreatedUserAgent,
-		&newSession.RevokeReason, &newSession.RevokedAt, &newSession.CreatedAt, &newSession.ExpiresAt, &newSession.ReplacedBy,
-	)
-	if err != nil {
-		return model.AuthSession{}, err
-	}
-
-	// Step 3: Back-fill replaced_by on the old session now that the new row exists.
-
-	const backfillReplacedByQuery = `
-		UPDATE auth_sessions
-		SET replaced_by = $2
-		WHERE id = $1
-	`
-	if _, err = tx.Exec(ctx, backfillReplacedByQuery, oldSession.ID, newSessionID); err != nil {
-		return model.AuthSession{}, err
-	}
-
 	if err = tx.Commit(ctx); err != nil {
-		return model.AuthSession{}, err
+		return session, err
 	}
-
-	return newSession, nil
+	return session, nil
 }
 
+// lockRefresh locks a refresh token and its session, then checks that the OAuth
+// client binding matches, the session and token are still valid and the user is active.
+// The returned flag reports whether the token was already consumed.
+func lockRefresh(ctx context.Context, tx pgx.Tx, refreshTokenHash string, expectedOAuthClientID *string) (model.AuthSession, uuid.UUID, bool, error) {
+	// Resolve without a lock, then re-read under user -> session -> token locks.
+	var subjectID, sessionID, tokenID uuid.UUID
+	err := tx.QueryRow(ctx, `SELECT s.subject_id,s.id FROM auth_refresh_tokens t JOIN auth_sessions s ON s.id=t.session_id WHERE t.token_hash=$1`, refreshTokenHash).Scan(&subjectID, &sessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.AuthSession{}, tokenID, false, ErrTokenNotFound
+	}
+	if err != nil {
+		return model.AuthSession{}, tokenID, false, err
+	}
+	if _, err = lockAuthenticationUser(ctx, tx, subjectID); err != nil {
+		return model.AuthSession{}, tokenID, false, err
+	}
+	session, err := scanSession(tx.QueryRow(ctx, `SELECT `+sessionColumns+` FROM auth_sessions s JOIN subjects u ON u.id=s.subject_id WHERE s.id=$1 FOR UPDATE OF s`, sessionID))
+	if err != nil {
+		return session, tokenID, false, err
+	}
+	var consumedAt *time.Time
+	var tokenExpiresAt time.Time
+	err = tx.QueryRow(ctx, `SELECT id,consumed_at,expires_at FROM auth_refresh_tokens WHERE token_hash=$1 AND session_id=$2 FOR UPDATE`, refreshTokenHash, sessionID).Scan(&tokenID, &consumedAt, &tokenExpiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return session, tokenID, false, ErrTokenNotFound
+	}
+	if err != nil {
+		return session, tokenID, false, err
+	}
+
+	// Native (cookie) refresh and each OAuth client may only use their own tokens
+
+	if expectedOAuthClientID == nil {
+		if session.OAuthClientID != nil {
+			return session, tokenID, false, ErrTokenNotFound
+		}
+	} else if session.OAuthClientID == nil || *session.OAuthClientID != *expectedOAuthClientID {
+		return session, tokenID, false, ErrTokenNotFound
+	}
+
+	// Check if the session is revoked or the session/token is expired
+
+	now := time.Now()
+	if session.RevokedAt != nil || !session.ExpiresAt.After(now) || !tokenExpiresAt.After(now) {
+		return session, tokenID, false, ErrTokenExpired
+	}
+
+	// Check if the user is active
+
+	var isUserActive bool
+	if err = tx.QueryRow(ctx, `SELECT is_active FROM user_principals WHERE id = $1`, session.SubjectID).Scan(&isUserActive); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return session, tokenID, false, ErrUserNotFound
+		}
+		return session, tokenID, false, err
+	}
+	if !isUserActive {
+		return session, tokenID, false, ErrUserNotFound
+	}
+	return session, tokenID, consumedAt != nil, nil
+}
+
+// rotateRefresh consumes the old refresh token and links the newly inserted one to it.
+// replaced_by references auth_refresh_tokens(id), so it is back-filled after the insert.
+func rotateRefresh(ctx context.Context, tx pgx.Tx, session model.AuthSession, oldTokenID, newTokenID uuid.UUID, newRefreshTokenHash string) error {
+	if _, err := tx.Exec(ctx, `UPDATE auth_refresh_tokens SET consumed_at = NOW() WHERE id = $1`, oldTokenID); err != nil {
+		return err
+	}
+	const insertTokenQuery = `
+		INSERT INTO auth_refresh_tokens (id, session_id, token_hash, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	if _, err := tx.Exec(ctx, insertTokenQuery, newTokenID, session.ID, newRefreshTokenHash, session.ExpiresAt); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE auth_refresh_tokens SET replaced_by = $2 WHERE id = $1`, oldTokenID, newTokenID)
+	return err
+}
+
+// RefreshOAuthResult rotates a refresh token and stores the sealed response in the same
+// transaction, so a retried request with the same operation (idempotency key) replays the
+// first result instead of tripping reuse detection. issue signs the new tokens and returns
+// the sealed response; an empty client selects the native cookie flow.
+func (p *PsqlDB) RefreshOAuthResult(ctx context.Context, oldRefreshTokenHash, newRefreshTokenHash, oauthClientID, operation string, issue func(model.AuthSession) (string, error)) (string, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	var expectedOAuthClientID *string
+	if oauthClientID != "" {
+		expectedOAuthClientID = &oauthClientID
+	}
+	session, oldTokenID, consumed, err := lockRefresh(ctx, tx, oldRefreshTokenHash, expectedOAuthClientID)
+	if err != nil {
+		return "", err
+	}
+
+	// A consumed token is a legitimate retry only while its sealed response is still stored
+
+	if consumed {
+		const selectReplayQuery = `
+			SELECT response_encrypted
+			FROM auth_refresh_tokens
+			WHERE id = $1 AND operation_id = $2 AND response_expires_at > NOW()
+		`
+		var sealed string
+		err = tx.QueryRow(ctx, selectReplayQuery, oldTokenID, operation).Scan(&sealed)
+		if operation != "" && err == nil {
+			return sealed, tx.Commit(ctx)
+		}
+
+		const revokeReusedQuery = `
+			UPDATE auth_sessions
+			SET revoked_at = NOW(), revoke_reason = 'reuse_detected'
+			WHERE id = $1
+		`
+		if _, err = tx.Exec(ctx, revokeReusedQuery, session.ID); err != nil {
+			return "", err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return "", err
+		}
+		return "", ErrTokenReuseDetected
+	}
+
+	sealed, err := issue(session)
+	if err != nil {
+		return "", err
+	}
+	if err = rotateRefresh(ctx, tx, session, oldTokenID, uuid.New(), newRefreshTokenHash); err != nil {
+		return "", err
+	}
+	const storeReplayQuery = `
+		UPDATE auth_refresh_tokens
+		SET operation_id = $2, response_encrypted = $3, response_expires_at = NOW() + INTERVAL '5 minutes'
+		WHERE id = $1
+	`
+	if _, err = tx.Exec(ctx, storeReplayQuery, oldTokenID, operation, sealed); err != nil {
+		return "", err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return sealed, nil
+}
+
+// RevokeOAuthSessionFamily revokes the session behind a refresh token, but only for the OAuth client that owns it.
 func (p *PsqlDB) RevokeOAuthSessionFamily(ctx context.Context, refreshTokenHash, oauthClientID string) error {
 	if oauthClientID == "" {
 		return nil
 	}
-	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var familyID uuid.UUID
-	var boundClientID *string
-	err = tx.QueryRow(ctx, `
-		SELECT family_id, oauth_client_id
-		FROM auth_sessions
-		WHERE refresh_token_hash = $1
-		FOR UPDATE
-	`, refreshTokenHash).Scan(&familyID, &boundClientID)
+	defer tx.Rollback(ctx)
+	var subjectID uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT s.subject_id FROM auth_sessions s JOIN auth_refresh_tokens t ON t.session_id=s.id WHERE t.token_hash=$1 AND s.oauth_client_id=$2`, refreshTokenHash, oauthClientID).Scan(&subjectID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if boundClientID == nil || *boundClientID != oauthClientID {
-		return nil
+	if err = lockRevocationUser(ctx, tx, subjectID); err != nil {
+		return err
 	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE auth_sessions
-		SET revoked_at = COALESCE(revoked_at, NOW()),
-			revoke_reason = COALESCE(revoke_reason, 'oauth_client_revoke')
-		WHERE family_id = $1
-	`, familyID); err != nil {
+	const query = `
+		UPDATE auth_sessions s
+		SET revoked_at = COALESCE(s.revoked_at, clock_timestamp()),
+			revoke_reason = COALESCE(s.revoke_reason, 'oauth_client_revoke')
+		FROM auth_refresh_tokens t
+		WHERE t.session_id = s.id
+			AND t.token_hash = $1
+			AND s.oauth_client_id = $2
+	`
+	_, err = tx.Exec(ctx, query, refreshTokenHash, oauthClientID)
+	if err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
 func (p *PsqlDB) ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error) {
-	const query = `
-			SELECT a.id, a.subject_id, s.kind, a.family_id, a.oauth_client_id, a.refresh_token_hash, a.created_ip, a.created_user_agent, a.revoke_reason, a.revoked_at, a.created_at, a.expires_at, a.replaced_by
-		FROM auth_sessions a
-		JOIN subjects s ON s.id = a.subject_id
-		WHERE a.subject_id = $1
-			AND a.revoked_at IS NULL
-			AND a.expires_at > NOW()
-		ORDER BY a.created_at DESC
-	`
-
-	rows, err := p.pool.Query(ctx, query, subjectID)
+	rows, err := p.pool.Query(ctx, `
+		SELECT `+sessionColumns+`
+		FROM auth_sessions s
+		JOIN subjects u ON u.id = s.subject_id
+		WHERE s.subject_id = $1
+			AND s.revoked_at IS NULL
+			AND s.expires_at > NOW()
+		ORDER BY s.created_at DESC
+	`, subjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -334,14 +385,11 @@ func (p *PsqlDB) ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]m
 
 	sessions := make([]model.AuthSession, 0)
 	for rows.Next() {
-		var as model.AuthSession
-		if err := rows.Scan(
-			&as.ID, &as.SubjectID, &as.SubjectKind, &as.FamilyID, &as.OAuthClientID, &as.RefreshTokenHash, &as.CreatedIP, &as.CreatedUserAgent,
-			&as.RevokeReason, &as.RevokedAt, &as.CreatedAt, &as.ExpiresAt, &as.ReplacedBy,
-		); err != nil {
+		session, err := scanSession(rows)
+		if err != nil {
 			return nil, err
 		}
-		sessions = append(sessions, as)
+		sessions = append(sessions, session)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -351,31 +399,50 @@ func (p *PsqlDB) ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]m
 }
 
 func (p *PsqlDB) RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err = lockRevocationUser(ctx, tx, subjectID); err != nil {
+		return err
+	}
 	const query = `
 		UPDATE auth_sessions
 		SET
-			revoked_at = COALESCE(revoked_at, NOW()),
+			revoked_at = COALESCE(revoked_at, clock_timestamp()),
 			revoke_reason = COALESCE(revoke_reason, $2),
 			replaced_by = COALESCE(replaced_by, $3)
 		WHERE id = $1
 			AND subject_id = $4
 	`
-	tag, err := p.pool.Exec(ctx, query, sessionID, reason, replacedBy, subjectID)
+	tag, err := tx.Exec(ctx, query, sessionID, reason, replacedBy, subjectID)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrTokenNotFound
 	}
-	return err
+	return tx.Commit(ctx)
 }
 
 func (p *PsqlDB) RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err = lockRevocationUser(ctx, tx, subjectID); err != nil {
+		return err
+	}
 	const query = `
 		UPDATE auth_sessions
-		SET revoked_at = NOW(), revoke_reason = 'logout'
+		SET revoked_at = clock_timestamp(), revoke_reason = 'logout'
 		WHERE subject_id = $1 AND revoked_at IS NULL
 	`
-	_, err := p.pool.Exec(ctx, query, subjectID)
-	return err
+	_, err = tx.Exec(ctx, query, subjectID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

@@ -1,6 +1,10 @@
 const STORAGE_KEY = "access_token"
 const REFRESH_MARGIN_MS = 30_000
 
+let authGeneration = 0
+
+export function getAuthGeneration(): number { return authGeneration }
+
 let accessToken: string | null = localStorage.getItem(STORAGE_KEY)
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let onRefresh: (() => Promise<void>) | null = null
@@ -77,11 +81,13 @@ export function setToken(token: string): void {
 }
 
 export function clearToken(): void {
+  authGeneration += 1
   if (refreshTimer) {
     clearTimeout(refreshTimer)
     refreshTimer = null
   }
   accessToken = null
   localStorage.removeItem(STORAGE_KEY)
+  window.dispatchEvent(new Event("auth-cleared"))
   authLog("clearToken", { hasToken: false })
 }

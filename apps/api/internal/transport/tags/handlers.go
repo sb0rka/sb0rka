@@ -173,6 +173,7 @@ func (h *Handler) ListResourceTags(w http.ResponseWriter, r *http.Request) {
 
 // AttachResourceTag godoc
 // @Summary  Прикрепить тег к ресурсу
+// @Description Delegated access requires secrets.write and a writable secret ACL. It cannot modify existing shared tag metadata or supply color.
 // @Tags     tags
 // @Accept   json
 // @Produce  json
@@ -213,6 +214,10 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	if !authz.DelegatedTagAllowed(r.Context(), req.TagKey, req.TagValue, req.Color) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	tagKey, err := service.ValidateTagKey(req.TagKey)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -229,7 +234,8 @@ func (h *Handler) AttachResourceTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), projectID, resourcePublicID, tagKey, tagValue, tagColor)
+	_, delegated := authz.DelegatedIdentity(r.Context())
+	tag, err := h.deps.PlatformDatabase.AttachResourceTag(r.Context(), projectID, resourcePublicID, tagKey, tagValue, tagColor, !delegated)
 	if err != nil {
 		if errors.Is(err, db.ErrResourceNotFound) {
 			http.Error(w, "Resource not found", http.StatusNotFound)

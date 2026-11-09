@@ -18,6 +18,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/secret"
+	"github.com/sb0rka/sb0rka/packages/core/buildinfo"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -46,6 +47,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	slog.SetDefault(log)
 	log.Info("logger initialized")
+	buildinfo.Log(log)
 
 	log.Info("initializing database connections")
 	platformDatabase, err := store.CreateDatabase(

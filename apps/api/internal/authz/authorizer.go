@@ -40,6 +40,7 @@ const (
 	ActionSecretVersionRead    Action = "secret.version.read"
 	ActionSecretVersionCreate  Action = "secret.version.create"
 	ActionSecretVersionDisable Action = "secret.version.disable"
+	ActionSecretAgentGrant     Action = "secret.agent.grant"
 	ActionTagList              Action = "tag.list"
 	ActionTagCreate            Action = "tag.create"
 	ActionTagUpdate            Action = "tag.update"

@@ -12,20 +12,22 @@ import (
 // ToOIDCDiscoveryResponse exposes only the provider capabilities implemented by the OIDC transport.
 func ToOIDCDiscoveryResponse(issuer string) contract.OIDCDiscoveryResponse {
 	return contract.OIDCDiscoveryResponse{
-		Issuer:                        issuer,
-		AuthorizationEndpoint:         issuer + "/oauth2/authorize",
-		TokenEndpoint:                 issuer + "/oauth2/token",
-		RevocationEndpoint:            issuer + "/oauth2/revoke",
-		JWKSURI:                       issuer + "/oauth2/jwks",
-		ResponseTypesSupported:        []string{"code"},
-		ResponseModesSupported:        []string{"query"},
-		GrantTypesSupported:           []string{"authorization_code", "refresh_token"},
-		SubjectTypesSupported:         []string{"public"},
-		IDTokenSigningAlgorithms:      []string{"RS256"},
-		TokenEndpointAuthMethods:      []string{"client_secret_basic"},
-		CodeChallengeMethodsSupported: []string{"S256"},
-		ScopesSupported:               []string{"openid", "profile", "email", "offline_access"},
-		ClaimsSupported:               []string{"sub", "aud", "iss", "iat", "exp", "nonce", "auth_time", "amr", "preferred_username", "email", "email_verified", "at_hash"},
+		Issuer:                           issuer,
+		IntrospectionEndpoint:            issuer + "/oauth2/introspect",
+		IntrospectionEndpointAuthMethods: []string{"client_secret_basic"},
+		AuthorizationEndpoint:            issuer + "/oauth2/authorize",
+		TokenEndpoint:                    issuer + "/oauth2/token",
+		RevocationEndpoint:               issuer + "/oauth2/revoke",
+		JWKSURI:                          issuer + "/oauth2/jwks",
+		ResponseTypesSupported:           []string{"code"},
+		ResponseModesSupported:           []string{"query"},
+		GrantTypesSupported:              []string{"authorization_code", "refresh_token", exchangeGrant, delegationGrant, agentGrant},
+		SubjectTypesSupported:            []string{"public"},
+		IDTokenSigningAlgorithms:         []string{"RS256"},
+		TokenEndpointAuthMethods:         []string{"client_secret_basic"},
+		CodeChallengeMethodsSupported:    []string{"S256"},
+		ScopesSupported:                  []string{"openid", "profile", "email", "offline_access"},
+		ClaimsSupported:                  []string{"sub", "aud", "iss", "iat", "exp", "nonce", "auth_time", "amr", "preferred_username", "email", "email_verified", "at_hash"},
 	}
 }
 
@@ -61,6 +63,6 @@ func ToOAuthTokenResponse(tokens db.OIDCTokenSet) contract.OAuthTokenResponse {
 		TokenType:    "Bearer",
 		ExpiresIn:    tokens.ExpiresIn,
 		IDToken:      tokens.IDToken,
-		Scope:        canonicalScopes,
+		Scope:        tokens.Scope,
 	}
 }
