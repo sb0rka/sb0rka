@@ -3,11 +3,12 @@ package contract
 import "time"
 
 type CreateSecretRequest struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	SecretValue string  `json:"secret_value"`
-	PayloadKind string  `json:"payload_kind" enums:"text,json,binary"`
-	Purpose     string  `json:"purpose,omitempty"`
+	Name           string  `json:"name"`
+	Description    *string `json:"description,omitempty"`
+	SecretValue    string  `json:"secret_value"`
+	PayloadKind    string  `json:"payload_kind" enums:"text,json,binary"`
+	Purpose        string  `json:"purpose,omitempty"`
+	AgentSubjectID string  `json:"agent_subject_id,omitempty"`
 }
 
 type CreateSecretVersionRequest struct {
@@ -78,6 +79,11 @@ type SecretResponse struct {
 
 	PasswordVerifier *SecretPasswordVerifierResponse `json:"password_verifier,omitempty"`
 	Versions         []SecretVersionResponse         `json:"versions,omitempty"`
+	AgentSubjectIDs  []string                        `json:"agent_subject_ids,omitempty"`
+}
+
+type GrantSecretAgentRequest struct {
+	SubjectID string `json:"subject_id"`
 }
 
 type SecretListResponse struct {
