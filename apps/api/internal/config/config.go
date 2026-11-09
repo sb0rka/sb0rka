@@ -1,10 +1,6 @@
 package config
 
 import (
-	"crypto/ed25519"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/pem"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
 )
 
@@ -25,12 +22,7 @@ const (
 	DefaultServerPort                = 8080
 	DefaultCORSAllowedDefaultMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS"
 
-	// JWT defaults
-	DefaultAccessTokenIssuer   = "auth.local"
-	DefaultAccessTokenAudience = "api.local"
-	DefaultAccessTokenKid      = "ed25519-v1" // TODO(kompotkot): Add rotation of access token kid logic
-	DefaultAccessTokenTyp      = "access+jwt"
-	DefaultSecretKeyRef        = "default"
+	DefaultSecretKeyRef = "default"
 
 	// Tenants database defaults
 	DefaultTenantsDatabasePublicBaseHost = "localhost.sslip.io"
@@ -128,46 +120,29 @@ func Load() (*Config, error) {
 
 	serverCORSAllowedDefaultMethodsEnv := getStringEnv("SERVER_CORS_ALLOWED_DEFAULT_METHODS", DefaultCORSAllowedDefaultMethods)
 
-	var accessTokenPrivateKeyRaw []byte
-	var err error
-	accessTokenPrivateKeyFilePathEnv := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY_FILE_PATH", "")
-	if accessTokenPrivateKeyFilePathEnv != "" {
-		accessTokenPrivateKeyRaw, err = os.ReadFile(accessTokenPrivateKeyFilePathEnv)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read access token private key file: %v", err)
-		}
-	} else {
-		accessTokenPrivateKeyEnv := getStringEnv("ACCESS_TOKEN_PRIVATE_KEY", "")
-		if accessTokenPrivateKeyEnv != "" {
-			accessTokenPrivateKeyRaw, err = base64.StdEncoding.DecodeString(accessTokenPrivateKeyEnv)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode base64 access token private key: %v", err)
-			}
-		}
+	accessTokenIssuer := strings.TrimSpace(os.Getenv("AUTH_BASE_URL"))
+	if accessTokenIssuer == "" {
+		return nil, fmt.Errorf("AUTH_BASE_URL should be set")
 	}
-
-	if len(accessTokenPrivateKeyRaw) == 0 {
-		return nil, fmt.Errorf("access token private key is not set")
-	}
-
-	block, _ := pem.Decode(accessTokenPrivateKeyRaw)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM access token private key")
-	}
-	parsedPrivateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	accessTokenPolicy, err := coreauth.AccessTokenPolicyFromEnv()
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse PKCS#8 access token private key: %v", err)
+		return nil, err
 	}
-
-	accessTokenPrivateKey, ok := parsedPrivateKey.(ed25519.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("access token private key is not ed25519")
+	accessTokenAudience := getStringEnv("AUTH_AUDIENCE", coreauth.AudienceAPI)
+	if accessTokenAudience != coreauth.AudienceAPI {
+		return nil, fmt.Errorf("AUTH_AUDIENCE must be %s", coreauth.AudienceAPI)
 	}
-
-	accessTokenIssuer := getStringEnv("ACCESS_TOKEN_ISSUER", DefaultAccessTokenIssuer)
-	accessTokenAudience := getStringEnv("ACCESS_TOKEN_AUDIENCE", DefaultAccessTokenAudience)
-	accessTokenKid := getStringEnv("ACCESS_TOKEN_KID", DefaultAccessTokenKid)
-	accessTokenTyp := getStringEnv("ACCESS_TOKEN_TYP", DefaultAccessTokenTyp)
+	allowInsecureHTTP, err := coreconfig.GetBoolEnvStrict("AUTH_ALLOW_INSECURE_HTTP_ISSUER", false)
+	if err != nil {
+		return nil, err
+	}
+	if err := coreauth.ValidateServiceOrigin(accessTokenIssuer, allowInsecureHTTP); err != nil {
+		return nil, fmt.Errorf("AUTH_BASE_URL: %w", err)
+	}
+	verificationKeys, err := coreauth.NewJWKSCache(accessTokenIssuer)
+	if err != nil {
+		return nil, err
+	}
 
 	secretKeyRef := getStringEnv("SECRET_KEY_REF", DefaultSecretKeyRef)
 	var secretTinkKeysetJSON []byte
@@ -214,11 +189,10 @@ func Load() (*Config, error) {
 			CORSAllowedDefaultMethods: serverCORSAllowedDefaultMethodsEnv,
 
 			AuthConfig: AuthConfig{
-				AccessTokenPrivateKey: accessTokenPrivateKey,
-				AccessTokenIssuer:     accessTokenIssuer,
-				AccessTokenAudience:   accessTokenAudience,
-				AccessTokenKid:        accessTokenKid,
-				AccessTokenTyp:        accessTokenTyp,
+				VerificationKeys:    verificationKeys,
+				AccessTokenPolicy:   accessTokenPolicy,
+				AccessTokenIssuer:   accessTokenIssuer,
+				AccessTokenAudience: accessTokenAudience,
 
 				SecretKeyRef:         secretKeyRef,
 				SecretTinkKeysetJSON: secretTinkKeysetJSON,

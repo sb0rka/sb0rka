@@ -1,26 +1,28 @@
 ## Build context = repository root.
-## Build: docker build -f apps/api/Dockerfile <repo root>
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 RUN apk add --no-cache git
 ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/contract,github.com/sb0rka/sb0rka/packages/core
 
 WORKDIR /src
 
+COPY --from=contract / ./packages/contract
+COPY --from=core / ./packages/core
 COPY apps/api/go.mod apps/api/go.sum ./apps/api/
-COPY packages/contract ./packages/contract
-COPY packages/core ./packages/core
 
 WORKDIR /src/apps/api
 
-RUN go mod download
+RUN go mod edit -replace=github.com/sb0rka/sb0rka/packages/contract=../../packages/contract \
+ && go mod edit -replace=github.com/sb0rka/sb0rka/packages/core=../../packages/core \
+ && GOWORK=off go mod download
 
 COPY apps/api/cmd ./cmd
 COPY apps/api/internal ./internal
 COPY apps/api/pkg ./pkg
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
+ARG BUILD_REVISION=unknown
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOWORK=off \
+    go build -trimpath -ldflags="-s -w -X github.com/sb0rka/sb0rka/packages/core/buildinfo.Revision=${BUILD_REVISION}" -o /out/api ./cmd/api
 
 FROM alpine:3.21
 

@@ -12,6 +12,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
@@ -24,6 +25,30 @@ type Handler struct {
 
 func NewHandler(deps runtime.Dependencies) *Handler {
 	return &Handler{deps: deps}
+}
+
+func (h *Handler) joinProjectAsAgent(w http.ResponseWriter, r *http.Request, agentID uuid.UUID) {
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	member, err := h.deps.PlatformDatabase.JoinProjectAsAgent(r.Context(), projectPublicID, agentID)
+	if err != nil {
+		switch {
+		case errors.Is(err, db.ErrProjectNotFound):
+			http.Error(w, "Project not found", http.StatusNotFound)
+		case errors.Is(err, db.ErrAgentNotInvited):
+			http.Error(w, "Forbidden", http.StatusForbidden)
+		default:
+			h.deps.Log.Error("join_project_as_agent_failed", "project_public_id", projectPublicID, "error", err)
+			http.Error(w, "Failed to add member", http.StatusInternalServerError)
+		}
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(toProjectMember(member))
 }
 
 func projectResource(publicID string) authz.ResourceRef {
@@ -326,6 +351,7 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 
 // ListProjects godoc
 // @Summary  Список проектов пользователя
+// @Description Delegation зарегистрированного клиента требует projects.read; результат ограничен актуальным consent и текущими ресурсными правами пользователя.
 // @Tags     projects
 // @Produce  json
 // @Success  200  {object}  contract.ProjectListResponse
@@ -347,6 +373,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	projects = authz.FilterDelegatedProjects(r.Context(), projects, func(p model.Project) string { return p.PublicID })
 	out := make([]contract.ProjectResponse, 0, len(projects))
 	for _, p := range projects {
 		out = append(out, toProject(p))
@@ -606,6 +633,10 @@ func (h *Handler) AddProjectMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if subjectKind == coreauth.SubjectAgent {
+		h.joinProjectAsAgent(w, r, callerID)
+		return
+	}
 	if !enforceUserSubject(w, subjectKind) {
 		return
 	}
@@ -765,6 +796,10 @@ func (h *Handler) UpdateProjectMemberRole(w http.ResponseWriter, r *http.Request
 		}
 		h.deps.Log.Error("get_target_project_member_failed", "project_id", projectID, "target_subject_id", targetSubjectID, "error", err)
 		http.Error(w, "Failed to update role", http.StatusInternalServerError)
+		return
+	}
+	if targetMember.Role == model.PrjMemberRoleAgent {
+		http.Error(w, "Agent role cannot be changed", http.StatusConflict)
 		return
 	}
 

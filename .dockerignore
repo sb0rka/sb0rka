@@ -392,3 +392,4 @@ bin/
 apps/auth/auth
 apps/api/api
 apps/drones/drone
+.local/
