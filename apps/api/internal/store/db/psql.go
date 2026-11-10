@@ -651,6 +651,13 @@ func (p *PsqlDB) RemoveProjectMember(ctx context.Context, projectID uuid.UUID, s
 			return ErrLastOwner
 		}
 	}
+	if currentRole == model.PrjMemberRoleAgent {
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM secret_agent_keys
+			WHERE project_id = $1 AND agent_subject_id = $2`, projectID, subjectID); err != nil {
+			return err
+		}
+	}
 
 	const query = `DELETE FROM project_members WHERE project_id = $1 AND subject_id = $2`
 	cmd, err := tx.Exec(ctx, query, projectID, subjectID)
@@ -1330,6 +1337,21 @@ func (p *PsqlDB) CreateSecretWithInitialVersion(ctx context.Context, params Crea
 		return model.Secret{}, model.SecretVersion{}, err
 	}
 
+	if params.AgentSubjectID != nil {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO secret_agent_keys (project_id, secret_id, agent_subject_id)
+			VALUES ($1, $2, $3)`,
+			params.ProjectID, resourceID, *params.AgentSubjectID,
+		); err != nil {
+			return model.Secret{}, model.SecretVersion{}, err
+		}
+	}
+	if params.PostInsert != nil {
+		if err := params.PostInsert(ctx, tx); err != nil {
+			return model.Secret{}, model.SecretVersion{}, err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return model.Secret{}, model.SecretVersion{}, err
 	}
@@ -1494,11 +1516,11 @@ func (p *PsqlDB) getSecret(ctx context.Context, projectID uuid.UUID, predicate s
 	return secret, nil
 }
 
-func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, resourcePublicID string, description *string) (model.Secret, error) {
+func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, params UpdateSecretMetaParams) (model.Secret, error) {
 	const query = `
 		WITH updated_secret AS (
 			UPDATE secrets s
-			SET description = $3
+			SET description = CASE WHEN $4 THEN $3 ELSE s.description END
 			FROM resources r
 			WHERE s.resource_id = r.id
 			  AND r.project_id = $1
@@ -1510,7 +1532,7 @@ func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, reso
 		FROM updated_secret
 	`
 	var secret model.Secret
-	if err := p.pool.QueryRow(ctx, query, projectID, resourcePublicID, description).Scan(
+	if err := p.pool.QueryRow(ctx, query, params.ProjectID, params.ResourcePublicID, params.Description, params.UpdateDescription).Scan(
 		&secret.PublicID,
 		&secret.ProjectID,
 		&secret.ResourceID,
@@ -1665,6 +1687,12 @@ func (p *PsqlDB) CreateSecretVersion(ctx context.Context, params CreateSecretVer
 	`
 	if _, err := tx.Exec(ctx, updateSecretQuery, params.ProjectID, params.SecretID, newVersionNo); err != nil {
 		return model.SecretVersion{}, err
+	}
+
+	if params.PostInsert != nil {
+		if err := params.PostInsert(ctx, tx); err != nil {
+			return model.SecretVersion{}, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -2090,6 +2118,7 @@ func (p *PsqlDB) AttachResourceTag(
 	tagKey string,
 	tagValue string,
 	color *string,
+	updateExisting bool,
 ) (model.Tag, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -2110,13 +2139,21 @@ func (p *PsqlDB) AttachResourceTag(
 		return model.Tag{}, err
 	}
 
-	const upsertTagQuery = `
+	upsertTagQuery := `
 		INSERT INTO tags (project_id, tag_key, tag_value, color)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (project_id, tag_key, tag_value)
 		DO UPDATE SET color = COALESCE(EXCLUDED.color, tags.color)
 		RETURNING id, project_id, tag_key, tag_value, color, is_system, is_readonly
 	`
+	if !updateExisting {
+		upsertTagQuery = `
+			INSERT INTO tags (project_id, tag_key, tag_value, color)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (project_id, tag_key, tag_value) DO NOTHING
+			RETURNING id, project_id, tag_key, tag_value, color, is_system, is_readonly
+		`
+	}
 	var tag model.Tag
 	if err := tx.QueryRow(ctx, upsertTagQuery, projectID, tagKey, tagValue, color).Scan(
 		&tag.ID,
@@ -2127,7 +2164,17 @@ func (p *PsqlDB) AttachResourceTag(
 		&tag.IsSystem,
 		&tag.IsReadonly,
 	); err != nil {
-		return model.Tag{}, err
+		if !updateExisting && errors.Is(err, pgx.ErrNoRows) {
+			err = tx.QueryRow(ctx, `
+				SELECT id, project_id, tag_key, tag_value, color, is_system, is_readonly
+				FROM tags WHERE project_id = $1 AND tag_key = $2 AND tag_value = $3
+			`, projectID, tagKey, tagValue).Scan(
+				&tag.ID, &tag.ProjectID, &tag.TagKey, &tag.TagValue, &tag.Color, &tag.IsSystem, &tag.IsReadonly,
+			)
+		}
+		if err != nil {
+			return model.Tag{}, err
+		}
 	}
 	if tag.IsSystem || tag.IsReadonly {
 		return model.Tag{}, ErrResourceTagImmutable

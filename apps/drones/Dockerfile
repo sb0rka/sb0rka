@@ -1,22 +1,23 @@
 ## Build context = repository root.
-## Build: docker build -f apps/drones/Dockerfile <repo root>
-FROM golang:1.25-alpine AS builder
+FROM golang:1.27.3-alpine AS builder
 
 RUN apk add --no-cache git
 ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/core
 
 WORKDIR /src
 
+COPY --from=core / ./packages/core
 COPY apps/drones/go.mod apps/drones/go.sum ./apps/drones/
 
 WORKDIR /src/apps/drones
 
-RUN go mod download
+RUN go mod edit -replace=github.com/sb0rka/sb0rka/packages/core=../../packages/core \
+ && GOWORK=off go mod download
 
 COPY apps/drones/main.go ./
 COPY apps/drones/pkg ./pkg
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOWORK=off \
     go build -trimpath -ldflags="-s -w" -o /out/drone .
 
 FROM alpine:3.21

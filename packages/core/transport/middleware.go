@@ -1,7 +1,9 @@
 package transport
 
 import (
+	"bufio"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,6 +29,28 @@ type Recorder struct {
 
 func (rec *Recorder) Status() int   { return rec.status }
 func (rec *Recorder) Written() bool { return rec.written }
+
+// Unwrap lets http.ResponseController reach deadlines and full duplex of the
+// underlying writer. Flush and Hijack are Recorder's own, because both start
+// the response without WriteHeader and Written must see that.
+func (rec *Recorder) Unwrap() http.ResponseWriter { return rec.ResponseWriter }
+
+func (rec *Recorder) FlushError() error {
+	if !rec.written {
+		rec.WriteHeader(http.StatusOK)
+	}
+	return http.NewResponseController(rec.ResponseWriter).Flush()
+}
+
+func (rec *Recorder) Flush() { _ = rec.FlushError() }
+
+func (rec *Recorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := http.NewResponseController(rec.ResponseWriter).Hijack()
+	if err == nil {
+		rec.written = true
+	}
+	return conn, rw, err
+}
 
 func (rec *Recorder) WriteHeader(status int) {
 	if rec.written {

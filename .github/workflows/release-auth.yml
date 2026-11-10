@@ -66,9 +66,12 @@ jobs:
           persist-credentials: false
 
       - name: Build auth
+        id: build
         uses: ./.github/actions/go-build
         with:
           module-dir: apps/auth
+          binary-name: auth
+          main-package: ./cmd/auth
           version-file: cmd/auth/version.txt
 
       - name: Verify modules

@@ -21,6 +21,7 @@ type Hook interface {
 	BeforeCreateProject(ctx context.Context, billingSubjectID uuid.UUID) error
 	BeforeCreateResource(ctx context.Context, billingSubjectID uuid.UUID, projectID uuid.UUID, kind string) error
 	ListProjectQuotas(ctx context.Context, projectID uuid.UUID) ([]contract.ProjectQuotaItemResponse, error)
+	ListPlanQuotas(ctx context.Context, planIDs []uuid.UUID) (map[uuid.UUID][]contract.PlanQuotaResponse, error)
 }
 
 type HookFactory func(repo Repository) Hook
@@ -35,4 +36,8 @@ func (noop) BeforeCreateResource(context.Context, uuid.UUID, uuid.UUID, string) 
 
 func (noop) ListProjectQuotas(context.Context, uuid.UUID) ([]contract.ProjectQuotaItemResponse, error) {
 	return []contract.ProjectQuotaItemResponse{}, nil
+}
+
+func (noop) ListPlanQuotas(context.Context, []uuid.UUID) (map[uuid.UUID][]contract.PlanQuotaResponse, error) {
+	return map[uuid.UUID][]contract.PlanQuotaResponse{}, nil
 }

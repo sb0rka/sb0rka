@@ -2,11 +2,25 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// GetDurationEnvStrict rejects malformed values and multiplication overflow.
+func GetDurationEnvStrict(key string, fallback time.Duration, unit time.Duration) (time.Duration, error) {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback, nil
+	}
+	seconds, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || unit <= 0 || seconds > math.MaxInt64/int64(unit) || seconds < math.MinInt64/int64(unit) {
+		return 0, fmt.Errorf("%s must be a whole number of seconds within the supported duration range", key)
+	}
+	return time.Duration(seconds) * unit, nil
+}
 
 func GetStringEnv(key, fallback string) string {
 	v := strings.TrimSpace(os.Getenv(key))

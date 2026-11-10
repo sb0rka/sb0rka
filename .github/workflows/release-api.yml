@@ -66,9 +66,12 @@ jobs:
           persist-credentials: false
 
       - name: Build api
+        id: build
         uses: ./.github/actions/go-build
         with:
           module-dir: apps/api
+          binary-name: api
+          main-package: ./cmd/api
           version-file: pkg/cli/version.txt
 
       - name: Verify modules

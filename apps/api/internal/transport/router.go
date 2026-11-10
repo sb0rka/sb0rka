@@ -15,6 +15,7 @@ import (
 	ttags "github.com/sb0rka/sb0rka/apps/api/internal/transport/tags"
 	ttelemetry "github.com/sb0rka/sb0rka/apps/api/internal/transport/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 )
 
 type Dependencies = runtime.Dependencies
@@ -45,11 +46,28 @@ func NewServer(deps runtime.Dependencies) *Server {
 
 func (s *Server) BuildCommonHandler() *http.Handler {
 	mux := http.NewServeMux()
+	// Delegated tokens (service actors acting for a user) are accepted only on
+	// routes registered through authDelegated/authDelegatedLive, which carry the scope
+	// the route requires. Every other route rejects them.
 	authOnly := func(h http.HandlerFunc) http.Handler {
-		return s.authMiddleware(h)
+		return s.authMiddleware(h, nil, false)
 	}
 	authLive := func(h http.HandlerFunc) http.Handler {
-		return s.authMiddleware(s.requireLiveSessionMiddleware(h))
+		return s.authMiddleware(s.requireLiveMiddleware(h), nil, false)
+	}
+	authDelegated := func(scope string, h http.HandlerFunc) http.Handler {
+		return s.authMiddleware(h, anyOfScopes{scope}, false)
+	}
+	authDelegatedLive := func(scope string, h http.HandlerFunc) http.Handler {
+		return s.authMiddleware(s.requireLiveMiddleware(h), anyOfScopes{scope}, false)
+	}
+	// User or agent token. Liveness is resolved per subject kind by requireLiveMiddleware.
+	authOrAgent := func(acceptedScopes anyOfScopes, live bool, h http.HandlerFunc) http.Handler {
+		next := http.Handler(h)
+		if live {
+			next = s.requireLiveMiddleware(h)
+		}
+		return s.authMiddleware(next, acceptedScopes, true)
 	}
 
 	mux.HandleFunc("GET /ping", s.ping)
@@ -69,20 +87,20 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	// Projects
 	mux.Handle("POST /projects", authLive(s.projects.CreateProject))
-	mux.Handle("GET /projects", authOnly(s.projects.ListProjects))
-	mux.Handle("GET /projects/{project_id}", authOnly(s.projects.GetProject))
+	mux.Handle("GET /projects", authDelegated(coreauth.ScopeProjectsRead, s.projects.ListProjects))
+	mux.Handle("GET /projects/{project_id}", authDelegated(coreauth.ScopeProjectsRead, s.projects.GetProject))
 	mux.Handle("PATCH /projects/{project_id}", authLive(s.projects.UpdateProject))
 	mux.Handle("DELETE /projects/{project_id}", authLive(s.projects.DeleteProject))
 
 	// Project members
 	mux.Handle("GET /projects/{project_id}/members", authOnly(s.projects.ListProjectMembers))
-	mux.Handle("POST /projects/{project_id}/members", authLive(s.projects.AddProjectMember))
+	mux.Handle("POST /projects/{project_id}/members", authOrAgent(nil, true, s.projects.AddProjectMember))
 	mux.Handle("GET /projects/{project_id}/members/{subject_id}", authOnly(s.projects.GetProjectMember))
 	mux.Handle("PATCH /projects/{project_id}/members/{subject_id}", authLive(s.projects.UpdateProjectMemberRole))
 	mux.Handle("DELETE /projects/{project_id}/members/{subject_id}", authLive(s.projects.RemoveProjectMember))
 
 	// Resources
-	mux.Handle("GET /projects/{project_id}/resources", authOnly(s.resources.ListResources))
+	mux.Handle("GET /projects/{project_id}/resources", authDelegated(coreauth.ScopeResourcesRead, s.resources.ListResources))
 
 	// Database instances
 	mux.Handle("POST /projects/{project_id}/dbi", authLive(s.dbis.CreateDBInstance))
@@ -99,27 +117,31 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/observability/metrics/timeseries", authOnly(s.telemetry.GetResourceMetricTimeseries))
 
 	// Secrets
-	mux.Handle("POST /projects/{project_id}/secret", authLive(s.secrets.CreateSecret))
-	mux.Handle("GET /projects/{project_id}/secrets", authOnly(s.secrets.ListSecrets))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret", authOnly(s.secrets.GetSecret))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/reveal", authLive(s.secrets.RevealSecret))
+	mux.Handle("POST /projects/{project_id}/secret", authOrAgent(anyOfScopes{coreauth.ScopeSecretsCreate}, true, s.secrets.CreateSecret))
+	mux.Handle("GET /projects/{project_id}/secrets", authOrAgent(anyOfScopes{coreauth.ScopeSecretsRead, coreauth.ScopeSecretsWrite}, false, s.secrets.ListSecrets))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret", authOrAgent(anyOfScopes{coreauth.ScopeSecretsRead}, false, s.secrets.GetSecret))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/agents", authLive(s.secrets.GrantSecretAgent))
+	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/secret/agents/{subject_id}", authLive(s.secrets.RevokeSecretAgent))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/reveal", authOrAgent(anyOfScopes{coreauth.ScopeSecretsReveal}, true, s.secrets.RevealSecret))
 	mux.Handle("PATCH /projects/{project_id}/resources/{resource_id}/secret", authLive(s.secrets.UpdateSecret))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret/versions", authOnly(s.secrets.ListSecretVersions))
-	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}", authOnly(s.secrets.GetSecretVersion))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions", authLive(s.secrets.CreateSecretVersion))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal", authLive(s.secrets.RevealSecretVersion))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret/versions", authOrAgent(anyOfScopes{coreauth.ScopeSecretsRead}, false, s.secrets.ListSecretVersions))
+	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}", authOrAgent(anyOfScopes{coreauth.ScopeSecretsRead}, false, s.secrets.GetSecretVersion))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions", authOrAgent(anyOfScopes{coreauth.ScopeSecretsWrite}, true, s.secrets.CreateSecretVersion))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal", authOrAgent(anyOfScopes{coreauth.ScopeSecretsReveal}, true, s.secrets.RevealSecretVersion))
 	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/verifier/apply", authLive(s.secrets.ApplySecretVersionPasswordVerifier))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable", authLive(s.secrets.DisableSecretVersion))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable", authOrAgent(nil, true, s.secrets.DisableSecretVersion))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/secret", authLive(s.secrets.DeleteSecret))
 
 	// Tags
 	mux.Handle("GET /projects/{project_id}/tags", authOnly(s.tags.ListProjectTags))
 	mux.Handle("GET /projects/{project_id}/resources/{resource_id}/tags", authOnly(s.tags.ListResourceTags))
-	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/tag", authLive(s.tags.AttachResourceTag))
+	mux.Handle("POST /projects/{project_id}/resources/{resource_id}/tag", authDelegatedLive(coreauth.ScopeSecretsWrite, s.tags.AttachResourceTag))
 	mux.Handle("DELETE /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach", authLive(s.tags.DetachResourceTag))
 
 	for _, extra := range s.deps.AdditionalRoutes {
 		switch extra.Access {
+		case route.Public:
+			mux.HandleFunc(extra.Pattern, extra.Handler)
 		case route.Authenticated:
 			mux.Handle(extra.Pattern, authOnly(extra.Handler))
 		case route.LiveSession:

@@ -16,19 +16,6 @@ services:
       file: docker-compose.base.yml
       service: migrate
 
-  seed-community:
-    image: postgres:18
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      PGPASSWORD: postgres
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-v", "DB_API_SCHEMA_NAME=api", "-h", "postgres", "-U", "postgres", "-d", "platform", "-f", "/community-encryption-keys.sql", "-f", "/community-api-data-feed.sql"]
-    volumes:
-      - ./db/migrations/seed/009-initial_encryption_keys.sql:/community-encryption-keys.sql:ro
-      - ./db/migrations/seed/010-initial_api_data_feed.sql:/community-api-data-feed.sql:ro
-    restart: "no"
-
   api:
     extends:
       file: docker-compose.base.yml
@@ -40,13 +27,27 @@ services:
         condition: service_completed_successfully
       keygen:
         condition: service_completed_successfully
-      seed-community:
-        condition: service_completed_successfully
 
   auth:
     extends:
       file: docker-compose.base.yml
       service: auth
+    environment:
+      SSL_CERT_DIR: /etc/ssl/certs:/run/dev-ca
+    volumes:
+      - type: bind
+        source: ./deploy/dev/certs
+        target: /run/dev-ca
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
 
   drones:
     extends:
@@ -61,4 +62,5 @@ services:
 volumes:
   pgdata:
   keys:
+  api-keys:
   gomod:

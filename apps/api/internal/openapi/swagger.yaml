@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   contract.ApplySecretPasswordVerifierResponse:
     properties:
@@ -55,14 +54,69 @@ definitions:
     type: object
   contract.CreateSecretRequest:
     properties:
+      agent_subject_id:
+        type: string
       description:
         type: string
       name:
         type: string
       payload_kind:
+        enum:
+        - text
+        - json
+        - binary
+        type: string
+      purpose:
         type: string
       secret_value:
         type: string
+    type: object
+  contract.CreateSecretResponse:
+    properties:
+      agent_subject_ids:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      created_by_subject_id:
+        format: uuid
+        type: string
+      current_version_no:
+        format: int32
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      password_verifier:
+        $ref: '#/definitions/contract.SecretPasswordVerifierResponse'
+      payload_kind:
+        type: string
+      project_id:
+        format: uuid
+        type: string
+      protection_class:
+        type: string
+      public_id:
+        type: string
+      resource_state:
+        $ref: '#/definitions/contract.ResourceStateResponse'
+      scheduled_destroy_at:
+        type: string
+      secret_id:
+        format: uuid
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagResponse'
+        type: array
+      updated_at:
+        type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionResponse'
+        type: array
     type: object
   contract.CreateSecretVersionRequest:
     properties:
@@ -124,6 +178,42 @@ definitions:
       secret:
         $ref: '#/definitions/contract.SecretResponse'
     type: object
+  contract.GrantSecretAgentRequest:
+    properties:
+      subject_id:
+        type: string
+    type: object
+  contract.PlanQuotaResponse:
+    properties:
+      code:
+        type: string
+      description_en:
+        type: string
+      description_ru:
+        type: string
+      id:
+        format: uuid
+        type: string
+      kind:
+        enum:
+        - snapshot
+        - periodic
+        - balance
+        type: string
+      limit_value:
+        format: int64
+        type: integer
+      name_en:
+        type: string
+      name_ru:
+        type: string
+      scope:
+        type: string
+      unit:
+        type: string
+      window:
+        type: string
+    type: object
   contract.PlanResponse:
     properties:
       code:
@@ -146,6 +236,35 @@ definitions:
         type: string
       name_ru:
         type: string
+      updated_at:
+        type: string
+    type: object
+  contract.PlanWithQuotasResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description_en:
+        type: string
+      description_ru:
+        type: string
+      id:
+        type: string
+      is_available:
+        type: boolean
+      is_public:
+        type: boolean
+      kind:
+        type: string
+      name_en:
+        type: string
+      name_ru:
+        type: string
+      quotas:
+        items:
+          $ref: '#/definitions/contract.PlanQuotaResponse'
+        type: array
       updated_at:
         type: string
     type: object
@@ -196,11 +315,9 @@ definitions:
       created_at:
         type: string
       entitled:
-        description: Entitled is the sum of currently active project entitlements.
         format: int64
         type: integer
       limit_value:
-        description: LimitValue is the plan limit before entitlements.
         type: integer
       plan_id:
         type: string
@@ -392,6 +509,10 @@ definitions:
     type: object
   contract.SecretResponse:
     properties:
+      agent_subject_ids:
+        items:
+          type: string
+        type: array
       created_at:
         type: string
       created_by_subject_id:
@@ -426,6 +547,27 @@ definitions:
         items:
           $ref: '#/definitions/contract.TagResponse'
         type: array
+      updated_at:
+        type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionResponse'
+        type: array
+    type: object
+  contract.SecretVersionDigestResponse:
+    properties:
+      created_at:
+        type: string
+      digest_alg:
+        type: string
+      postfix:
+        maxLength: 3
+        minLength: 3
+        type: string
+      prefix:
+        maxLength: 14
+        minLength: 14
+        type: string
       updated_at:
         type: string
     type: object
@@ -464,6 +606,8 @@ definitions:
       created_by_subject_id:
         format: uuid
         type: string
+      digest:
+        $ref: '#/definitions/contract.SecretVersionDigestResponse'
       disabled_at:
         type: string
       project_id:
@@ -571,9 +715,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: 'REST API платформы Sb0rka: проекты, базы данных, секреты, теги.'
-  title: Sb0rka Platform API
-  version: 0.1.0
 paths:
   /account/initialize:
     post:
@@ -632,8 +773,7 @@ paths:
   /plan/{plan_id}:
     get:
       description: Авторизованному пользователю доступны публичные активные тарифы,
-        а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо
-        от is_public и is_available.
+        а также тариф его аккаунта и тарифы проектов, в которых он состоит.
       parameters:
       - description: UUID тарифа
         format: uuid
@@ -647,7 +787,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/contract.PlanResponse'
+            $ref: '#/definitions/contract.PlanWithQuotasResponse'
         "400":
           description: Bad Request
           schema:
@@ -671,6 +811,7 @@ paths:
       - iam
   /plans:
     get:
+      description: Публичные доступные тарифы.
       produces:
       - application/json
       responses:
@@ -679,7 +820,7 @@ paths:
           schema:
             additionalProperties:
               items:
-                $ref: '#/definitions/contract.PlanResponse'
+                $ref: '#/definitions/contract.PlanWithQuotasResponse'
               type: array
             type: object
         "500":
@@ -691,6 +832,8 @@ paths:
       - iam
   /projects:
     get:
+      description: Delegation зарегистрированного клиента требует projects.read; результат
+        ограничен актуальным consent и текущими ресурсными правами пользователя.
       produces:
       - application/json
       responses:
@@ -1621,6 +1764,9 @@ paths:
       tags:
       - secrets
     get:
+      description: Возвращает метаданные секрета, versions и agent_subject_ids. Delegated
+        access requires secrets.read; secret values require secrets.reveal on a separate
+        reveal route.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1663,6 +1809,8 @@ paths:
     patch:
       consumes:
       - application/json
+      description: Обновляет описание. Непереданное description сохраняется, пустая
+        строка очищает его.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1703,13 +1851,109 @@ paths:
           description: Not Found
           schema:
             type: string
+        "422":
+          description: Unprocessable Entity
+          schema:
+            type: string
       security:
       - BearerAuth: []
       summary: Обновить метаданные секрета
       tags:
       - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/agents:
+    post:
+      consumes:
+      - application/json
+      description: Агент уже должен быть участником проекта. Делегированный доступ
+        не используется.
+      parameters:
+      - description: Public ID проекта (10 строчных hex-символов)
+        in: path
+        maxLength: 10
+        minLength: 10
+        name: project_id
+        required: true
+        type: string
+      - description: Public ID ресурса (12 строчных hex-символов)
+        in: path
+        maxLength: 12
+        minLength: 12
+        name: resource_id
+        required: true
+        type: string
+      - description: Субъект агента
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.GrantSecretAgentRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Выдать секрет агенту
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/agents/{subject_id}:
+    delete:
+      parameters:
+      - description: Public ID проекта (10 строчных hex-символов)
+        in: path
+        maxLength: 10
+        minLength: 10
+        name: project_id
+        required: true
+        type: string
+      - description: Public ID ресурса (12 строчных hex-символов)
+        in: path
+        maxLength: 12
+        minLength: 12
+        name: resource_id
+        required: true
+        type: string
+      - description: UUID агента
+        format: uuid
+        in: path
+        name: subject_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Снять секрет с агента
+      tags:
+      - secrets
   /projects/{project_id}/resources/{resource_id}/secret/reveal:
     post:
+      description: Delegated access requires secrets.reveal and current user reveal
+        permission. secrets.read does not grant access to the value.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1755,6 +1999,7 @@ paths:
       - secrets
   /projects/{project_id}/resources/{resource_id}/secret/versions:
     get:
+      description: Delegated access requires secrets.read and current user RBAC.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1797,6 +2042,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: Для payload_kind=json проверяется синтаксис JSON; исходный текст
+        сохраняется без переформатирования. При наличии secret_llm_keys сервер генерирует
+        новую версию и digest независимо от переданного secret_value.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1852,6 +2100,7 @@ paths:
       - secrets
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}:
     get:
+      description: Delegated access requires secrets.read and current user RBAC.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -1952,6 +2201,8 @@ paths:
       - secrets
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal:
     post:
+      description: Delegated access requires secrets.reveal and current user reveal
+        permission. secrets.read does not grant access to the value.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -2060,6 +2311,8 @@ paths:
     post:
       consumes:
       - application/json
+      description: Delegated access requires secrets.write and a writable secret ACL.
+        It cannot modify existing shared tag metadata or supply color.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -2204,6 +2457,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: |-
+        payload_kind: text, json, binary. json requires valid JSON; original text, whitespace and key order are preserved. secret_value is a string containing the complete document. purpose=llm_key генерирует текст независимо от secret_value. purpose=agent_key привязывает секрет к agent_subject_id в той же транзакции; значение передаёт вызывающий.
+        Delegated access requires secrets.create and current user RBAC. SOM delegation requires purpose=agent_key for an agent attested by the actor. An agent token can create only its own key.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -2222,10 +2478,9 @@ paths:
       - application/json
       responses:
         "201":
-          description: '{\"secret\": {...}, \"version\": {...}}'
+          description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/contract.CreateSecretResponse'
         "400":
           description: Bad Request
           schema:
@@ -2253,6 +2508,9 @@ paths:
       - secrets
   /projects/{project_id}/secrets:
     get:
+      description: Delegated access requires any of secrets.read or secrets.write
+        and current user RBAC. SOM sees only keys bound to its attested agents; an
+        agent sees only its own keys.
       parameters:
       - description: Public ID проекта (10 строчных hex-символов)
         in: path
@@ -2315,9 +2573,4 @@ paths:
       summary: Список тегов проекта
       tags:
       - tags
-securityDefinitions:
-  BearerAuth:
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

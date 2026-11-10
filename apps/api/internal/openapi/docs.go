@@ -107,7 +107,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит, независимо от is_public и is_available.",
+                "description": "Авторизованному пользователю доступны публичные активные тарифы, а также тариф его аккаунта и тарифы проектов, в которых он состоит.",
                 "produces": [
                     "application/json"
                 ],
@@ -129,7 +129,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/contract.PlanResponse"
+                            "$ref": "#/definitions/contract.PlanWithQuotasResponse"
                         }
                     },
                     "400": {
@@ -161,6 +161,7 @@ const docTemplate = `{
         },
         "/plans": {
             "get": {
+                "description": "Публичные доступные тарифы.",
                 "produces": [
                     "application/json"
                 ],
@@ -176,7 +177,7 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/contract.PlanResponse"
+                                    "$ref": "#/definitions/contract.PlanWithQuotasResponse"
                                 }
                             }
                         }
@@ -197,6 +198,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegation зарегистрированного клиента требует projects.read; результат ограничен актуальным consent и текущими ресурсными правами пользователя.",
                 "produces": [
                     "application/json"
                 ],
@@ -1552,6 +1554,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Возвращает метаданные секрета, versions и agent_subject_ids. Delegated access requires secrets.read; secret values require secrets.reveal on a separate reveal route.",
                 "produces": [
                     "application/json"
                 ],
@@ -1672,6 +1675,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Обновляет описание. Непереданное description сохраняется, пустая строка очищает его.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1735,6 +1739,145 @@ const docTemplate = `{
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{project_id}/resources/{resource_id}/secret/agents": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Агент уже должен быть участником проекта. Делегированный доступ не используется.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Выдать секрет агенту",
+                "parameters": [
+                    {
+                        "maxLength": 10,
+                        "minLength": 10,
+                        "type": "string",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "maxLength": 12,
+                        "minLength": 12,
+                        "type": "string",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
+                        "name": "resource_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Субъект агента",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/contract.GrantSecretAgentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{project_id}/resources/{resource_id}/secret/agents/{subject_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "secrets"
+                ],
+                "summary": "Снять секрет с агента",
+                "parameters": [
+                    {
+                        "maxLength": 10,
+                        "minLength": 10,
+                        "type": "string",
+                        "description": "Public ID проекта (10 строчных hex-символов)",
+                        "name": "project_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "maxLength": 12,
+                        "minLength": 12,
+                        "type": "string",
+                        "description": "Public ID ресурса (12 строчных hex-символов)",
+                        "name": "resource_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "UUID агента",
+                        "name": "subject_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             }
@@ -1746,6 +1889,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.reveal and current user reveal permission. secrets.read does not grant access to the value.",
                 "produces": [
                     "application/json"
                 ],
@@ -1814,6 +1958,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.read and current user RBAC.",
                 "produces": [
                     "application/json"
                 ],
@@ -1874,6 +2019,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Для payload_kind=json проверяется синтаксис JSON; исходный текст сохраняется без переформатирования. При наличии secret_llm_keys сервер генерирует новую версию и digest независимо от переданного secret_value.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1960,6 +2106,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.read and current user RBAC.",
                 "produces": [
                     "application/json"
                 ],
@@ -2109,6 +2256,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.reveal and current user reveal permission. secrets.read does not grant access to the value.",
                 "produces": [
                     "application/json"
                 ],
@@ -2267,6 +2415,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires secrets.write and a writable secret ACL. It cannot modify existing shared tag metadata or supply color.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2484,6 +2633,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "payload_kind: text, json, binary. json requires valid JSON; original text, whitespace and key order are preserved. secret_value is a string containing the complete document. purpose=llm_key генерирует текст независимо от secret_value. purpose=agent_key привязывает секрет к agent_subject_id в той же транзакции; значение передаёт вызывающий.\nDelegated access requires secrets.create and current user RBAC. SOM delegation requires purpose=agent_key for an agent attested by the actor. An agent token can create only its own key.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2516,10 +2666,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "{\\\"secret\\\": {...}, \\\"version\\\": {...}}",
+                        "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/contract.CreateSecretResponse"
                         }
                     },
                     "400": {
@@ -2562,6 +2711,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Delegated access requires any of secrets.read or secrets.write and current user RBAC. SOM sees only keys bound to its attested agents; an agent sees only its own keys.",
                 "produces": [
                     "application/json"
                 ],
@@ -2739,6 +2889,9 @@ const docTemplate = `{
         "contract.CreateSecretRequest": {
             "type": "object",
             "properties": {
+                "agent_subject_id": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -2746,10 +2899,87 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "payload_kind": {
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "json",
+                        "binary"
+                    ]
+                },
+                "purpose": {
                     "type": "string"
                 },
                 "secret_value": {
                     "type": "string"
+                }
+            }
+        },
+        "contract.CreateSecretResponse": {
+            "type": "object",
+            "properties": {
+                "agent_subject_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_subject_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "current_version_no": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password_verifier": {
+                    "$ref": "#/definitions/contract.SecretPasswordVerifierResponse"
+                },
+                "payload_kind": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "protection_class": {
+                    "type": "string"
+                },
+                "public_id": {
+                    "type": "string"
+                },
+                "resource_state": {
+                    "$ref": "#/definitions/contract.ResourceStateResponse"
+                },
+                "scheduled_destroy_at": {
+                    "type": "string"
+                },
+                "secret_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.TagResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SecretVersionResponse"
+                    }
                 }
             }
         },
@@ -2844,6 +3074,59 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.GrantSecretAgentRequest": {
+            "type": "object",
+            "properties": {
+                "subject_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.PlanQuotaResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "snapshot",
+                        "periodic",
+                        "balance"
+                    ]
+                },
+                "limit_value": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "window": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.PlanResponse": {
             "type": "object",
             "properties": {
@@ -2876,6 +3159,50 @@ const docTemplate = `{
                 },
                 "name_ru": {
                     "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.PlanWithQuotasResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description_en": {
+                    "type": "string"
+                },
+                "description_ru": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_available": {
+                    "type": "boolean"
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "type": "string"
+                },
+                "quotas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.PlanQuotaResponse"
+                    }
                 },
                 "updated_at": {
                     "type": "string"
@@ -2953,12 +3280,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "entitled": {
-                    "description": "Entitled is the sum of currently active project entitlements.",
                     "type": "integer",
                     "format": "int64"
                 },
                 "limit_value": {
-                    "description": "LimitValue is the plan limit before entitlements.",
                     "type": "integer"
                 },
                 "plan_id": {
@@ -3244,6 +3569,12 @@ const docTemplate = `{
         "contract.SecretResponse": {
             "type": "object",
             "properties": {
+                "agent_subject_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3292,6 +3623,36 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/contract.TagResponse"
                     }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SecretVersionResponse"
+                    }
+                }
+            }
+        },
+        "contract.SecretVersionDigestResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "digest_alg": {
+                    "type": "string"
+                },
+                "postfix": {
+                    "type": "string",
+                    "maxLength": 3,
+                    "minLength": 3
+                },
+                "prefix": {
+                    "type": "string",
+                    "maxLength": 14,
+                    "minLength": 14
                 },
                 "updated_at": {
                     "type": "string"
@@ -3348,6 +3709,9 @@ const docTemplate = `{
                 "created_by_subject_id": {
                     "type": "string",
                     "format": "uuid"
+                },
+                "digest": {
+                    "$ref": "#/definitions/contract.SecretVersionDigestResponse"
                 },
                 "disabled_at": {
                     "type": "string"
@@ -3510,24 +3874,17 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.1.0",
+	Version:          "",
 	Host:             "",
-	BasePath:         "/",
+	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Sb0rka Platform API",
-	Description:      "REST API платформы Sb0rka: проекты, базы данных, секреты, теги.",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

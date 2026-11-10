@@ -6,6 +6,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/plan"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/secret"
 )
 
 type Options struct {
@@ -31,7 +32,12 @@ type Options struct {
 	MembershipRepositoryFactory membership.RepositoryFactory
 	MembershipHookFactory       membership.HookFactory
 
+	// SecretRepositoryFactory and SecretHookFactory activate server-issued
+	// secret values and their transactional provisioning together.
+	SecretRepositoryFactory secret.RepositoryFactory
+	SecretHookFactory       secret.HookFactory
+
 	// RouteFactories register routes implemented outside this module.
-	// Each factory receives the pool and AuthorizeProjectRead.
+	// Each factory receives the pool and callbacks for platform permissions.
 	RouteFactories []route.RoutesFactory
 }

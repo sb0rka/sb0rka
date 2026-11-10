@@ -3,10 +3,12 @@ package contract
 import "time"
 
 type CreateSecretRequest struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	SecretValue string  `json:"secret_value"`
-	PayloadKind string  `json:"payload_kind"`
+	Name           string  `json:"name"`
+	Description    *string `json:"description,omitempty"`
+	SecretValue    string  `json:"secret_value"`
+	PayloadKind    string  `json:"payload_kind" enums:"text,json,binary"`
+	Purpose        string  `json:"purpose,omitempty"`
+	AgentSubjectID string  `json:"agent_subject_id,omitempty"`
 }
 
 type CreateSecretVersionRequest struct {
@@ -14,7 +16,27 @@ type CreateSecretVersionRequest struct {
 }
 
 type UpdateSecretRequest struct {
-	Description string `json:"description"`
+	Description *string `json:"description,omitempty"`
+}
+
+type UpdateSecretModelsRequest struct {
+	Models []string `json:"models" format:"uuid" binding:"required"`
+}
+
+type SecretModelsResponse struct {
+	SecretID       string             `json:"secret_id" format:"uuid"`
+	SecretPublicID string             `json:"public_id"`
+	Models         []LLMModelResponse `json:"models"`
+}
+
+type UpdateSecretModelsResponse struct {
+	SecretID       string   `json:"secret_id" format:"uuid"`
+	SecretPublicID string   `json:"public_id"`
+	Models         []string `json:"models" format:"uuid"`
+}
+
+type CreateSecretResponse struct {
+	SecretResponse
 }
 
 type SecretListItem struct {
@@ -56,6 +78,12 @@ type SecretResponse struct {
 	Tags []TagResponse `json:"tags,omitempty"`
 
 	PasswordVerifier *SecretPasswordVerifierResponse `json:"password_verifier,omitempty"`
+	Versions         []SecretVersionResponse         `json:"versions,omitempty"`
+	AgentSubjectIDs  []string                        `json:"agent_subject_ids,omitempty"`
+}
+
+type GrantSecretAgentRequest struct {
+	SubjectID string `json:"subject_id"`
 }
 
 type SecretListResponse struct {
@@ -72,14 +100,23 @@ type SecretVersionListItem struct {
 }
 
 type SecretVersionResponse struct {
-	ProjectID          string     `json:"project_id" format:"uuid"`
-	SecretID           string     `json:"secret_id" format:"uuid"`
-	VersionNo          int32      `json:"version_no" format:"int32"`
-	State              string     `json:"state"`
-	CreatedBySubjectID string     `json:"created_by_subject_id" format:"uuid"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	DisabledAt         *time.Time `json:"disabled_at,omitempty"`
+	ProjectID          string                       `json:"project_id" format:"uuid"`
+	SecretID           string                       `json:"secret_id" format:"uuid"`
+	VersionNo          int32                        `json:"version_no" format:"int32"`
+	State              string                       `json:"state"`
+	CreatedBySubjectID string                       `json:"created_by_subject_id" format:"uuid"`
+	CreatedAt          time.Time                    `json:"created_at"`
+	UpdatedAt          time.Time                    `json:"updated_at"`
+	DisabledAt         *time.Time                   `json:"disabled_at,omitempty"`
+	Digest             *SecretVersionDigestResponse `json:"digest,omitempty"`
+}
+
+type SecretVersionDigestResponse struct {
+	DigestAlg string    `json:"digest_alg"`
+	Prefix    string    `json:"prefix" minLength:"14" maxLength:"14"`
+	Postfix   string    `json:"postfix" minLength:"3" maxLength:"3"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type SecretVersionListResponse struct {

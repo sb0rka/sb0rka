@@ -17,6 +17,8 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/membership"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
+	"github.com/sb0rka/sb0rka/apps/api/pkg/secret"
+	"github.com/sb0rka/sb0rka/packages/core/buildinfo"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -45,6 +47,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	slog.SetDefault(log)
 	log.Info("logger initialized")
+	buildinfo.Log(log)
 
 	log.Info("initializing database connections")
 	platformDatabase, err := store.CreateDatabase(
@@ -106,13 +109,21 @@ func (a *App) Run(ctx context.Context) error {
 		membershipHook = a.opts.MembershipHookFactory(repo)
 	}
 
+	secretHook := secret.Noop()
+	if a.opts.SecretRepositoryFactory != nil && a.opts.SecretHookFactory != nil {
+		repo := a.opts.SecretRepositoryFactory(platformDatabase.PgxPool())
+		secretHook = a.opts.SecretHookFactory(repo)
+	}
+
 	var additionalRoutes []route.Route
 	// Extension handlers live outside this module and cannot import internal/authz.
-	// They share this audited authorizer, but only through AuthorizeProjectRead.
+	// They share this audited authorizer through callbacks for fixed actions.
 	authorizer := authz.NewAuditedAuthorizer(authz.NewRBACAuthorizer(platformDatabase), log)
 	routeDeps := route.Dependencies{
-		Pool:                 platformDatabase.PgxPool(),
-		AuthorizeProjectRead: projectReadAuthorizer(authorizer),
+		Pool:                      platformDatabase.PgxPool(),
+		AuthorizeProjectRead:      projectReadAuthorizer(authorizer),
+		AuthorizeSecretReadMeta:   projectActionAuthorizer(authorizer, authz.ActionSecretReadMeta),
+		AuthorizeSecretUpdateMeta: projectActionAuthorizer(authorizer, authz.ActionSecretUpdateMeta),
 	}
 	for _, factory := range a.opts.RouteFactories {
 		if factory == nil {
@@ -129,6 +140,7 @@ func (a *App) Run(ctx context.Context) error {
 		AccountHook:      accountHook,
 		QuotaHook:        quotaHook,
 		MembershipHook:   membershipHook,
+		SecretHook:       secretHook,
 		AdditionalRoutes: additionalRoutes,
 		DefaultPlans:     a.opts.DefaultPlans.WithDefaults(),
 		Cfg:              cfg.Server,

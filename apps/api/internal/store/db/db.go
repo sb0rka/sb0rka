@@ -7,6 +7,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -25,6 +26,21 @@ type Database interface {
 
 	// IDs
 	GenerateResourceID(ctx context.Context) (uuid.UUID, error)
+
+	// Delegation (service actors acting on behalf of a user)
+	RegisteredAccessClient(ctx context.Context, client, audience string) (bool, error)
+	LiveDelegation(ctx context.Context, delegationID string, version int64, subjectID, clientID, actorSubjectID string, scopes, projectIDs []string, audience string) (bool, error)
+	JoinProjectAsAgent(ctx context.Context, projectPublicID string, agentSubjectID uuid.UUID) (model.ProjectMember, error)
+	IsProjectAgent(ctx context.Context, projectID, agentSubjectID uuid.UUID) (bool, error)
+	GrantSecretAgent(ctx context.Context, projectID uuid.UUID, secretPublicID string, agentSubjectID uuid.UUID) error
+	RevokeSecretAgent(ctx context.Context, projectID uuid.UUID, secretPublicID string, agentSubjectID uuid.UUID) error
+	ListSecretAgentIDs(ctx context.Context, projectID, secretID uuid.UUID) ([]uuid.UUID, error)
+	IsLiveAgent(ctx context.Context, subjectID, hostID uuid.UUID, clientID, thumbprint string) (bool, error)
+	AgentOwnedByUser(ctx context.Context, agentSubjectID, actorSubjectID, userSubjectID uuid.UUID) (bool, error)
+	SecretBoundToAgent(ctx context.Context, projectPublicID, resourcePublicID, agentSubjectID string) (bool, error)
+	SecretBoundToUserAgent(ctx context.Context, projectPublicID, resourcePublicID, actorSubjectID, userSubjectID string) (bool, error)
+	ListAgentSecretIDs(ctx context.Context, projectPublicID, agentSubjectID string) ([]string, error)
+	ListUserAgentSecretIDs(ctx context.Context, projectPublicID, actorSubjectID, userSubjectID string) ([]string, error)
 
 	// Auth/session
 	GetSubjectKind(ctx context.Context, subjectID uuid.UUID) (string, error)
@@ -71,7 +87,7 @@ type Database interface {
 	ListSecrets(ctx context.Context, projectID uuid.UUID) ([]model.Secret, error)
 	GetSecret(ctx context.Context, projectID uuid.UUID, resourceID uuid.UUID) (model.Secret, error)
 	GetSecretByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (model.Secret, error)
-	UpdateSecretMeta(ctx context.Context, projectID uuid.UUID, resourcePublicID string, description *string) (model.Secret, error)
+	UpdateSecretMeta(ctx context.Context, params UpdateSecretMetaParams) (model.Secret, error)
 	DeleteSecret(ctx context.Context, projectID uuid.UUID, resourcePublicID string) error
 	ListSecretVersions(ctx context.Context, projectID uuid.UUID, secretPublicID string) ([]model.SecretVersion, error)
 	GetSecretVersion(ctx context.Context, projectID uuid.UUID, secretPublicID string, versionNo int32) (model.SecretVersion, error)
@@ -89,11 +105,13 @@ type Database interface {
 	ListProjectTags(ctx context.Context, projectID uuid.UUID) ([]model.Tag, error)
 	ListResourceTagsByPublicID(ctx context.Context, projectID uuid.UUID, resourcePublicID string) (uuid.UUID, []model.Tag, error)
 	ListResourceTags(ctx context.Context, projectID uuid.UUID, resourceID uuid.UUID) ([]model.Tag, error)
-	AttachResourceTag(ctx context.Context, projectID uuid.UUID, resourcePublicID string, tagKey string, tagValue string, color *string) (model.Tag, error)
+	AttachResourceTag(ctx context.Context, projectID uuid.UUID, resourcePublicID string, tagKey string, tagValue string, color *string, updateExisting bool) (model.Tag, error)
 	DetachResourceTag(ctx context.Context, projectID uuid.UUID, resourcePublicID string, tagID int64) error
 }
 
 type CreateSecretWithInitialVersionParams struct {
+	AgentSubjectID        *uuid.UUID
+	PostInsert            func(ctx context.Context, tx pgx.Tx) error
 	ProjectID             uuid.UUID
 	SecretID              uuid.UUID
 	Name                  string
@@ -127,6 +145,7 @@ type CreateDatabaseParams struct {
 }
 
 type CreateSecretVersionParams struct {
+	PostInsert            func(ctx context.Context, tx pgx.Tx) error
 	ProjectID             uuid.UUID
 	SecretID              uuid.UUID
 	VersionNo             int32
@@ -137,4 +156,11 @@ type CreateSecretVersionParams struct {
 	ContentAlgorithm      string
 	AADContext            []byte
 	EncryptedMessage      []byte
+}
+
+type UpdateSecretMetaParams struct {
+	ProjectID         uuid.UUID
+	ResourcePublicID  string
+	Description       *string
+	UpdateDescription bool
 }
