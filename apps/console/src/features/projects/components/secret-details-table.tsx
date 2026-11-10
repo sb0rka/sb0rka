@@ -1,23 +1,23 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import {
-  Badge,
   cn,
   Input,
   ScrollArea,
   ScrollBar,
 } from "@sb0rka/ui"
+import { formatDateTime } from "@/lib/format-date"
 import { listResourceTags, type TagResponse } from "../api"
 import { formatDraftTagLabel } from "../parse-draft-tag"
 import { MobileSecretsList } from "./mobile-secrets-list"
 import type { SecretRow } from "./project-detail-tab-types"
 
 const SECRET_DETAILS_TABLE_GRID_CLASS =
-  "grid grid-cols-[400px_minmax(220px,1fr)_170px_180px_180px] items-stretch"
+  "grid w-full grid-cols-[minmax(0,40%)_minmax(0,14%)_minmax(0,23%)_minmax(0,23%)] items-stretch"
 
-type SortColumn = "name" | "tags" | "version" | "createdAt" | "updatedAt"
+type SortColumn = "name" | "version" | "createdAt" | "updatedAt"
 type SortDirection = "asc" | "desc"
 
 interface SecretDetailsTableProps {
@@ -33,15 +33,6 @@ function buildTagLabel(tag: TagResponse): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
-function formatLocalDateTime(value: string): string {
-  if (!value) return "—"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-
-  return date.toLocaleString()
 }
 
 function compareText(left: string, right: string, direction: SortDirection): number {
@@ -61,13 +52,6 @@ function compareTimestamps(left: string, right: string, direction: SortDirection
   return direction === "asc" ? result : -result
 }
 
-function buildTagsSortKey(tags: TagResponse[]): string {
-  return tags
-    .map(buildTagLabel)
-    .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }))
-    .join("\0")
-}
-
 function SortableColumnHeader({
   label,
   column,
@@ -80,7 +64,7 @@ function SortableColumnHeader({
   column: SortColumn
   activeColumn: SortColumn | null
   direction: SortDirection
-  align?: "start" | "end"
+  align?: "start" | "center" | "end"
   onSort: (column: SortColumn) => void
 }) {
   const isActive = activeColumn === column
@@ -91,12 +75,13 @@ function SortableColumnHeader({
       onClick={() => onSort(column)}
       aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
       className={cn(
-        "flex h-12 items-center gap-1 px-4 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+        "flex h-12 min-w-0 items-center gap-1 px-4 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+        align === "center" && "justify-center text-center",
         align === "end" && "justify-end text-right",
         isActive && "text-foreground",
       )}
     >
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
       {isActive ? (
         direction === "asc" ? (
           <ArrowUp className="size-3.5 shrink-0" aria-hidden />
@@ -132,130 +117,15 @@ function renderHighlightedText(value: string, query: string): React.ReactNode {
       </span>
     )
   })
-}  
-
-function readFlexGap(element: HTMLElement): number {
-  const value = Number.parseFloat(getComputedStyle(element).columnGap)
-  return Number.isFinite(value) ? value : 0
-}
-
-function countVisibleTags(
-  available: number,
-  tagWidths: number[],
-  ellipsisWidth: number,
-  gap: number,
-): number {
-  if (available <= 0) return tagWidths.length
-
-  let used = 0
-  let count = 0
-
-  for (let index = 0; index < tagWidths.length; index += 1) {
-    const width = tagWidths[index]
-    const gapBefore = count > 0 ? gap : 0
-    const hasHiddenAfter = index < tagWidths.length - 1
-    const reserve = hasHiddenAfter ? gap + ellipsisWidth : 0
-    if (used + gapBefore + width + reserve > available) break
-    used += gapBefore + width
-    count += 1
-  }
-
-  return count
-}
-
-function SecretTagBadge({ children }: { children: React.ReactNode }) {
-  return (
-    <Badge
-      className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold leading-4 text-secondary-foreground hover:bg-secondary"
-    >
-      {children}
-    </Badge>
-  )
-}
-
-function SecretTagsCell({
-  tags,
-  searchQuery,
-}: {
-  tags: TagResponse[]
-  searchQuery: string
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const measureRef = useRef<HTMLDivElement>(null)
-  const [visibleCount, setVisibleCount] = useState(tags.length)
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    const measure = measureRef.current
-    if (!container || !measure || tags.length === 0) {
-      setVisibleCount((current) => (current === tags.length ? current : tags.length))
-      return
-    }
-
-    const update = () => {
-      const children = Array.from(measure.children) as HTMLElement[]
-      const ellipsis = children[children.length - 1]
-      const tagNodes = children.slice(0, -1)
-      const count = countVisibleTags(
-        container.clientWidth,
-        tagNodes.map((node) => node.offsetWidth),
-        ellipsis?.offsetWidth ?? 0,
-        readFlexGap(measure),
-      )
-      setVisibleCount((current) => (current === count ? current : count))
-    }
-
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [tags])
-
-  const visibleTags = tags.slice(0, visibleCount)
-  const hasOverflow = visibleCount < tags.length
-
-  return (
-    <div className="relative flex min-h-14 min-w-0 items-center overflow-hidden px-4 py-4">
-      <div
-        ref={containerRef}
-        className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-hidden"
-      >
-        {tags.length === 0 ? (
-          <span className="text-sm text-muted-foreground">—</span>
-        ) : (
-          <>
-            {visibleTags.map((tag) => (
-              <SecretTagBadge key={tag.id}>
-                {renderHighlightedText(buildTagLabel(tag), searchQuery)}
-              </SecretTagBadge>
-            ))}
-            {hasOverflow ? <SecretTagBadge>...</SecretTagBadge> : null}
-          </>
-        )}
-      </div>
-      <div
-        ref={measureRef}
-        aria-hidden
-        className="pointer-events-none invisible absolute flex w-max flex-nowrap items-center gap-2"
-      >
-        {tags.map((tag) => (
-          <SecretTagBadge key={tag.id}>{buildTagLabel(tag)}</SecretTagBadge>
-        ))}
-        <SecretTagBadge>...</SecretTagBadge>
-      </div>
-    </div>
-  )
 }
 
 function SecretDetailsTableRow({
   row,
-  tags,
   searchQuery,
   isLastRow,
   onRowClick,
 }: {
   row: SecretRow
-  tags: TagResponse[]
   searchQuery: string
   isLastRow: boolean
   onRowClick?: (row: SecretRow) => void
@@ -283,20 +153,19 @@ function SecretDetailsTableRow({
         isInteractive && "cursor-pointer hover:bg-muted focus-visible:outline-none active:!scale-100"
       )}
     >
-      <div className="flex min-h-14 items-center px-4 py-4">
+      <div className="flex min-h-14 min-w-0 items-center px-4 py-4">
         <p className="truncate text-sm font-medium text-foreground">
           {renderHighlightedText(row.name, searchQuery)}
         </p>
       </div>
-      <SecretTagsCell tags={tags} searchQuery={searchQuery} />
-      <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-        {row.currentVersionNo || "—"}
+      <div className="flex min-h-14 min-w-0 items-center justify-center overflow-hidden px-4 py-4 text-center text-sm text-foreground">
+        <span className="truncate">{row.currentVersionNo || "—"}</span>
       </div>
-      <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-        {formatLocalDateTime(row.createdAt)}
+      <div className="flex min-h-14 min-w-0 items-center justify-center overflow-hidden px-4 py-4 text-center text-sm text-foreground">
+        <span className="truncate">{formatDateTime(row.createdAt)}</span>
       </div>
-      <div className="flex min-h-14 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-        {formatLocalDateTime(row.updatedAt)}
+      <div className="flex min-h-14 min-w-0 items-center justify-center overflow-hidden px-4 py-4 text-center text-sm text-foreground">
+        <span className="truncate">{formatDateTime(row.updatedAt)}</span>
       </div>
     </div>
   )
@@ -309,11 +178,13 @@ export function SecretDetailsTable({
   onRowClick,
 }: SecretDetailsTableProps) {
   const { t } = useTranslation()
+  const headerRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState<{
     column: SortColumn
     direction: SortDirection
-  }>({ column: "updatedAt", direction: "desc" })
+  }>({ column: "createdAt", direction: "desc" })
   const tagQueries = useQueries({
     queries: rows.map((row) => ({
       queryKey: ["projects", projectId, "resources", row.id, "tags"],
@@ -346,11 +217,6 @@ export function SecretDetailsTable({
       switch (sort.column) {
         case "name":
           return compareText(left.name, right.name, sort.direction)
-        case "tags": {
-          const leftTags = buildTagsSortKey(tagsByRowId.get(left.id) ?? [])
-          const rightTags = buildTagsSortKey(tagsByRowId.get(right.id) ?? [])
-          return compareText(leftTags, rightTags, sort.direction)
-        }
         case "version": {
           const result = left.currentVersionNo - right.currentVersionNo
           return sort.direction === "asc" ? result : -result
@@ -364,7 +230,19 @@ export function SecretDetailsTable({
       }
     })
     return nextRows
-  }, [filteredRows, sort, tagsByRowId])
+  }, [filteredRows, sort])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    const header = headerRef.current
+    if (!viewport || !header) return
+    const sync = () => {
+      header.style.transform = `translateX(-${viewport.scrollLeft}px)`
+    }
+    sync()
+    viewport.addEventListener("scroll", sync, { passive: true })
+    return () => viewport.removeEventListener("scroll", sync)
+  }, [sortedRows.length])
 
   function defaultDirectionForColumn(column: SortColumn): SortDirection {
     return column === "createdAt" || column === "updatedAt" ? "desc" : "asc"
@@ -409,12 +287,13 @@ export function SecretDetailsTable({
           </ScrollArea>
         </div>
 
-        <ScrollArea type="always" className="hidden h-0 min-h-0 flex-1 md:block">
-          <div className="w-full min-w-[1150px]">
+        <div className="hidden h-0 min-h-0 flex-1 flex-col md:flex">
+          <div className="shrink-0 overflow-hidden">
             <div
+              ref={headerRef}
               className={cn(
                 SECRET_DETAILS_TABLE_GRID_CLASS,
-                "sticky top-0 z-10 border-b border-border bg-card text-sm font-medium text-muted-foreground",
+                "w-full min-w-[860px] border-b border-border bg-card text-sm font-medium text-muted-foreground",
               )}
             >
               <SortableColumnHeader
@@ -425,18 +304,11 @@ export function SecretDetailsTable({
                 onSort={handleSort}
               />
               <SortableColumnHeader
-                label={t("common.labels.tags")}
-                column="tags"
-                activeColumn={sort.column}
-                direction={sort.direction}
-                onSort={handleSort}
-              />
-              <SortableColumnHeader
-                label={t("secrets.currentVersion")}
+                label={t("secrets.version")}
                 column="version"
                 activeColumn={sort.column}
                 direction={sort.direction}
-                align="end"
+                align="center"
                 onSort={handleSort}
               />
               <SortableColumnHeader
@@ -444,7 +316,7 @@ export function SecretDetailsTable({
                 column="createdAt"
                 activeColumn={sort.column}
                 direction={sort.direction}
-                align="end"
+                align="center"
                 onSort={handleSort}
               />
               <SortableColumnHeader
@@ -452,28 +324,34 @@ export function SecretDetailsTable({
                 column="updatedAt"
                 activeColumn={sort.column}
                 direction={sort.direction}
-                align="end"
+                align="center"
                 onSort={handleSort}
               />
             </div>
-
-            {sortedRows.length === 0 ? (
-              <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
-            ) : (
-              sortedRows.map((row, index) => (
-                <SecretDetailsTableRow
-                  key={row.id}
-                  row={row}
-                  tags={tagsByRowId.get(row.id) ?? []}
-                  searchQuery={search}
-                  isLastRow={index === sortedRows.length - 1}
-                  onRowClick={onRowClick}
-                />
-              ))
-            )}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+          <ScrollArea
+            type="always"
+            viewportRef={viewportRef}
+            className="h-0 min-h-0 flex-1"
+          >
+            <div className="w-full min-w-[860px]">
+              {sortedRows.length === 0 ? (
+                <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
+              ) : (
+                sortedRows.map((row, index) => (
+                  <SecretDetailsTableRow
+                    key={row.id}
+                    row={row}
+                    searchQuery={search}
+                    isLastRow={index === sortedRows.length - 1}
+                    onRowClick={onRowClick}
+                  />
+                ))
+              )}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
       </div>
     </div>
   )

@@ -10,6 +10,7 @@ import {
   cn,
   TabsContent,
 } from "@sb0rka/ui"
+import { formatDateTimeShort, formatTimeOnly } from "@/lib/format-date"
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 import type { ProjectMetricsTimeseries } from "../hooks"
@@ -138,16 +139,8 @@ function getPaddedDomain(values: number[]): { min: number; max: number } {
   }
 }
 
-function formatRangeLabel(timestamp: string, locale: string): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) return "—"
-
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date)
+function formatRangeLabel(timestamp: string): string {
+  return formatDateTimeShort(timestamp)
 }
 
 function ChartCard({
@@ -231,8 +224,8 @@ function ChartCard({
             />
           </svg>
           <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>{formatRangeLabel(sampledBars[0]?.timestamp ?? "", locale)}</span>
-            <span>{formatRangeLabel(sampledBars[sampledBars.length - 1]?.timestamp ?? "", locale)}</span>
+            <span>{formatRangeLabel(sampledBars[0]?.timestamp ?? "")}</span>
+            <span>{formatRangeLabel(sampledBars[sampledBars.length - 1]?.timestamp ?? "")}</span>
           </div>
         </div>
       </CardContent>
@@ -247,21 +240,15 @@ const FALLBACK_BARS: ChartBar[] = [
   { label: "—", timestamp: "", value: 0 },
 ]
 
-function formatPointLabel(timestamp: string, locale: string): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) return "—"
-
-  return new Intl.DateTimeFormat(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date)
+function formatPointLabel(timestamp: string): string {
+  return formatTimeOnly(timestamp)
 }
 
-function buildBarsFromSeries(series: ObservabilityMetricPoint[], locale: string): ChartBar[] {
+function buildBarsFromSeries(series: ObservabilityMetricPoint[]): ChartBar[] {
   if (series.length === 0) return FALLBACK_BARS
 
   return series.map((point) => ({
-    label: formatPointLabel(point.timestamp, locale),
+    label: formatPointLabel(point.timestamp),
     timestamp: point.timestamp,
     value: Math.max(point.value, 0),
   }))
@@ -390,7 +377,7 @@ export function OverviewTab({
           series.length > 0
             ? ""
             : t("common.messages.noDataYet"),
-        bars: buildBarsFromSeries(series, locale),
+        bars: buildBarsFromSeries(series),
         locale,
         sparklineLabel: t("metrics.sparkline", { title }),
         onClick: onOpenMetricDetail ? () => onOpenMetricDetail(metricKey) : undefined,

@@ -52,15 +52,15 @@ export function ConfirmDialogProvider({ children }: { children: React.ReactNode 
   }, [activeRequest, userInput])
 
   const resolveRequest = useCallback((requestId: number, result: boolean) => {
-    let requestToResolve: ConfirmRequest | undefined
-
     setQueue((current) => {
       if (!current.length || current[0].id !== requestId) return current
-      requestToResolve = current[0]
+      const request = current[0]
+      // setState applies this updater after resolveRequest returns, so the
+      // promise has to be settled from inside the updater. A strict-mode
+      // replay resolves the same promise twice, which is a no-op.
+      queueMicrotask(() => request.resolve(result))
       return current.slice(1)
     })
-
-    requestToResolve?.resolve(result)
   }, [])
 
   const confirm = useCallback((options: ConfirmDialogOptions) => {
