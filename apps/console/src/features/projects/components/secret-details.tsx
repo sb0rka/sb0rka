@@ -36,7 +36,7 @@ import {
   useUpdateSecretValue,
   useSecret,
   useDisableSecret,
-  useSecretVersionValue,
+  useRevealSecretVersionValue,
   useUpdateSecretMetadata,
 } from "../hooks"
 import { formatDraftTagLabel } from "../parse-draft-tag"
@@ -123,16 +123,25 @@ function SecretVersionRow({
 
   const disableSecret = useDisableSecret(projectId, secretId)
   const { showSuccess, showError } = useToast()
-  const { message: copyMessage, copy } = useCopyHint()
+  const { message: copyMessage, copy: copyText, clear: clearCopyHint } = useCopyHint()
 
-  const [requested, setRequested] = useState(false)
   const [visible, setVisible] = useState(false)
-  const secretVersionValueQuery = useSecretVersionValue(
+  const revealSecretVersionValue = useRevealSecretVersionValue(
     projectId,
     secretId,
     version.version_no,
-    requested,
   )
+  const resetRevealedVersion = revealSecretVersionValue.reset
+
+  const clearRevealedVersion = useCallback(() => {
+    setVisible(false)
+    resetRevealedVersion()
+    clearCopyHint()
+  }, [clearCopyHint, resetRevealedVersion])
+
+  useEffect(() => {
+    clearRevealedVersion()
+  }, [version.version_no, clearRevealedVersion])
 
   async function handleDisableSecret(versionNo: number) {
     if (disableSecret.isPending) return
@@ -145,34 +154,51 @@ function SecretVersionRow({
 
     try {
       await disableSecret.mutateAsync(versionNo)
+      clearRevealedVersion()
       showSuccess(t("secrets.disabled", { name: secretName, version: versionNo }))
     } catch (error) {
       showError(getErrorMessage(error, t("secrets.disableError")))
     }
   }
 
-  useEffect(() => {
-    if (requested && secretVersionValueQuery.data?.value) setVisible(true)
-  }, [requested, secretVersionValueQuery.data?.value])
-
   const maskedValue = "•••••••••••••••••••••••"
-  const plaintext = secretVersionValueQuery.data?.value
+  const plaintext = revealSecretVersionValue.data?.value
   const displayedValue = visible && plaintext ? plaintext : maskedValue
   const isActive = version.state === "active"
 
-  function handleToggleSecretValue() {
+  async function handleToggleSecretValue() {
     if (visible) {
-      setVisible(false)
+      clearRevealedVersion()
       return
     }
 
-    setRequested(true)
-    if (secretVersionValueQuery.data?.value) setVisible(true)
+    try {
+      const revealed = await revealSecretVersionValue.mutateAsync()
+      if (!revealed.value) {
+        resetRevealedVersion()
+        return
+      }
+      setVisible(true)
+    } catch {
+      showError(getErrorMessage(revealSecretVersionValue.error, t("secrets.revealError")))
+    }
   }
 
-  function handleCopySecretValue() {
-    if (!plaintext || secretVersionValueQuery.isFetching) return
-    void copy(plaintext)
+  async function handleCopySecretValue() {
+    if (revealSecretVersionValue.isPending) return
+
+    try {
+      if (visible) {
+        await copyText(revealSecretVersionValue.data?.value)
+        return
+      }
+
+      const revealed = await revealSecretVersionValue.mutateAsync()
+      await copyText(revealed.value)
+      resetRevealedVersion()
+    } catch {
+      showError(getErrorMessage(revealSecretVersionValue.error, t("secrets.revealError")))
+    }
   }
 
   return (
@@ -216,8 +242,8 @@ function SecretVersionRow({
               variant="outline"
               size="icon"
               className="shrink-0"
-              onClick={handleCopySecretValue}
-              disabled={!plaintext || secretVersionValueQuery.isFetching}
+              onClick={() => void handleCopySecretValue()}
+              disabled={revealSecretVersionValue.isPending}
               title={t("secrets.copySecret")}
               aria-label={t("secrets.copySecret")}
             >
@@ -228,8 +254,8 @@ function SecretVersionRow({
               variant="outline"
               size="icon"
               className="shrink-0"
-              onClick={() => handleToggleSecretValue()}
-              disabled={secretVersionValueQuery.isFetching}
+              onClick={() => void handleToggleSecretValue()}
+              disabled={revealSecretVersionValue.isPending}
               aria-label={visible ? t("common.actions.hide") : t("common.actions.show")}
             >
               {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}

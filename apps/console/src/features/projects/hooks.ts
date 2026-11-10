@@ -599,13 +599,8 @@ export function useSecret(projectId: string, secretId: string) {
 }
 
 export function useRevealSecretValue(projectId: string, resourceId?: string) {
-  const qc = useQueryClient()
-
   return useMutation<RevealSecretValueResponse>({
     mutationFn: () => revealSecretValue(projectId, resourceId as string),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
-    },
   })
 }
 
@@ -649,18 +644,13 @@ export function useDisableSecret(projectId: string, secretId: string) {
   })
 }
 
-export function useSecretVersionValue(
+export function useRevealSecretVersionValue(
   projectId: string,
   secretId: string,
   versionNo: number,
-  enabled: boolean,
 ) {
-  const { isAuthenticated } = useAuth()
-
-  return useQuery<RevealSecretValueResponse>({
-    queryKey: ["projects", projectId, "secrets", secretId, "versions", versionNo, "value"],
-    queryFn: () => revealSecretVersion(projectId, secretId, versionNo),
-    enabled: enabled && isAuthenticated && !!projectId && !!secretId,
+  return useMutation<RevealSecretValueResponse>({
+    mutationFn: () => revealSecretVersion(projectId, secretId, versionNo),
   })
 }
 
