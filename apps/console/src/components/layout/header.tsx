@@ -138,7 +138,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
                       {user.username}
                     </span>
                   </div>
-                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background">
                     <span className="text-xs font-medium text-muted-foreground">
                       {accountInitial(user.email, user.username)}
                     </span>
