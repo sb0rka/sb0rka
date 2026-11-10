@@ -78,7 +78,6 @@ interface ChartCardProps {
   value: string | number
   description: string
   bars: ChartBar[]
-  locale: string
   sparklineLabel: string
   onClick?: () => void
 }
@@ -148,7 +147,6 @@ function ChartCard({
   value,
   description,
   bars,
-  locale,
   sparklineLabel,
   onClick,
 }: ChartCardProps) {
@@ -378,12 +376,11 @@ export function OverviewTab({
             ? ""
             : t("common.messages.noDataYet"),
         bars: buildBarsFromSeries(series),
-        locale,
         sparklineLabel: t("metrics.sparkline", { title }),
         onClick: onOpenMetricDetail ? () => onOpenMetricDetail(metricKey) : undefined,
       }
     })
-  }, [formatMetricValue, locale, metricsTimeseries, onOpenMetricDetail, t])
+  }, [formatMetricValue, metricsTimeseries, onOpenMetricDetail, t])
 
   const diskUsageSeries = metricsTimeseries?.db_size_rate?.points ?? []
   const diskUsageUnit = metricsTimeseries?.db_size_rate?.unit
