@@ -89,21 +89,21 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
         </div>
       </CardHeader>
       <CardFooter className="mt-auto flex flex-row flex-wrap items-center gap-6 px-6 pb-6 pt-0">
-        <div className="relative min-w-0 flex-1 basis-[min-content]">
+        <div className="relative flex min-w-0 flex-1 basis-[min-content] items-center gap-2">
           <button
             type="button"
             onClick={() => void handleCopyProjectId()}
             className={cn(
-              "flex w-full min-w-0 items-center gap-2",
+              "inline-flex shrink-0 items-center justify-center text-muted-foreground",
               buttonPressClass,
             )}
             aria-label={t("projects.detail.copyProjectId")}
           >
-            <Copy className="size-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate text-left text-sm leading-5 text-muted-foreground">
-              {project.public_id}
-            </span>
+            <Copy className="size-4 shrink-0" />
           </button>
+          <span className="min-w-0 flex-1 truncate text-left text-sm leading-5 text-muted-foreground">
+            {project.public_id}
+          </span>
           <FloatingHint message={copyMessage} placement="bottom" align="start" />
         </div>
         <Button className="shrink-0" onClick={() => navigate(`/projects/${project.public_id}`)}>

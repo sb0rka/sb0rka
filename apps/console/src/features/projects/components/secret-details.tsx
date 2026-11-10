@@ -21,12 +21,13 @@ import {
   Input,
   Label,
   ScrollArea,
+  ScrollBar,
   Textarea,
   cn,
 } from "@sb0rka/ui"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { useToast } from "@sb0rka/ui"
-import { getResolvedLanguage } from "@/lib/i18n"
+import { formatDateTime } from "@/lib/format-date"
 import {
   useAttachResourceTag,
   useDetachResourceTag,
@@ -49,16 +50,6 @@ interface SecretDetailsProps {
   projectId: string
   secret: SecretRow
   onClose: () => void
-}
-
-function formatDateTime(value: string | undefined, locale: string): string {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "short",
-    timeStyle: "medium",
-  }).format(date)
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -106,20 +97,24 @@ function useCopyHint() {
   return { message, copy, clear }
 }
 
+const VERSION_TABLE_COLUMNS =
+  "md:grid-cols-[minmax(5.5rem,9%)_minmax(0,1fr)_minmax(7rem,16%)_minmax(11rem,18%)]"
+
 function SecretVersionRow({
   projectId,
   secretId,
   secretName,
   version,
+  isLastRow,
 }: {
   projectId: string
   secretId: string
   secretName: string
   version: SecretVersionResponse
+  isLastRow: boolean
 }) {
   const { t } = useTranslation()
   const confirm = useConfirmDialog()
-  const locale = getResolvedLanguage()
 
   const disableSecret = useDisableSecret(projectId, secretId)
   const { showSuccess, showError } = useToast()
@@ -201,42 +196,49 @@ function SecretVersionRow({
     }
   }
 
+  const statusLabel = isActive ? t("secrets.active") : t("secrets.inactive")
+  const statusVariant = isActive ? "active" : "inactive"
+
   return (
-    <li
+    <div
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3",
+        "grid grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-center gap-x-3 gap-y-2 overflow-hidden py-3",
         isActive
-          ? "[grid-template-areas:'meta_date'_'value_value'_'actions_actions']"
-          : "[grid-template-areas:'meta_date']",
-        "lg:grid-cols-[1rem_minmax(0,1fr)_auto_7.5rem_11.5rem] lg:gap-x-4 lg:[grid-template-areas:'num_value_actions_status_date']",
+          ? "[grid-template-areas:'num_date'_'value_value']"
+          : "[grid-template-areas:'num_date']",
+        VERSION_TABLE_COLUMNS,
+        "md:items-stretch md:gap-0 md:py-0 md:[grid-template-areas:'num_value_status_date']",
+        !isLastRow && "border-b border-border md:border-b",
       )}
     >
-      <div className="flex min-w-0 items-center gap-3 [grid-area:meta] lg:contents">
-        <p className="text-sm font-medium tabular-nums text-foreground lg:[grid-area:num]">
-          {version.version_no}
-        </p>
-        <Badge
-          className="w-fit shrink-0 lg:justify-self-center lg:[grid-area:status]"
-          variant={isActive ? "active" : "inactive"}
-        >
-          {isActive ? t("secrets.active") : t("secrets.inactive")}
+      <div className="flex min-w-0 items-center gap-3 [grid-area:num] md:min-h-14 md:justify-center md:px-4 md:py-4">
+        <p className="text-sm font-medium tabular-nums text-foreground">{version.version_no}</p>
+        <Badge className="w-fit shrink-0 md:hidden" variant={statusVariant}>
+          {statusLabel}
         </Badge>
       </div>
-      <div className={cn("min-w-0 [grid-area:value]", !isActive && "hidden lg:block")}>
-        {isActive ? (
-          <p className="min-h-9 truncate rounded-md bg-secondary px-2.5 py-2 text-left font-mono text-xs font-semibold leading-5 text-muted-foreground">
-            {displayedValue}
-          </p>
-        ) : null}
+      <div className="hidden min-h-14 min-w-0 items-center justify-center px-4 py-4 [grid-area:status] md:flex">
+        <Badge className="w-fit shrink-0" variant={statusVariant}>
+          {statusLabel}
+        </Badge>
       </div>
       <div
         className={cn(
-          "relative flex items-center gap-2 [grid-area:actions]",
-          !isActive && "hidden lg:block",
+          "relative flex min-w-0 flex-wrap items-center gap-2 [grid-area:value] md:min-h-14 md:flex-nowrap md:px-4 md:py-4",
+          !isActive && "hidden md:flex",
         )}
       >
         {isActive ? (
           <>
+            <input
+              type="text"
+              readOnly
+              value={displayedValue}
+              aria-label={t("secrets.valueLabel")}
+              autoComplete="off"
+              spellCheck={false}
+              className="h-9 min-w-0 flex-1 basis-0 cursor-text rounded-md border-0 bg-secondary px-2.5 font-mono text-xs font-semibold text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
             <Button
               type="button"
               variant="outline"
@@ -276,16 +278,15 @@ function SecretVersionRow({
           </>
         ) : null}
       </div>
-      <p className="justify-self-end whitespace-nowrap text-xs text-muted-foreground [grid-area:date] sm:text-sm">
-        {formatDateTime(version.created_at, locale)}
+      <p className="min-w-0 max-w-full justify-self-end truncate text-xs text-foreground [grid-area:date] sm:text-sm md:flex md:min-h-14 md:items-center md:justify-center md:justify-self-stretch md:px-4 md:py-4 md:text-center md:text-sm">
+        {formatDateTime(version.created_at)}
       </p>
-    </li>
+    </div>
   )
 }
 
 export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps) {
   const { t } = useTranslation()
-  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const { showSuccess, showError } = useToast()
   const tagsQuery = useResourceTags(projectId, secret.id)
@@ -303,7 +304,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const [updateValueDraft, setUpdateValueDraft] = useState("")
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const { message: copySecretMessage, copy: copyText, clear: clearCopyHint } = useCopyHint()
+  const versionsHeaderRef = useRef<HTMLDivElement>(null)
+  const versionsViewportRef = useRef<HTMLDivElement>(null)
   const [secretDescription, setSecretDescription] = useState(secretQuery.data?.description)
+  const [descriptionFocused, setDescriptionFocused] = useState(false)
   
   const clearRevealedSecret = useCallback(() => {
     setIsValueVisible(false)
@@ -437,9 +441,24 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const versions = [...(secretQuery.data?.versions ?? [])]
     .filter((version) => version.version_no !== secretQuery.data?.current_version_no)
     .sort((left, right) => right.version_no - left.version_no)
+
+  useEffect(() => {
+    const viewport = versionsViewportRef.current
+    const header = versionsHeaderRef.current
+    if (!viewport || !header) return
+    const sync = () => {
+      header.style.transform = `translateX(-${viewport.scrollLeft}px)`
+    }
+    sync()
+    viewport.addEventListener("scroll", sync, { passive: true })
+    return () => viewport.removeEventListener("scroll", sync)
+  }, [versions.length])
+
   const versionsErrorMessage = secretQuery.isError
     ? getErrorMessage(secretQuery.error, t("secrets.versionsError"))
     : null
+  const showVersionsCard =
+    secretQuery.isPending || Boolean(versionsErrorMessage) || versions.length > 0
 
   return (
     <PageStagger className="flex flex-col gap-6">
@@ -499,49 +518,95 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
       <SlideIn className="hidden md:block">
         <Card className="overflow-hidden">
-          <CardContent className="grid grid-cols-1 items-start gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-8 sm:p-6 lg:grid-cols-4">
-            <div className="col-start-1 row-start-1 flex flex-col gap-1.5">
+          <CardContent className="grid grid-cols-1 items-start gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-6 sm:p-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] lg:gap-x-6">
+            <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("secrets.secretDescription")}</p>
-              <Textarea
-                value={descriptionDraft}
-                onChange={(event) => setSecretDescription(event.target.value)}
-              />
+              {descriptionFocused ? (
+                <Textarea
+                  autoFocus
+                  rows={6}
+                  value={descriptionDraft}
+                  onChange={(event) => setSecretDescription(event.target.value)}
+                  onBlur={() => setDescriptionFocused(false)}
+                  className="h-36 resize-none overflow-y-auto whitespace-pre-wrap break-words border-input px-3 py-2 text-sm leading-5 text-muted-foreground shadow-sm md:text-sm [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                />
+              ) : (
+                <p
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDescriptionFocused(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      setDescriptionFocused(true)
+                    }
+                  }}
+                  title={descriptionDraft.trim() ? descriptionDraft : "—"}
+                  className="h-5 cursor-text truncate text-sm leading-5 text-muted-foreground"
+                >
+                  {descriptionDraft.trim() ? descriptionDraft : "—"}
+                </p>
+              )}
             </div>
-            <div className="col-start-1 row-start-2">
-              <Button type="button" className="w-full" onClick={() => void updateSecretDescription()}>
+            <div className="col-start-1 row-start-2 self-end">
+              <Button
+                type="button"
+                className="w-full"
+                disabled={!descriptionChanged || updateSecretMetadata.isPending}
+                onClick={() => void updateSecretDescription()}
+              >
                 {t("secrets.updateDescription")}
               </Button>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium text-foreground">{t("secrets.purpose")}</p>
-              <p className="text-base text-muted-foreground">{"—"}</p>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="truncate text-sm font-medium text-foreground">{t("secrets.purpose")}</p>
+              <p className="truncate text-sm leading-5 text-muted-foreground" title="—">
+                —
+              </p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium text-foreground">{t("secrets.createdBy")}</p>
-              <p className="text-base text-muted-foreground">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="truncate text-sm font-medium text-foreground">{t("secrets.createdBy")}</p>
+              <p
+                className="truncate text-sm leading-5 text-muted-foreground"
+                title={secretQuery.data?.created_by_subject_id || "—"}
+              >
                 {secretQuery.data?.created_by_subject_id || "—"}
               </p>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
-              <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
-              <p className="text-base text-muted-foreground">
-                {formatDateTime(secretQuery.data?.created_at, locale)}
+              <p className="truncate text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
+              <p
+                className="truncate text-sm leading-5 text-muted-foreground"
+                title={formatDateTime(secretQuery.data?.created_at)}
+              >
+                {formatDateTime(secretQuery.data?.created_at)}
               </p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium text-foreground">{t("secrets.payloadKind")}</p>
-              <p className="text-base text-muted-foreground">{secretQuery.data?.payload_kind || "—"}</p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium text-foreground">{t("secrets.scheduledDestroyAt")}</p>
-              <p className="text-base text-muted-foreground">
-                {formatDateTime(secretQuery.data?.scheduled_destroy_at, locale) || "—"}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="truncate text-sm font-medium text-foreground">{t("secrets.payloadKind")}</p>
+              <p
+                className="truncate text-sm leading-5 text-muted-foreground"
+                title={secretQuery.data?.payload_kind || "—"}
+              >
+                {secretQuery.data?.payload_kind || "—"}
               </p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
-              <p className="text-base text-muted-foreground">
-                {formatDateTime(secretQuery.data?.updated_at, locale) || "—"}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="truncate text-sm font-medium text-foreground">{t("secrets.scheduledDestroyAt")}</p>
+              <p
+                className="truncate text-sm leading-5 text-muted-foreground"
+                title={formatDateTime(secretQuery.data?.scheduled_destroy_at)}
+              >
+                {formatDateTime(secretQuery.data?.scheduled_destroy_at)}
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="truncate text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
+              <p
+                className="truncate text-sm leading-5 text-muted-foreground"
+                title={formatDateTime(secretQuery.data?.updated_at)}
+              >
+                {formatDateTime(secretQuery.data?.updated_at)}
               </p>
             </div>
           </CardContent>
@@ -554,7 +619,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
             <CardTitle className="text-[20px] font-semibold tracking-tight">
               {t("secrets.key")}
               {secretQuery.data?.current_version_no ? (
-                <Badge variant="active" className="ml-2">
+                <Badge variant="active" className="ml-4">
                   {t("secrets.currentVersion")}: {secretQuery.data?.current_version_no}
                 </Badge>
               ) : null}
@@ -563,11 +628,15 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
           <CardContent className="space-y-1.5 pb-6">
             <div className="relative">
               <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-                <div className="min-w-0 w-full rounded-md bg-secondary px-3.5 py-2.5 md:flex-1">
-                  <p className="truncate font-mono text-xs font-semibold text-muted-foreground">
-                    {displayedValue}
-                  </p>
-                </div>
+                <input
+                  type="text"
+                  readOnly
+                  value={displayedValue}
+                  aria-label={t("secrets.key")}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="h-9 min-w-0 w-full flex-1 cursor-text rounded-md border-0 bg-secondary px-3.5 font-mono text-xs font-semibold text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring md:basis-0"
+                />
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     type="button"
@@ -606,43 +675,63 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         </Card>
       </SlideIn>
 
+      {showVersionsCard ? (
       <SlideIn>
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-[20px] font-semibold tracking-tight">
-              {t("secrets.versionsTitle")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
+          <CardContent className="pb-2 pt-6">
             {secretQuery.isPending ? (
               <p className="pb-4 text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : versionsErrorMessage ? (
               <p className="pb-4 text-sm text-destructive">{versionsErrorMessage}</p>
-            ) : versions.length === 0 ? (
-              <p className="pb-4 text-sm text-muted-foreground">
-                {t("secrets.versionsEmpty")}
-              </p>
             ) : (
-              <ScrollArea 
-                type="always"
-                className="max-h-[360px] [&_[data-radix-scroll-area-viewport]]:max-h-[360px]"
-              >
-                <ul className="w-full pr-3 divide-y divide-border">
-                  {versions.map((version) => (
-                    <SecretVersionRow
-                      key={version.version_no}
-                      projectId={projectId}
-                      secretId={secret.id}
-                      secretName={secret.name}
-                      version={version}
-                    />
-                  ))}
-                </ul>
-              </ScrollArea>
+              <div className="flex max-h-[360px] min-w-0 flex-col">
+                <div className="hidden shrink-0 overflow-hidden md:block">
+                  <div
+                    ref={versionsHeaderRef}
+                    className={cn(
+                      VERSION_TABLE_COLUMNS,
+                      "grid w-full min-w-[860px] border-b border-border pr-3",
+                    )}
+                  >
+                    <div className="flex h-12 min-w-0 items-center justify-center px-4 text-sm font-medium text-muted-foreground">
+                      {t("secrets.version")}
+                    </div>
+                    <div className="flex h-12 min-w-0 items-center px-4 text-sm font-medium text-muted-foreground">
+                      {t("secrets.valueLabel")}
+                    </div>
+                    <div className="flex h-12 min-w-0 items-center justify-center px-4 text-sm font-medium text-muted-foreground">
+                      {t("common.labels.status")}
+                    </div>
+                    <div className="flex h-12 min-w-0 items-center justify-center px-4 text-sm font-medium text-muted-foreground">
+                      {t("common.labels.createdAt")}
+                    </div>
+                  </div>
+                </div>
+                <ScrollArea
+                  type="always"
+                  viewportRef={versionsViewportRef}
+                  className="max-h-[360px] md:max-h-[calc(360px-3rem)] [&_[data-radix-scroll-area-viewport]]:max-h-[inherit]"
+                >
+                  <div className="w-full pr-3 md:min-w-[860px]">
+                    {versions.map((version, index) => (
+                      <SecretVersionRow
+                        key={version.version_no}
+                        projectId={projectId}
+                        secretId={secret.id}
+                        secretName={secret.name}
+                        version={version}
+                        isLastRow={index === versions.length - 1}
+                      />
+                    ))}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </div>
             )}
           </CardContent>
         </Card>
       </SlideIn>
+      ) : null}
 
       <SlideIn>
         <Card className="overflow-hidden">
