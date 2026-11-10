@@ -32,7 +32,7 @@ import {
   useDetachResourceTag,
   useDeleteSecret,
   useResourceTags,
-  useSecretValue,
+  useRevealSecretValue,
   useUpdateSecretValue,
   useSecret,
   useDisableSecret,
@@ -266,7 +266,8 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const attachResourceTag = useAttachResourceTag(projectId)
   const detachResourceTag = useDetachResourceTag(projectId)
   const secretQuery = useSecret(projectId, secret.id)
-  const secretValueQuery = useSecretValue(projectId, secret.id)
+  const revealSecretValue = useRevealSecretValue(projectId, secret.id)
+  const resetRevealedSecret = revealSecretValue.reset
   const updateSecretMetadata = useUpdateSecretMetadata(projectId, secret.id)
   const deleteSecret = useDeleteSecret(projectId, secret.id)
   const updateSecretValue = useUpdateSecretValue(projectId)
@@ -278,39 +279,56 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const { message: copySecretMessage, copy: copyText, clear: clearCopyHint } = useCopyHint()
   const [secretDescription, setSecretDescription] = useState(secretQuery.data?.description)
   
+  const clearRevealedSecret = useCallback(() => {
+    setIsValueVisible(false)
+    resetRevealedSecret()
+    clearCopyHint()
+  }, [clearCopyHint, resetRevealedSecret])
+
   useEffect(() => {
     setSecretDescription(secretQuery.data?.description)
   }, [secretQuery.data?.description])
 
   useEffect(() => {
-    setIsValueVisible(false)
+    clearRevealedSecret()
     setIsUpdateDialogOpen(false)
     setUpdateValueDraft("")
     setIsTagModalOpen(false)
-    clearCopyHint()
-  }, [secret.id, clearCopyHint])
+  }, [secret.id, clearRevealedSecret])
 
-  function handleToggleSecretValue() {
+  async function handleToggleSecretValue() {
     if (isValueVisible) {
-      setIsValueVisible(false)
-      clearCopyHint()
+      clearRevealedSecret()
       return
     }
 
-    const value = secretValueQuery.data?.value
-    if (value) {
+    try {
+      const revealed = await revealSecretValue.mutateAsync()
+      if (!revealed.value) {
+        resetRevealedSecret()
+        return
+      }
       setIsValueVisible(true)
-      return
+    } catch {
+      showError(getErrorMessage(revealSecretValue.error, t("secrets.revealError")))
     }
-
-    void secretValueQuery.refetch().then((result) => {
-      if (result.data?.value) setIsValueVisible(true)
-    })
   }
   
-  function handleCopySecretValue() {
-    if (!plaintext || secretValueQuery.isFetching) return
-    void copyText(plaintext)
+  async function handleCopySecretValue() {
+    if (revealSecretValue.isPending) return
+
+    try {
+      if (isValueVisible) {
+        await copyText(revealSecretValue.data?.value)
+        return
+      }
+
+      const revealed = await revealSecretValue.mutateAsync()
+      await copyText(revealed.value)
+      resetRevealedSecret()
+    } catch {
+      showError(getErrorMessage(revealSecretValue.error, t("secrets.revealError")))
+    }
   }
 
   function handleUpdateDialogOpenChange(next: boolean) {
@@ -333,8 +351,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
         secret_value: trimmed,
       })
       handleUpdateDialogOpenChange(false)
-      setIsValueVisible(false)
-      clearCopyHint()
+      clearRevealedSecret()
       showSuccess(t("secrets.updateValueSuccess"))
     } catch (error) {
       showError(getErrorMessage(error, t("secrets.updateValueError")))
@@ -388,11 +405,8 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   }
 
   const maskedValue = "•••••••••••••••••••••••"
-  const plaintext = secretValueQuery.data?.value
+  const plaintext = revealSecretValue.data?.value
   const displayedValue = isValueVisible && plaintext ? plaintext : maskedValue
-  const revealErrorMessage = secretValueQuery.isError
-    ? getErrorMessage(secretValueQuery.error, t("secrets.revealError"))
-    : null
 
   const versions = [...(secretQuery.data?.versions ?? [])]
     .filter((version) => version.version_no !== secretQuery.data?.current_version_no)
@@ -534,7 +548,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                     variant="outline"
                     size="icon"
                     onClick={() => void handleCopySecretValue()}
-                    disabled={!plaintext || secretValueQuery.isFetching}
+                    disabled={revealSecretValue.isPending}
                     title={t("secrets.copySecret")}
                     aria-label={t("secrets.copySecret")}
                   >
@@ -545,7 +559,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                     variant="outline"
                     className="min-w-[70.25px]"
                     onClick={() => handleUpdateDialogOpenChange(true)}
-                    disabled={secretValueQuery.isFetching || updateSecretValue.isPending}
+                    disabled={revealSecretValue.isPending || updateSecretValue.isPending}
                   >
                     {t("secrets.updateValue")}
                   </Button>
@@ -554,7 +568,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                     variant="outline"
                     className="min-w-[70.25px]"
                     onClick={() => handleToggleSecretValue()}
-                    disabled={secretValueQuery.isFetching}
+                    disabled={revealSecretValue.isPending}
                   >
                     {isValueVisible ? t("common.actions.hide") : t("common.actions.show")}
                   </Button>
@@ -562,9 +576,6 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
               </div>
               <FloatingHint message={copySecretMessage} placement="bottom" align="end" />
             </div>
-            {revealErrorMessage ? (
-              <p className="text-sm text-destructive">{revealErrorMessage}</p>
-            ) : null}
           </CardContent>
         </Card>
       </SlideIn>
