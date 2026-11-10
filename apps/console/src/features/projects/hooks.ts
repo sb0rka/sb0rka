@@ -20,13 +20,17 @@ import {
   getDatabaseUri,
   runDatabaseQuery,
   deleteDatabase,
+  getSecret,
   createSecret,
   updateSecretValue,
   revealSecretValue,
+  disableSecret,
+  revealSecretVersion,
   listResources,
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
   deleteSecret,
+  updateSecretMetadata,
 } from "./api"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
 import {
@@ -47,12 +51,14 @@ import type {
   ProjectTagListResponse,
   DatabaseResponse,
   UpdateDatabaseRequest,
+  SecretResponse,
   RevealSecretValueResponse,
   ProjectResourceListResponse,
   ObservabilityMetricPoint,
   ResourceMetricTimeseries,
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
+  UpdateSecretMetadataRequest,
 } from "./api"
 import { useToast } from "@sb0rka/ui"
 
@@ -582,14 +588,19 @@ export function useResources(projectId: string) {
   })
 }
 
-export function useRevealSecretValue(projectId: string, resourceId?: string) {
-  const qc = useQueryClient()
+export function useSecret(projectId: string, secretId: string) {
+  const { isAuthenticated } = useAuth()
 
+  return useQuery<SecretResponse>({
+    queryKey: ["projects", projectId, "secrets", secretId],
+    queryFn: () => getSecret(projectId, secretId),
+    enabled: isAuthenticated && !!projectId && !!secretId,
+  })
+}
+
+export function useRevealSecretValue(projectId: string, resourceId?: string) {
   return useMutation<RevealSecretValueResponse>({
     mutationFn: () => revealSecretValue(projectId, resourceId as string),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
-    },
   })
 }
 
@@ -618,6 +629,39 @@ export function useSecretValue(projectId: string, resourceId?: string) {
       return res
     },
     enabled: isAuthenticated && !!projectId && resourceId !== undefined,
+  })
+}
+
+export function useDisableSecret(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationKey: ["projects", projectId, "secrets", secretId, "disable"],
+    mutationFn: (versionNo: number) => disableSecret(projectId, secretId, versionNo),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
+    },
+  })
+}
+
+export function useRevealSecretVersionValue(
+  projectId: string,
+  secretId: string,
+  versionNo: number,
+) {
+  return useMutation<RevealSecretValueResponse>({
+    mutationFn: () => revealSecretVersion(projectId, secretId, versionNo),
+  })
+}
+
+export function useUpdateSecretMetadata(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation<SecretResponse, Error, UpdateSecretMetadataRequest>({
+    mutationFn: (data: UpdateSecretMetadataRequest) => updateSecretMetadata(projectId, secretId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
+    },  
   })
 }
 

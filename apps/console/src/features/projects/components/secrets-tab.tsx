@@ -211,7 +211,6 @@ export function SecretsTab({
                   data-lpignore="true"
                   data-1p-ignore="true"
                   data-form-type="other"
-                  className="[-webkit-text-security:disc]"
                   placeholder={t("secrets.valuePlaceholder")}
                   value={newSecretValue}
                   onChange={(e) => setNewSecretValue(e.target.value)}

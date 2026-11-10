@@ -1595,7 +1595,7 @@ export interface SecretResponse {
   secret_id: string
   name: string
   description?: string
-  payload_kind: "text" | "json"
+  payload_kind: "text" | "json" | "binary"
   protection_class: "server_managed"
   current_version_no: number
   created_by_subject_id: string
@@ -1603,7 +1603,16 @@ export interface SecretResponse {
   updated_at: string
   scheduled_destroy_at?: string
   resource_state?: {
-    runtime_state: string
+    runtime_state:
+      | "syncing"
+      | "creating"
+      | "available"
+      | "stopping"
+      | "stopped"
+      | "starting"
+      | "deleting"
+      | "deleted"
+      | "failed"
     created_at: string
     updated_at: string
   }
@@ -1614,18 +1623,41 @@ export interface SecretResponse {
     created_at: string
     updated_at: string
   }
+  versions?: SecretVersionResponse[]
 }
 
-interface SecretVersionResponse {
+export interface SecretVersionResponse {
   project_id: string
   secret_id: string
   version_no: number
   state: "active" | "disabled"
-  payload_kind: "text" | "json" | "binary"
   created_by_subject_id: string
   created_at: string
   updated_at: string
   disabled_at?: string
+  digest?: SecretVersionDigestResponse
+}
+
+interface SecretVersionDigestResponse {
+  digest_alg: string
+  prefix: string
+  postfix: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SecretVersionListItem {
+  version_no: number
+  state: "active" | "disabled"
+  created_by_subject_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SecretVersionListResponse {
+  project_id: string
+  secret_id: string
+  versions: SecretVersionListItem[]
 }
 
 export interface SecretListResponse {
@@ -1637,8 +1669,12 @@ export interface RevealSecretValueResponse {
   project_id: string
   secret_id: string
   version_no: number
-  payload_kind: string
+  payload_kind: "text" | "json" | "binary"
   value: string
+}
+
+export interface UpdateSecretMetadataRequest {
+  description: string
 }
 
 export interface AttachResourceTagRequest {
@@ -1705,6 +1741,13 @@ export async function listSecrets(
   })
 }
 
+export function getSecret(projectId: string, secretId: string): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    path: `/projects/${projectId}/resources/${secretId}/secret`,
+    base: "resource",
+  })
+}
+
 export async function createSecret(
   projectId: string,
   data: CreateSecretRequest,
@@ -1749,6 +1792,43 @@ export async function deleteSecret(projectId: string, resourceId: string): Promi
   return apiRequest<void>({
     method: "DELETE",
     path: `/projects/${projectId}/resources/${resourceId}/secret`,
+    base: "resource",
+  })
+}
+
+export async function disableSecret(
+  projectId: string,
+  secretId: string,
+  secretVersionNum: number,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${secretId}/secret/versions/${secretVersionNum}/disable`,
+    base: "resource",
+  })
+}
+
+export async function revealSecretVersion(
+  projectId: string,
+  secretId: string,
+  secretVersionNum: number,
+): Promise<RevealSecretValueResponse> {
+  return apiRequest<RevealSecretValueResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${secretId}/secret/versions/${secretVersionNum}/reveal`,
+    base: "resource",
+  })
+}
+
+export async function updateSecretMetadata(
+  projectId: string,
+  secretId: string,
+  data: UpdateSecretMetadataRequest,
+): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${secretId}/secret`,
+    json: data,
     base: "resource",
   })
 }

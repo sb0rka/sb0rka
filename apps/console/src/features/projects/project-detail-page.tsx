@@ -99,6 +99,7 @@ export function ProjectDetailPage() {
         description: secret.description,
         tablesCount: "—",
         columnsCount: "—",
+        currentVersionNo: secret.current_version_no,
         createdAt: resourceTimestampsById[secret.public_id]?.createdAt ?? "",
         updatedAt: resourceTimestampsById[secret.public_id]?.updatedAt ?? "",
       })),
