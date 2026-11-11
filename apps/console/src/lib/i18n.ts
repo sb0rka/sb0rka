@@ -120,6 +120,7 @@ const resources = {
       },
       tabs: {
         overview: "Обзор",
+        models: "Модели",
         databases: "Базы Данных",
         dataExplorer: "SQL Навигатор",
         secrets: "Секреты",
@@ -419,6 +420,19 @@ const resources = {
         fixDiagnosisTitle: "Разбор",
         aiChatFixedSql: "Исправленный SQL",
       },
+      models: {
+        create: "Создать LLM API ключ",
+        viewKey: "Посмотреть LLM API ключ",
+        openSecrets: "Открыть секреты",
+        generating: "Генерация секрета",
+        discovering: "Изучаем активные LLM",
+        connecting: "Подключаем LLM",
+        noActiveModels: "Активные LLM пока недоступны. Попробуйте подключить их позже.",
+        creationUncertain:
+          "Не удалось подтвердить создание секрета. Проверьте раздел «Секреты» перед новой попыткой.",
+        interrupted: "Подключение прервано",
+        error: "Не удалось подключить LLM. Попробуйте ещё раз.",
+      },
       secrets: {
         title: "Секреты",
         description: "Безопасно храните ключи, токены и пароли для ресурсов проекта",
@@ -653,6 +667,7 @@ const resources = {
       },
       tabs: {
         overview: "Overview",
+        models: "Models",
         databases: "Databases",
         dataExplorer: "SQL Explorer",
         secrets: "Secrets",
@@ -947,6 +962,19 @@ const resources = {
         fixChatErrorLabel: "Error",
         fixDiagnosisTitle: "Diagnosis",
         aiChatFixedSql: "Fixed SQL",
+      },
+      models: {
+        create: "Create LLM API key",
+        viewKey: "View LLM API key",
+        openSecrets: "Open secrets",
+        generating: "Generating secret",
+        discovering: "Discovering active LLMs",
+        connecting: "Connecting LLMs",
+        noActiveModels: "No active LLMs are available yet. Try connecting them later.",
+        creationUncertain:
+          "Could not confirm secret creation. Check Secrets before trying again.",
+        interrupted: "Connection interrupted",
+        error: "Could not connect LLMs. Please try again.",
       },
       secrets: {
         title: "Secrets",

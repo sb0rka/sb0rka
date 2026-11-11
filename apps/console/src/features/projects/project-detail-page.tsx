@@ -22,6 +22,7 @@ import {
   DataExplorerTab,
   DatabasesTab,
   OverviewTab,
+  ModelsTab,
   type SecretRow,
   SecretsTab,
   SettingsTab,
@@ -226,6 +227,7 @@ export function ProjectDetailPage() {
               : undefined
           }
         />
+        <ModelsTab key={id} projectId={id} />
         <DatabasesTab
           projectId={id}
           databases={databases}
