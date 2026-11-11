@@ -17,7 +17,7 @@ src/
 │   ├── auth/               логин/регистрация, AuthProvider, RequireAuth
 │   ├── projects/           основной модуль: проекты, БД, секреты, теги,
 │   │                       data-explorer, AI-SQL, метрики
-│   ├── subscription/       планы/квоты
+│   ├── subscription/       тариф, баланс, квоты, потребление
 │   └── user/               профиль
 ├── components/
 │   ├── ui/                 общие примитивы (Radix + cva)

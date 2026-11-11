@@ -11,6 +11,7 @@ export interface MockUser {
 
 export interface MockProject {
   id: string
+  public_id: string
   user_id: string
   name: string
   description?: string
@@ -73,6 +74,7 @@ export class MockStore {
   projects: MockProject[] = [
     {
       id: "proj-alpha",
+      public_id: "proj-alpha",
       user_id: MOCK_USER_ID,
       name: "Alpha Commerce",
       description: "Sample project for mobile layout testing",
@@ -82,6 +84,7 @@ export class MockStore {
     },
     {
       id: "proj-beta",
+      public_id: "proj-beta",
       user_id: MOCK_USER_ID,
       name: "Beta Analytics",
       description: "Second project with fewer resources",
@@ -172,8 +175,10 @@ export class MockStore {
 
   createProject(input: { name: string; description: string }): MockProject {
     const timestamp = nowIso()
+    const projectId = id("proj")
     const project: MockProject = {
-      id: id("proj"),
+      id: projectId,
+      public_id: projectId,
       user_id: MOCK_USER_ID,
       name: input.name,
       description: input.description,
