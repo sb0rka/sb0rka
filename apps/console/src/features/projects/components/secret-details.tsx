@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
-import { Copy, Eye, EyeOff, KeyRound, X } from "lucide-react"
+import { Copy, Eye, EyeOff, KeyRound, Pencil, RefreshCw, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "@/lib/api-client"
 import {
   Badge,
   Button,
+  buttonPressClass,
   Card,
   CardContent,
   CardDescription,
@@ -56,6 +57,12 @@ function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message || fallback
   if (error instanceof Error) return error.message || fallback
   return fallback
+}
+
+function normalizeSecretDescription(value: string | undefined): string {
+  const trimmed = value?.trim() ?? ""
+  if (!trimmed || trimmed === "—") return ""
+  return value ?? ""
 }
 
 function useCopyHint() {
@@ -160,6 +167,7 @@ function SecretVersionRow({
   const plaintext = revealSecretVersionValue.data?.value
   const displayedValue = visible && plaintext ? plaintext : maskedValue
   const isActive = version.state === "active"
+  const canReveal = isActive || version.state === "disabled"
 
   async function handleToggleSecretValue() {
     if (visible) {
@@ -203,7 +211,7 @@ function SecretVersionRow({
     <div
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-center gap-x-3 gap-y-2 overflow-hidden py-3",
-        isActive
+        canReveal
           ? "[grid-template-areas:'num_date'_'value_value']"
           : "[grid-template-areas:'num_date']",
         VERSION_TABLE_COLUMNS,
@@ -225,10 +233,10 @@ function SecretVersionRow({
       <div
         className={cn(
           "relative flex min-w-0 flex-wrap items-center gap-2 [grid-area:value] md:min-h-14 md:flex-nowrap md:px-4 md:py-4",
-          !isActive && "hidden md:flex",
+          !canReveal && "hidden md:flex",
         )}
       >
-        {isActive ? (
+        {canReveal ? (
           <>
             <input
               type="text"
@@ -262,18 +270,22 @@ function SecretVersionRow({
             >
               {visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0"
-              onClick={() => void handleDisableSecret(version.version_no)}
-              disabled={disableSecret.isPending}
-              title={t("secrets.disableVersion")}
-              aria-label={t("secrets.disableVersion")}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {isActive ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => void handleDisableSecret(version.version_no)}
+                disabled={disableSecret.isPending}
+                title={t("secrets.disableVersion")}
+                aria-label={t("secrets.disableVersion")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            ) : (
+              <span className="h-9 w-9 shrink-0" aria-hidden="true" />
+            )}
             <FloatingHint message={copyMessage} placement="bottom" align="end" />
           </>
         ) : null}
@@ -293,6 +305,11 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const attachResourceTag = useAttachResourceTag(projectId)
   const detachResourceTag = useDetachResourceTag(projectId)
   const secretQuery = useSecret(projectId, secret.id)
+  const creatorId = secretQuery.data?.created_by_subject_id
+  const creatorKind = secretQuery.data?.created_by_subject_kind
+  const creatorLabel = creatorId
+    ? `${creatorKind ? `${creatorKind} ` : ""}${creatorId.slice(0, 12)}...`
+    : "—"
   const revealSecretValue = useRevealSecretValue(projectId, secret.id)
   const resetRevealedSecret = revealSecretValue.reset
   const updateSecretMetadata = useUpdateSecretMetadata(projectId, secret.id)
@@ -304,11 +321,15 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   const [updateValueDraft, setUpdateValueDraft] = useState("")
   const [isTagModalOpen, setIsTagModalOpen] = useState(false)
   const { message: copySecretMessage, copy: copyText, clear: clearCopyHint } = useCopyHint()
+  const { message: copyIdMessage, copy: copyPublicId } = useCopyHint()
   const versionsHeaderRef = useRef<HTMLDivElement>(null)
   const versionsViewportRef = useRef<HTMLDivElement>(null)
-  const [secretDescription, setSecretDescription] = useState(secretQuery.data?.description)
+  const [secretDescription, setSecretDescription] = useState(() =>
+    normalizeSecretDescription(secretQuery.data?.description),
+  )
   const [descriptionFocused, setDescriptionFocused] = useState(false)
-  
+  const secretPublicId = secretQuery.data?.public_id ?? secret.id
+
   const clearRevealedSecret = useCallback(() => {
     setIsValueVisible(false)
     resetRevealedSecret()
@@ -316,7 +337,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   }, [clearCopyHint, resetRevealedSecret])
 
   useEffect(() => {
-    setSecretDescription(secretQuery.data?.description)
+    setSecretDescription(normalizeSecretDescription(secretQuery.data?.description))
   }, [secretQuery.data?.description])
 
   useEffect(() => {
@@ -419,7 +440,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
     }
   }
 
-  const savedDescription = secretQuery.data?.description ?? ""
+  const savedDescription = normalizeSecretDescription(secretQuery.data?.description)
   const descriptionDraft = secretDescription ?? ""
   const descriptionChanged = descriptionDraft !== savedDescription
 
@@ -463,7 +484,31 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
   return (
     <PageStagger className="flex flex-col gap-6">
       <SlideIn className="flex flex-col gap-2">
-        <h3 className="text-base font-semibold tracking-tight md:text-2xl">{secret.name}</h3>
+        <div className="flex min-w-0 items-center justify-between gap-6">
+          <h3
+            className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight md:text-2xl"
+            title={secret.name}
+          >
+            {secret.name}
+          </h3>
+          <div className="relative mr-1 flex min-w-0 shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void copyPublicId(secretPublicId)}
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center text-muted-foreground",
+                buttonPressClass,
+              )}
+              aria-label={t("secrets.copyPublicId")}
+            >
+              <Copy className="size-4 shrink-0" />
+            </button>
+            <span className="max-w-[14rem] truncate text-left text-sm leading-5 text-muted-foreground">
+              {secretPublicId}
+            </span>
+            <FloatingHint message={copyIdMessage} placement="bottom" align="end" />
+          </div>
+        </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
             {tagsQuery.data?.tags.map((tag: TagResponse) => {
@@ -518,59 +563,37 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
 
       <SlideIn className="hidden md:block">
         <Card className="overflow-hidden">
-          <CardContent className="grid grid-cols-1 items-start gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-6 sm:p-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] lg:gap-x-6">
-            <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-1.5">
+          <CardContent className="grid grid-cols-1 items-stretch gap-4 px-4 py-4 md:grid-cols-2 sm:gap-x-6 sm:p-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,0.6fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] lg:gap-x-6">
+            <div className="col-start-1 row-start-1 row-span-2 flex h-full min-h-0 min-w-0 flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("secrets.secretDescription")}</p>
-              {descriptionFocused ? (
-                <Textarea
-                  autoFocus
-                  rows={6}
-                  value={descriptionDraft}
-                  onChange={(event) => setSecretDescription(event.target.value)}
-                  onBlur={() => setDescriptionFocused(false)}
-                  className="h-36 resize-none overflow-y-auto whitespace-pre-wrap break-words border-input px-3 py-2 text-sm leading-5 text-muted-foreground shadow-sm md:text-sm [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                />
-              ) : (
-                <p
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setDescriptionFocused(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault()
-                      setDescriptionFocused(true)
-                    }
-                  }}
-                  title={descriptionDraft.trim() ? descriptionDraft : "—"}
-                  className="h-5 cursor-text truncate text-sm leading-5 text-muted-foreground"
-                >
-                  {descriptionDraft.trim() ? descriptionDraft : "—"}
-                </p>
-              )}
-            </div>
-            <div className="col-start-1 row-start-2 self-end">
-              <Button
-                type="button"
-                className="w-full"
-                disabled={!descriptionChanged || updateSecretMetadata.isPending}
-                onClick={() => void updateSecretDescription()}
-              >
-                {t("secrets.updateDescription")}
-              </Button>
+              <Textarea
+                rows={1}
+                value={descriptionDraft}
+                onChange={(event) => setSecretDescription(event.target.value)}
+                onFocus={() => setDescriptionFocused(true)}
+                onBlur={() => setDescriptionFocused(false)}
+                placeholder={descriptionFocused ? undefined : t("common.notAvailable")}
+                title={descriptionDraft.trim() || undefined}
+                aria-label={t("secrets.secretDescription")}
+                className="min-h-0 flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words border-transparent px-0 pb-2 pt-0 text-sm leading-5 text-muted-foreground shadow-none focus-visible:border-input focus-visible:shadow-sm md:text-sm [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              />
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
-              <p className="truncate text-sm font-medium text-foreground">{t("secrets.purpose")}</p>
-              <p className="truncate text-sm leading-5 text-muted-foreground" title="—">
-                —
+              <p className="truncate text-sm font-medium text-foreground">{t("secrets.payloadKind")}</p>
+              <p
+                className="truncate text-sm leading-5 text-muted-foreground"
+                title={secretQuery.data?.payload_kind || "—"}
+              >
+                {secretQuery.data?.payload_kind || "—"}
               </p>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
               <p className="truncate text-sm font-medium text-foreground">{t("secrets.createdBy")}</p>
               <p
                 className="truncate text-sm leading-5 text-muted-foreground"
-                title={secretQuery.data?.created_by_subject_id || "—"}
+                title={creatorId ? `${creatorKind ? `${creatorKind} ` : ""}${creatorId}` : "—"}
               >
-                {secretQuery.data?.created_by_subject_id || "—"}
+                {creatorLabel}
               </p>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
@@ -582,14 +605,40 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                 {formatDateTime(secretQuery.data?.created_at)}
               </p>
             </div>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <p className="truncate text-sm font-medium text-foreground">{t("secrets.payloadKind")}</p>
-              <p
-                className="truncate text-sm leading-5 text-muted-foreground"
-                title={secretQuery.data?.payload_kind || "—"}
+            <div className="flex min-w-0 items-center gap-2 self-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                disabled={!descriptionChanged || updateSecretMetadata.isPending}
+                onClick={() => void updateSecretDescription()}
+                title={t("secrets.updateDescription")}
+                aria-label={t("secrets.updateDescription")}
               >
-                {secretQuery.data?.payload_kind || "—"}
-              </p>
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                disabled={secretQuery.isFetching}
+                onClick={() => {
+                  void secretQuery.refetch().then((result) => {
+                    if (result.error) {
+                      showError(getErrorMessage(result.error, t("secrets.refreshError")))
+                    }
+                  })
+                }}
+                title={t("secrets.refresh")}
+                aria-label={t("secrets.refresh")}
+              >
+                <RefreshCw
+                  className={cn("h-4 w-4", secretQuery.isFetching && "animate-spin")}
+                  aria-hidden
+                />
+              </Button>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
               <p className="truncate text-sm font-medium text-foreground">{t("secrets.scheduledDestroyAt")}</p>
@@ -616,10 +665,10 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
       <SlideIn>
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-[20px] font-semibold tracking-tight">
+            <CardTitle className="text-[20px] font-semibold leading-none tracking-tight">
               {t("secrets.key")}
               {secretQuery.data?.current_version_no ? (
-                <Badge variant="active" className="ml-4">
+                <Badge variant="active" className="ml-4 align-text-bottom">
                   {t("secrets.currentVersion")}: {secretQuery.data?.current_version_no}
                 </Badge>
               ) : null}
@@ -635,13 +684,14 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   aria-label={t("secrets.key")}
                   autoComplete="off"
                   spellCheck={false}
-                  className="h-9 min-w-0 w-full flex-1 cursor-text rounded-md border-0 bg-secondary px-3.5 font-mono text-xs font-semibold text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring md:basis-0"
+                  className="h-9 min-h-9 w-full min-w-0 cursor-text rounded-md border-0 bg-secondary px-2.5 font-mono text-xs font-semibold text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring md:flex-1 md:basis-0"
                 />
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
+                    className="shrink-0"
                     onClick={() => void handleCopySecretValue()}
                     disabled={revealSecretValue.isPending}
                     title={t("secrets.copySecret")}
@@ -652,7 +702,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   <Button
                     type="button"
                     variant="outline"
-                    className="min-w-[70.25px]"
+                    className="min-w-[70.25px] shrink-0"
                     onClick={() => handleUpdateDialogOpenChange(true)}
                     disabled={revealSecretValue.isPending || updateSecretValue.isPending}
                   >
@@ -661,7 +711,7 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   <Button
                     type="button"
                     variant="outline"
-                    className="min-w-[70.25px]"
+                    className="min-w-[70.25px] shrink-0"
                     onClick={() => handleToggleSecretValue()}
                     disabled={revealSecretValue.isPending}
                   >

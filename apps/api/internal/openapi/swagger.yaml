@@ -82,6 +82,13 @@ definitions:
       created_by_subject_id:
         format: uuid
         type: string
+      created_by_subject_kind:
+        enum:
+        - user
+        - service
+        - agent
+        type: string
+        x-nullable: true
       current_version_no:
         format: int32
         type: integer
@@ -466,6 +473,13 @@ definitions:
       created_by_subject_id:
         format: uuid
         type: string
+      created_by_subject_kind:
+        enum:
+        - user
+        - service
+        - agent
+        type: string
+        x-nullable: true
       current_version_no:
         format: int32
         type: integer
@@ -518,6 +532,13 @@ definitions:
       created_by_subject_id:
         format: uuid
         type: string
+      created_by_subject_kind:
+        enum:
+        - user
+        - service
+        - agent
+        type: string
+        x-nullable: true
       current_version_no:
         format: int32
         type: integer

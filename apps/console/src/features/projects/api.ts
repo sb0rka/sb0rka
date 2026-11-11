@@ -1599,6 +1599,7 @@ export interface SecretResponse {
   protection_class: "server_managed"
   current_version_no: number
   created_by_subject_id: string
+  created_by_subject_kind: "user" | "service" | "agent" | null
   created_at: string
   updated_at: string
   scheduled_destroy_at?: string
