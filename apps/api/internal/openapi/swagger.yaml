@@ -190,6 +190,25 @@ definitions:
       subject_id:
         type: string
     type: object
+  contract.InfoResponse:
+    properties:
+      deployment:
+        enum:
+        - self_hosted
+        - cloud
+        type: string
+      edition:
+        enum:
+        - community
+        - enterprise
+        type: string
+      version:
+        type: string
+    required:
+    - deployment
+    - edition
+    - version
+    type: object
   contract.PlanQuotaResponse:
     properties:
       code:
@@ -791,6 +810,19 @@ paths:
       summary: Получить тариф аккаунта
       tags:
       - iam
+  /info:
+    get:
+      description: Возвращает версию, редакцию и тип размещения Platform API.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.InfoResponse'
+      summary: Информация о сборке API
+      tags:
+      - system
   /plan/{plan_id}:
     get:
       description: Авторизованному пользователю доступны публичные активные тарифы,
