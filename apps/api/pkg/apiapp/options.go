@@ -7,9 +7,12 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/secret"
+	"github.com/sb0rka/sb0rka/packages/contract"
 )
 
 type Options struct {
+	Info contract.InfoResponse
+
 	// DefaultPlans defaults to the community account and project plans.
 	DefaultPlans plan.Defaults
 

@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GOPROXY: direct
+      GOPROXY: https://proxy.golang.org,direct
       GONOSUMDB: github.com/sb0rka/sb0rka
     steps:
       - name: Checkout

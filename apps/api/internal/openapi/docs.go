@@ -100,6 +100,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/info": {
+            "get": {
+                "description": "Возвращает версию, редакцию и тип размещения Platform API.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Информация о сборке API",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contract.InfoResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/plan/{plan_id}": {
             "get": {
                 "security": [
@@ -3087,6 +3107,33 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "subject_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.InfoResponse": {
+            "type": "object",
+            "required": [
+                "deployment",
+                "edition",
+                "version"
+            ],
+            "properties": {
+                "deployment": {
+                    "type": "string",
+                    "enum": [
+                        "self_hosted",
+                        "cloud"
+                    ]
+                },
+                "edition": {
+                    "type": "string",
+                    "enum": [
+                        "community",
+                        "enterprise"
+                    ]
+                },
+                "version": {
                     "type": "string"
                 }
             }

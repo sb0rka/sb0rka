@@ -99,6 +99,7 @@ export interface CreateSecretRequest {
   description?: string
   secret_value: string
   payload_kind: "text" | "json"
+  purpose?: "llm_key"
 }
 
 export interface UpdateDatabaseRequest {
@@ -1757,6 +1758,31 @@ export async function createSecret(
     method: "POST",
     path: `/projects/${projectId}/secret`,
     json: data,
+    base: "resource",
+  })
+}
+
+export interface LLMModelListResponse {
+  models: { id: string }[]
+}
+
+export function listActiveModels(): Promise<LLMModelListResponse> {
+  return apiRequest<LLMModelListResponse>({
+    path: "/models",
+    base: "resource",
+    auth: false,
+  })
+}
+
+export function setSecretModels(
+  projectId: string,
+  secretId: string,
+  models: string[],
+): Promise<void> {
+  return apiRequest<void>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${secretId}/secret/models`,
+    json: { models },
     base: "resource",
   })
 }

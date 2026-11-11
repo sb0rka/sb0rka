@@ -3,6 +3,7 @@ import { useMatch, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   BarChart3,
+  Cpu,
   Database,
   KeyRound,
   LayoutGrid,
@@ -31,6 +32,7 @@ type ProjectTabIcon = ComponentType<{ className?: string }>
 
 export const projectTabIcon = {
   overview: BarChart3,
+  models: Cpu,
   databases: Database,
   "data-explorer": LayoutGrid,
   secrets: KeyRound,
@@ -47,6 +49,7 @@ type ProjectNavItem = {
 
 const projectNavItems: ProjectNavItem[] = [
   { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: projectTabIcon.overview, iconAnimation: "chart" as const },
+  { key: "models", tab: "models", labelKey: "tabs.models", icon: projectTabIcon.models, iconAnimation: "chart" as const },
   { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: projectTabIcon.databases, iconAnimation: "database" as const },
   { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: projectTabIcon["data-explorer"], iconAnimation: "database" as const },
   { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: projectTabIcon.secrets, iconAnimation: "key" as const },
