@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Button,
@@ -7,17 +7,13 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
+  useToast,
 } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
-import { useUser, useUpdateProfile, useChangePassword } from "./hooks"
+import { useUser, useUpdateProfile, useChangePassword, useDeactivateAccount } from "./hooks"
+import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { MobileProfileSection } from "./components/mobile-profile-section"
 
@@ -32,6 +28,9 @@ export function ProfilePage() {
   const userQuery = useUser()
   const updateProfile = useUpdateProfile()
   const changePassword = useChangePassword()
+  const deactivateAccount = useDeactivateAccount()
+  const confirm = useConfirmDialog()
+  const { showError } = useToast()
 
   const user = userQuery.data
 
@@ -45,7 +44,8 @@ export function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleteInProgress, setIsDeleteInProgress] = useState(false)
+  const deleteInProgressRef = useRef(false)
 
   useEffect(() => {
     setEmailSuccess(false)
@@ -106,6 +106,39 @@ export function ProfilePage() {
       setConfirmPassword("")
     } catch (err) {
       setPasswordError(getErrorMessage(err, t("profile.passwordSaveError")))
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!user || deleteInProgressRef.current) return
+
+    deleteInProgressRef.current = true
+    setIsDeleteInProgress(true)
+    try {
+      const confirmed = await confirm({
+        title: t("profile.deleteDialogTitle"),
+        description: t("profile.deleteDialogDescription"),
+        infoNode: (
+          <div className="flex flex-col items-center gap-3 px-6">
+            <p className="text-lg font-medium">{user.username}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("profile.typeUsernameToConfirm")}
+            </p>
+          </div>
+        ),
+        strongConfirmValue: user.username,
+        confirmText: t("common.actions.delete"),
+        cancelText: t("common.actions.cancel"),
+        confirmVariant: "destructive",
+      })
+      if (!confirmed) return
+
+      await deactivateAccount.mutateAsync()
+    } catch (error) {
+      showError(getErrorMessage(error, t("profile.deleteError")))
+    } finally {
+      deleteInProgressRef.current = false
+      setIsDeleteInProgress(false)
     }
   }
 
@@ -260,30 +293,15 @@ export function ProfilePage() {
               <Button
                 type="button"
                 variant="delete"
-                onClick={() => setDeleteDialogOpen(true)}
+                onClick={() => void handleDeleteAccount()}
+                disabled={isDeleteInProgress}
               >
-                {t("profile.deleteAccount")}
+                {deactivateAccount.isPending ? t("common.deleting") : t("profile.deleteAccount")}
               </Button>
             </CardFooter>
           </MobileProfileSection>
         </SlideIn>
       </div>
-
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-[calc(100%-2rem)] rounded-2xl md:max-w-lg md:rounded-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl">{t("profile.deleteDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("profile.deleteDialogDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="[&>button]:w-full md:[&>button]:w-auto">
-            <Button type="button" onClick={() => setDeleteDialogOpen(false)}>
-              {t("profile.understood")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </PageStagger>
   )
 }

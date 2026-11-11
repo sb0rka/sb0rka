@@ -528,11 +528,12 @@ const resources = {
         passwordReauthentication: "Пароль изменён. Все сессии завершены. Войдите с новым паролем.",
 
         accountTitle: "Опасная зона",
-        accountDescription: "Безвозвратно удалить вашу учетную запись и все связанные с ней данные",
+        accountDescription: "Ваш аккаунт будет деактивирован и удалены все связанные с ним данные. Полное удаление аккаунта будет выполнено со временем.",
         deleteAccount: "Удалить аккаунт",
         deleteDialogTitle: "Удалить аккаунт?",
-        deleteDialogDescription: "Самостоятельное удаление аккаунта пока недоступно. Напишите в поддержку info@sb0rka.ru и мы поможем удалить аккаунт и связанные с ним данные.",
-        understood: "Понятно",
+        deleteDialogDescription: "Ваш аккаунт будет деактивирован и удалены все связанные с ним данные. Полное удаление аккаунта будет выполнено со временем. Напишите в поддержку info@sb0rka.ru если у вас остались вопросы.",
+        typeUsernameToConfirm: "Введите свой никнейм для подтверждения",
+        deleteError: "Не удалось деактивировать аккаунт",
       },
       metrics: {
         db_size: {
@@ -1056,11 +1057,12 @@ const resources = {
         passwordReauthentication: "Password changed. All sessions ended. Sign in with your new password.",
 
         accountTitle: "Account",
-        accountDescription: "Permanently delete your account and all data related to it",
+        accountDescription: "Your account will be deactivated and all related data will be deleted. Permanent account deletion will be performed in time.",
         deleteAccount: "Delete account",
         deleteDialogTitle: "Delete account?",
-        deleteDialogDescription: "Self-service account deletion is not available yet. Contact support info@sb0rka.ru and we’ll help delete your account and related data.",
-        understood: "Got it",
+        deleteDialogDescription: "Your account will be deactivated and all related data will be deleted. Permanent account deletion will be performed in time. Contact support at info@sb0rka.ru if you have any questions.",
+        typeUsernameToConfirm: "Type your username to confirm",
+        deleteError: "Unable to deactivate account",
       },
       metrics: {
         db_size: {
