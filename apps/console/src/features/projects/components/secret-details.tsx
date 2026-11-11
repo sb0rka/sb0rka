@@ -690,6 +690,15 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   <Button
                     type="button"
                     variant="outline"
+                    className="min-w-[70.25px] shrink-0"
+                    onClick={() => handleUpdateDialogOpenChange(true)}
+                    disabled={revealSecretValue.isPending || updateSecretValue.isPending}
+                  >
+                    {t("secrets.updateValue")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="icon"
                     className="shrink-0"
                     onClick={() => void handleCopySecretValue()}
@@ -702,20 +711,13 @@ export function SecretDetails({ projectId, secret, onClose }: SecretDetailsProps
                   <Button
                     type="button"
                     variant="outline"
-                    className="min-w-[70.25px] shrink-0"
-                    onClick={() => handleUpdateDialogOpenChange(true)}
-                    disabled={revealSecretValue.isPending || updateSecretValue.isPending}
-                  >
-                    {t("secrets.updateValue")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-w-[70.25px] shrink-0"
+                    size="icon"
+                    className="shrink-0"
                     onClick={() => handleToggleSecretValue()}
                     disabled={revealSecretValue.isPending}
+                    aria-label={isValueVisible ? t("common.actions.hide") : t("common.actions.show")}
                   >
-                    {isValueVisible ? t("common.actions.hide") : t("common.actions.show")}
+                    {isValueVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
