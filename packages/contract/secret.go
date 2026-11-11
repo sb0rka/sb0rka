@@ -40,16 +40,17 @@ type CreateSecretResponse struct {
 }
 
 type SecretListItem struct {
-	PublicID           string    `json:"public_id"`
-	SecretID           string    `json:"secret_id" format:"uuid"`
-	Name               string    `json:"name"`
-	Description        *string   `json:"description,omitempty"`
-	PayloadKind        string    `json:"payload_kind"`
-	ProtectionClass    string    `json:"protection_class"`
-	CurrentVersionNo   int32     `json:"current_version_no" format:"int32"`
-	CreatedBySubjectID string    `json:"created_by_subject_id" format:"uuid"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	PublicID             string    `json:"public_id"`
+	SecretID             string    `json:"secret_id" format:"uuid"`
+	Name                 string    `json:"name"`
+	Description          *string   `json:"description,omitempty"`
+	PayloadKind          string    `json:"payload_kind"`
+	ProtectionClass      string    `json:"protection_class"`
+	CurrentVersionNo     int32     `json:"current_version_no" format:"int32"`
+	CreatedBySubjectID   string    `json:"created_by_subject_id" format:"uuid"`
+	CreatedBySubjectKind *string   `json:"created_by_subject_kind" enums:"user,service,agent" extensions:"x-nullable"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 type SecretPasswordVerifierResponse struct {
@@ -60,18 +61,19 @@ type SecretPasswordVerifierResponse struct {
 }
 
 type SecretResponse struct {
-	PublicID           string     `json:"public_id"`
-	ProjectID          string     `json:"project_id" format:"uuid"`
-	SecretID           string     `json:"secret_id" format:"uuid"`
-	Name               string     `json:"name"`
-	Description        *string    `json:"description,omitempty"`
-	PayloadKind        string     `json:"payload_kind"`
-	ProtectionClass    string     `json:"protection_class"`
-	CurrentVersionNo   int32      `json:"current_version_no" format:"int32"`
-	CreatedBySubjectID string     `json:"created_by_subject_id" format:"uuid"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	ScheduledDestroyAt *time.Time `json:"scheduled_destroy_at,omitempty"`
+	PublicID             string     `json:"public_id"`
+	ProjectID            string     `json:"project_id" format:"uuid"`
+	SecretID             string     `json:"secret_id" format:"uuid"`
+	Name                 string     `json:"name"`
+	Description          *string    `json:"description,omitempty"`
+	PayloadKind          string     `json:"payload_kind"`
+	ProtectionClass      string     `json:"protection_class"`
+	CurrentVersionNo     int32      `json:"current_version_no" format:"int32"`
+	CreatedBySubjectID   string     `json:"created_by_subject_id" format:"uuid"`
+	CreatedBySubjectKind *string    `json:"created_by_subject_kind" enums:"user,service,agent" extensions:"x-nullable"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+	ScheduledDestroyAt   *time.Time `json:"scheduled_destroy_at,omitempty"`
 
 	ResourceState *ResourceStateResponse `json:"resource_state,omitempty"`
 
