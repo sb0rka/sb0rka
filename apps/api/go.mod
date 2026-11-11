@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
-	github.com/sb0rka/sb0rka/packages/contract v0.0.20
+	github.com/sb0rka/sb0rka/packages/contract v0.0.21
 	github.com/sb0rka/sb0rka/packages/core v0.0.7
 	github.com/spf13/cobra v1.10.2
 	github.com/swaggo/http-swagger/v2 v2.0.2

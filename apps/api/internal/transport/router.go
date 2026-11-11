@@ -72,6 +72,7 @@ func (s *Server) BuildCommonHandler() *http.Handler {
 
 	mux.HandleFunc("GET /ping", s.ping)
 	mux.HandleFunc("GET /health", s.health)
+	mux.HandleFunc("GET /info", s.info)
 
 	// Swagger UI (публичный)
 	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json")))

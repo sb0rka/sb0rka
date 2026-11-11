@@ -18,6 +18,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/secret"
+	"github.com/sb0rka/sb0rka/packages/contract"
 	"github.com/sb0rka/sb0rka/packages/core/buildinfo"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
@@ -27,6 +28,12 @@ type App struct {
 }
 
 func New(opts Options) *App {
+	if opts.Info.Edition == "" {
+		opts.Info.Edition = contract.EditionCommunity
+	}
+	if opts.Info.Deployment == "" {
+		opts.Info.Deployment = contract.DeploymentSelfHosted
+	}
 	return &App{opts: opts}
 }
 
@@ -133,6 +140,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
+		Info:             a.opts.Info,
 		PlatformDatabase: platformDatabase,
 		Authorizer:       authorizer,
 		SecretCrypto:     secretCrypto,
