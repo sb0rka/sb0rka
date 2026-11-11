@@ -2930,6 +2930,15 @@ const docTemplate = `{
                     "type": "string",
                     "format": "uuid"
                 },
+                "created_by_subject_kind": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "service",
+                        "agent"
+                    ],
+                    "x-nullable": true
+                },
                 "current_version_no": {
                     "type": "integer",
                     "format": "int32"
@@ -3505,6 +3514,15 @@ const docTemplate = `{
                     "type": "string",
                     "format": "uuid"
                 },
+                "created_by_subject_kind": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "service",
+                        "agent"
+                    ],
+                    "x-nullable": true
+                },
                 "current_version_no": {
                     "type": "integer",
                     "format": "int32"
@@ -3581,6 +3599,15 @@ const docTemplate = `{
                 "created_by_subject_id": {
                     "type": "string",
                     "format": "uuid"
+                },
+                "created_by_subject_kind": {
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "service",
+                        "agent"
+                    ],
+                    "x-nullable": true
                 },
                 "current_version_no": {
                     "type": "integer",

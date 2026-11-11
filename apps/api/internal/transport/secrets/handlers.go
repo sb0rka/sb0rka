@@ -900,8 +900,10 @@ func (h *Handler) revealSecretVersion(w http.ResponseWriter, r *http.Request, pr
 
 func (h *Handler) writeRevealedSecret(w http.ResponseWriter, r *http.Request, secret model.Secret, version model.SecretVersion, material model.SecretMaterial) {
 	projectID, secretID := secret.ProjectID, secret.ResourceID
-	if version.State != model.SecretVersionStateActive {
-		http.Error(w, "Secret version is not active", http.StatusConflict)
+	switch version.State {
+	case model.SecretVersionStateActive, model.SecretVersionStateDisabled:
+	default:
+		http.Error(w, "Unsupported secret version state", http.StatusConflict)
 		return
 	}
 	aad, err := service.BuildSecretAAD(projectID, secretID, version.VersionNo, secret.ProtectionClass)
@@ -1004,33 +1006,35 @@ func (h *Handler) writeSecretStoreError(w http.ResponseWriter, event string, pro
 
 func toSecretListItem(s model.Secret) contract.SecretListItem {
 	return contract.SecretListItem{
-		PublicID:           s.PublicID,
-		SecretID:           s.ResourceID.String(),
-		Name:               s.Name,
-		Description:        s.Description,
-		PayloadKind:        s.PayloadKind,
-		ProtectionClass:    s.ProtectionClass,
-		CurrentVersionNo:   s.CurrentVersionNo,
-		CreatedBySubjectID: s.CreatedBySubjectID.String(),
-		CreatedAt:          s.CreatedAt,
-		UpdatedAt:          s.UpdatedAt,
+		PublicID:             s.PublicID,
+		SecretID:             s.ResourceID.String(),
+		Name:                 s.Name,
+		Description:          s.Description,
+		PayloadKind:          s.PayloadKind,
+		ProtectionClass:      s.ProtectionClass,
+		CurrentVersionNo:     s.CurrentVersionNo,
+		CreatedBySubjectID:   s.CreatedBySubjectID.String(),
+		CreatedBySubjectKind: s.CreatedBySubjectKind,
+		CreatedAt:            s.CreatedAt,
+		UpdatedAt:            s.UpdatedAt,
 	}
 }
 
 func toSecretResponse(s model.Secret) contract.SecretResponse {
 	resp := contract.SecretResponse{
-		PublicID:           s.PublicID,
-		ProjectID:          s.ProjectID.String(),
-		SecretID:           s.ResourceID.String(),
-		Name:               s.Name,
-		Description:        s.Description,
-		PayloadKind:        s.PayloadKind,
-		ProtectionClass:    s.ProtectionClass,
-		CurrentVersionNo:   s.CurrentVersionNo,
-		CreatedBySubjectID: s.CreatedBySubjectID.String(),
-		CreatedAt:          s.CreatedAt,
-		UpdatedAt:          s.UpdatedAt,
-		ScheduledDestroyAt: s.ScheduledDestroyAt,
+		PublicID:             s.PublicID,
+		ProjectID:            s.ProjectID.String(),
+		SecretID:             s.ResourceID.String(),
+		Name:                 s.Name,
+		Description:          s.Description,
+		PayloadKind:          s.PayloadKind,
+		ProtectionClass:      s.ProtectionClass,
+		CurrentVersionNo:     s.CurrentVersionNo,
+		CreatedBySubjectID:   s.CreatedBySubjectID.String(),
+		CreatedBySubjectKind: s.CreatedBySubjectKind,
+		CreatedAt:            s.CreatedAt,
+		UpdatedAt:            s.UpdatedAt,
+		ScheduledDestroyAt:   s.ScheduledDestroyAt,
 	}
 	if s.ResourceState != nil {
 		resp.ResourceState = &contract.ResourceStateResponse{
