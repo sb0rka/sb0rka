@@ -12,14 +12,21 @@ type Pool struct {
 }
 
 func NewPool(uri string, maxConns int, connMaxLifetime time.Duration) (*Pool, error) {
-	pool, err := pgxpool.New(context.Background(), uri)
+	cfg, err := pgxpool.ParseConfig(uri)
 	if err != nil {
 		return nil, err
 	}
+	if maxConns > 0 {
+		cfg.MaxConns = int32(maxConns)
+	}
+	if connMaxLifetime > 0 {
+		cfg.MaxConnLifetime = connMaxLifetime
+	}
 
-	pool.Config().MaxConns = int32(maxConns)
-	pool.Config().MaxConnLifetime = connMaxLifetime
-
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		return nil, err
+	}
 	return &Pool{pool: pool}, nil
 }
 

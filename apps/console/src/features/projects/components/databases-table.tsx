@@ -5,6 +5,7 @@ import {
   ScrollArea,
   ScrollBar,
 } from "@sb0rka/ui"
+import { formatDateTime } from "@/lib/format-date"
 import { MobileDatabasesList } from "./mobile-databases-list"
 import type { DatabaseRow } from "./project-detail-tab-types"
 import { getDatabaseStatusLabel } from "./get-database-status-label"
@@ -18,14 +19,6 @@ interface DatabasesTableProps {
 const DATABASES_TABLE_GRID_CLASS =
   "grid w-full grid-cols-[minmax(220px,2fr)_160px_minmax(120px,1fr)_minmax(160px,1fr)_160px_160px]"
 
-function formatLocalDateTime(value: string): string {
-  if (!value) return "—"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-
-  return date.toLocaleString()
-}
 
 export function DatabasesTable({
   rows,
@@ -109,16 +102,16 @@ export function DatabasesTable({
                     </span>
                   </div>
                   <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
-                    {getDatabaseStatusLabel(t, row.syncState, row.desiredState)}
+                    {getDatabaseStatusLabel(t, row)}
                   </div>
                   <div className="flex min-h-20 items-center px-4 py-4 text-sm text-foreground">
                     {row.diskUsageLabel}
                   </div>
                   <div className="flex min-h-20 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-                    {formatLocalDateTime(row.createdAt)}
+                    {formatDateTime(row.createdAt)}
                   </div>
                   <div className="flex min-h-20 items-center justify-end whitespace-nowrap px-4 py-4 text-sm text-foreground">
-                    {formatLocalDateTime(row.updatedAt)}
+                    {formatDateTime(row.updatedAt)}
                   </div>
                 </div>
               )

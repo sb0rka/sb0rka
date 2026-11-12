@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 // Action names a specific operation a subject wants to perform on a resource.
@@ -39,6 +40,7 @@ const (
 	ActionSecretVersionRead    Action = "secret.version.read"
 	ActionSecretVersionCreate  Action = "secret.version.create"
 	ActionSecretVersionDisable Action = "secret.version.disable"
+	ActionSecretAgentGrant     Action = "secret.agent.grant"
 	ActionTagList              Action = "tag.list"
 	ActionTagCreate            Action = "tag.create"
 	ActionTagUpdate            Action = "tag.update"
@@ -49,8 +51,22 @@ const (
 
 // ResourceRef identifies the target resource of an authorization check.
 type ResourceRef struct {
-	Type string
-	ID   string
+	Type     string
+	ID       uuid.UUID
+	PublicID string
+}
+
+// Principal is API authorization context. ClientID is audit context only and
+// never participates in RBAC decisions.
+type Principal struct {
+	SubjectID uuid.UUID
+	SessionID string
+	ClientID  string
+}
+
+func PrincipalFromContext(ctx context.Context, subjectID uuid.UUID) Principal {
+	identity, _ := authctx.IdentityFromContext(ctx)
+	return Principal{SubjectID: subjectID, SessionID: identity.SessionID, ClientID: identity.ClientID}
 }
 
 // AuthorizationDecision is the result of an Authorize call.
@@ -67,5 +83,5 @@ type AuthorizationDecision struct {
 // Authorizer evaluates whether a subject may perform an action on a resource.
 // Implementations must be safe for concurrent use.
 type Authorizer interface {
-	Authorize(ctx context.Context, subjectID uuid.UUID, action Action, resource ResourceRef) (*AuthorizationDecision, error)
+	Authorize(ctx context.Context, principal Principal, action Action, resource ResourceRef) (*AuthorizationDecision, error)
 }

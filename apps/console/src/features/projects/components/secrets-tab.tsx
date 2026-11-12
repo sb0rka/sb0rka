@@ -87,7 +87,7 @@ export function SecretsTab({
       await onCreateSecret({
         name: newSecretName.trim(),
         description: newSecretDescription.trim() || undefined,
-        secret_value: newSecretValue.trim(),
+        secret_value: newSecretValue,
         payload_kind: "text"
       })
       handleCreateDialogOpenChange(false)
@@ -104,7 +104,7 @@ export function SecretsTab({
     <TabsContent
       value="secrets"
       className={cn(
-        "flex flex-col gap-6",
+        "flex flex-col gap-6 data-[state=inactive]:hidden",
         isListView &&
           "h-[calc(100dvh-11rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] min-h-0 overflow-hidden md:h-[calc(100dvh-7.25rem)]",
       )}
@@ -211,7 +211,6 @@ export function SecretsTab({
                   data-lpignore="true"
                   data-1p-ignore="true"
                   data-form-type="other"
-                  className="[-webkit-text-security:disc]"
                   placeholder={t("secrets.valuePlaceholder")}
                   value={newSecretValue}
                   onChange={(e) => setNewSecretValue(e.target.value)}

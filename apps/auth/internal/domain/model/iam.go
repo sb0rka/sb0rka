@@ -7,16 +7,12 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	SubjectKindUser         = "user"
-	SubjectKindOrganization = "organization"
-)
+const SubjectKindUser = "user"
 
 type Subject struct {
 	ID        uuid.UUID `json:"id"`
 	Kind      string    `json:"kind"`
 	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type AuthSession struct {
@@ -24,7 +20,8 @@ type AuthSession struct {
 	SubjectID        uuid.UUID  `json:"subject_id"`
 	SubjectKind      string     `json:"subject_kind"`
 	FamilyID         uuid.UUID  `json:"family_id"`
-	RefreshTokenHash string     `json:"refresh_token_hash"`
+	OAuthScopes      []string   `json:"oauth_scopes,omitempty"`
+	OAuthClientID    *string    `json:"oauth_client_id,omitempty"`
 	CreatedIP        net.IP     `json:"created_ip"`
 	CreatedUserAgent *string    `json:"created_user_agent,omitempty"`
 	CreatedAt        time.Time  `json:"created_at"`
@@ -35,13 +32,23 @@ type AuthSession struct {
 	ReplacedBy       *uuid.UUID `json:"replaced_by,omitempty"`
 }
 
+// BrowserSession is the read-only identity projection exposed to browser-cookie
+// authentication. Credential hashes and rotation-family details stay in the store.
+type BrowserSession struct {
+	SubjectID          uuid.UUID
+	SessionID          uuid.UUID
+	AuthenticationTime time.Time
+}
+
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	IsActive     bool      `json:"is_active"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	Phone        *int32    `json:"phone,omitempty"`
-	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	IsActive        bool       `json:"is_active"`
+	Username        string     `json:"username"`
+	Email           string     `json:"email"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	Phone           *int32     `json:"phone,omitempty"`
+	PhoneVerifiedAt *time.Time `json:"phone_verified_at,omitempty"`
+	PasswordHash    string     `json:"password_hash"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }

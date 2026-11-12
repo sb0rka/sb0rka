@@ -9,17 +9,16 @@ When you create a database on Sb0rka, you get a dedicated PostgreSQL instance sc
 
 | Field           | Type           | Description                                                                |
 | --------------- | -------------- | -------------------------------------------------------------------------- |
-| `resource_id`   | hex-string     | The resource ID that uniquely identifies this database within the project. |
+| `public_id`     | hex-string     | Public identifier for the database (12 lowercase hex characters). API paths use this value. |
 | `name`          | string         | Human-readable name for the database.                                      |
 | `description`   | string \| null | Optional description.                                                      |
-| `next_table_id` | integer        | The ID that will be assigned to the next table created in this database.   |
 
 ## Auto-generated credentials
 
 When you create a database, Sb0rka automatically:
 
 1. Generates a random alphanumeric password.
-2. Encrypts it and stores it as a secret named `DATABASE_<resource_id>_PASSWORD`.
+2. Encrypts it and stores it as a secret named `DATABASE_<public_id>_PASSWORD`.
 3. Tags both the database resource and the secret resource with `database_resource_id = <resource_id>` so they can be linked together.
 
 This means every database has exactly one corresponding secret that holds its password.

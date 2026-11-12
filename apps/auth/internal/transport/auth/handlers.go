@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -10,25 +11,64 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
-	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+
+	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/transport/runtime"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
 
 type Handler struct {
-	deps runtime.Dependencies
+	deps           runtime.Dependencies
+	dummyHash      string
+	dummyError     error
+	verifyPassword func(string, string, config.AuthConfig) (bool, error)
+	passwordSlots  chan struct{}
 }
 
 func NewHandler(deps runtime.Dependencies) *Handler {
-	return &Handler{deps: deps}
+	var hash string
+	var err error
+	if deps.Cfg.AuthConfig.ArgonTime == 0 || deps.Cfg.AuthConfig.ArgonThreads == 0 {
+		err = fmt.Errorf("invalid password configuration")
+	} else {
+		hash, err = service.HashPassword("dummy-password-verification", deps.Cfg.AuthConfig)
+	}
+	return &Handler{deps: deps, dummyHash: hash, dummyError: err, verifyPassword: service.VerifyPassword, passwordSlots: make(chan struct{}, 4)}
 }
 
+// AuthLogin godoc
+// @Summary Authenticate a user and create a native session
+// @Description JSON body is limited to 16 KiB. PostgreSQL-backed account and peer quotas return 429 with Retry-After; unavailable quota storage returns 503. Responses are not cacheable.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body contract.AuthLoginRequest true "Credentials"
+// @Success 200 {object} contract.AuthLoginResponse
+// @Failure 400 {string} string
+// @Failure 401 {string} string
+// @Failure 403 {string} string
+// @Failure 413 {string} string
+// @Failure 415 {string} string
+// @Failure 429 {string} string
+// @Header 429 {string} Retry-After "Seconds until the next attempt"
+// @Failure 503 {string} string
+// @Router /auth/login [post]
 func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
+	if !h.cookieRequest(w, r) {
+		return
+	}
+	if h.dummyError != nil {
+		http.Error(w, "Authentication unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	var req contract.AuthLoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 
@@ -70,34 +110,50 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	peer := coretransport.ClientPeer(r, h.deps.Cfg.TrustedProxies)
+	if !h.allowPasswordAttempt(w, r, "peer:"+peer, 300, time.Minute) {
+		return
+	}
 
 	// Get user by username or email
 
 	user, err := h.deps.Database.GetUser(r.Context(), "", username, email)
-	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
-			http.Error(w, "User not found", http.StatusNotFound)
-			return
-		}
+	exists := err == nil
+	if err != nil && !errors.Is(err, db.ErrUserNotFound) {
 		h.deps.Log.Error("login_get_user_failed", "error", err)
-		http.Error(w, "Failed to get user", http.StatusInternalServerError)
+		http.Error(w, "Authentication unavailable", http.StatusInternalServerError)
 		return
 	}
-
-	if !user.IsActive {
-		http.Error(w, "User is not active", http.StatusUnauthorized)
+	account := "identifier:" + strings.ToLower(username) + ":" + strings.ToLower(email)
+	if exists {
+		// Bind aliases (username/email) to the same budget once resolved.
+		account = "subject:" + user.ID.String()
+	}
+	if !h.allowPasswordAttempt(w, r, account, 10, 15*time.Minute) {
 		return
 	}
-
-	// Verify password
-
-	ok, err := service.VerifyPassword(password, user.PasswordHash, h.deps.Cfg.AuthConfig)
+	hash := h.dummyHash
+	if exists && user.IsActive {
+		hash = user.PasswordHash
+	}
+	// Every well-formed credential attempt performs the same password work.
+	select {
+	case h.passwordSlots <- struct{}{}:
+	default:
+		w.Header().Set("Retry-After", "1")
+		http.Error(w, "Too many authentication attempts", http.StatusTooManyRequests)
+		return
+	}
+	ok, err := func() (bool, error) {
+		defer func() { <-h.passwordSlots }()
+		return h.verifyPassword(password, hash, h.deps.Cfg.AuthConfig)
+	}()
 	if err != nil {
 		h.deps.Log.Error("login_verify_password_failed", "error", err)
 		http.Error(w, "Failed to verify password", http.StatusInternalServerError)
 		return
 	}
-	if !ok {
+	if !ok || !exists || !user.IsActive {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -113,10 +169,7 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Parse client IP, user agent and create auth session
 
-	clientIP := r.RemoteAddr
-	if host, _, splitErr := net.SplitHostPort(r.RemoteAddr); splitErr == nil {
-		clientIP = host
-	}
+	clientIP := coretransport.ClientPeer(r, h.deps.Cfg.TrustedProxies)
 
 	userAgentRaw := r.UserAgent()
 	var userAgent *string
@@ -129,8 +182,12 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 
 	expiresAt := time.Now().UTC().Add(h.deps.Cfg.AuthConfig.AccessSessionTTL)
 
-	session, err := h.deps.Database.CreateAuthSession(r.Context(), sessionID, user.ID, familyID, refreshTokenHash, clientIP, userAgent, expiresAt)
+	session, err := h.deps.Database.CreateAuthSession(r.Context(), sessionID, user.ID, familyID, refreshTokenHash, clientIP, userAgent, expiresAt, user.PasswordHash)
 	if err != nil {
+		if errors.Is(err, db.ErrTokenExpired) || errors.Is(err, db.ErrUserNotFound) {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
 		h.deps.Log.Error("login_create_session_failed", "error", err)
 		http.Error(w, "Failed to create auth session", http.StatusInternalServerError)
 		return
@@ -160,36 +217,46 @@ func (h *Handler) AuthLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ToAuthLoginResponse(accessToken, ""))
 }
 
+// AuthRefresh godoc
+// @Summary Rotate a native refresh cookie
+// @Description Browser requests require an explicitly trusted Origin. A JSON body may be empty.
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} contract.AuthLoginResponse
+// @Failure 401 {string} string
+// @Failure 403 {string} string
+// @Failure 415 {string} string
+// @Router /auth/refresh [post]
 func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
+	if !h.cookieRequest(w, r) {
+		return
+	}
 	cookie, err := r.Cookie(h.deps.Cfg.AuthConfig.RefreshTokenCookieName)
 	if err != nil {
-		http.Error(w, "missing refresh token", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Validate length of refresh token and get hash
+	// Validate length of refresh token
 
 	refreshToken, err := service.ValidateLengthOfRefreshToken(cookie.Value, h.deps.Cfg.AuthConfig)
 	if err != nil {
-		http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if h.deps.Cfg.OIDC == nil {
+		http.Error(w, "Unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
-	refreshTokenHash := service.HashRefreshToken(refreshToken)
+	// The idempotency key lets a retried refresh replay the sealed result of the first rotation
 
-	clientIP := r.RemoteAddr
-	if host, _, splitErr := net.SplitHostPort(r.RemoteAddr); splitErr == nil {
-		clientIP = host
+	operation := r.Header.Get("Idempotency-Key")
+	if len(operation) > 128 {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
 	}
-
-	userAgentRaw := r.UserAgent()
-	var userAgent *string
-	if userAgentRaw != "" {
-		userAgent = &userAgentRaw
-	}
-
-	newSessionID := uuid.New()
-	expiresAt := time.Now().UTC().Add(h.deps.Cfg.AuthConfig.AccessSessionTTL)
 	newRefreshToken, newRefreshTokenHash, err := service.CreateRefreshTokenPair(h.deps.Cfg.AuthConfig)
 	if err != nil {
 		h.deps.Log.Error("refresh_token_create_failed", "error", err)
@@ -197,7 +264,24 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newSession, err := h.deps.Database.RefreshAuthSession(r.Context(), refreshTokenHash, newSessionID, newRefreshTokenHash, clientIP, userAgent, expiresAt)
+	// Rotate the session and seal the response in one transaction
+
+	type refreshResult struct {
+		Access, Refresh string
+		Expires         time.Time
+	}
+	sealPurpose := "native:" + operation
+	sealed, err := h.deps.Database.RefreshOAuthResult(r.Context(), service.HashRefreshToken(refreshToken), newRefreshTokenHash, "", operation, func(session model.AuthSession) (string, error) {
+		access, err := service.CreateAccessToken(session.SubjectID, session.ID, session.SubjectKind, h.deps.Cfg.AuthConfig)
+		if err != nil {
+			return "", err
+		}
+		raw, err := json.Marshal(refreshResult{Access: access, Refresh: newRefreshToken, Expires: session.ExpiresAt})
+		if err != nil {
+			return "", err
+		}
+		return service.SealRefreshResult(h.deps.Cfg.OIDC.ProviderCryptoKey, sealPurpose, raw)
+	})
 	if err != nil {
 		if errors.Is(err, db.ErrTokenNotFound) || errors.Is(err, db.ErrTokenExpired) || errors.Is(err, db.ErrTokenReuseDetected) || errors.Is(err, db.ErrUserNotFound) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -207,37 +291,42 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to rotate auth session", http.StatusInternalServerError)
 		return
 	}
-
-	accessToken, err := service.CreateAccessToken(newSession.SubjectID, newSession.ID, newSession.SubjectKind, h.deps.Cfg.AuthConfig)
+	raw, err := service.OpenRefreshResult(h.deps.Cfg.OIDC.ProviderCryptoKey, sealPurpose, sealed)
 	if err != nil {
-		h.deps.Log.Error("refresh_access_token_create_failed", "error", err)
+		h.deps.Log.Error("refresh_result_open_failed", "error", err)
+		http.Error(w, "Failed to create access token", http.StatusInternalServerError)
+		return
+	}
+	var tokens refreshResult
+	if err = json.Unmarshal(raw, &tokens); err != nil {
+		h.deps.Log.Error("refresh_result_decode_failed", "error", err)
 		http.Error(w, "Failed to create access token", http.StatusInternalServerError)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.deps.Cfg.AuthConfig.RefreshTokenCookieName,
-		Value:    newRefreshToken,
+		Value:    tokens.Refresh,
 		Path:     h.deps.Cfg.AuthConfig.RefreshTokenCookiePath,
 		Domain:   h.deps.Cfg.AuthConfig.RefreshTokenCookieDomain,
-		Expires:  expiresAt,
+		Expires:  tokens.Expires,
 		HttpOnly: h.deps.Cfg.AuthConfig.RefreshTokenCookieHttpOnly,
 		Secure:   h.deps.Cfg.AuthConfig.RefreshTokenCookieSecure,
 		SameSite: h.deps.Cfg.AuthConfig.RefreshTokenCookieSameSite,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ToAuthLoginResponse(accessToken, ""))
+	_ = json.NewEncoder(w).Encode(ToAuthLoginResponse(tokens.Access, ""))
 }
 
 func (h *Handler) AuthLogout(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	sessionIDRaw, ok := runtime.AuthSessionIDFromContext(r.Context())
+	sessionIDRaw, ok := authctx.SessionIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -271,20 +360,20 @@ func (h *Handler) AuthLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthSessionsList(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	// Sessions listing is currently restricted to user-backed subjects
-	_, isUser := runtime.AuthUserIDFromContext(r.Context())
+	_, isUser := authctx.RequireUserSubject(r.Context())
 	if !isUser {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
-	currentSessionID, ok := runtime.AuthSessionIDFromContext(r.Context())
+	currentSessionID, ok := authctx.SessionIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -309,7 +398,7 @@ func (h *Handler) AuthSessionsList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthSessionsRevokeAll(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -333,7 +422,7 @@ func (h *Handler) AuthSessionsRevokeAll(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) AuthSessionRevokeOne(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -372,7 +461,7 @@ func (h *Handler) AuthSessionRevokeOne(w http.ResponseWriter, r *http.Request) {
 
 // AuthGetSubject returns the current authenticated subject identity and typed profile.
 func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
-	subjectIDRaw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	subjectIDRaw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -385,7 +474,7 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject, err := h.deps.Database.GetSubject(r.Context(), subjectID)
+	sub, err := h.deps.Database.GetSubject(r.Context(), subjectID)
 	if err != nil {
 		if errors.Is(err, db.ErrSubjectNotFound) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -397,10 +486,10 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp contract.SubjectResponse
-	resp.SubjectID = subject.ID.String()
-	resp.Kind = subject.Kind
+	resp.SubjectID = sub.ID.String()
+	resp.Kind = sub.Kind
 
-	switch subject.Kind {
+	switch sub.Kind {
 	case model.SubjectKindUser:
 		user, err := h.deps.Database.GetUser(r.Context(), subjectIDRaw, "", "")
 		if err != nil {
@@ -428,27 +517,26 @@ func (h *Handler) AuthGetSubject(w http.ResponseWriter, r *http.Request) {
 		}
 		resp.User = profile
 
-	case model.SubjectKindOrganization:
-		org, err := h.deps.Database.GetOrganizationByID(r.Context(), subjectID)
+	default:
+		// Other subject kinds are resolvable only when a profile resolver
+		// for that kind is registered via authapp options.
+		resolve, ok := h.deps.SubjectResolvers[sub.Kind]
+		if !ok {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		profile, err := resolve(r.Context(), subjectID)
 		if err != nil {
-			if errors.Is(err, db.ErrOrganizationNotFound) {
+			if errors.Is(err, subject.ErrProfileNotFound) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			h.deps.Log.Error("get_subject_org_failed", "subject_id", subjectIDRaw, "error", err)
+			h.deps.Log.Error("get_subject_profile_failed", "subject_id", subjectIDRaw, "kind", sub.Kind, "error", err)
 			http.Error(w, "Failed to get subject profile", http.StatusInternalServerError)
 			return
 		}
-		resp.IsActive = true
-		resp.Organization = &contract.SubjectOrganizationProfile{
-			OrganizationID: org.ID.String(),
-			Name:           org.Name,
-		}
-
-	default:
-		// service_account, system_actor, external_identity — not yet supported
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
+		resp.IsActive = profile.IsActive
+		resp.Organization = profile.Organization
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -463,11 +551,13 @@ func ToAuthLoginResponse(accessToken, refreshToken string) contract.AuthLoginRes
 
 func ToUserResponse(u model.User) contract.UserResponse {
 	user := contract.UserResponse{
-		ID:        u.ID.String(),
-		Username:  u.Username,
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		ID:              u.ID.String(),
+		Username:        u.Username,
+		Email:           u.Email,
+		EmailVerifiedAt: u.EmailVerifiedAt,
+		PhoneVerifiedAt: u.PhoneVerifiedAt,
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
 	}
 	if u.Phone != nil {
 		p := strconv.Itoa(int(*u.Phone))

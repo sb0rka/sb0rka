@@ -1,8 +1,11 @@
 import { apiRequest, apiRequestText } from "@/lib/api-client"
 
 export interface ProjectResponse {
+  public_id: string
   id: string
-  user_id: string
+  owner_subject_id: string
+  billing_subject_id: string
+  plan_id: string
   name: string
   description?: string
   is_active: boolean
@@ -64,17 +67,26 @@ export async function deactivateProject(
   })
 }
 
+export interface ResourceStateResponse {
+  runtime_state: string
+  created_at: string
+  updated_at: string
+}
+
 export interface DatabaseResponse {
-  resource_id: string
+  public_id: string
+  dbi_id: string
   name: string
+  normalized_name: string
   description?: string
-  next_table_id: number
-  sync_state?: "pending" | "ongoing" | "synced" | "failed"
-  desired_state?: "present" | "absent"
+  desired_runtime_state: "running" | "suspended" | "terminated"
+  resource_state?: ResourceStateResponse
+  tags?: TagResponse[]
 }
 
 export interface DatabaseListResponse {
-  databases: DatabaseResponse[]
+  project_id: string
+  dbis: DatabaseResponse[]
 }
 
 export interface CreateDatabaseRequest {
@@ -87,6 +99,7 @@ export interface CreateSecretRequest {
   description?: string
   secret_value: string
   payload_kind: "text" | "json"
+  purpose?: "llm_key"
 }
 
 export interface UpdateDatabaseRequest {
@@ -95,7 +108,7 @@ export interface UpdateDatabaseRequest {
 }
 
 export interface DatabaseWithSecretResponse {
-  database: DatabaseResponse
+  dbi: DatabaseResponse
   secret: SecretResponse
 }
 
@@ -105,7 +118,7 @@ export async function createDatabase(
 ): Promise<DatabaseWithSecretResponse> {
   return apiRequest<DatabaseWithSecretResponse>({
     method: "POST",
-    path: `/projects/${projectId}/database`,
+    path: `/projects/${projectId}/dbi`,
     json: data,
     base: "resource",
   })
@@ -115,7 +128,7 @@ export async function listDatabases(
   projectId: string,
 ): Promise<DatabaseListResponse> {
   return apiRequest<DatabaseListResponse>({
-    path: `/projects/${projectId}/databases`,
+    path: `/projects/${projectId}/dbis`,
     base: "resource",
   })
 }
@@ -125,7 +138,7 @@ export async function getDatabase(
   resourceId: string,
 ): Promise<DatabaseResponse> {
   return apiRequest<DatabaseResponse>({
-    path: `/projects/${projectId}/resources/${resourceId}/database`,
+    path: `/projects/${projectId}/resources/${resourceId}/dbi`,
     base: "resource",
   })
 }
@@ -137,7 +150,7 @@ export async function updateDatabase(
 ): Promise<DatabaseResponse> {
   return apiRequest<DatabaseResponse>({
     method: "PATCH",
-    path: `/projects/${projectId}/resources/${resourceId}/database`,
+    path: `/projects/${projectId}/resources/${resourceId}/dbi`,
     json: data,
     base: "resource",
   })
@@ -148,7 +161,8 @@ export async function getDatabaseUri(
   resourceId: string,
 ): Promise<string> {
   return apiRequestText({
-    path: `/projects/${projectId}/resources/${resourceId}/database/uri`,
+    method: "POST",
+    path: `/projects/${projectId}/resources/${resourceId}/dbi/uri/direct/reveal`,
     base: "resource",
   })
 }
@@ -310,22 +324,16 @@ export async function fetchQueryRunnerSchema(data: {
   }
 }
 
-export interface DeactivateResourceResponse {
-  resource_id: string
-  name: string
-  description?: string
-}
-
 export interface ProjectResourceResponse {
+  public_id: string
   id: string
-  project_id: string
-  is_active: boolean
-  resource_type: string
+  kind: string
   created_at: string
   updated_at: string
 }
 
 export interface ProjectResourceListResponse {
+  project_id: string
   resources: ProjectResourceResponse[]
 }
 
@@ -338,13 +346,13 @@ export async function listResources(
   })
 }
 
-export async function deactivateResource(
+export async function deleteDatabase(
   projectId: string,
   resourceId: string,
-): Promise<DeactivateResourceResponse> {
-  return apiRequest<DeactivateResourceResponse>({
-    method: "POST",
-    path: `/projects/${projectId}/resources/${resourceId}/deactivate`,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "DELETE",
+    path: `/projects/${projectId}/resources/${resourceId}/dbi`,
     base: "resource",
   })
 }
@@ -1583,19 +1591,30 @@ export async function resolveOptimalSql(
 }
 
 export interface SecretResponse {
+  public_id: string
   project_id: string
   secret_id: string
   name: string
   description?: string
-  payload_kind: "text" | "json"
+  payload_kind: "text" | "json" | "binary"
   protection_class: "server_managed"
   current_version_no: number
   created_by_subject_id: string
+  created_by_subject_kind: "user" | "service" | "agent" | null
   created_at: string
   updated_at: string
   scheduled_destroy_at?: string
   resource_state?: {
-    runtime_state: string
+    runtime_state:
+      | "syncing"
+      | "creating"
+      | "available"
+      | "stopping"
+      | "stopped"
+      | "starting"
+      | "deleting"
+      | "deleted"
+      | "failed"
     created_at: string
     updated_at: string
   }
@@ -1606,18 +1625,41 @@ export interface SecretResponse {
     created_at: string
     updated_at: string
   }
+  versions?: SecretVersionResponse[]
 }
 
-interface SecretVersionResponse {
+export interface SecretVersionResponse {
   project_id: string
   secret_id: string
   version_no: number
   state: "active" | "disabled"
-  payload_kind: "text" | "json" | "binary"
   created_by_subject_id: string
   created_at: string
   updated_at: string
   disabled_at?: string
+  digest?: SecretVersionDigestResponse
+}
+
+interface SecretVersionDigestResponse {
+  digest_alg: string
+  prefix: string
+  postfix: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SecretVersionListItem {
+  version_no: number
+  state: "active" | "disabled"
+  created_by_subject_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SecretVersionListResponse {
+  project_id: string
+  secret_id: string
+  versions: SecretVersionListItem[]
 }
 
 export interface SecretListResponse {
@@ -1629,8 +1671,12 @@ export interface RevealSecretValueResponse {
   project_id: string
   secret_id: string
   version_no: number
-  payload_kind: string
+  payload_kind: "text" | "json" | "binary"
   value: string
+}
+
+export interface UpdateSecretMetadataRequest {
+  description: string
 }
 
 export interface AttachResourceTagRequest {
@@ -1697,6 +1743,13 @@ export async function listSecrets(
   })
 }
 
+export function getSecret(projectId: string, secretId: string): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    path: `/projects/${projectId}/resources/${secretId}/secret`,
+    base: "resource",
+  })
+}
+
 export async function createSecret(
   projectId: string,
   data: CreateSecretRequest,
@@ -1705,6 +1758,31 @@ export async function createSecret(
     method: "POST",
     path: `/projects/${projectId}/secret`,
     json: data,
+    base: "resource",
+  })
+}
+
+export interface LLMModelListResponse {
+  models: { id: string }[]
+}
+
+export function listActiveModels(): Promise<LLMModelListResponse> {
+  return apiRequest<LLMModelListResponse>({
+    path: "/models",
+    base: "resource",
+    auth: false,
+  })
+}
+
+export function setSecretModels(
+  projectId: string,
+  secretId: string,
+  models: string[],
+): Promise<void> {
+  return apiRequest<void>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${secretId}/secret/models`,
+    json: { models },
     base: "resource",
   })
 }
@@ -1741,6 +1819,43 @@ export async function deleteSecret(projectId: string, resourceId: string): Promi
   return apiRequest<void>({
     method: "DELETE",
     path: `/projects/${projectId}/resources/${resourceId}/secret`,
+    base: "resource",
+  })
+}
+
+export async function disableSecret(
+  projectId: string,
+  secretId: string,
+  secretVersionNum: number,
+): Promise<void> {
+  return apiRequest<void>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${secretId}/secret/versions/${secretVersionNum}/disable`,
+    base: "resource",
+  })
+}
+
+export async function revealSecretVersion(
+  projectId: string,
+  secretId: string,
+  secretVersionNum: number,
+): Promise<RevealSecretValueResponse> {
+  return apiRequest<RevealSecretValueResponse>({
+    method: "POST",
+    path: `/projects/${projectId}/resources/${secretId}/secret/versions/${secretVersionNum}/reveal`,
+    base: "resource",
+  })
+}
+
+export async function updateSecretMetadata(
+  projectId: string,
+  secretId: string,
+  data: UpdateSecretMetadataRequest,
+): Promise<SecretResponse> {
+  return apiRequest<SecretResponse>({
+    method: "PATCH",
+    path: `/projects/${projectId}/resources/${secretId}/secret`,
+    json: data,
     base: "resource",
   })
 }

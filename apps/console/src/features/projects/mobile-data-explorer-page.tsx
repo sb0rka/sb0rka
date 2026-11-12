@@ -92,7 +92,7 @@ function buildNl2SqlSchemaSnapshot(
   nodes: DataExplorerDatabaseNode[],
   resourceId: string,
 ): string {
-  const node = nodes.find((n) => n.database.resource_id === resourceId)
+  const node = nodes.find((n) => n.database.public_id === resourceId)
   if (!node) return ""
   const lines: string[] = []
 
@@ -149,28 +149,28 @@ export function MobileDataExplorerPage() {
   const skipNextPersistRef = useRef(false)
 
   const nodes = useMemo(() => {
-    const databases = databasesQuery.data?.databases ?? []
+    const databases = databasesQuery.data?.dbis ?? []
     const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "base" })
     const sortedDatabases = [...databases].sort((a, b) =>
       collator.compare(a.name ?? "", b.name ?? ""),
     )
     const tablesByResourceId = new Map(
-      (schemaQuery.data ?? []).map((node) => [node.database.resource_id, node.tables]),
+      (schemaQuery.data ?? []).map((node) => [node.database.public_id, node.tables]),
     )
 
     return sortedDatabases.map((database) => ({
       database,
-      tables: tablesByResourceId.get(database.resource_id) ?? [],
+      tables: tablesByResourceId.get(database.public_id) ?? [],
     }))
-  }, [databasesQuery.data?.databases, locale, schemaQuery.data])
+  }, [databasesQuery.data?.dbis, locale, schemaQuery.data])
 
   useEffect(() => {
     if (nodes.length === 0) return
     setSelectedResourceId((current) => {
-      const ids = new Set(nodes.map((node) => node.database.resource_id))
+      const ids = new Set(nodes.map((node) => node.database.public_id))
       const stored = loadSelectedDatabaseId(id)
       if (stored && ids.has(stored)) return stored
-      if (!current || !ids.has(current)) return nodes[0].database.resource_id
+      if (!current || !ids.has(current)) return nodes[0].database.public_id
       return current
     })
   }, [id, nodes])
@@ -196,7 +196,7 @@ export function MobileDataExplorerPage() {
   }, [id, selectedResourceId])
 
   const selectedNode = useMemo(
-    () => nodes.find((node) => node.database.resource_id === selectedResourceId),
+    () => nodes.find((node) => node.database.public_id === selectedResourceId),
     [nodes, selectedResourceId],
   )
   const nl2sqlSchema = useMemo(() => {
@@ -229,8 +229,8 @@ export function MobileDataExplorerPage() {
       }
 
       const [openaiUrlResponse, openaiKeyResponse] = await Promise.all([
-        revealSecretValue(id, openaiUrlSecret.secret_id),
-        revealSecretValue(id, openaiKeySecret.secret_id),
+        revealSecretValue(id, openaiUrlSecret.public_id),
+        revealSecretValue(id, openaiKeySecret.public_id),
       ])
 
       const openaiUrl = openaiUrlResponse.value.trim()
@@ -498,7 +498,7 @@ function MobileExplorerHeader({
 }) {
   const { t } = useTranslation()
   const selectedName =
-    nodes.find((node) => node.database.resource_id === selectedResourceId)?.database.name ??
+    nodes.find((node) => node.database.public_id === selectedResourceId)?.database.name ??
     t("dataExplorer.selectDatabase")
   const sqlTabLabel = isQueryRunning ? t("databaseQuery.running") : t("dataExplorer.tabSql")
 
@@ -523,8 +523,8 @@ function MobileExplorerHeader({
         <DropdownMenuContent align="start" className="max-h-[60vh] w-[calc(100dvw-1.5rem)] overflow-y-auto">
           {nodes.map((node) => (
             <DropdownMenuItem
-              key={node.database.resource_id}
-              onSelect={() => onSelectDatabase(node.database.resource_id)}
+              key={node.database.public_id}
+              onSelect={() => onSelectDatabase(node.database.public_id)}
               className="gap-2"
             >
               <Database className="h-4 w-4 text-muted-foreground" />
@@ -636,7 +636,7 @@ function MobileSchemaPanel({
 
   useEffect(() => {
     setExpandedTables({})
-  }, [node?.database.resource_id])
+  }, [node?.database.public_id])
 
   if (isLoading) {
     return <MobileExplorerStateMessage message={t("dataExplorer.loadingSchema")} />

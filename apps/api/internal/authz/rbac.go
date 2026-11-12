@@ -39,6 +39,7 @@ var rolePermissions = map[string]map[Action]struct{}{
 		ActionSecretVersionRead:    {},
 		ActionSecretVersionCreate:  {},
 		ActionSecretVersionDisable: {},
+		ActionSecretAgentGrant:     {},
 		ActionTagList:              {},
 		ActionTagCreate:            {},
 		ActionTagUpdate:            {},
@@ -72,6 +73,7 @@ var rolePermissions = map[string]map[Action]struct{}{
 		ActionSecretVersionRead:    {},
 		ActionSecretVersionCreate:  {},
 		ActionSecretVersionDisable: {},
+		ActionSecretAgentGrant:     {},
 		ActionTagList:              {},
 		ActionTagCreate:            {},
 		ActionTagUpdate:            {},
@@ -99,6 +101,7 @@ var rolePermissions = map[string]map[Action]struct{}{
 		ActionSecretVersionList:    {},
 		ActionSecretVersionRead:    {},
 		ActionSecretVersionCreate:  {},
+		ActionSecretAgentGrant:     {},
 		ActionTagList:              {},
 		ActionTagCreate:            {},
 		ActionTagUpdate:            {},
@@ -118,6 +121,17 @@ var rolePermissions = map[string]map[Action]struct{}{
 		ActionSecretVersionRead:    {},
 		ActionTagList:              {},
 	},
+	model.PrjMemberRoleAgent: {
+		ActionProjectRead:          {},
+		ActionSecretList:           {},
+		ActionSecretReadMeta:       {},
+		ActionSecretCreate:         {},
+		ActionSecretReveal:         {},
+		ActionSecretVersionList:    {},
+		ActionSecretVersionRead:    {},
+		ActionSecretVersionCreate:  {},
+		ActionSecretVersionDisable: {},
+	},
 }
 
 // RBACAuthorizer is a role-based Authorizer backed by the database.
@@ -126,7 +140,8 @@ type RBACAuthorizer struct {
 }
 
 type projectMemberStore interface {
-	GetProjectMember(ctx context.Context, projectID string, subjectID uuid.UUID) (model.ProjectMember, error)
+	GetProjectMember(ctx context.Context, projectID uuid.UUID, subjectID uuid.UUID) (model.ProjectMember, error)
+	GetProjectMemberByPublicID(ctx context.Context, projectPublicID string, subjectID uuid.UUID) (model.ProjectMember, error)
 }
 
 func NewRBACAuthorizer(database projectMemberStore) *RBACAuthorizer {
@@ -137,12 +152,12 @@ func NewRBACAuthorizer(database projectMemberStore) *RBACAuthorizer {
 // authorization denials are expressed via AuthorizationDecision.Allowed == false.
 func (a *RBACAuthorizer) Authorize(
 	ctx context.Context,
-	subjectID uuid.UUID,
+	principal Principal,
 	action Action,
 	resource ResourceRef,
 ) (*AuthorizationDecision, error) {
 	dec := &AuthorizationDecision{
-		SubjectID: subjectID,
+		SubjectID: principal.SubjectID,
 		Action:    action,
 		Resource:  resource,
 	}
@@ -155,7 +170,13 @@ func (a *RBACAuthorizer) Authorize(
 		return dec, nil
 	}
 
-	membership, err := a.db.GetProjectMember(ctx, resource.ID, subjectID)
+	var membership model.ProjectMember
+	var err error
+	if resource.PublicID != "" {
+		membership, err = a.db.GetProjectMemberByPublicID(ctx, resource.PublicID, principal.SubjectID)
+	} else {
+		membership, err = a.db.GetProjectMember(ctx, resource.ID, principal.SubjectID)
+	}
 	if err != nil {
 		if errors.Is(err, db.ErrProjectMemberNotFound) {
 			// Non-member is a valid deny, not a server error.
@@ -166,6 +187,7 @@ func (a *RBACAuthorizer) Authorize(
 		return nil, err
 	}
 
+	dec.Resource.ID = membership.ProjectID
 	actions, ok := rolePermissions[membership.Role]
 	if !ok {
 		dec.Allowed = false

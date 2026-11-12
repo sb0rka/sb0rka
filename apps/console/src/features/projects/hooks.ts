@@ -19,17 +19,24 @@ import {
   updateDatabase,
   getDatabaseUri,
   runDatabaseQuery,
-  deactivateResource,
+  deleteDatabase,
+  getSecret,
   createSecret,
   updateSecretValue,
   revealSecretValue,
+  disableSecret,
+  revealSecretVersion,
   listResources,
   getResourceMetricTimeseries,
   fetchQueryRunnerSchema,
   deleteSecret,
+  updateSecretMetadata,
 } from "./api"
 import { mayAffectExplorerSchema } from "./may-affect-explorer-schema"
-import { databaseSyncStatusNeedsPolling } from "./components/get-database-status-label"
+import {
+  databaseStatusKey,
+  databaseSyncStatusNeedsPolling,
+} from "./components/get-database-status-label"
 import type {
   ProjectResponse,
   ProjectListResponse,
@@ -44,12 +51,14 @@ import type {
   ProjectTagListResponse,
   DatabaseResponse,
   UpdateDatabaseRequest,
+  SecretResponse,
   RevealSecretValueResponse,
   ProjectResourceListResponse,
   ObservabilityMetricPoint,
   ResourceMetricTimeseries,
   RunDatabaseQueryRequest,
   RunDatabaseQueryResponse,
+  UpdateSecretMetadataRequest,
 } from "./api"
 import { useToast } from "@sb0rka/ui"
 
@@ -92,7 +101,7 @@ export function useDatabases(projectId: string) {
     queryFn: () => listDatabases(projectId),
     enabled: isAuthenticated && !!projectId,
     refetchInterval: (query) => {
-      const rows = query.state.data?.databases
+      const rows = query.state.data?.dbis
       if (!rows?.length) return false
       return rows.some(databaseSyncStatusNeedsPolling)
         ? DATABASE_SYNC_STATUS_POLL_MS
@@ -113,14 +122,15 @@ export function useDatabaseStatusToasts(projectId: string, databases: DatabaseRe
 
   const queries = useQueries({
     queries: databases.map((db) => ({
-      queryKey: ["projects", projectId, "resources", db.resource_id, "database"],
-      queryFn: () => getDatabase(projectId, db.resource_id),
+      queryKey: ["projects", projectId, "resources", db.public_id, "database"],
+      queryFn: () => getDatabase(projectId, db.public_id),
       enabled: isAuthenticated && !!projectId,
       refetchInterval: (query: {
         state: { data?: DatabaseResponse }
       }) => {
-        const syncState = query.state.data?.sync_state
-        return syncState === "synced" || syncState === "failed" ? false : 3000
+        const row = query.state.data
+        if (!row) return 3000
+        return databaseSyncStatusNeedsPolling(row) ? 3000 : false
       }
     })),
   })
@@ -129,24 +139,24 @@ export function useDatabaseStatusToasts(projectId: string, databases: DatabaseRe
     for (const query of queries) {
       const db = query.data
       if (!db) continue
-      const prev = prevSyncStateRef.current.get(db.resource_id)
-      const curr = db.sync_state
-      const name = db.name || db.resource_id
+      const prev = prevSyncStateRef.current.get(db.public_id)
+      const curr = databaseStatusKey(db)
+      const name = db.name || db.public_id
 
       if (prev === undefined) {
-        prevSyncStateRef.current.set(db.resource_id, curr)
+        prevSyncStateRef.current.set(db.public_id, curr)
         continue
       }
 
       if (prev !== curr) {
-        if (curr === "ongoing") {
+        if (curr === "pending" && prev !== "pending") {
           showSuccess(t("databases.ongoingToast", { name }))
-        } else if (curr === "synced" && db.desired_state === "present") {
+        } else if (curr === "online") {
           showSuccess(t("databases.onlineToast", { name }))
         } else if (curr === "failed") {
           showError(t("databases.createError", { name }))
         }
-        prevSyncStateRef.current.set(db.resource_id, curr)
+        prevSyncStateRef.current.set(db.public_id, curr)
       }
     }
   }, [queries, t, showSuccess, showError])
@@ -228,7 +238,7 @@ export function useRunDatabaseQuery() {
         (current) => {
           if (!current) return current
           return current.map((item) =>
-            item.database.resource_id === variables.database_id
+            item.database.public_id === variables.database_id
               ? { ...item, status: "healthy", errorMessage: undefined }
               : item,
           )
@@ -278,13 +288,13 @@ export function useDataExplorerSchema(projectId: string) {
   return useQuery<DataExplorerDatabaseNode[]>({
     queryKey: ["projects", projectId, "dataExplorer", "schema"],
     queryFn: async () => {
-      const { databases } = await listDatabases(projectId)
+      const { dbis } = await listDatabases(projectId)
       const out: DataExplorerDatabaseNode[] = []
 
-      for (const database of databases) {
+      for (const database of dbis) {
         const payload = await fetchQueryRunnerSchema({
           project_id: projectId,
-          database_id: database.resource_id,
+          database_id: database.public_id,
         })
         const tables: DataExplorerTableNode[] = payload.tables.map((t) => ({
           schema: t.schema,
@@ -311,14 +321,14 @@ export function useDataExplorerDatabaseHealth(projectId: string) {
   return useQuery<DataExplorerDatabaseHealth[]>({
     queryKey: ["projects", projectId, "dataExplorer", "databaseHealth"],
     queryFn: async () => {
-      const { databases } = await listDatabases(projectId)
+      const { dbis } = await listDatabases(projectId)
 
       const checks = await Promise.all(
-        databases.map(async (database): Promise<DataExplorerDatabaseHealth> => {
+        dbis.map(async (database): Promise<DataExplorerDatabaseHealth> => {
           try {
             await runDatabaseQuery({
               project_id: projectId,
-              database_id: database.resource_id,
+              database_id: database.public_id,
               query: "SELECT 1;",
             })
 
@@ -363,7 +373,7 @@ export function useDeactivateResource(projectId: string, resourceId?: string) {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: () => deactivateResource(projectId, resourceId as string),
+    mutationFn: () => deleteDatabase(projectId, resourceId as string),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "databases"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
@@ -454,7 +464,7 @@ export function useUpdateProject() {
         if (!old) return old
         return {
           projects: old.projects.map((p) =>
-            p.id === variables.id
+            p.public_id === variables.id
               ? {
                   ...p,
                   ...(variables.name !== undefined && { name: variables.name }),
@@ -493,7 +503,7 @@ export function useDeactivateProject() {
       qc.setQueryData<ProjectListResponse>(PROJECTS_KEY, (old) => {
         if (!old) return old
         return {
-          projects: old.projects.filter((p) => p.id !== projectId),
+          projects: old.projects.filter((p) => p.public_id !== projectId),
         }
       })
 
@@ -578,14 +588,19 @@ export function useResources(projectId: string) {
   })
 }
 
-export function useRevealSecretValue(projectId: string, resourceId?: string) {
-  const qc = useQueryClient()
+export function useSecret(projectId: string, secretId: string) {
+  const { isAuthenticated } = useAuth()
 
+  return useQuery<SecretResponse>({
+    queryKey: ["projects", projectId, "secrets", secretId],
+    queryFn: () => getSecret(projectId, secretId),
+    enabled: isAuthenticated && !!projectId && !!secretId,
+  })
+}
+
+export function useRevealSecretValue(projectId: string, resourceId?: string) {
   return useMutation<RevealSecretValueResponse>({
     mutationFn: () => revealSecretValue(projectId, resourceId as string),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
-    },
   })
 }
 
@@ -617,15 +632,48 @@ export function useSecretValue(projectId: string, resourceId?: string) {
   })
 }
 
+export function useDisableSecret(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationKey: ["projects", projectId, "secrets", secretId, "disable"],
+    mutationFn: (versionNo: number) => disableSecret(projectId, secretId, versionNo),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
+    },
+  })
+}
+
+export function useRevealSecretVersionValue(
+  projectId: string,
+  secretId: string,
+  versionNo: number,
+) {
+  return useMutation<RevealSecretValueResponse>({
+    mutationFn: () => revealSecretVersion(projectId, secretId, versionNo),
+  })
+}
+
+export function useUpdateSecretMetadata(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation<SecretResponse, Error, UpdateSecretMetadataRequest>({
+    mutationFn: (data: UpdateSecretMetadataRequest) => updateSecretMetadata(projectId, secretId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
+    },  
+  })
+}
+
 export function useProjectTableCount(projectId: string) {
   const { data: dbData } = useDatabases(projectId)
-  const databases = dbData?.databases ?? []
+  const databases = dbData?.dbis ?? []
 
   return useQuery({
     queryKey: ["projects", projectId, "tableCount"],
     queryFn: async () => {
       const results = await Promise.all(
-        databases.map((db) => listTables(projectId, db.resource_id)),
+        databases.map((db) => listTables(projectId, db.public_id)),
       )
       return results.reduce((sum, r) => sum + r.tables.length, 0)
     },

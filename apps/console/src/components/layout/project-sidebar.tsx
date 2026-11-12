@@ -3,6 +3,7 @@ import { useMatch, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   BarChart3,
+  Cpu,
   Database,
   KeyRound,
   LayoutGrid,
@@ -23,11 +24,13 @@ import {
   type ProjectNavIconAnimation,
 } from "@/components/layout/project-nav-icon"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { SidebarLogo } from "@/components/layout/sidebar-logo"
 
 type ProjectTabIcon = ComponentType<{ className?: string }>
 
 export const projectTabIcon = {
   overview: BarChart3,
+  models: Cpu,
   databases: Database,
   "data-explorer": LayoutGrid,
   secrets: KeyRound,
@@ -44,6 +47,7 @@ type ProjectNavItem = {
 
 const projectNavItems: ProjectNavItem[] = [
   { key: "overview", tab: "overview", labelKey: "tabs.overview", icon: projectTabIcon.overview, iconAnimation: "chart" as const },
+  { key: "models", tab: "models", labelKey: "tabs.models", icon: projectTabIcon.models, iconAnimation: "chart" as const },
   { key: "databases", tab: "databases", labelKey: "tabs.databases", icon: projectTabIcon.databases, iconAnimation: "database" as const },
   { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: projectTabIcon["data-explorer"], iconAnimation: "database" as const },
   { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: projectTabIcon.secrets, iconAnimation: "key" as const },
@@ -83,38 +87,45 @@ export function ProjectSidebar({
   return (
     <aside
       className={cn(
-        "flex h-full shrink-0 flex-col justify-between overflow-hidden border-r border-border bg-[var(--sidebar-bg)] transition-[width] duration-[400ms] ease-out",
+        "relative flex h-full shrink-0 flex-col justify-between overflow-hidden bg-[var(--sidebar-bg)] transition-[width] duration-[400ms] ease-out",
         collapsed ? "w-[60px] [--sidebar-nav-pl:0.5rem]" : "w-[200px] [--sidebar-nav-pl:1rem]",
       )}
     >
-      <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)] pt-2">
-        {projectNavItems.map((item) => (
+      <div
+        className="pointer-events-none absolute bottom-0 right-0 top-[var(--app-header-height)] w-px bg-border"
+        aria-hidden
+      />
+      <div className="flex flex-col gap-2">
+        <SidebarLogo collapsed={collapsed} />
+        <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">
+          {projectNavItems.map((item) => (
+            <ProjectNavLink
+              key={item.tab}
+              to={getTabHref(item.tab)}
+              isActive={activeTab === item.tab}
+              icon={item.icon}
+              animation={item.iconAnimation}
+              collapsed={collapsed}
+            >
+              {t(item.labelKey)}
+            </ProjectNavLink>
+          ))}
+
+          <div className="relative h-px w-full">
+            <Separator className={dividerClass(collapsed)} />
+          </div>
+
           <ProjectNavLink
-            key={item.tab}
-            to={getTabHref(item.tab)}
-            isActive={activeTab === item.tab}
-            icon={item.icon}
-            animation={item.iconAnimation}
+            to={getTabHref(settingsNavItem.tab)}
+            isActive={activeTab === settingsNavItem.tab}
+            icon={settingsNavItem.icon}
+            animation={settingsNavItem.iconAnimation}
             collapsed={collapsed}
           >
-            {t(item.labelKey)}
+            {t(settingsNavItem.labelKey)}
           </ProjectNavLink>
-        ))}
-
-        <div className="relative h-px w-full">
-          <Separator className={dividerClass(collapsed)} />
-        </div>
-
-        <ProjectNavLink
-          to={getTabHref(settingsNavItem.tab)}
-          isActive={activeTab === settingsNavItem.tab}
-          icon={settingsNavItem.icon}
-          animation={settingsNavItem.iconAnimation}
-          collapsed={collapsed}
-        >
-          {t(settingsNavItem.labelKey)}
-        </ProjectNavLink>
-      </nav>
+        </nav>
+      </div>
 
       <div className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)] py-4">
         <div className="relative h-px w-full">

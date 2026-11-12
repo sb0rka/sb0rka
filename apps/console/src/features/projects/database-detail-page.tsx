@@ -16,7 +16,7 @@ import {
   Input,
   Label,
 } from "@sb0rka/ui"
-import { getResolvedLanguage } from "@/lib/i18n"
+import { formatDateOnly } from "@/lib/format-date"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { useToast } from "@sb0rka/ui"
 import { AddTagDialog } from "./components/add-tag-dialog"
@@ -32,6 +32,7 @@ import {
 import { formatDraftTagLabel } from "./parse-draft-tag"
 import type { DatabaseResponse } from "./api"
 import {
+  databaseStatusKey,
   getDatabaseStatusLabel,
   isDatabaseCredentialsAvailable,
 } from "./components/get-database-status-label"
@@ -71,13 +72,6 @@ function maskPostgresUri(parsed: {
   return `postgresql://****:****@${parsed.hostname}:${parsed.port}/${parsed.database}`
 }
 
-function formatDateOnly(value: string | undefined, locale: string): string {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date)
-}
-
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     return error.message || fallback
@@ -89,15 +83,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function databaseDetailStatusBadgeVariant(
-  sync_state?: DatabaseResponse["sync_state"],
-  desired_state?: DatabaseResponse["desired_state"],
+  db: Pick<DatabaseResponse, "desired_runtime_state" | "resource_state">,
 ): "active" | "inactive" | "destructive" {
-  if (isDatabaseCredentialsAvailable({ sync_state, desired_state })) {
-    return "active"
-  }
-  if (sync_state === "failed") {
-    return "destructive"
-  }
+  const status = databaseStatusKey(db)
+  if (status === "online") return "active"
+  if (status === "failed") return "destructive"
   return "inactive"
 }
 
@@ -242,7 +232,6 @@ function SensitiveConnectionField({
 
 export function DatabaseDetailPage() {
   const { t } = useTranslation()
-  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const { showSuccess, showError } = useToast()
   const { id = "", resourceId = "" } = useParams<{
@@ -277,7 +266,7 @@ export function DatabaseDetailPage() {
   )
 
   const resourceTimestamps = useMemo(() => {
-    const row = resourcesQuery.data?.resources.find((r) => r.id === normalizedResourceId)
+    const row = resourcesQuery.data?.resources.find((r) => r.public_id === normalizedResourceId)
     return row ? { createdAt: row.created_at, updatedAt: row.updated_at } : null
   }, [resourcesQuery.data?.resources, normalizedResourceId])
 
@@ -505,17 +494,8 @@ export function DatabaseDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {databaseQuery.data.name}
           </h1>
-          <Badge
-            variant={databaseDetailStatusBadgeVariant(
-              databaseQuery.data.sync_state,
-              databaseQuery.data.desired_state,
-            )}
-          >
-            {getDatabaseStatusLabel(
-              t,
-              databaseQuery.data.sync_state,
-              databaseQuery.data.desired_state,
-            )}
+          <Badge variant={databaseDetailStatusBadgeVariant(databaseQuery.data)}>
+            {getDatabaseStatusLabel(t, databaseQuery.data)}
           </Badge>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -545,13 +525,13 @@ export function DatabaseDetailPage() {
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
               <p className="text-base text-muted-foreground">
-                {formatDateOnly(resourceTimestamps?.createdAt, locale)}
+                {formatDateOnly(resourceTimestamps?.createdAt)}
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
               <p className="text-base text-muted-foreground">
-                {formatDateOnly(resourceTimestamps?.updatedAt, locale)}
+                {formatDateOnly(resourceTimestamps?.updatedAt)}
               </p>
             </div>
           </CardContent>
@@ -592,11 +572,7 @@ export function DatabaseDetailPage() {
             {!credentialsEnabled ? (
               <p className="text-sm text-muted-foreground">
                 {t("databases.credentialsUnavailableNotice", {
-                  status: getDatabaseStatusLabel(
-                    t,
-                    databaseQuery.data.sync_state,
-                    databaseQuery.data.desired_state,
-                  ),
+                  status: getDatabaseStatusLabel(t, databaseQuery.data),
                 })}
               </p>
             ) : null}

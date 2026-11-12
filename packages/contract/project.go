@@ -10,9 +10,10 @@ const (
 )
 
 type CreateProjectRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	PlanID      string `json:"plan_id"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	PlanID         string `json:"plan_id" format:"uuid"`
+	OwnerSubjectID string `json:"owner_subject_id,omitempty" format:"uuid"`
 }
 
 type UpdateProjectRequest struct {
@@ -21,10 +22,11 @@ type UpdateProjectRequest struct {
 }
 
 type ProjectResponse struct {
-	ID               string    `json:"id"`
-	OwnerSubjectID   string    `json:"owner_subject_id"`
-	BillingSubjectID string    `json:"billing_subject_id"`
-	PlanID           string    `json:"plan_id"`
+	PublicID         string    `json:"public_id"`
+	ID               string    `json:"id" format:"uuid"`
+	OwnerSubjectID   string    `json:"owner_subject_id" format:"uuid"`
+	BillingSubjectID string    `json:"billing_subject_id" format:"uuid"`
+	PlanID           string    `json:"plan_id" format:"uuid"`
 	Name             string    `json:"name"`
 	Description      *string   `json:"description,omitempty"`
 	IsActive         bool      `json:"is_active"`
@@ -37,7 +39,7 @@ type ProjectListResponse struct {
 }
 
 type ProjectMemberResponse struct {
-	ProjectID string    `json:"project_id"`
+	ProjectID string    `json:"project_id" format:"uuid"`
 	SubjectID string    `json:"subject_id"`
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
@@ -45,7 +47,7 @@ type ProjectMemberResponse struct {
 }
 
 type ProjectMemberListResponse struct {
-	ProjectID string                      `json:"project_id"`
+	ProjectID string                      `json:"project_id" format:"uuid"`
 	Members   []ProjectMemberItemResponse `json:"members"`
 }
 

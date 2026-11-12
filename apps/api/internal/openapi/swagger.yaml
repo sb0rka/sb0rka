@@ -1,14 +1,17 @@
-basePath: /
 definitions:
   contract.ApplySecretPasswordVerifierResponse:
     properties:
       dbi_id:
+        format: uuid
         type: string
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.AttachResourceTagRequest:
@@ -42,24 +45,88 @@ definitions:
         type: string
       name:
         type: string
+      owner_subject_id:
+        format: uuid
+        type: string
       plan_id:
+        format: uuid
         type: string
     type: object
   contract.CreateSecretRequest:
     properties:
+      agent_subject_id:
+        type: string
       description:
         type: string
       name:
         type: string
       payload_kind:
+        enum:
+        - text
+        - json
+        - binary
+        type: string
+      purpose:
         type: string
       secret_value:
         type: string
     type: object
-  contract.CreateSecretVersionRequest:
+  contract.CreateSecretResponse:
     properties:
+      agent_subject_ids:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      created_by_subject_id:
+        format: uuid
+        type: string
+      created_by_subject_kind:
+        enum:
+        - user
+        - service
+        - agent
+        type: string
+        x-nullable: true
+      current_version_no:
+        format: int32
+        type: integer
+      description:
+        type: string
+      name:
+        type: string
+      password_verifier:
+        $ref: '#/definitions/contract.SecretPasswordVerifierResponse'
       payload_kind:
         type: string
+      project_id:
+        format: uuid
+        type: string
+      protection_class:
+        type: string
+      public_id:
+        type: string
+      resource_state:
+        $ref: '#/definitions/contract.ResourceStateResponse'
+      scheduled_destroy_at:
+        type: string
+      secret_id:
+        format: uuid
+        type: string
+      tags:
+        items:
+          $ref: '#/definitions/contract.TagResponse'
+        type: array
+      updated_at:
+        type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionResponse'
+        type: array
+    type: object
+  contract.CreateSecretVersionRequest:
+    properties:
       secret_value:
         type: string
     type: object
@@ -70,6 +137,9 @@ definitions:
       host:
         type: string
       password_secret_id:
+        format: uuid
+        type: string
+      password_secret_public_id:
         type: string
       port:
         type: integer
@@ -83,11 +153,13 @@ definitions:
           $ref: '#/definitions/contract.DBInstanceResponse'
         type: array
       project_id:
+        format: uuid
         type: string
     type: object
   contract.DBInstanceResponse:
     properties:
       dbi_id:
+        format: uuid
         type: string
       description:
         type: string
@@ -96,6 +168,8 @@ definitions:
       name:
         type: string
       normalized_name:
+        type: string
+      public_id:
         type: string
       resource_state:
         $ref: '#/definitions/contract.ResourceStateResponse'
@@ -111,13 +185,70 @@ definitions:
       secret:
         $ref: '#/definitions/contract.SecretResponse'
     type: object
+  contract.GrantSecretAgentRequest:
+    properties:
+      subject_id:
+        type: string
+    type: object
+  contract.InfoResponse:
+    properties:
+      deployment:
+        enum:
+        - self_hosted
+        - cloud
+        type: string
+      edition:
+        enum:
+        - community
+        - enterprise
+        type: string
+      version:
+        type: string
+    required:
+    - deployment
+    - edition
+    - version
+    type: object
+  contract.PlanQuotaResponse:
+    properties:
+      code:
+        type: string
+      description_en:
+        type: string
+      description_ru:
+        type: string
+      id:
+        format: uuid
+        type: string
+      kind:
+        enum:
+        - snapshot
+        - periodic
+        - balance
+        type: string
+      limit_value:
+        format: int64
+        type: integer
+      name_en:
+        type: string
+      name_ru:
+        type: string
+      scope:
+        type: string
+      unit:
+        type: string
+      window:
+        type: string
+    type: object
   contract.PlanResponse:
     properties:
       code:
         type: string
       created_at:
         type: string
-      description:
+      description_en:
+        type: string
+      description_ru:
         type: string
       id:
         type: string
@@ -127,8 +258,39 @@ definitions:
         type: boolean
       kind:
         type: string
-      name:
+      name_en:
         type: string
+      name_ru:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  contract.PlanWithQuotasResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description_en:
+        type: string
+      description_ru:
+        type: string
+      id:
+        type: string
+      is_available:
+        type: boolean
+      is_public:
+        type: boolean
+      kind:
+        type: string
+      name_en:
+        type: string
+      name_ru:
+        type: string
+      quotas:
+        items:
+          $ref: '#/definitions/contract.PlanQuotaResponse'
+        type: array
       updated_at:
         type: string
     type: object
@@ -157,6 +319,7 @@ definitions:
           $ref: '#/definitions/contract.ProjectMemberItemResponse'
         type: array
       project_id:
+        format: uuid
         type: string
     type: object
   contract.ProjectMemberResponse:
@@ -164,6 +327,7 @@ definitions:
       created_at:
         type: string
       project_id:
+        format: uuid
         type: string
       role:
         type: string
@@ -176,18 +340,22 @@ definitions:
     properties:
       created_at:
         type: string
+      entitled:
+        format: int64
+        type: integer
       limit_value:
         type: integer
       plan_id:
         type: string
       quota_definition:
         $ref: '#/definitions/contract.QuotaDefinitionSnippet'
-      updated_at:
-        type: string
     type: object
   contract.ProjectQuotaListResponse:
     properties:
-      project_id:
+      id:
+        format: uuid
+        type: string
+      public_id:
         type: string
       quotas:
         items:
@@ -197,20 +365,26 @@ definitions:
   contract.ProjectResponse:
     properties:
       billing_subject_id:
+        format: uuid
         type: string
       created_at:
         type: string
       description:
         type: string
       id:
+        format: uuid
         type: string
       is_active:
         type: boolean
       name:
         type: string
       owner_subject_id:
+        format: uuid
         type: string
       plan_id:
+        format: uuid
+        type: string
+      public_id:
         type: string
       updated_at:
         type: string
@@ -228,15 +402,27 @@ definitions:
     properties:
       code:
         type: string
-      description:
+      description_en:
+        type: string
+      description_ru:
         type: string
       id:
         type: string
-      name:
+      kind:
+        enum:
+        - snapshot
+        - periodic
+        - balance
+        type: string
+      name_en:
+        type: string
+      name_ru:
         type: string
       scope:
         type: string
       unit:
+        type: string
+      window:
         type: string
     type: object
   contract.ResourceListItem:
@@ -244,8 +430,11 @@ definitions:
       created_at:
         type: string
       id:
+        format: uuid
         type: string
       kind:
+        type: string
+      public_id:
         type: string
       updated_at:
         type: string
@@ -253,6 +442,7 @@ definitions:
   contract.ResourceListResponse:
     properties:
       project_id:
+        format: uuid
         type: string
       resources:
         items:
@@ -284,12 +474,15 @@ definitions:
       payload_kind:
         type: string
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       value:
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.SecretListItem:
@@ -297,8 +490,17 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
+        format: uuid
         type: string
+      created_by_subject_kind:
+        enum:
+        - user
+        - service
+        - agent
+        type: string
+        x-nullable: true
       current_version_no:
+        format: int32
         type: integer
       description:
         type: string
@@ -308,7 +510,10 @@ definitions:
         type: string
       protection_class:
         type: string
+      public_id:
+        type: string
       secret_id:
+        format: uuid
         type: string
       updated_at:
         type: string
@@ -316,6 +521,7 @@ definitions:
   contract.SecretListResponse:
     properties:
       project_id:
+        format: uuid
         type: string
       secrets:
         items:
@@ -329,17 +535,31 @@ definitions:
       password_desired_state:
         type: string
       password_desired_version:
+        format: int32
         type: integer
       updated_at:
         type: string
     type: object
   contract.SecretResponse:
     properties:
+      agent_subject_ids:
+        items:
+          type: string
+        type: array
       created_at:
         type: string
       created_by_subject_id:
+        format: uuid
         type: string
+      created_by_subject_kind:
+        enum:
+        - user
+        - service
+        - agent
+        type: string
+        x-nullable: true
       current_version_no:
+        format: int32
         type: integer
       description:
         type: string
@@ -350,19 +570,44 @@ definitions:
       payload_kind:
         type: string
       project_id:
+        format: uuid
         type: string
       protection_class:
+        type: string
+      public_id:
         type: string
       resource_state:
         $ref: '#/definitions/contract.ResourceStateResponse'
       scheduled_destroy_at:
         type: string
       secret_id:
+        format: uuid
         type: string
       tags:
         items:
           $ref: '#/definitions/contract.TagResponse'
         type: array
+      updated_at:
+        type: string
+      versions:
+        items:
+          $ref: '#/definitions/contract.SecretVersionResponse'
+        type: array
+    type: object
+  contract.SecretVersionDigestResponse:
+    properties:
+      created_at:
+        type: string
+      digest_alg:
+        type: string
+      postfix:
+        maxLength: 3
+        minLength: 3
+        type: string
+      prefix:
+        maxLength: 14
+        minLength: 14
+        type: string
       updated_at:
         type: string
     type: object
@@ -371,21 +616,23 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
-        type: string
-      payload_kind:
+        format: uuid
         type: string
       state:
         type: string
       updated_at:
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.SecretVersionListResponse:
     properties:
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       versions:
         items:
@@ -397,20 +644,24 @@ definitions:
       created_at:
         type: string
       created_by_subject_id:
+        format: uuid
         type: string
+      digest:
+        $ref: '#/definitions/contract.SecretVersionDigestResponse'
       disabled_at:
         type: string
-      payload_kind:
-        type: string
       project_id:
+        format: uuid
         type: string
       secret_id:
+        format: uuid
         type: string
       state:
         type: string
       updated_at:
         type: string
       version_no:
+        format: int32
         type: integer
     type: object
   contract.TagListEntry:
@@ -504,12 +755,11 @@ definitions:
     type: object
 info:
   contact: {}
-  description: 'REST API платформы Sb0rka: проекты, базы данных, секреты, теги.'
-  title: Sb0rka Platform API
-  version: 0.1.0
 paths:
   /account/initialize:
     post:
+      description: Назначает план аккаунта по умолчанию. Повторный вызов сохраняет
+        существующий план; перед созданием проекта инициализация обязательна.
       responses:
         "204":
           description: No Content
@@ -560,15 +810,41 @@ paths:
       summary: Получить тариф аккаунта
       tags:
       - iam
-  /plan:
+  /info:
     get:
+      description: Возвращает версию, редакцию и тип размещения Platform API.
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/contract.PlanResponse'
+            $ref: '#/definitions/contract.InfoResponse'
+      summary: Информация о сборке API
+      tags:
+      - system
+  /plan/{plan_id}:
+    get:
+      description: Авторизованному пользователю доступны публичные активные тарифы,
+        а также тариф его аккаунта и тарифы проектов, в которых он состоит.
+      parameters:
+      - description: UUID тарифа
+        format: uuid
+        in: path
+        name: plan_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.PlanWithQuotasResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
         "401":
           description: Unauthorized
           schema:
@@ -583,11 +859,12 @@ paths:
             type: string
       security:
       - BearerAuth: []
-      summary: Получить тариф аккаунта
+      summary: Получить тариф по ID
       tags:
       - iam
   /plans:
     get:
+      description: Публичные доступные тарифы.
       produces:
       - application/json
       responses:
@@ -596,7 +873,7 @@ paths:
           schema:
             additionalProperties:
               items:
-                $ref: '#/definitions/contract.PlanResponse'
+                $ref: '#/definitions/contract.PlanWithQuotasResponse'
               type: array
             type: object
         "500":
@@ -608,6 +885,8 @@ paths:
       - iam
   /projects:
     get:
+      description: Delegation зарегистрированного клиента требует projects.read; результат
+        ограничен актуальным consent и текущими ресурсными правами пользователя.
       produces:
       - application/json
       responses:
@@ -623,6 +902,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: Требует предварительного POST /account/initialize. Проект получает
+        план по умолчанию. owner_subject_id по умолчанию — текущий пользователь; организация
+        допустима только для её owner, billing при этом ставится на этого owner.
       parameters:
       - description: Параметры проекта
         in: body
@@ -645,6 +927,10 @@ paths:
           description: Forbidden
           schema:
             type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
         "409":
           description: Conflict
           schema:
@@ -658,8 +944,10 @@ paths:
     delete:
       description: Проект можно удалить только если в нём нет баз данных.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -681,8 +969,10 @@ paths:
       - projects
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -710,8 +1000,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -740,6 +1032,10 @@ paths:
           description: Not Found
           schema:
             type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
       security:
       - BearerAuth: []
       summary: Обновить метаданные проекта
@@ -750,8 +1046,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -780,6 +1078,10 @@ paths:
           description: Not Found
           schema:
             type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
       security:
       - BearerAuth: []
       summary: Создать инстанс БД
@@ -788,8 +1090,10 @@ paths:
   /projects/{project_id}/dbis:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -816,8 +1120,10 @@ paths:
   /projects/{project_id}/members:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -841,8 +1147,10 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -883,12 +1191,15 @@ paths:
   /projects/{project_id}/members/{subject_id}:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
       - description: UUID участника
+        format: uuid
         in: path
         name: subject_id
         required: true
@@ -915,12 +1226,15 @@ paths:
       - project-members
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
       - description: UUID участника
+        format: uuid
         in: path
         name: subject_id
         required: true
@@ -949,12 +1263,15 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
       - description: UUID участника
+        format: uuid
         in: path
         name: subject_id
         required: true
@@ -996,8 +1313,10 @@ paths:
   /projects/{project_id}/plan:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1010,6 +1329,10 @@ paths:
             $ref: '#/definitions/contract.PlanResponse'
         "400":
           description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
           schema:
             type: string
         "404":
@@ -1027,9 +1350,15 @@ paths:
       - iam
   /projects/{project_id}/quotas:
     get:
+      description: Возвращает квоты плана со scope=project. limit_value — лимит плана,
+        entitled — сумма начислений проекта с starts_at <= now() и ends_at IS NULL
+        или ends_at > now(). При отсутствии действующих начислений entitled равен
+        0. Эффективный лимит = limit_value + entitled.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1042,6 +1371,10 @@ paths:
             $ref: '#/definitions/contract.ProjectQuotaListResponse'
         "400":
           description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
           schema:
             type: string
         "404":
@@ -1060,8 +1393,10 @@ paths:
   /projects/{project_id}/resources:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1092,13 +1427,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1124,13 +1463,17 @@ paths:
       - dbis
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1162,13 +1505,17 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1205,13 +1552,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/connection/direct:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1246,13 +1597,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/state/start:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1283,13 +1638,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/state/stop:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1320,13 +1679,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/dbi/uri/direct/reveal:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID инстанса БД
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1361,13 +1724,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/observability/metrics/timeseries:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1411,13 +1778,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1446,14 +1817,21 @@ paths:
       tags:
       - secrets
     get:
+      description: Возвращает метаданные секрета, versions и agent_subject_ids. Delegated
+        access requires secrets.read; secret values require secrets.reveal on a separate
+        reveal route.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1484,14 +1862,20 @@ paths:
     patch:
       consumes:
       - application/json
+      description: Обновляет описание. Непереданное description сохраняется, пустая
+        строка очищает его.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1520,21 +1904,121 @@ paths:
           description: Not Found
           schema:
             type: string
+        "422":
+          description: Unprocessable Entity
+          schema:
+            type: string
       security:
       - BearerAuth: []
       summary: Обновить метаданные секрета
       tags:
       - secrets
-  /projects/{project_id}/resources/{resource_id}/secret/reveal:
+  /projects/{project_id}/resources/{resource_id}/secret/agents:
     post:
+      consumes:
+      - application/json
+      description: Агент уже должен быть участником проекта. Делегированный доступ
+        не используется.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
+        name: resource_id
+        required: true
+        type: string
+      - description: Субъект агента
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/contract.GrantSecretAgentRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Выдать секрет агенту
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/agents/{subject_id}:
+    delete:
+      parameters:
+      - description: Public ID проекта (10 строчных hex-символов)
+        in: path
+        maxLength: 10
+        minLength: 10
+        name: project_id
+        required: true
+        type: string
+      - description: Public ID ресурса (12 строчных hex-символов)
+        in: path
+        maxLength: 12
+        minLength: 12
+        name: resource_id
+        required: true
+        type: string
+      - description: UUID агента
+        format: uuid
+        in: path
+        name: subject_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Снять секрет с агента
+      tags:
+      - secrets
+  /projects/{project_id}/resources/{resource_id}/secret/reveal:
+    post:
+      description: Delegated access requires secrets.reveal and current user reveal
+        permission. secrets.read does not grant access to the value.
+      parameters:
+      - description: Public ID проекта (10 строчных hex-символов)
+        in: path
+        maxLength: 10
+        minLength: 10
+        name: project_id
+        required: true
+        type: string
+      - description: Public ID ресурса (12 строчных hex-символов)
+        in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1568,14 +2052,19 @@ paths:
       - secrets
   /projects/{project_id}/resources/{resource_id}/secret/versions:
     get:
+      description: Delegated access requires secrets.read and current user RBAC.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1606,18 +2095,25 @@ paths:
     post:
       consumes:
       - application/json
+      description: Для payload_kind=json проверяется синтаксис JSON; исходный текст
+        сохраняется без переформатирования. При наличии secret_llm_keys сервер генерирует
+        новую версию и digest независимо от переданного secret_value.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
-      - description: Значение и тип payload
+      - description: Значение секрета
         in: body
         name: body
         required: true
@@ -1657,18 +2153,24 @@ paths:
       - secrets
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}:
     get:
+      description: Delegated access requires secrets.read and current user RBAC.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1700,17 +2202,22 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/disable:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1747,18 +2254,25 @@ paths:
       - secrets
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/reveal:
     post:
+      description: Delegated access requires secrets.reveal and current user reveal
+        permission. secrets.read does not grant access to the value.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1794,17 +2308,22 @@ paths:
   /projects/{project_id}/resources/{resource_id}/secret/versions/{version_no}/verifier/apply:
     post:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID секрета
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
       - description: Номер версии
+        format: int32
         in: path
         name: version_no
         required: true
@@ -1845,14 +2364,20 @@ paths:
     post:
       consumes:
       - application/json
+      description: Delegated access requires secrets.write and a writable secret ACL.
+        It cannot modify existing shared tag metadata or supply color.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1893,13 +2418,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/tags:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1934,13 +2463,17 @@ paths:
   /projects/{project_id}/resources/{resource_id}/tags/{tag_id}/detach:
     delete:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
-      - description: ID ресурса
+      - description: Public ID ресурса (12 строчных hex-символов)
         in: path
+        maxLength: 12
+        minLength: 12
         name: resource_id
         required: true
         type: string
@@ -1977,9 +2510,14 @@ paths:
     post:
       consumes:
       - application/json
+      description: |-
+        payload_kind: text, json, binary. json requires valid JSON; original text, whitespace and key order are preserved. secret_value is a string containing the complete document. purpose=llm_key генерирует текст независимо от secret_value. purpose=agent_key привязывает секрет к agent_subject_id в той же транзакции; значение передаёт вызывающий.
+        Delegated access requires secrets.create and current user RBAC. SOM delegation requires purpose=agent_key for an agent attested by the actor. An agent token can create only its own key.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -1993,10 +2531,9 @@ paths:
       - application/json
       responses:
         "201":
-          description: '{\"secret\": {...}, \"version\": {...}}'
+          description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/contract.CreateSecretResponse'
         "400":
           description: Bad Request
           schema:
@@ -2007,6 +2544,10 @@ paths:
             type: string
         "404":
           description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
           schema:
             type: string
         "422":
@@ -2020,9 +2561,14 @@ paths:
       - secrets
   /projects/{project_id}/secrets:
     get:
+      description: Delegated access requires any of secrets.read or secrets.write
+        and current user RBAC. SOM sees only keys bound to its attested agents; an
+        agent sees only its own keys.
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -2049,8 +2595,10 @@ paths:
   /projects/{project_id}/tags:
     get:
       parameters:
-      - description: ID проекта
+      - description: Public ID проекта (10 строчных hex-символов)
         in: path
+        maxLength: 10
+        minLength: 10
         name: project_id
         required: true
         type: string
@@ -2078,42 +2626,4 @@ paths:
       summary: Список тегов проекта
       tags:
       - tags
-  /projects/{project_id}/usage:
-    get:
-      parameters:
-      - description: ID проекта
-        in: path
-        name: project_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "404":
-          description: Not Found
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получить потребление проекта
-      tags:
-      - iam
-securityDefinitions:
-  BearerAuth:
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

@@ -1,47 +1,47 @@
 import type { DatabaseResponse } from "../api"
 
-type SyncState = "pending" | "ongoing" | "synced" | "failed"
-type DesiredState = "present" | "absent"
+export type DatabaseStatusKey = "online" | "pending" | "failed" | "stopped"
 
-/** True when sync finished successfully and resource should exist — credentials may be fetched. */
-export function isDatabaseCredentialsAvailable(
-  db: Pick<DatabaseResponse, "sync_state" | "desired_state">,
-): boolean {
-  return db.sync_state === "synced" && db.desired_state === "present"
+const PROVISIONING_RUNTIME_STATES = new Set([
+  "creating",
+  "syncing",
+  "starting",
+  "stopping",
+  "deleting",
+])
+
+type DatabaseStatusSource = Pick<DatabaseResponse, "desired_runtime_state" | "resource_state">
+
+export function databaseStatusKey(db: DatabaseStatusSource): DatabaseStatusKey {
+  const runtime = db.resource_state?.runtime_state
+  const desired = db.desired_runtime_state
+
+  if (runtime === "failed") return "failed"
+  // Keep polling through in-progress runtime even if desired state is already suspended.
+  if (runtime && PROVISIONING_RUNTIME_STATES.has(runtime)) return "pending"
+  if (
+    runtime === "stopped" ||
+    runtime === "deleted" ||
+    desired === "suspended" ||
+    desired === "terminated"
+  ) {
+    return "stopped"
+  }
+  if (runtime === "available" && desired === "running") return "online"
+  return "pending"
 }
 
-/**
- * While true, poll list/detail queries so UI updates when provisioning finishes.
- * Stops when online, failed, or in a settled non-provisioning state we do not expect to change without a refetch trigger.
- */
-export function databaseSyncStatusNeedsPolling(
-  db: Pick<DatabaseResponse, "sync_state" | "desired_state">,
-): boolean {
-  if (db.sync_state === "failed") return false
-  if (isDatabaseCredentialsAvailable(db)) return false
-  if (db.sync_state === "pending" || db.sync_state === "ongoing") return true
-  if (db.sync_state === undefined) return true
-  if (db.sync_state === "synced" && db.desired_state === undefined) return true
-  return false
+export function isDatabaseCredentialsAvailable(db: DatabaseStatusSource): boolean {
+  return databaseStatusKey(db) === "online"
+}
+
+export function databaseSyncStatusNeedsPolling(db: DatabaseStatusSource): boolean {
+  return databaseStatusKey(db) === "pending"
 }
 
 export function getDatabaseStatusLabel(
   t: (key: string) => string,
-  syncState?: SyncState,
-  desiredState?: DesiredState,
+  db: DatabaseStatusSource,
 ): string {
-  if (
-    isDatabaseCredentialsAvailable({
-      sync_state: syncState,
-      desired_state: desiredState,
-    })
-  ) {
-    return t("databases.status.online")
-  }
-
-  if (syncState) {
-    return t(`databases.status.${syncState}`)
-  }
-
-  return t("databases.status.pending")
+  return t(`databases.status.${databaseStatusKey(db)}`)
 }

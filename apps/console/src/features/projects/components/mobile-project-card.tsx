@@ -18,7 +18,7 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
 
   async function handleCopyProjectId() {
     try {
-      await navigator.clipboard.writeText(project.id)
+      await navigator.clipboard.writeText(project.public_id)
       setCopyMessage(t("projects.detail.idCopied"))
       window.setTimeout(() => setCopyMessage(null), 2000)
     } catch {
@@ -34,19 +34,21 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
           <h2 className="truncate text-lg font-semibold tracking-[-0.2px] text-card-foreground">
             {project.name}
           </h2>
-          <button
-            type="button"
-            onClick={() => void handleCopyProjectId()}
-            className={cn(
-              "relative mt-2 flex max-w-full items-center gap-1.5 text-xs text-muted-foreground",
-              buttonPressClass,
-            )}
-            aria-label={t("projects.detail.copyProjectId")}
-          >
-            <Copy className="size-3.5 shrink-0" />
-            <span className="truncate">{project.id}</span>
+          <div className="relative mt-2 flex max-w-full items-center gap-1.5 text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => void handleCopyProjectId()}
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center",
+                buttonPressClass,
+              )}
+              aria-label={t("projects.detail.copyProjectId")}
+            >
+              <Copy className="size-3.5 shrink-0" />
+            </button>
+            <span className="truncate">{project.public_id}</span>
             <FloatingHint message={copyMessage} placement="bottom" align="start" />
-          </button>
+          </div>
         </div>
         <Badge
           variant={project.is_active ? "active" : "inactive"}
@@ -58,7 +60,7 @@ export function MobileProjectCard({ project }: { project: ProjectResponse }) {
 
       <Button
         className="mt-4 h-11 w-full rounded-xl"
-        onClick={() => navigate(`/projects/${project.id}`)}
+        onClick={() => navigate(`/projects/${project.public_id}`)}
       >
         {t("projects.cardConnect")}
       </Button>

@@ -1,0 +1,66 @@
+name: sb0rka-dev
+
+services:
+  postgres:
+    extends:
+      file: docker-compose.base.yml
+      service: postgres
+
+  keygen:
+    extends:
+      file: docker-compose.base.yml
+      service: keygen
+
+  migrate:
+    extends:
+      file: docker-compose.base.yml
+      service: migrate
+
+  api:
+    extends:
+      file: docker-compose.base.yml
+      service: api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
+
+  auth:
+    extends:
+      file: docker-compose.base.yml
+      service: auth
+    environment:
+      SSL_CERT_DIR: /etc/ssl/certs:/run/dev-ca
+    volumes:
+      - type: bind
+        source: ./deploy/dev/certs
+        target: /run/dev-ca
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keygen:
+        condition: service_completed_successfully
+
+  drones:
+    extends:
+      file: docker-compose.base.yml
+      service: drones
+
+  proxy:
+    extends:
+      file: docker-compose.base.yml
+      service: proxy
+
+volumes:
+  pgdata:
+  keys:
+  api-keys:
+  gomod:

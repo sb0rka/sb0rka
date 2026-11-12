@@ -8,32 +8,28 @@ import {
   CardTitle,
 } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
+import { planDescription, planTitle } from "./api"
 import { useCurrentPlan, usePlans, useSubscriptionUsage } from "./hooks"
 import type { SubscriptionUsage } from "./hooks"
 import {
   PageStagger,
   SlideIn,
   StaggerGroup,
-  UsageProgressBar,
 } from "@/components/motion/page-entrance"
-import { staggerStep } from "@/lib/motion"
 import {
   MobilePlanCard,
   MobileUsageCard,
 } from "./components/mobile-usage-card"
 
-type DeployedLimitKey = "project_limit" | "db_limit" | "secret_limit"
-
-interface LimitItem {
-  key: DeployedLimitKey
+interface UsageItem {
   labelKey: string
   usageKey: keyof SubscriptionUsage
 }
 
-const LIMIT_ITEMS: LimitItem[] = [
-  { key: "project_limit", labelKey: "subscription.limits.projects", usageKey: "projects" },
-  { key: "db_limit", labelKey: "subscription.limits.databases", usageKey: "databases" },
-  { key: "secret_limit", labelKey: "subscription.limits.secrets", usageKey: "secrets" },
+const USAGE_ITEMS: UsageItem[] = [
+  { labelKey: "subscription.limits.projects", usageKey: "projects" },
+  { labelKey: "subscription.limits.databases", usageKey: "databases" },
+  { labelKey: "subscription.limits.secrets", usageKey: "secrets" },
 ]
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -42,13 +38,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-function getUsageProgress(used: number, limit: number): number {
-  if (limit <= 0) return 0
-  return Math.min((used / limit) * 100, 100)
-}
-
 export function SubscriptionPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const currentPlanQuery = useCurrentPlan()
   const plansQuery = usePlans()
   const usageQuery = useSubscriptionUsage()
@@ -85,7 +76,7 @@ export function SubscriptionPage() {
             {t("subscription.title")}
           </h1>
           <Badge className="mt-1 shrink-0 rounded-full border border-[var(--subscription-border)] bg-[var(--plan-badge-bg)] px-2.5 py-0.5 text-xs font-semibold leading-4 text-[var(--plan-badge-fg)]">
-            {currentPlan.name}
+            {planTitle(currentPlan, i18n.language)}
           </Badge>
         </div>
         <p className="text-sm text-[var(--subscription-muted)]">
@@ -95,52 +86,34 @@ export function SubscriptionPage() {
 
       <SlideIn>
         <StaggerGroup className="grid gap-3 md:hidden">
-          {LIMIT_ITEMS.map((item, index) => {
-            const limit = currentPlan[item.key]
-            const used = usage?.[item.usageKey]
-            const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
-
-            return (
-              <SlideIn key={item.key}>
-                <MobileUsageCard
-                  label={t(item.labelKey)}
-                  limit={limit}
-                  used={used}
-                  usedLabel={t("subscription.used")}
-                  progress={progress}
-                  delay={index * staggerStep}
-                />
-              </SlideIn>
-            )
-          })}
+          {USAGE_ITEMS.map((item) => (
+            <SlideIn key={item.usageKey}>
+              <MobileUsageCard
+                label={t(item.labelKey)}
+                used={usage?.[item.usageKey]}
+                usedLabel={t("subscription.used")}
+              />
+            </SlideIn>
+          ))}
         </StaggerGroup>
         <StaggerGroup className="hidden flex-wrap items-start gap-4 md:flex">
-          {LIMIT_ITEMS.map((item, index) => {
-            const limit = currentPlan[item.key]
+          {USAGE_ITEMS.map((item) => {
             const used = usage?.[item.usageKey]
-            const progress = getUsageProgress(typeof used === "number" ? used : 0, limit)
 
             return (
               <SlideIn
-                key={item.key}
+                key={item.usageKey}
                 className="min-w-[240px] max-w-sm shrink-0 rounded-lg border border-[var(--subscription-border)] !bg-transparent p-4"
               >
                 <p className="text-sm text-[var(--subscription-muted)]">
                   {t(item.labelKey)}
                 </p>
                 <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--subscription-heading)]">
-                  {limit}
+                  {typeof used === "number" ? used : "—"}
                 </p>
                 <p className="mt-1 text-sm text-[var(--subscription-muted)]">
-                  {t("subscription.used")}{" "}
-                  {typeof used === "number" ? `${used} / ${limit}` : "—"}
+                  {t("subscription.used")}
                 </p>
-                <UsageProgressBar
-                  className="mt-3 !bg-[var(--subscription-progress-track)]"
-                  barClassName="!bg-[var(--subscription-accent-bright)]"
-                  progress={progress}
-                  delay={index * staggerStep}
-                />
               </SlideIn>
             )
           })}
@@ -168,14 +141,11 @@ export function SubscriptionPage() {
                   {plans.map((plan) => (
                     <SlideIn key={plan.id}>
                       <MobilePlanCard
-                        plan={plan}
+                        name={planTitle(plan, i18n.language)}
+                        description={planDescription(plan, i18n.language)}
                         isCurrent={plan.id === currentPlan.id}
                         currentLabel={t("subscription.current")}
                         fallbackDescription={t("subscription.noPlanDescription")}
-                        limits={LIMIT_ITEMS.map((limitItem) => ({
-                          key: limitItem.key,
-                          label: t(limitItem.labelKey),
-                        }))}
                       />
                     </SlideIn>
                   ))}
@@ -191,10 +161,10 @@ export function SubscriptionPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="truncate text-lg font-semibold tracking-tight text-[var(--subscription-heading)]">
-                              {plan.name}
+                              {planTitle(plan, i18n.language)}
                             </h3>
                             <p className="mt-1 line-clamp-2 text-sm text-[var(--subscription-muted)]">
-                              {plan.description || t("subscription.noPlanDescription")}
+                              {planDescription(plan, i18n.language) || t("subscription.noPlanDescription")}
                             </p>
                           </div>
                           {isCurrent ? (
@@ -204,21 +174,6 @@ export function SubscriptionPage() {
                           ) : null}
                         </div>
 
-                        <ul className="mt-4 overflow-hidden rounded-md !bg-transparent">
-                          {LIMIT_ITEMS.map((limitItem) => (
-                            <li
-                              key={limitItem.key}
-                              className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
-                            >
-                              <span className="text-[var(--subscription-muted)]">
-                                {t(limitItem.labelKey)}
-                              </span>
-                              <span className="font-semibold tabular-nums text-[var(--subscription-heading)]">
-                                {plan[limitItem.key]}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
                       </SlideIn>
                     )
                   })}

@@ -203,7 +203,7 @@ export function SettingsTab({
   projectDescription,
 }: SettingsTabProps) {
   return (
-    <TabsContent value="settings">
+    <TabsContent value="settings" className="data-[state=inactive]:hidden">
       <ProjectSettings
         projectId={projectId}
         projectName={projectName}

@@ -88,7 +88,7 @@ export function MobileDatabasesList({
                   cn("cursor-pointer hover:bg-muted", buttonPressClass),
               )}
             >
-              {getDatabaseStatusLabel(t, row.syncState, row.desiredState)}
+              {getDatabaseStatusLabel(t, row)}
             </div>
           )
         })}

@@ -104,8 +104,8 @@ export function MetricDetailPage() {
   const { data: dbData } = useDatabases(id)
 
   const metricResourceIds = useMemo(
-    () => (dbData?.databases ?? []).map((database) => String(database.resource_id)),
-    [dbData?.databases],
+    () => (dbData?.dbis ?? []).map((database) => String(database.public_id)),
+    [dbData?.dbis],
   )
   const metricQuery = useProjectMetricTimeseries(id, metric, metricResourceIds)
 
@@ -130,14 +130,14 @@ export function MetricDetailPage() {
   const resourceSeriesForChart = useMemo(() => {
     const byResource = metricQuery.data?.byResource
     if (!byResource?.length) return undefined
-    const databases = dbData?.databases ?? []
-    const nameById = new Map(databases.map((d) => [String(d.resource_id), d.name]))
+    const databases = dbData?.dbis ?? []
+    const nameById = new Map(databases.map((d) => [String(d.public_id), d.name]))
     return byResource.map((entry) => ({
       resourceId: entry.resourceId,
       label: nameById.get(entry.resourceId) ?? entry.resourceId.slice(0, 8),
       points: entry.points,
     }))
-  }, [metricQuery.data?.byResource, dbData?.databases])
+  }, [metricQuery.data?.byResource, dbData?.dbis])
   const latestValue = metricSeries[metricSeries.length - 1]?.value ?? 0
 
   return (

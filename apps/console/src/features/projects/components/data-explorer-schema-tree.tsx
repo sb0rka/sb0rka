@@ -19,10 +19,10 @@ export interface DataExplorerSchemaTreeProps {
   projectId: string
 }
 
-/** resource_id → tree expanded (independent of selection) */
+/** public_id → tree expanded (independent of selection) */
 type DatabaseExpandedMap = Record<string, boolean>
 
-/** resource_id → tableKey → expanded */
+/** public_id → tableKey → expanded */
 type ExpandedTablesMap = Record<string, Record<string, boolean>>
 type DatabaseConnectionState = "initialLoading" | "connected" | "notConnected"
 
@@ -53,7 +53,7 @@ export function DataExplorerSchemaTree({
 
 
   const healthByResourceId = new Map(
-    (healthQuery.data ?? []).map((item) => [item.database.resource_id, item]),
+    (healthQuery.data ?? []).map((item) => [item.database.public_id, item]),
   )
 
   const getDatabaseConnectionState = (
@@ -176,14 +176,14 @@ export function DataExplorerSchemaTree({
         <div className="px-3 pb-3 w-full">
           <ul className="space-y-0.5">
             {nodes.map(({ database, tables }) => {
-              const isSelected = selectedResourceId === database.resource_id
-              const dbOpen = databaseExpanded[database.resource_id] ?? false
-              const health = healthByResourceId.get(database.resource_id)
+              const isSelected = selectedResourceId === database.public_id
+              const dbOpen = databaseExpanded[database.public_id] ?? false
+              const health = healthByResourceId.get(database.public_id)
               const { state: connectionState, isRefetching: isConnectionRefetching } =
-                getDatabaseConnectionState(database.resource_id)
+                getDatabaseConnectionState(database.public_id)
 
               return (
-                <li key={database.resource_id}>
+                <li key={database.public_id}>
                   <div
                     className={cn(
                       "flex w-full items-center gap-0.5 rounded-sm py-1 pl-0.5 pr-1.5",
@@ -198,7 +198,7 @@ export function DataExplorerSchemaTree({
                       })}
                       onClick={(e) => {
                         e.stopPropagation()
-                        toggleDatabaseExpanded(database.resource_id)
+                        toggleDatabaseExpanded(database.public_id)
                       }}
                       className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                     >
@@ -211,7 +211,7 @@ export function DataExplorerSchemaTree({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onSelectDatabase(database.resource_id)}
+                      onClick={() => onSelectDatabase(database.public_id)}
                       className={cn(
                         "min-w-0 flex-1 truncate rounded-sm py-0 text-left text-xs font-medium transition-colors",
                         isSelected
@@ -238,7 +238,7 @@ export function DataExplorerSchemaTree({
                             : `${table.schema}.${table.name}`
                         const tableOpen = isTableExpanded(
                           expandedTables,
-                          database.resource_id,
+                          database.public_id,
                           tableKey,
                         )
 
@@ -256,7 +256,7 @@ export function DataExplorerSchemaTree({
                                 aria-label={`Toggle ${displayName} columns`}
                                 onClick={() =>
                                   toggleTableExpanded(
-                                    database.resource_id,
+                                    database.public_id,
                                     tableKey,
                                   )
                                 }

@@ -13,14 +13,14 @@ Secrets are encrypted key-value pairs scoped to a project. You use them to store
 
 | Field         | Type              | Description                                                                           |
 | ------------- | ----------------- | ------------------------------------------------------------------------------------- |
-| `resource_id` | hex-string        | The resource ID that uniquely identifies this secret within the project.              |
+| `public_id`   | hex-string        | Public identifier for the secret (12 lowercase hex characters). API paths use this value. |
 | `name`        | string            | A descriptive name for the secret (for example, `LLM_API_KEY`).                       |
 | `description` | string \| null    | Optional description of what the secret is used for.                                  |
 | `revealed_at` | timestamp \| null | The last time the secret value was revealed. `null` if the value has never been read. |
 
 ## Revealing a secret
 
-To retrieve the plaintext value, send a request to the reveal endpoint for the secret's `resource_id`:
+To retrieve the plaintext value, send a request to the reveal endpoint for the secret's `public_id`:
 
 ```json
 {
@@ -32,7 +32,7 @@ Calling the reveal endpoint also updates `revealed_at` to the current timestamp,
 
 ## System secrets
 
-Sb0rka creates some secrets automatically on your behalf. When you provision a database, the platform generates a password and stores it as a secret named `DATABASE_<resource_id>_PASSWORD`. These system-managed secrets:
+Sb0rka creates some secrets automatically on your behalf. When you provision a database, the platform generates a password and stores it as a secret named `DATABASE_<public_id>_PASSWORD`. These system-managed secrets:
 
 - Are created with a descriptive name and description linking them to their database.
 - Are tagged with `database_resource_id = <resource_id>` (a system tag) to tie the secret to its database.

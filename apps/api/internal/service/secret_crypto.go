@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyset"
@@ -16,14 +17,14 @@ import (
 const InfraSecretAADPurpose = "sb0rka.infra_secret"
 
 type SecretAAD struct {
-	Purpose         string `json:"purpose"`
-	ProjectID       string `json:"project_id"`
-	SecretID        string `json:"secret_id"`
-	VersionNo       int    `json:"version_no"`
-	ProtectionClass string `json:"protection_class"`
+	Purpose         string    `json:"purpose"`
+	ProjectID       uuid.UUID `json:"project_id"`
+	SecretID        uuid.UUID `json:"secret_id"`
+	VersionNo       int32     `json:"version_no"`
+	ProtectionClass string    `json:"protection_class"`
 }
 
-func BuildSecretAAD(projectID string, secretID string, versionNo int, protectionClass string) ([]byte, error) {
+func BuildSecretAAD(projectID uuid.UUID, secretID uuid.UUID, versionNo int32, protectionClass string) ([]byte, error) {
 	return json.Marshal(SecretAAD{
 		Purpose:         InfraSecretAADPurpose,
 		ProjectID:       projectID,

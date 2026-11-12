@@ -15,11 +15,11 @@ export function ProjectPageTitle({ project }: ProjectPageTitleProps) {
   const copyId = useCallback(async () => {
     setCopyFailed(false)
     try {
-      await navigator.clipboard.writeText(project.id)
+      await navigator.clipboard.writeText(project.public_id)
     } catch {
       setCopyFailed(true)
     }
-  }, [project.id])
+  }, [project.public_id])
 
   const description = project.description?.trim() ?? ""
 
@@ -33,7 +33,7 @@ export function ProjectPageTitle({ project }: ProjectPageTitleProps) {
             </h1>
             <div className="flex max-w-full items-center gap-1">
               <span className="truncate text-xs leading-5 text-muted-foreground">
-                {project.id}
+                {project.public_id}
               </span>
               <Button
                 type="button"

@@ -1,13 +1,23 @@
-FROM golang:1.25-alpine AS builder
+## Build context = repository root.
+FROM golang:1.27.3-alpine AS builder
+
+RUN apk add --no-cache git
+ENV GONOSUMDB=github.com/sb0rka/sb0rka/packages/core
 
 WORKDIR /src
 
-COPY go.mod go.sum ./
-RUN go mod download
+COPY --from=core / ./packages/core
+COPY apps/drones/go.mod apps/drones/go.sum ./apps/drones/
 
-COPY . .
+WORKDIR /src/apps/drones
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN go mod edit -replace=github.com/sb0rka/sb0rka/packages/core=../../packages/core \
+ && GOWORK=off go mod download
+
+COPY apps/drones/main.go ./
+COPY apps/drones/pkg ./pkg
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOWORK=off \
     go build -trimpath -ldflags="-s -w" -o /out/drone .
 
 FROM alpine:3.21
@@ -20,5 +30,4 @@ COPY --from=builder /out/drone /app/drone
 
 USER app
 
-ENTRYPOINT ["/app/drone"]
-CMD ["version"]
+CMD ["/app/drone"]

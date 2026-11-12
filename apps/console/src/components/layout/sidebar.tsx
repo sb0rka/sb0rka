@@ -6,14 +6,15 @@ import {
   Button,
   buttonPressClass,
   cn,
-  SborkaLogo,
-  SborkaLogoMark,
   Separator,
-  SidebarItem,
+} from "@sb0rka/ui"
+import { SidebarLogo } from "@/components/layout/sidebar-logo"
+import {
   dividerClass,
   navIconClass,
   rowChromeClass,
   sidebarIconSlotClass,
+  SidebarItem,
 } from "@sb0rka/ui"
 
 const navItems = [
@@ -38,16 +39,7 @@ const externalItems = [
   },
 ]
 
-const logoTransition = { duration: 0.21, ease: "easeOut" as const }
 const upgradeTransition = { duration: 0.2, ease: "easeOut" as const }
-
-/** Logo mark center — 30px from sidebar edge (header is full-width, no nav padding). */
-const logoMarkCenterClass =
-  "absolute top-1/2 left-[30px] -translate-x-1/2 -translate-y-1/2"
-
-/** Expanded wordmark: mark left edge matches collapsed centered mark (30px − 12.5px). */
-const logoExpandedClass =
-  "absolute top-1/2 left-[calc(30px-12.5px)] -translate-y-1/2"
 
 function upgradeChromeClass(collapsed: boolean) {
   return cn(
@@ -71,38 +63,16 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
   return (
     <aside
       className={cn(
-        "flex h-full shrink-0 flex-col justify-between overflow-hidden border-r border-border bg-[var(--sidebar-bg)] transition-[width] duration-[400ms] ease-out",
+        "relative flex h-full shrink-0 flex-col justify-between overflow-hidden bg-[var(--sidebar-bg)] transition-[width] duration-[400ms] ease-out",
         collapsed ? "w-[60px] [--sidebar-nav-pl:0.5rem]" : "w-[214px] [--sidebar-nav-pl:1rem]",
       )}
     >
+      <div
+        className="pointer-events-none absolute bottom-0 right-0 top-[var(--app-header-height)] w-px bg-border"
+        aria-hidden
+      />
       <div className="flex flex-col gap-2">
-        <div className="relative h-[60px] overflow-hidden border-b border-border">
-          <AnimatePresence mode="wait" initial={false}>
-            {collapsed ? (
-              <motion.div
-                key="mark"
-                className="absolute inset-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, transition: { duration: 0 } }}
-                transition={logoTransition}
-              >
-                <SborkaLogoMark className={logoMarkCenterClass} />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="wordmark"
-                className="absolute inset-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, transition: { duration: 0 } }}
-                transition={logoTransition}
-              >
-                <SborkaLogo className={logoExpandedClass} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <SidebarLogo collapsed={collapsed} />
 
         <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">
           {navItems.map((item) => {

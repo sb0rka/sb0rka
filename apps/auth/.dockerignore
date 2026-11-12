@@ -70,4 +70,11 @@ docs-sb0rka/
 
 *.ps1
 *.env
+*.env.*
+dev.env
 .secrets/
+
+# Local binaries
+auth
+api
+drone

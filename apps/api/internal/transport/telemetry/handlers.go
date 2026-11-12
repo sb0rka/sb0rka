@@ -10,6 +10,7 @@ import (
 	tel "github.com/sb0rka/sb0rka/apps/api/internal/telemetry"
 	"github.com/sb0rka/sb0rka/apps/api/internal/transport/runtime"
 	"github.com/sb0rka/sb0rka/packages/contract"
+	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +24,7 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 }
 
 func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
-	raw, ok := runtime.AuthSubjectIDFromContext(r.Context())
+	raw, ok := authctx.SubjectIDFromContext(r.Context())
 	if !ok {
 		return uuid.Nil, false
 	}
@@ -35,38 +36,34 @@ func parseSubjectID(r *http.Request) (uuid.UUID, bool) {
 }
 
 func parsePathID(raw, name string) (string, error) {
-	id := strings.TrimSpace(raw)
-	if id == "" {
-		return "", errors.New(name + " is required")
-	}
-	return id, nil
+	return runtime.ParsePublicID(raw, name)
 }
 
-func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectID string) bool {
-	decision, err := h.deps.Authorizer.Authorize(r.Context(), callerID, action, authz.ResourceRef{
-		Type: "project",
-		ID:   projectID,
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uuid.UUID, action authz.Action, projectPublicID string) (uuid.UUID, bool) {
+	decision, err := h.deps.Authorizer.Authorize(r.Context(), authz.PrincipalFromContext(r.Context(), callerID), action, authz.ResourceRef{
+		Type:     "project",
+		PublicID: projectPublicID,
 	})
 	if err != nil {
-		h.deps.Log.Error("authorize_failed", "action", action, "project_id", projectID, "error", err)
+		h.deps.Log.Error("authorize_failed", "action", action, "project_public_id", projectPublicID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return false
+		return uuid.Nil, false
 	}
 	if !decision.Allowed {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
-		return false
+		return uuid.Nil, false
 	}
-	return true
+	return decision.Resource.ID, true
 }
 
 // GetResourceMetricTimeseries godoc
 // @Summary  Временной ряд метрики ресурса
 // @Tags     telemetry
 // @Produce  json
-// @Param    project_id   path      string  true  "ID проекта"
-// @Param    resource_id  path      string  true  "ID ресурса"
+// @Param    project_id   path      string  true  "Public ID проекта (10 строчных hex-символов)" minlength(10) maxlength(10)
+// @Param    resource_id  path      string  true  "Public ID ресурса (12 строчных hex-символов)" minlength(12) maxlength(12)
 // @Param    metric       query     string  true  "Имя метрики"
 // @Success  200          {object}  contract.TelemetryTimeseriesResponse
 // @Failure  400          {string}  string
@@ -82,17 +79,18 @@ func (h *Handler) GetResourceMetricTimeseries(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	projectID, err := parsePathID(r.PathValue("project_id"), "project_id")
+	projectPublicID, err := parsePathID(r.PathValue("project_id"), "project_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resourceID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
+	resourcePublicID, err := parsePathID(r.PathValue("resource_id"), "resource_id")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !h.authorize(w, r, subjectID, authz.ActionDBRead, projectID) {
+	projectID, ok := h.authorize(w, r, subjectID, authz.ActionDBRead, projectPublicID)
+	if !ok {
 		return
 	}
 
@@ -103,10 +101,10 @@ func (h *Handler) GetResourceMetricTimeseries(w http.ResponseWriter, r *http.Req
 	}
 
 	timeseries, err := h.deps.Telemetry.QueryResourceTimeseries(r.Context(), tel.QueryRequest{
-		SubjectID:  subjectID,
-		ProjectID:  projectID,
-		ResourceID: resourceID,
-		Metric:     metric,
+		SubjectID:        subjectID,
+		ProjectID:        projectID,
+		ResourcePublicID: resourcePublicID,
+		Metric:           metric,
 	})
 	if err != nil {
 		switch {
@@ -119,7 +117,7 @@ func (h *Handler) GetResourceMetricTimeseries(w http.ResponseWriter, r *http.Req
 		case errors.Is(err, tel.ErrUpstream):
 			http.Error(w, "Telemetry upstream error", http.StatusBadGateway)
 		default:
-			h.deps.Log.Error("query_resource_timeseries_failed", "project_id", projectID, "resource_id", resourceID, "metric", metric, "error", err)
+			h.deps.Log.Error("query_resource_timeseries_failed", "project_id", projectID, "resource_id", resourcePublicID, "metric", metric, "error", err)
 			http.Error(w, "Failed to query telemetry", http.StatusInternalServerError)
 		}
 		return

@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
-import { BarChart3, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
+import { BarChart3, Cpu, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Badge,
@@ -24,6 +24,7 @@ import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
+  models: "tabs.models",
   databases: "tabs.databases",
   "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
@@ -139,7 +140,7 @@ function useMobileProjectHeader() {
 
     if (activeTab === "secrets" && selectedSecretId) {
       const selectedSecret = secretsData?.secrets.find(
-        (secret) => secret.secret_id === selectedSecretId,
+        (secret) => secret.public_id === selectedSecretId,
       )
       return {
         backHref: `/projects/${projectId}?tab=secrets`,
@@ -214,6 +215,12 @@ function useMobileNavItems(): MobileNavItem[] {
         activeTab === "overview" ||
         activeTab === "settings" ||
         metricDetailsMatch !== null,
+    },
+    {
+      labelKey: "tabs.models",
+      icon: Cpu,
+      href: `/projects/${projectId}?tab=models`,
+      isActive: activeTab === "models",
     },
     {
       labelKey: "tabs.databases",
@@ -319,7 +326,10 @@ export function MobileRootNav() {
       </header>
 
       <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--mobile-chrome-bg)] p-1.5 shadow-lg">
-        <div className="grid grid-cols-3 gap-1">
+        <div className={cn(
+          "grid gap-1",
+          mobileNavItems.length === 4 ? "grid-cols-4" : "grid-cols-3",
+        )}>
           {mobileNavItems.map((item) => (
               <Link
                 key={item.href}

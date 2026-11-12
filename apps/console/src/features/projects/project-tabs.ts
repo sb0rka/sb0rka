@@ -1,5 +1,6 @@
 export const PROJECT_TABS = [
   "overview",
+  "models",
   "databases",
   "data-explorer",
   "secrets",
