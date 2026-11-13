@@ -18,7 +18,7 @@ export const sidebarIconSlotClass = cn(
 )
 
 export const navIconClass =
-  "h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110"
+  "h-4 w-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none group-hover:scale-110"
 
 /** Left edge of selector / divider — matches collapsed w-9 pill (12px from sidebar). */
 export const sidebarRailStartClass =
