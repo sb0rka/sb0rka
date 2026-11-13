@@ -1,5 +1,5 @@
 import type { ComponentType } from "react"
-import { useMatch, useParams, useSearchParams } from "react-router-dom"
+import { Link, useMatch, useParams, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
   BarChart3,
@@ -18,15 +18,14 @@ import {
   navIconClass,
   rowChromeClass,
   sidebarIconSlotClass,
+  SidebarItem,
 } from "@sb0rka/ui"
-import {
-  ProjectNavLink,
-  type ProjectNavIconAnimation,
-} from "@/components/layout/project-nav-icon"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
 import { SidebarLogo } from "@/components/layout/sidebar-logo"
 
 type ProjectTabIcon = ComponentType<{ className?: string }>
+
+type ProjectNavIconAnimation = "chart" | "database" | "key" | "settings"
 
 export const projectTabIcon = {
   overview: BarChart3,
@@ -52,6 +51,13 @@ const projectNavItems: ProjectNavItem[] = [
   { key: "data-explorer", tab: "data-explorer", labelKey: "tabs.dataExplorer", icon: projectTabIcon["data-explorer"], iconAnimation: "database" as const },
   { key: "secrets", tab: "secrets", labelKey: "tabs.secrets", icon: projectTabIcon.secrets, iconAnimation: "key" as const },
 ]
+
+const iconHoverClass: Record<ProjectNavIconAnimation, string> = {
+  chart: "motion-safe:group-hover:-translate-y-px",
+  database: "group-hover:scale-[1.06] motion-safe:group-hover:-translate-y-0.5",
+  key: "group-hover:scale-100 motion-safe:group-hover:-rotate-[18deg]",
+  settings: "group-hover:scale-100 motion-safe:group-hover:rotate-[72deg]",
+}
 
 const settingsNavItem = {
   labelKey: "tabs.settings",
@@ -99,31 +105,33 @@ export function ProjectSidebar({
         <SidebarLogo collapsed={collapsed} />
         <nav className="flex flex-col gap-3 px-[var(--sidebar-nav-pl)]">
           {projectNavItems.map((item) => (
-            <ProjectNavLink
+            <SidebarItem
               key={item.tab}
-              to={getTabHref(item.tab)}
-              isActive={activeTab === item.tab}
+              asChild
               icon={item.icon}
-              animation={item.iconAnimation}
+              iconClassName={iconHoverClass[item.iconAnimation]}
+              label={t(item.labelKey)}
+              active={activeTab === item.tab}
               collapsed={collapsed}
             >
-              {t(item.labelKey)}
-            </ProjectNavLink>
+              <Link to={getTabHref(item.tab)} />
+            </SidebarItem>
           ))}
 
           <div className="relative h-px w-full">
             <Separator className={dividerClass(collapsed)} />
           </div>
 
-          <ProjectNavLink
-            to={getTabHref(settingsNavItem.tab)}
-            isActive={activeTab === settingsNavItem.tab}
+          <SidebarItem
+            asChild
             icon={settingsNavItem.icon}
-            animation={settingsNavItem.iconAnimation}
+            iconClassName={iconHoverClass[settingsNavItem.iconAnimation]}
+            label={t(settingsNavItem.labelKey)}
+            active={activeTab === settingsNavItem.tab}
             collapsed={collapsed}
           >
-            {t(settingsNavItem.labelKey)}
-          </ProjectNavLink>
+            <Link to={getTabHref(settingsNavItem.tab)} />
+          </SidebarItem>
         </nav>
       </div>
 
