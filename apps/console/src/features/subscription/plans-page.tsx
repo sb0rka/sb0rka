@@ -175,7 +175,7 @@ export function PlansPage() {
   const customPlanWithQuotas = customQuotasQuery.data ?? customPlan
 
   return (
-    <PageStagger className="flex flex-col gap-6">
+    <PageStagger className="flex min-h-0 flex-1 flex-col gap-6">
       <SlideIn>
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold text-foreground">
@@ -190,9 +190,9 @@ export function PlansPage() {
           </p>
         </div>
       </SlideIn>
-      <SlideIn>
+      <SlideIn className="flex min-h-0 flex-1 flex-col">
         {showAssembling ? (
-          <AssemblingLoader />
+          <AssemblingLoader className="min-h-0 flex-1 py-0" />
         ) : plansQuery.isError || currentQuery.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
             <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
