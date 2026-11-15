@@ -93,9 +93,9 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
           {navItems.map((item) => {
             const label = t(item.labelKey)
             const isActive =
-              item.href === "/projects"
-                ? location.pathname === "/projects" ||
-                  location.pathname.startsWith("/projects/")
+              item.href === "/projects" || item.href === "/subscription"
+                ? location.pathname === item.href ||
+                  location.pathname.startsWith(`${item.href}/`)
                 : location.pathname === item.href
             return (
               <Link

@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Badge, Button, cn } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
@@ -177,25 +177,17 @@ export function PlansPage() {
   return (
     <PageStagger className="flex flex-col gap-6">
       <SlideIn>
-        <div className="space-y-3">
-          <Link
-            to="/subscription"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            {t("subscription.backToSubscription")}
-          </Link>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-foreground">
-              {t(kind === "project" ? "subscription.projectPlansTitle" : "subscription.plansTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t(
-                kind === "project"
-                  ? "subscription.projectPlansDescription"
-                  : "subscription.plansDescription",
-              )}
-            </p>
-          </div>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold text-foreground">
+            {t(kind === "project" ? "subscription.projectPlansTitle" : "subscription.plansTitle")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {t(
+              kind === "project"
+                ? "subscription.projectPlansDescription"
+                : "subscription.plansDescription",
+            )}
+          </p>
         </div>
       </SlideIn>
       <SlideIn>
@@ -222,8 +214,8 @@ export function PlansPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {/* TODO: BACKEND_TODO — plan price is not on the catalog response. */}
-            <div className="overflow-x-auto p-1">
-              <table className="w-max border-separate border-spacing-3 text-left">
+            <div className="overflow-x-auto p-0">
+              <table className="w-max border-separate text-left">
                 <tbody>
                   <tr>
                     {customPlanWithQuotas ? (
