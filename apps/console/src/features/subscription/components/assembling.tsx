@@ -105,13 +105,14 @@ export function AssemblingLoader({ className }: { className?: string }) {
   return (
     <div role="status" className={cn("flex items-center justify-center py-16", className)}>
       <AssemblingStyle />
+      {/* Geometry matches SborkaLogo, not the collapsed icon mark. */}
       <svg
-        viewBox="0 0 24.5 24"
-        className="aspect-[24.5/24] h-12 overflow-visible text-foreground"
+        viewBox="0 0 24.27995 25"
+        className="aspect-[24.27995/25] h-12 overflow-visible text-foreground"
         aria-hidden="true"
       >
-        <rect className="sb-asm-narrow" x="0" y="6" width="7" height="13" rx="0.75" fill="currentColor" />
-        <rect className="sb-asm-wide" x="8.5" y="6" width="16" height="13" rx="0.75" fill="currentColor" />
+        <rect className="sb-asm-narrow" y="5.95972" width="7.28394" height="12.6641" rx="0.744949" fill="currentColor" />
+        <rect className="sb-asm-wide" x="8.49805" y="5.95972" width="15.7819" height="12.6641" rx="0.744949" fill="currentColor" />
       </svg>
       <span className="sr-only">{t("common.loading")}</span>
     </div>
