@@ -102,7 +102,7 @@ export function SubscriptionPage() {
   return (
     <PageStagger className="flex min-h-0 flex-1 flex-col gap-6">
       <SlideIn>
-        <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <PageTitle />
           <PlanHeroCard
             plan={planQuery.data}

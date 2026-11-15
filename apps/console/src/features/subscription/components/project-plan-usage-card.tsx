@@ -114,7 +114,10 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
   const showCycle = rows.some((row) => windowLabelKey(row.definition.window) === "month")
 
   return (
-    <Card id="project-plan-usage" className="w-full shrink-0 scroll-mt-4 md:sticky md:top-4 md:w-[min(100%,36rem)]">
+    <Card
+      id="project-plan-usage"
+      className="w-full min-w-0 flex-1 scroll-mt-4 md:sticky md:top-4 md:w-auto md:min-w-[min(100%,36rem)]"
+    >
       <div className="flex items-center justify-between gap-3 px-6 py-5">
         <div className="min-w-0">
           <h3 className="truncate text-lg font-semibold text-foreground">{view.project.name}</h3>
@@ -123,7 +126,7 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
           ) : null}
         </div>
         <span className="relative inline-flex shrink-0">
-          <Button type="button" variant="outline" className="rounded-full" disabled>
+          <Button type="button" variant="outline" disabled>
             {t("subscription.upgradeLimits")}
             <span className="sr-only">, {t("subscription.soon")}</span>
           </Button>

@@ -431,7 +431,7 @@ const resources = {
       },
       subscription: {
         title: "Подписка",
-        description: "Тариф, что близко к лимиту, и сколько занимает каждый проект",
+        description: "Лимиты проектов и аккаунта",
         current: "Текущий",
         changePlan: "Сменить тариф",
         upgradeLimits: "Увеличить лимиты",
@@ -991,7 +991,7 @@ const resources = {
       },
       subscription: {
         title: "Subscription",
-        description: "Your plan, what is close to a limit, and how much each project is using",
+        description: "Project and account limits",
         current: "Current",
         changePlan: "Change plan",
         upgradeLimits: "Upgrade limits",
