@@ -84,11 +84,11 @@ function PlanColumn({
   const showQuotas = custom || kind === "account"
 
   return (
-    <td
+    <div
       aria-current={current ? "true" : undefined}
-      className="w-max max-w-72 align-top rounded-lg border border-border p-4"
+      className="flex w-max max-w-72 shrink-0 flex-col rounded-lg border border-border p-4"
     >
-      <div className={cn("flex max-w-64 flex-col gap-4", kind === "account" ? "w-64" : "w-max")}>
+      <div className={cn("flex max-w-64 flex-1 flex-col gap-4", kind === "account" ? "w-64" : "w-max")}>
         <div className={cn("flex flex-col gap-4", kind === "account" && "min-h-24")}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-base font-semibold text-foreground">
@@ -124,7 +124,7 @@ function PlanColumn({
           )
         ) : null}
         {current ? null : (
-          <span className="relative mt-1 inline-flex w-full">
+          <span className="relative mt-auto inline-flex w-full">
             <Button type="button" className="w-full" disabled>
               {t("subscription.select")}
               <span className="sr-only">, {t("subscription.soon")}</span>
@@ -135,7 +135,7 @@ function PlanColumn({
           </span>
         )}
       </div>
-    </td>
+    </div>
   )
 }
 
@@ -215,32 +215,28 @@ export function PlansPage() {
           <div className="flex flex-col gap-3">
             {/* TODO: BACKEND_TODO — plan price is not on the catalog response. */}
             <div className="overflow-x-auto p-0">
-              <table className="w-max border-separate text-left">
-                <tbody>
-                  <tr>
-                    {customPlanWithQuotas ? (
-                      <PlanColumn
-                        plan={customPlanWithQuotas}
-                        current
-                        custom
-                        kind={kind}
-                        quotasLoading={customQuotasQuery.isLoading}
-                        quotasError={customQuotasQuery.isError}
-                        onQuotasRetry={() => void customQuotasQuery.refetch()}
-                      />
-                    ) : null}
-                    {listedPlans.map((plan) => (
-                      <PlanColumn
-                        key={plan.id}
-                        plan={plan}
-                        current={plan.id === currentPlan?.id}
-                        custom={false}
-                        kind={kind}
-                      />
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
+              <div className="flex w-max items-stretch gap-3 text-left">
+                {customPlanWithQuotas ? (
+                  <PlanColumn
+                    plan={customPlanWithQuotas}
+                    current
+                    custom
+                    kind={kind}
+                    quotasLoading={customQuotasQuery.isLoading}
+                    quotasError={customQuotasQuery.isError}
+                    onQuotasRetry={() => void customQuotasQuery.refetch()}
+                  />
+                ) : null}
+                {listedPlans.map((plan) => (
+                  <PlanColumn
+                    key={plan.id}
+                    plan={plan}
+                    current={plan.id === currentPlan?.id}
+                    custom={false}
+                    kind={kind}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
