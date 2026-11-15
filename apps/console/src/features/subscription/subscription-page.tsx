@@ -53,9 +53,9 @@ export function SubscriptionPage() {
 
   if (showPlanAssembling) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <PageTitle />
-        <AssemblingLoader />
+        <AssemblingLoader className="min-h-0 flex-1 py-0" />
       </div>
     )
   }
@@ -100,7 +100,7 @@ export function SubscriptionPage() {
   }
 
   return (
-    <PageStagger className="flex flex-col gap-6">
+    <PageStagger className="flex min-h-0 flex-1 flex-col gap-6">
       <SlideIn>
         <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-center lg:justify-between">
           <PageTitle />
@@ -113,11 +113,11 @@ export function SubscriptionPage() {
           />
         </div>
       </SlideIn>
-      <SlideIn>
-        <section className="flex flex-col gap-3">
+      <SlideIn className="flex min-h-0 flex-1 flex-col">
+        <section className="flex min-h-0 flex-1 flex-col gap-3">
           <h2 className="text-lg font-semibold">{t("subscription.projectsTitle")}</h2>
           {showProjectsAssembling ? (
-            <AssemblingLoader className="py-10" />
+            <AssemblingLoader className="min-h-0 flex-1 py-0" />
           ) : projectsQuery.isError ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
               <p className="text-sm text-destructive">{t("subscription.projectsError")}</p>

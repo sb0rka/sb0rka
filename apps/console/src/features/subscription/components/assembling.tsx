@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@sb0rka/ui"
 
-// Two blocks of the product mark approach from opposite sides and lock together.
-const ASSEMBLY_CYCLE_MS = 2800
-const ASSEMBLY_WIDE_DELAY_MS = 110
-// Keyframes settle at 36%: the blocks have clicked together and are at rest.
-const ASSEMBLY_SNAP_AT = 0.36
-
-// Hold only through the snap. The wide block starts late, so wait until it has settled too.
-export const ASSEMBLY_MIN_VISIBLE_MS = Math.round(ASSEMBLY_CYCLE_MS * ASSEMBLY_SNAP_AT) + ASSEMBLY_WIDE_DELAY_MS
+// Three equal beats: frames assemble, hold filled, frames leave.
+const ASSEMBLY_CYCLE_MS = 2700
+const ASSEMBLY_PHASE_PCT = 100 / 3
+const ASSEMBLY_GLOW_PCT = (200 / ASSEMBLY_CYCLE_MS) * 100
+// Keep the loader up through assemble + filled hold, not only until the snap.
+export const ASSEMBLY_MIN_VISIBLE_MS = Math.round((ASSEMBLY_CYCLE_MS * 2) / 3)
 
 // Percents are of each block's own box, so the movement scales with the mark.
 const ASSEMBLY_CSS = `
@@ -17,56 +15,64 @@ const ASSEMBLY_CSS = `
   0% {
     transform: translate(-210%, -90%);
     opacity: 0;
-    filter: blur(2px);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
-  12% { opacity: 0.72; }
-  28% {
-    transform: translate(-18%, -7%);
-    opacity: 1;
-    filter: blur(0.35px);
-  }
-  36% {
+  ${ASSEMBLY_PHASE_PCT}% {
     transform: translate(0, 0);
     opacity: 1;
-    filter: brightness(1.3);
+    animation-timing-function: linear;
   }
-  44%, 72% {
+  ${ASSEMBLY_PHASE_PCT * 2}% {
     transform: translate(0, 0);
     opacity: 1;
-    filter: none;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
   }
   100% {
     transform: translate(-220%, -100%);
     opacity: 0;
-    filter: blur(2px);
   }
 }
 @keyframes sb-asm-wide {
   0% {
     transform: translate(115%, 75%);
     opacity: 0;
-    filter: blur(2px);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
-  12% { opacity: 0.72; }
-  28% {
-    transform: translate(8%, 5%);
-    opacity: 1;
-    filter: blur(0.35px);
-  }
-  36% {
+  ${ASSEMBLY_PHASE_PCT}% {
     transform: translate(0, 0);
     opacity: 1;
-    filter: brightness(1.3);
+    animation-timing-function: linear;
   }
-  44%, 72% {
+  ${ASSEMBLY_PHASE_PCT * 2}% {
     transform: translate(0, 0);
     opacity: 1;
-    filter: none;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
   }
   100% {
     transform: translate(120%, 82%);
     opacity: 0;
-    filter: blur(2px);
+  }
+}
+@keyframes sb-asm-fill {
+  0%, ${ASSEMBLY_PHASE_PCT - 0.01}% {
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 0 currentColor);
+  }
+  ${ASSEMBLY_PHASE_PCT}% {
+    fill-opacity: 1;
+    stroke-opacity: 0;
+    filter: drop-shadow(0 0 0.55rem currentColor);
+  }
+  ${ASSEMBLY_PHASE_PCT + ASSEMBLY_GLOW_PCT}%, ${ASSEMBLY_PHASE_PCT * 2}% {
+    fill-opacity: 1;
+    stroke-opacity: 0;
+    filter: drop-shadow(0 0 0 currentColor);
+  }
+  ${ASSEMBLY_PHASE_PCT * 2 + 0.01}%, 100% {
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 0 currentColor);
   }
 }
 @keyframes sb-asm-breathe {
@@ -75,15 +81,23 @@ const ASSEMBLY_CSS = `
 }
 .sb-asm-narrow,
 .sb-asm-wide {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0.7;
+  paint-order: stroke fill;
   transform-box: fill-box;
   transform-origin: center;
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity, filter, fill-opacity, stroke-opacity;
 }
 .sb-asm-narrow {
-  animation: sb-asm-narrow ${ASSEMBLY_CYCLE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+  animation:
+    sb-asm-narrow ${ASSEMBLY_CYCLE_MS}ms linear infinite both,
+    sb-asm-fill ${ASSEMBLY_CYCLE_MS}ms linear infinite both;
 }
 .sb-asm-wide {
-  animation: sb-asm-wide ${ASSEMBLY_CYCLE_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1) ${ASSEMBLY_WIDE_DELAY_MS}ms infinite both;
+  animation:
+    sb-asm-wide ${ASSEMBLY_CYCLE_MS}ms linear infinite both,
+    sb-asm-fill ${ASSEMBLY_CYCLE_MS}ms linear infinite both;
 }
 @media (prefers-reduced-motion: reduce) {
   .sb-asm-narrow,
@@ -91,6 +105,8 @@ const ASSEMBLY_CSS = `
     animation: sb-asm-breathe 2.4s ease-in-out infinite;
     transform: none;
     filter: none;
+    fill-opacity: 1;
+    stroke-opacity: 0;
     will-change: opacity;
   }
 }
