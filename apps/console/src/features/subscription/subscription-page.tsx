@@ -53,7 +53,7 @@ export function SubscriptionPage() {
 
   if (showPlanAssembling) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4">
         <PageTitle />
         <AssemblingLoader className="min-h-0 flex-1 py-0" />
       </div>
@@ -62,7 +62,7 @@ export function SubscriptionPage() {
 
   if (isNotFound(planQuery.error)) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
         <PageTitle />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border px-6 py-16 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">{t("subscription.notInitializedTitle")}</h2>
@@ -87,7 +87,7 @@ export function SubscriptionPage() {
 
   if (planQuery.isError || !planQuery.data) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
         <PageTitle />
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
           <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
@@ -100,7 +100,7 @@ export function SubscriptionPage() {
   }
 
   return (
-    <PageStagger className="flex min-h-0 flex-1 flex-col gap-6">
+    <PageStagger className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6">
       <SlideIn>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <PageTitle />
@@ -133,11 +133,11 @@ export function SubscriptionPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex w-full min-w-0 flex-col items-stretch gap-4 md:flex-row md:flex-wrap md:items-start">
+            <div className="flex w-full min-w-0 flex-col items-stretch gap-8 md:flex-row md:flex-wrap md:items-start">
               <ul
                 role="listbox"
                 aria-label={t("subscription.projectsTitle")}
-                className="grid w-full min-w-0 grid-cols-1 gap-3 md:w-[min(100%,28rem)] md:shrink-0"
+                className="grid w-full min-w-0 grid-cols-1 gap-3 md:w-[min(100%,32rem)] md:shrink-0"
               >
                 {ordered.map((view) => (
                   <li key={view.project.public_id} role="presentation" className="min-w-0">
