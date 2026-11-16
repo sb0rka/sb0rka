@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  MobileNavItem as MobileNavTab,
   SborkaLogoMark,
   SborkaLogoWordmarkText,
 } from "@sb0rka/ui"
@@ -37,6 +38,10 @@ type MobileNavItem = {
   icon?: ComponentType<{ className?: string }>
   href: string
   isActive: boolean
+  locked?: boolean
+  lockedBadge?: string
+  upgradeLabel?: string
+  upgradeHref?: string
 }
 
 const rootMobileNavItems = [
@@ -327,26 +332,26 @@ export function MobileRootNav() {
 
       <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--mobile-chrome-bg)] p-1.5 shadow-lg">
         <div className={cn(
-          "grid gap-1",
-          mobileNavItems.length === 4 ? "grid-cols-4" : "grid-cols-3",
-        )}>
+            "grid gap-1",
+            mobileNavItems.length === 4 ? "grid-cols-4" : "grid-cols-3",
+          )}>
           {mobileNavItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-medium pressable",
-                  item.isActive
-                    ? "bg-background text-foreground shadow-sm dark:bg-muted dark:shadow-none"
-                    : "text-muted-foreground hover:bg-background/60 hover:text-foreground dark:hover:bg-muted/50",
-                )}
-              >
-                {item.icon ? <item.icon className="size-4" /> : null}
-                <span className="max-w-full truncate">
-                  {item.label ?? t(item.labelKey!)}
-                </span>
-              </Link>
-            ))}
+            <MobileNavTab
+              key={item.href}
+              asChild
+              icon={item.icon}
+              label={item.label ?? t(item.labelKey!)}
+              active={item.isActive}
+              locked={item.locked}
+              lockedBadge={
+                item.locked ? (item.lockedBadge ?? t("nav.lockedBadge")) : undefined
+              }
+              upgradeLabel={item.locked ? (item.upgradeLabel ?? t("nav.upgrade")) : undefined}
+              upgradeHref={item.upgradeHref}
+            >
+              <Link to={item.href} />
+            </MobileNavTab>
+          ))}
         </div>
       </nav>
     </>
