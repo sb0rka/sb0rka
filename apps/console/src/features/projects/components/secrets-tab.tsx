@@ -87,7 +87,7 @@ export function SecretsTab({
       await onCreateSecret({
         name: newSecretName.trim(),
         description: newSecretDescription.trim() || undefined,
-        secret_value: newSecretValue.trim(),
+        secret_value: newSecretValue,
         payload_kind: "text"
       })
       handleCreateDialogOpenChange(false)
@@ -211,7 +211,6 @@ export function SecretsTab({
                   data-lpignore="true"
                   data-1p-ignore="true"
                   data-form-type="other"
-                  className="[-webkit-text-security:disc]"
                   placeholder={t("secrets.valuePlaceholder")}
                   value={newSecretValue}
                   onChange={(e) => setNewSecretValue(e.target.value)}

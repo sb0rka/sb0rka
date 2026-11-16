@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/ed25519"
 	"fmt"
 	"strings"
@@ -23,49 +24,63 @@ func ParseBearerToken(authorizationHeader string) (string, error) {
 	return coreauth.ParseBearerToken(authorizationHeader)
 }
 
-// VerifyAccessToken verifies signature, header fields, and required claims for access JWT
-func VerifyAccessToken(rawToken string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
+// verificationConfig verifies against the local signing key and previously published keys.
+func verificationConfig(authConfig config.AuthConfig, audience string) (coreauth.VerificationConfig, error) {
 	publicKey, ok := authConfig.AccessTokenPrivateKey.Public().(ed25519.PublicKey)
 	if !ok {
-		return AccessTokenIdentity{}, fmt.Errorf("%w: invalid access token key", ErrUnauthorized)
+		return coreauth.VerificationConfig{}, fmt.Errorf("%w: invalid access token key", ErrUnauthorized)
 	}
-	return coreauth.VerifyAccessToken(rawToken, coreauth.VerificationConfig{
-		PublicKey: publicKey,
-		KeyID:     authConfig.AccessTokenKid,
-		TokenType: authConfig.AccessTokenTyp,
-		Issuer:    authConfig.AccessTokenIssuer,
-		Audience:  authConfig.AccessTokenAudience,
-	})
+	return coreauth.VerificationConfig{
+		PublicKey:          publicKey,
+		PreviousPublicKeys: authConfig.PreviousAccessPublicKeys,
+		KeyID:              authConfig.AccessTokenKid,
+		Issuer:             authConfig.AccessTokenIssuer,
+		Audience:           audience,
+		Policy:             authConfig.AccessTokenPolicy,
+	}, nil
+}
+
+// VerifyAccessToken verifies signature, header fields, and required claims for an access JWT
+// issued for the API audience.
+func VerifyAccessToken(ctx context.Context, rawToken string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
+	return VerifyAccessTokenForAudience(ctx, rawToken, authConfig.AccessTokenAudience, authConfig)
+}
+
+// VerifyAccessTokenForAudience verifies an access JWT that must be addressed to audience.
+func VerifyAccessTokenForAudience(ctx context.Context, rawToken, audience string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
+	cfg, err := verificationConfig(authConfig, audience)
+	if err != nil {
+		return AccessTokenIdentity{}, err
+	}
+	return coreauth.VerifyAccessToken(ctx, rawToken, cfg)
 }
 
 // ParseAndVerifyAccessTokenFromAuthHeader validates Authorization header and JWT
-func ParseAndVerifyAccessTokenFromAuthHeader(authorizationHeader string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
-	publicKey, ok := authConfig.AccessTokenPrivateKey.Public().(ed25519.PublicKey)
-	if !ok {
-		return AccessTokenIdentity{}, fmt.Errorf("%w: invalid access token key", ErrUnauthorized)
+func ParseAndVerifyAccessTokenFromAuthHeader(ctx context.Context, authorizationHeader string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
+	cfg, err := verificationConfig(authConfig, authConfig.AccessTokenAudience)
+	if err != nil {
+		return AccessTokenIdentity{}, err
 	}
-	return coreauth.ParseAndVerifyAccessToken(authorizationHeader, coreauth.VerificationConfig{
-		PublicKey: publicKey,
-		KeyID:     authConfig.AccessTokenKid,
-		TokenType: authConfig.AccessTokenTyp,
-		Issuer:    authConfig.AccessTokenIssuer,
-		Audience:  authConfig.AccessTokenAudience,
-	})
+	return coreauth.ParseAndVerifyAccessToken(ctx, authorizationHeader, cfg)
 }
 
-// CreateAccessToken creates and signs a short-lived JWT access token.
+// CreateAccessToken creates and signs a short-lived console JWT access token for the API audience.
 func CreateAccessToken(subjectID, sessionID uuid.UUID, subjectKind string, authConfig config.AuthConfig) (string, error) {
-	return createAccessToken(subjectID, sessionID, subjectKind, "", authConfig)
+	return createAccessToken(subjectID, sessionID, subjectKind, coreauth.ClientConsole, authConfig.AccessTokenAudience, authConfig)
 }
 
-func CreateClientAccessToken(subjectID, sessionID uuid.UUID, subjectKind, clientID string, authConfig config.AuthConfig) (string, error) {
+// CreateClientAccessToken signs a short-lived JWT access token for an OAuth client and an explicit audience.
+func CreateClientAccessToken(subjectID, sessionID uuid.UUID, subjectKind, clientID, audience string, authConfig config.AuthConfig) (string, error) {
 	if strings.TrimSpace(clientID) == "" {
 		return "", fmt.Errorf("client id is required")
 	}
-	return createAccessToken(subjectID, sessionID, subjectKind, clientID, authConfig)
+	if strings.TrimSpace(audience) == "" {
+		return "", fmt.Errorf("audience is required")
+	}
+	return createAccessToken(subjectID, sessionID, subjectKind, clientID, audience, authConfig)
 }
 
-func createAccessToken(subjectID, sessionID uuid.UUID, subjectKind, clientID string, authConfig config.AuthConfig) (string, error) {
+func createAccessToken(subjectID, sessionID uuid.UUID, subjectKind, clientID, audience string, authConfig config.AuthConfig) (string, error) {
 	now := time.Now().UTC()
 	claims := AccessTokenClaims{
 		SessionID:   sessionID.String(),
@@ -74,7 +89,7 @@ func createAccessToken(subjectID, sessionID uuid.UUID, subjectKind, clientID str
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   subjectID.String(),
 			Issuer:    authConfig.AccessTokenIssuer,
-			Audience:  jwt.ClaimStrings{authConfig.AccessTokenAudience},
+			Audience:  jwt.ClaimStrings{audience},
 			ExpiresAt: jwt.NewNumericDate(now.Add(authConfig.AccessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			ID:        uuid.NewString(),
@@ -83,7 +98,7 @@ func createAccessToken(subjectID, sessionID uuid.UUID, subjectKind, clientID str
 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
 	token.Header["kid"] = authConfig.AccessTokenKid
-	token.Header["typ"] = authConfig.AccessTokenTyp
+	token.Header["typ"] = coreauth.AccessTokenType
 
 	signedToken, err := token.SignedString(authConfig.AccessTokenPrivateKey)
 	if err != nil {

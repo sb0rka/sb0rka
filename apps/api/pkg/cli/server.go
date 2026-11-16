@@ -11,7 +11,10 @@ func NewCmdServer(opts apiapp.Options) *cobra.Command {
 		Short: "Run API server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return apiapp.New(opts).Run(cmd.Context())
+			serverOpts := opts
+			// Downstream builds can override the root version after creating the commands.
+			serverOpts.Info.Version = cmd.Root().Version
+			return apiapp.New(serverOpts).Run(cmd.Context())
 		},
 	}
 }

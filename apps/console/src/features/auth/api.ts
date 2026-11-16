@@ -40,7 +40,7 @@ export interface SignupData {
   username: string
   email: string
   password: string
-  invite_token: string
+  invite_token?: string
 }
 
 const OIDC_CONTINUE_PATH = "/oauth2/login/continue"
@@ -157,6 +157,7 @@ export async function login(credentials: LoginCredentials): Promise<User> {
 }
 
 export async function signup(data: SignupData): Promise<User> {
+  const inviteToken = data.invite_token?.trim()
   return apiRequest<User>({
     method: "POST",
     path: "/identity/users",
@@ -164,7 +165,7 @@ export async function signup(data: SignupData): Promise<User> {
       username: data.username,
       email: data.email,
       password: data.password,
-      invite_token: data.invite_token,
+      ...(inviteToken ? { invite_token: inviteToken } : {}),
     },
     auth: false,
   })

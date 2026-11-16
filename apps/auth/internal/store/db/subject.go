@@ -12,13 +12,13 @@ import (
 
 func (p *PsqlDB) GetSubject(ctx context.Context, subjectID uuid.UUID) (model.Subject, error) {
 	const query = `
-		SELECT id, kind, created_at, updated_at
+		SELECT id, kind, created_at
 		FROM subjects
 		WHERE id = $1
 	`
 	var s model.Subject
 	err := p.pool.QueryRow(ctx, query, subjectID).Scan(
-		&s.ID, &s.Kind, &s.CreatedAt, &s.UpdatedAt,
+		&s.ID, &s.Kind, &s.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

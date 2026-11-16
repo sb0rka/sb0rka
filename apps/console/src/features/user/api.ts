@@ -37,3 +37,10 @@ export async function changePassword(data: PasswordChange): Promise<void> {
     },
   })
 }
+
+export async function deactivateAccount(): Promise<void> {
+  return apiRequest<void>({
+    method: "DELETE",
+    path: "/identity/users/current",
+  })
+}

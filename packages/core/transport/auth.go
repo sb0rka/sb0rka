@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"crypto/ed25519"
 	"net/http"
 
@@ -14,28 +15,33 @@ type AuthConfig struct {
 	Issuer    string
 	Audience  string
 	Kid       string
-	Typ       string
+	Policy    *coreauth.AccessTokenPolicy
 }
 
 // ParseAndVerifyAccessToken returns a verified identity.
-func ParseAndVerifyAccessToken(raw string, cfg AuthConfig) (authctx.Identity, bool) {
-	identity, err := coreauth.VerifyAccessToken(raw, coreauth.VerificationConfig{
+func ParseAndVerifyAccessToken(ctx context.Context, raw string, cfg AuthConfig) (authctx.Identity, bool) {
+	identity, err := coreauth.VerifyAccessToken(ctx, raw, coreauth.VerificationConfig{
 		PublicKey: cfg.PublicKey,
 		KeyID:     cfg.Kid,
-		TokenType: cfg.Typ,
 		Issuer:    cfg.Issuer,
 		Audience:  cfg.Audience,
+		Policy:    cfg.Policy,
 	})
 	if err != nil {
 		return authctx.Identity{}, false
 	}
 
 	return authctx.Identity{
-		SubjectID:   identity.SubjectID,
-		SubjectKind: identity.SubjectKind,
-		SessionID:   identity.SessionID,
-		JTI:         identity.JTI,
-		ClientID:    identity.ClientID,
+		SubjectID:         identity.SubjectID,
+		SubjectKind:       identity.SubjectKind,
+		SessionID:         identity.SessionID,
+		JTI:               identity.JTI,
+		ClientID:          identity.ClientID,
+		ActorSubjectID:    identity.ActorSubjectID,
+		Scope:             identity.Scope,
+		DelegationID:      identity.DelegationID,
+		DelegationVersion: identity.DelegationVersion,
+		ProjectIDs:        identity.ProjectIDs,
 	}, true
 }
 
@@ -63,7 +69,7 @@ func Auth(cfg AuthConfig, onUnauthorized func(http.ResponseWriter, *http.Request
 				return
 			}
 
-			identity, ok := ParseAndVerifyAccessToken(raw, cfg)
+			identity, ok := ParseAndVerifyAccessToken(r.Context(), raw, cfg)
 			if !ok {
 				deny(w, r)
 				return

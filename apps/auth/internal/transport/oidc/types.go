@@ -5,7 +5,6 @@ import "time"
 const (
 	pendingRequestTTL = 15 * time.Minute
 	tokenTTL          = 5 * time.Minute
-	canonicalScopes   = "openid profile email offline_access"
 )
 
 type protocolError struct {

@@ -2,7 +2,7 @@
 
 Спасибо, что вкладываетесь в Sb0rka! Этот файл — про то, как собрать, проверить и запустить проект.
 
-Архитектура — [ARCHITECTURE.md](ARCHITECTURE.md). Схема БД — [db/SCHEMA.md](db/SCHEMA.md). Контракт API — Swagger UI на `/swagger`.
+Архитектура — [ARCHITECTURE.md](ARCHITECTURE.md). Контракт API — Swagger UI на `/swagger`.
 
 ## Окружение
 
@@ -30,7 +30,7 @@ task build       # собрать все Go-сервисы в bin/
 task fmt         # gofmt по всем модулям
 task lint        # golangci-lint
 task tidy        # go mod tidy во всех модулях
-task swagger     # перегенерировать OpenAPI-спеку (после правок swaggo-аннотаций)
+task swagger     # перегенерировать OpenAPI-спеки api и auth
 task dev         # поднять локальный стенд (docker-compose)
 task dev-down    # погасить стенд
 task dev:logs    # следить за логами всех сервисов (или: task dev:logs -- auth)
@@ -48,7 +48,7 @@ task dev    # или: docker compose up -d --build
 
 API и auth читают настройки из `apps/api/.env` и `apps/auth/.env`.
 Подготовьте `.env` вручную по `.env.sample`. Ключи Ed25519, Tink 
-и OIDC генерируются один раз в томе `keys` общим скриптом `deploy/dev/keygen.sh`.
+и OIDC генерируются один раз в томе `keys` общим скриптом `deploy/dev/gen_api_keys.sh`.
 
 Доступ к API — по Bearer-JWT. Токен получают через `auth` (:8020): регистрация `POST /identity/users`, затем логин `POST /auth/login` → `access_token`.
 

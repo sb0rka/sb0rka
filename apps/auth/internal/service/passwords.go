@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
 
@@ -13,14 +14,18 @@ import (
 )
 
 func ValidatePassword(passwordRaw string) (string, error) {
-	password := strings.TrimSpace(passwordRaw)
-	if len(password) < 8 || len(password) > 64 {
-		return "", fmt.Errorf("password must be between 8 and 64 characters")
+	// Passwords are opaque: whitespace is part of the credential. Never trim
+	// or truncate a value to make it fit the accepted length.
+	if !utf8.ValidString(passwordRaw) || len(passwordRaw) < 8 || len(passwordRaw) > 64 {
+		return "", fmt.Errorf("password must be between 8 and 64 UTF-8 bytes")
 	}
-	return password, nil
+	return passwordRaw, nil
 }
 
 func HashPassword(password string, authConfig config.AuthConfig) (string, error) {
+	if authConfig.SaltLen < 8 || authConfig.SaltLen > 64 || authConfig.ArgonKeyLen < 16 || authConfig.ArgonKeyLen > 64 || authConfig.ArgonTime == 0 || authConfig.ArgonThreads == 0 || authConfig.ArgonMemory < 8*uint32(authConfig.ArgonThreads) {
+		return "", fmt.Errorf("invalid password hashing configuration")
+	}
 	// Generate a random salt for password hashing
 	salt := make([]byte, authConfig.SaltLen)
 	_, err := rand.Read(salt)
@@ -56,6 +61,11 @@ func VerifyPassword(password, passwordHash string, authConfig config.AuthConfig)
 	expectedHash, err := base64.RawStdEncoding.DecodeString(encodedHash)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode hash: %w", err)
+	}
+	// Stored lengths are bounded independently of the policy used for new
+	// hashes so previous salt/output lengths remain verifiable.
+	if len(salt) < 8 || len(salt) > 64 || len(expectedHash) < 16 || len(expectedHash) > 64 || authConfig.ArgonTime == 0 || authConfig.ArgonThreads == 0 || authConfig.ArgonMemory < 8*uint32(authConfig.ArgonThreads) {
+		return false, fmt.Errorf("invalid stored password hash lengths")
 	}
 
 	computedHash := argon2.IDKey(

@@ -44,7 +44,7 @@ flowchart TB
 
     api -- "pgx" --> pdb[(Platform DB<br/>схема api)]
     api -- "PromQL" --> prom[(Prometheus)]
-    drones[apps/drones] -- "Daemon tasks" --> pdb
+    drones[apps/drones] -- "background jobs" --> pdb
     proxy -- "резолв URI БД по токену" --> api
     proxy -- "выполняет SQL" --> tdb[(Tenant PostgreSQL)]
 
@@ -55,7 +55,7 @@ flowchart TB
 
 ## Сквозные потоки
 
-**Аутентификация.** Регистрацию, логин и refresh обслуживает `apps/auth` → клиент получает короткоживущий JWT (Ed25519). `apps/api` его только проверяет (не выдаёт) — оба используют один ключ. Мутации дополнительно требуют живой сессии (`auth.is_live_session` в БД).
+**Аутентификация.** Регистрацию, логин и refresh обслуживает `apps/auth` — единственный issuer access JWT (Ed25519, `typ=at+jwt`, 300 секунд). API, SoM и Relay проверяют токены по публичному JWKS; приватные signing keys остаются в Auth. `sid` стабилен при refresh. OIDC login отделен от consent интеграции; delegated запросы API требуют актуального grant/version/scopes/projects и независимого пользовательского RBAC. Agent получает отдельный Auth principal через аттестацию SoM. Мутации дополнительно требуют живой сессии (`auth.is_live_session` в БД).
 
 **Создание базы.** console/s0c → `POST /dbi` к api. API в одной транзакции пишет desired-state: запись БД, password-секрет (зашифрован Tink AEAD + SCRAM-verifier), системный тег. Оркестратор (внешний) видит desired-state и физически поднимает PostgreSQL-инстанс, проставляя runtime-state. Детали — в [api/docs/architecture.md](apps/api/docs/architecture.md).
 

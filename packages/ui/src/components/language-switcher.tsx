@@ -35,7 +35,7 @@ export function LanguageSwitcher<TLang extends string>({
       type="button"
       variant="outline"
       size="icon"
-      className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full text-xs font-medium tabular-nums"
+      className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full text-xs font-medium tabular-nums"
       onClick={onToggle}
       aria-label={ariaLabel}
       title={title}

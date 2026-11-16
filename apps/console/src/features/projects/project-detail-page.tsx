@@ -22,6 +22,7 @@ import {
   DataExplorerTab,
   DatabasesTab,
   OverviewTab,
+  ModelsTab,
   type SecretRow,
   SecretsTab,
   SettingsTab,
@@ -99,6 +100,7 @@ export function ProjectDetailPage() {
         description: secret.description,
         tablesCount: "—",
         columnsCount: "—",
+        currentVersionNo: secret.current_version_no,
         createdAt: resourceTimestampsById[secret.public_id]?.createdAt ?? "",
         updatedAt: resourceTimestampsById[secret.public_id]?.updatedAt ?? "",
       })),
@@ -225,6 +227,7 @@ export function ProjectDetailPage() {
               : undefined
           }
         />
+        <ModelsTab key={id} projectId={id} />
         <DatabasesTab
           projectId={id}
           databases={databases}

@@ -2,9 +2,11 @@ package config
 
 import (
 	"crypto/ed25519"
+	"net"
 	"net/http"
 	"time"
 
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 	coreconfig "github.com/sb0rka/sb0rka/packages/core/config"
 )
 
@@ -21,14 +23,15 @@ type AuthConfig struct {
 	SaltLen      int
 
 	// JWT configuration
-	AccessSessionTTL      time.Duration
-	AccessTokenPrivateKey ed25519.PrivateKey
-	AccessTokenTTL        time.Duration
-	AccessTokenIssuer     string
-	AccessTokenAudience   string
-	AccessTokenKid        string
-	AccessTokenTyp        string
-	RefreshTokenLen       int
+	AccessSessionTTL         time.Duration
+	AccessTokenPrivateKey    ed25519.PrivateKey
+	PreviousAccessPublicKeys map[string]ed25519.PublicKey
+	AccessTokenTTL           time.Duration
+	AccessTokenPolicy        *coreauth.AccessTokenPolicy
+	AccessTokenIssuer        string
+	AccessTokenAudience      string
+	AccessTokenKid           string
+	RefreshTokenLen          int
 
 	// Cookie configuration
 	RefreshTokenCookieName     string
@@ -48,6 +51,7 @@ type ServerConfig struct {
 
 	CORSWhitelist             map[string]bool
 	CORSAllowedDefaultMethods string
+	TrustedProxies            []*net.IPNet
 
 	AuthConfig AuthConfig
 }

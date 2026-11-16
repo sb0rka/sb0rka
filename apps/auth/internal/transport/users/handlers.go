@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -20,18 +21,18 @@ import (
 )
 
 type Handler struct {
-	deps runtime.Dependencies
+	deps          runtime.Dependencies
+	passwordSlots chan struct{}
 }
 
 func NewHandler(deps runtime.Dependencies) *Handler {
-	return &Handler{deps: deps}
+	return &Handler{deps: deps, passwordSlots: make(chan struct{}, 4)}
 }
 
 // RegisterUser handles POST /identity/users — creates a new user-backed subject.
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req contract.RegisterUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 
@@ -68,6 +69,11 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	release := h.passwordWork(w, r, "register:"+credentialPeer(r, h.deps.Cfg.TrustedProxies), 30, time.Hour)
+	if release == nil {
+		return
+	}
+	defer release()
 	passwordHash, err := service.HashPassword(password, h.deps.Cfg.AuthConfig)
 	if err != nil {
 		h.deps.Log.Error("register_hash_password_failed", "error", err)
@@ -84,6 +90,11 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	postInsert := func(ctx context.Context, tx pgx.Tx) error {
+		if h.deps.TrustEmailOnRegister {
+			if err := h.deps.Database.StampEmailVerified(ctx, tx, userID); err != nil {
+				return err
+			}
+		}
 		return h.deps.InviteHook.Provision(ctx, tx, regReq, userID)
 	}
 	user, err := h.deps.Database.CreateUser(r.Context(), userID, true, username, email, passwordHash, phone, postInsert)
@@ -94,6 +105,11 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		}
 		coretransport.WriteHookError(w, err, h.deps.Log, "invite_hook_failed")
 		return
+	}
+	if h.deps.TrustEmailOnRegister {
+		if verified, getErr := h.deps.Database.GetUser(r.Context(), userID.String(), "", ""); getErr == nil {
+			user = verified
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -110,7 +126,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.deps.Database.GetUser(r.Context(), subjectID, "", "")
 	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
+		if errors.Is(err, db.ErrUserNotFound) || errors.Is(err, db.ErrTokenExpired) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -136,8 +152,7 @@ func (h *Handler) UserPatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req contract.UserUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 	if req.Username == nil && req.Email == nil && req.Phone == nil {
@@ -221,8 +236,7 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req contract.UserPasswordUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if !runtime.DecodeIdentityJSON(w, r, &req) {
 		return
 	}
 	if req.CurrentPassword == "" || req.NewPassword == "" {
@@ -240,10 +254,15 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	release := h.passwordWork(w, r, "password-proof:"+subjectIDRaw, 10, 15*time.Minute)
+	if release == nil {
+		return
+	}
+	defer release()
 
 	user, err := h.deps.Database.GetUser(r.Context(), subjectIDRaw, "", "")
 	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
+		if errors.Is(err, db.ErrUserNotFound) || errors.Is(err, db.ErrTokenExpired) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -274,6 +293,12 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessionRaw, _ := authctx.SessionIDFromContext(r.Context())
+	sessionID, sessionErr := uuid.Parse(sessionRaw)
+	if sessionErr != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	userID := user.ID
 	if userID == uuid.Nil {
 		h.deps.Log.Error("user_password_empty_user_id", "subject_id", subjectIDRaw)
@@ -281,8 +306,8 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deps.Database.UpdateUserPassword(r.Context(), userID, passwordHash); err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
+	if err := h.deps.Database.UpdateUserPassword(r.Context(), userID, sessionID, user.PasswordHash, passwordHash); err != nil {
+		if errors.Is(err, db.ErrUserNotFound) || errors.Is(err, db.ErrTokenExpired) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -291,6 +316,8 @@ func (h *Handler) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
+	http.SetCookie(w, &http.Cookie{Name: h.deps.Cfg.AuthConfig.RefreshTokenCookieName, Value: "", Path: h.deps.Cfg.AuthConfig.RefreshTokenCookiePath, Domain: h.deps.Cfg.AuthConfig.RefreshTokenCookieDomain, MaxAge: -1, Expires: time.Unix(1, 0), HttpOnly: h.deps.Cfg.AuthConfig.RefreshTokenCookieHttpOnly, Secure: h.deps.Cfg.AuthConfig.RefreshTokenCookieSecure, SameSite: h.deps.Cfg.AuthConfig.RefreshTokenCookieSameSite})
 	w.WriteHeader(http.StatusNoContent)
 }
 

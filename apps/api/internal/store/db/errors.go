@@ -33,6 +33,7 @@ var (
 
 	ErrSubjectNotFound       = errors.New("subject not found")
 	ErrSubjectKindMismatch   = errors.New("subject kind mismatch")
+	ErrAgentNotInvited       = errors.New("agent has no key in the project")
 	ErrSessionNotLive        = errors.New("session is not live")
 	ErrEncryptionKeyNotFound = errors.New("encryption key not found")
 

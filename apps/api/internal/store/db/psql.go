@@ -651,6 +651,13 @@ func (p *PsqlDB) RemoveProjectMember(ctx context.Context, projectID uuid.UUID, s
 			return ErrLastOwner
 		}
 	}
+	if currentRole == model.PrjMemberRoleAgent {
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM secret_agent_keys
+			WHERE project_id = $1 AND agent_subject_id = $2`, projectID, subjectID); err != nil {
+			return err
+		}
+	}
 
 	const query = `DELETE FROM project_members WHERE project_id = $1 AND subject_id = $2`
 	cmd, err := tx.Exec(ctx, query, projectID, subjectID)
@@ -874,7 +881,8 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 	const createSecretQuery = `
 		INSERT INTO secrets (project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id)
 		VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
-		RETURNING project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id, created_at, updated_at, scheduled_destroy_at
+		RETURNING project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id, created_at, updated_at, scheduled_destroy_at,
+		          (SELECT kind FROM auth.subjects WHERE id = secrets.created_by_subject_id)
 	`
 	secret := model.Secret{PublicID: secretPublicID}
 	if err := tx.QueryRow(ctx, createSecretQuery, params.ProjectID, secretResourceID, secretName, &secretDescription, model.SecretPayloadKindText, model.SecretProtectionClassServerManaged, params.ActorSubjectID).Scan(
@@ -889,6 +897,7 @@ func (p *PsqlDB) CreateDatabase(ctx context.Context, params CreateDatabaseParams
 		&secret.CreatedAt,
 		&secret.UpdatedAt,
 		&secret.ScheduledDestroyAt,
+		&secret.CreatedBySubjectKind,
 	); err != nil {
 		return model.DBInstance{}, model.Secret{}, model.SecretVersion{}, err
 	}
@@ -1267,7 +1276,8 @@ func (p *PsqlDB) CreateSecretWithInitialVersion(ctx context.Context, params Crea
 	const createSecretQuery = `
 		INSERT INTO secrets (project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id)
 		VALUES ($1, $2, $3, $4, $5, $6, 1, $7)
-		RETURNING project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id, created_at, updated_at, scheduled_destroy_at
+		RETURNING project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id, created_at, updated_at, scheduled_destroy_at,
+		          (SELECT kind FROM auth.subjects WHERE id = secrets.created_by_subject_id)
 	`
 	secret := model.Secret{PublicID: resourcePublicID}
 	if err := tx.QueryRow(ctx, createSecretQuery, params.ProjectID, resourceID, params.Name, params.Description, params.PayloadKind, params.ProtectionClass, params.CreatedBySubjectID).Scan(
@@ -1282,6 +1292,7 @@ func (p *PsqlDB) CreateSecretWithInitialVersion(ctx context.Context, params Crea
 		&secret.CreatedAt,
 		&secret.UpdatedAt,
 		&secret.ScheduledDestroyAt,
+		&secret.CreatedBySubjectKind,
 	); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -1330,6 +1341,15 @@ func (p *PsqlDB) CreateSecretWithInitialVersion(ctx context.Context, params Crea
 		return model.Secret{}, model.SecretVersion{}, err
 	}
 
+	if params.AgentSubjectID != nil {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO secret_agent_keys (project_id, secret_id, agent_subject_id)
+			VALUES ($1, $2, $3)`,
+			params.ProjectID, resourceID, *params.AgentSubjectID,
+		); err != nil {
+			return model.Secret{}, model.SecretVersion{}, err
+		}
+	}
 	if params.PostInsert != nil {
 		if err := params.PostInsert(ctx, tx); err != nil {
 			return model.Secret{}, model.SecretVersion{}, err
@@ -1356,9 +1376,11 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, projectID uuid.UUID) ([]model.
 			s.created_by_subject_id,
 			s.created_at,
 			s.updated_at,
-			s.scheduled_destroy_at
+			s.scheduled_destroy_at,
+			creator.kind
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id
+		LEFT JOIN auth.subjects creator ON creator.id = s.created_by_subject_id
 		WHERE r.project_id = $1
 		  AND r.kind = 'secret'
 		ORDER BY s.resource_id DESC
@@ -1385,6 +1407,7 @@ func (p *PsqlDB) ListSecrets(ctx context.Context, projectID uuid.UUID) ([]model.
 			&row.CreatedAt,
 			&row.UpdatedAt,
 			&row.ScheduledDestroyAt,
+			&row.CreatedBySubjectKind,
 		); err != nil {
 			return nil, err
 		}
@@ -1419,6 +1442,7 @@ func (p *PsqlDB) getSecret(ctx context.Context, projectID uuid.UUID, predicate s
 			s.created_at,
 			s.updated_at,
 			s.scheduled_destroy_at,
+			creator.kind,
 			rs.runtime_state,
 			rs.created_at,
 			rs.updated_at,
@@ -1428,6 +1452,7 @@ func (p *PsqlDB) getSecret(ctx context.Context, projectID uuid.UUID, predicate s
 			dv.updated_at
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id
+		LEFT JOIN auth.subjects creator ON creator.id = s.created_by_subject_id
 		LEFT JOIN resource_states rs ON rs.resource_id = r.id
 		LEFT JOIN LATERAL (
 			SELECT v.password_desired_version, v.password_desired_state, v.created_at, v.updated_at
@@ -1461,6 +1486,7 @@ func (p *PsqlDB) getSecret(ctx context.Context, projectID uuid.UUID, predicate s
 		&secret.CreatedAt,
 		&secret.UpdatedAt,
 		&secret.ScheduledDestroyAt,
+		&secret.CreatedBySubjectKind,
 		&runtimeState,
 		&stateCreatedAt,
 		&stateUpdatedAt,
@@ -1512,7 +1538,8 @@ func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, params UpdateSecretMetaPa
 			  AND r.kind = 'secret'
 			RETURNING r.public_id, s.project_id, s.resource_id, s.name, s.description, s.payload_kind, s.protection_class, s.current_version_no, s.created_by_subject_id, s.created_at, s.updated_at, s.scheduled_destroy_at
 		)
-		SELECT public_id, project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id, created_at, updated_at, scheduled_destroy_at
+		SELECT public_id, project_id, resource_id, name, description, payload_kind, protection_class, current_version_no, created_by_subject_id, created_at, updated_at, scheduled_destroy_at,
+		       (SELECT kind FROM auth.subjects WHERE id = updated_secret.created_by_subject_id)
 		FROM updated_secret
 	`
 	var secret model.Secret
@@ -1529,6 +1556,7 @@ func (p *PsqlDB) UpdateSecretMeta(ctx context.Context, params UpdateSecretMetaPa
 		&secret.CreatedAt,
 		&secret.UpdatedAt,
 		&secret.ScheduledDestroyAt,
+		&secret.CreatedBySubjectKind,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Secret{}, ErrResourceNotFound
@@ -1797,9 +1825,10 @@ func (p *PsqlDB) getSecretMaterialForReveal(ctx context.Context, projectID uuid.
 			sv.project_id, sv.secret_id, sv.version_no, sv.state, sv.created_by_subject_id, sv.created_at, sv.updated_at, sv.disabled_at,
 			svm.project_id, svm.secret_id, svm.version_no, svm.encryption_key_id, svm.crypto_provider,
 			svm.crypto_envelope_version, svm.content_algorithm, svm.aad_context, svm.encrypted_message,
-			ek.provider, ek.key_ref, ek.algorithm
+			ek.provider, ek.key_ref, ek.algorithm, creator.kind
 		FROM secrets s
 		INNER JOIN resources r ON r.id = s.resource_id AND r.project_id = s.project_id
+		LEFT JOIN auth.subjects creator ON creator.id = s.created_by_subject_id
 		INNER JOIN secret_versions sv
 			ON sv.project_id = s.project_id
 		   AND sv.secret_id = s.resource_id
@@ -1822,6 +1851,7 @@ func (p *PsqlDB) getSecretMaterialForReveal(ctx context.Context, projectID uuid.
 		&material.ProjectID, &material.SecretID, &material.VersionNo, &material.EncryptionKeyID, &material.CryptoProvider,
 		&material.CryptoEnvelopeVersion, &material.ContentAlgorithm, &material.AADContext, &material.EncryptedMessage,
 		&material.EncryptionKeyProvider, &material.EncryptionKeyRef, &material.EncryptionKeyAlgorithm,
+		&secret.CreatedBySubjectKind,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.Secret{}, model.SecretVersion{}, model.SecretMaterial{}, ErrResourceNotFound
@@ -2102,6 +2132,7 @@ func (p *PsqlDB) AttachResourceTag(
 	tagKey string,
 	tagValue string,
 	color *string,
+	updateExisting bool,
 ) (model.Tag, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -2122,13 +2153,21 @@ func (p *PsqlDB) AttachResourceTag(
 		return model.Tag{}, err
 	}
 
-	const upsertTagQuery = `
+	upsertTagQuery := `
 		INSERT INTO tags (project_id, tag_key, tag_value, color)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (project_id, tag_key, tag_value)
 		DO UPDATE SET color = COALESCE(EXCLUDED.color, tags.color)
 		RETURNING id, project_id, tag_key, tag_value, color, is_system, is_readonly
 	`
+	if !updateExisting {
+		upsertTagQuery = `
+			INSERT INTO tags (project_id, tag_key, tag_value, color)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (project_id, tag_key, tag_value) DO NOTHING
+			RETURNING id, project_id, tag_key, tag_value, color, is_system, is_readonly
+		`
+	}
 	var tag model.Tag
 	if err := tx.QueryRow(ctx, upsertTagQuery, projectID, tagKey, tagValue, color).Scan(
 		&tag.ID,
@@ -2139,7 +2178,17 @@ func (p *PsqlDB) AttachResourceTag(
 		&tag.IsSystem,
 		&tag.IsReadonly,
 	); err != nil {
-		return model.Tag{}, err
+		if !updateExisting && errors.Is(err, pgx.ErrNoRows) {
+			err = tx.QueryRow(ctx, `
+				SELECT id, project_id, tag_key, tag_value, color, is_system, is_readonly
+				FROM tags WHERE project_id = $1 AND tag_key = $2 AND tag_value = $3
+			`, projectID, tagKey, tagValue).Scan(
+				&tag.ID, &tag.ProjectID, &tag.TagKey, &tag.TagValue, &tag.Color, &tag.IsSystem, &tag.IsReadonly,
+			)
+		}
+		if err != nil {
+			return model.Tag{}, err
+		}
 	}
 	if tag.IsSystem || tag.IsReadonly {
 		return model.Tag{}, ErrResourceTagImmutable

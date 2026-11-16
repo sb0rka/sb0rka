@@ -17,6 +17,7 @@ type Dependencies struct {
 	Log              *slog.Logger
 	InviteHook       invite.Hook
 	VerificationHook verification.Hook
-	AdditionalRoutes []route.Route
-	SubjectResolvers map[string]subject.ProfileResolver
+	TrustEmailOnRegister bool // TrustEmailOnRegister stamps email_verified_at during community signup.
+	AdditionalRoutes     []route.Route
+	SubjectResolvers     map[string]subject.ProfileResolver
 }

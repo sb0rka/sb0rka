@@ -1,8 +1,9 @@
 package config
 
 import (
-	"crypto/ed25519"
 	"time"
+
+	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 )
 
 type LoggerConfig struct {
@@ -17,13 +18,12 @@ type DatabaseConfig struct {
 }
 
 type AuthConfig struct {
-	AccessTokenPrivateKey ed25519.PrivateKey
-	AccessTokenIssuer     string
-	AccessTokenAudience   string
-	AccessTokenKid        string
-	AccessTokenTyp        string
-	SecretKeyRef          string
-	SecretTinkKeysetJSON  []byte
+	VerificationKeys     *coreauth.JWKSCache
+	AccessTokenPolicy    *coreauth.AccessTokenPolicy
+	AccessTokenIssuer    string
+	AccessTokenAudience  string
+	SecretKeyRef         string
+	SecretTinkKeysetJSON []byte
 }
 
 type TelemetryConfig struct {

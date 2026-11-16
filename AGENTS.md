@@ -2,7 +2,7 @@
 
 Управляемая инфраструктура для сервисов, данных и AI-агентов. Go-монорепо (`go.work`) + React-консоль.
 
-Карта и потоки — [ARCHITECTURE.md](ARCHITECTURE.md). Схема БД — [db/SCHEMA.md](db/SCHEMA.md). Сборка/линтер/локальный запуск — [CONTRIBUTING.md](CONTRIBUTING.md). Контракт API — Swagger UI на `/swagger` (генерируется из кода).
+Карта и потоки — [ARCHITECTURE.md](ARCHITECTURE.md). Сборка/линтер/локальный запуск — [CONTRIBUTING.md](CONTRIBUTING.md). Контракт API — Swagger UI на `/swagger`.
 
 ## Карта репозитория
 
@@ -45,7 +45,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **sb0rka** (4472 symbols, 11499 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **sb0rka** (5187 symbols, 13780 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

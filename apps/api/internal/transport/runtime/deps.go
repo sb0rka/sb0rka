@@ -14,9 +14,11 @@ import (
 	"github.com/sb0rka/sb0rka/apps/api/pkg/quota"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/api/pkg/secret"
+	"github.com/sb0rka/sb0rka/packages/contract"
 )
 
 type Dependencies struct {
+	Info             contract.InfoResponse
 	PlatformDatabase store.Database
 	Authorizer       authz.Authorizer
 	SecretCrypto     service.SecretCrypto

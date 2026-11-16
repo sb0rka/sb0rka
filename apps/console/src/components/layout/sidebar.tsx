@@ -82,10 +82,14 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
   return (
     <aside
       className={cn(
-        "flex h-full shrink-0 flex-col justify-between overflow-hidden border-r border-border bg-[var(--sidebar-bg)] transition-[width] duration-[400ms] ease-out",
+        "relative flex h-full shrink-0 flex-col justify-between overflow-hidden bg-[var(--sidebar-bg)] transition-[width] duration-[400ms] ease-out",
         collapsed ? "w-[60px] [--sidebar-nav-pl:0.5rem]" : "w-[214px] [--sidebar-nav-pl:1rem]",
       )}
     >
+      <div
+        className="pointer-events-none absolute bottom-0 right-0 top-[var(--app-header-height)] w-px bg-border"
+        aria-hidden
+      />
       <div className="flex flex-col gap-2">
         <SidebarLogo collapsed={collapsed} />
 

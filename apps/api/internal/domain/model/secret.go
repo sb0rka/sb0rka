@@ -32,18 +32,19 @@ type SecretPasswordVerifierMeta struct {
 }
 
 type Secret struct {
-	PublicID           string     `json:"public_id"`
-	ProjectID          uuid.UUID  `json:"project_id"`
-	ResourceID         uuid.UUID  `json:"resource_id"`
-	Name               string     `json:"name"`
-	Description        *string    `json:"description,omitempty"`
-	PayloadKind        string     `json:"payload_kind"`
-	ProtectionClass    string     `json:"protection_class"`
-	CurrentVersionNo   int32      `json:"current_version_no"`
-	CreatedBySubjectID uuid.UUID  `json:"created_by_subject_id"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	ScheduledDestroyAt *time.Time `json:"scheduled_destroy_at,omitempty"`
+	PublicID             string     `json:"public_id"`
+	ProjectID            uuid.UUID  `json:"project_id"`
+	ResourceID           uuid.UUID  `json:"resource_id"`
+	Name                 string     `json:"name"`
+	Description          *string    `json:"description,omitempty"`
+	PayloadKind          string     `json:"payload_kind"`
+	ProtectionClass      string     `json:"protection_class"`
+	CurrentVersionNo     int32      `json:"current_version_no"`
+	CreatedBySubjectID   uuid.UUID  `json:"created_by_subject_id"`
+	CreatedBySubjectKind *string    `json:"created_by_subject_kind"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+	ScheduledDestroyAt   *time.Time `json:"scheduled_destroy_at,omitempty"`
 
 	ResourceState *ResourceState `json:"resource_state,omitempty"`
 

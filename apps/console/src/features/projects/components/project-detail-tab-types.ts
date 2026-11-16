@@ -27,6 +27,7 @@ export interface SecretRow {
   description?: string
   tablesCount: string
   columnsCount: string
+  currentVersionNo: number
   createdAt: string
   updatedAt: string
 }

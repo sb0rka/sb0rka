@@ -50,11 +50,12 @@ export function RegisterPage() {
       return
     }
 
+    const inviteToken = inviteCode.trim()
     signupMutation.mutate({
       username,
       email,
       password,
-      invite_token: inviteCode,
+      ...(inviteToken ? { invite_token: inviteToken } : {}),
     })
   }
 
@@ -147,7 +148,6 @@ export function RegisterPage() {
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
                   placeholder={t("auth.register.inviteCodePlaceholder")}
-                  required
                   disabled={inviteTokenParam !== null}
                 />
               </div>

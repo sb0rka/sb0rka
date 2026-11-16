@@ -12,7 +12,7 @@ All runtime dependencies are peer dependencies — install them in your app:
 
 ```bash
 npm install react react-dom tailwindcss \
-  @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-scroll-area \
+  @radix-ui/react-checkbox @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-scroll-area \
   @radix-ui/react-separator @radix-ui/react-slot @radix-ui/react-tabs @radix-ui/react-tooltip \
   class-variance-authority clsx tailwind-merge framer-motion lucide-react
 ```
@@ -73,7 +73,7 @@ Components are also available via subpath imports, e.g. `@sb0rka/ui/components/u
 
 ## What's inside
 
-- **Primitives** — `Button`, `Badge`, `Card`, `Dialog`, `DropdownMenu`, `Input`, `Label`, `ScrollArea`, `Separator`, `Tabs`, `Textarea`, `Tooltip`, `FloatingHint`, `AlphaToast`.
+- **Primitives** — `Button`, `Badge`, `Card`, `Checkbox`, `Dialog`, `DropdownMenu`, `Input`, `Label`, `ScrollArea`, `Separator`, `Tabs`, `Textarea`, `Tooltip`, `FloatingHint`, `AlphaToast`.
 - **Providers** — `ThemeProvider` (light/dark/system with view-transition animation), `ToastProvider`, `ConfirmDialogProvider`.
 - **App components** — `ThemeToggle`, `LanguageSwitcher`, `Logo`.
 - **Utilities** — `cn` (clsx + tailwind-merge).

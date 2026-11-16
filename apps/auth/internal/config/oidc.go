@@ -22,33 +22,31 @@ const (
 	minimumOIDCCodeHMACKeyLen  = 32
 )
 
-// OIDCConfig configures one confidential OAuth/OIDC client. A nil value on
-// ServerConfig means that the provider is disabled.
+// OIDCConfig contains issuer-wide keys and the immutable deployment registry.
 type OIDCConfig struct {
+	Registry                ClientRegistry
 	Issuer                  string
 	LoginURL                string
 	AllowInsecureHTTPIssuer bool
-	ClientID                string
-	RedirectURIs            []string
-	ClientSecret            []byte
 	SigningPrivateKey       *rsa.PrivateKey
 	SigningKeyID            string
 	ProviderCryptoKey       []byte
 	CodeHMACKey             []byte
+	PlatformAPIBaseURL      string
+	PreviousAccessJWKS      []byte
 }
 
 func (c OIDCConfig) Clone() OIDCConfig {
-	c.RedirectURIs = append([]string(nil), c.RedirectURIs...)
-	c.ClientSecret = append([]byte(nil), c.ClientSecret...)
+	c.Registry = c.Registry.Clone()
 	c.ProviderCryptoKey = append([]byte(nil), c.ProviderCryptoKey...)
 	c.CodeHMACKey = append([]byte(nil), c.CodeHMACKey...)
+	c.PreviousAccessJWKS = append([]byte(nil), c.PreviousAccessJWKS...)
 	return c
 }
 
 func loadOptionalOIDCConfig() (*OIDCConfig, error) {
 	names := []string{
-		"OIDC_ISSUER", "OIDC_LOGIN_URL", "OIDC_CLIENT_ID", "OIDC_REDIRECT_URIS",
-		"OIDC_CLIENT_SECRET", "OIDC_SIGNING_PRIVATE_KEY_FILE_PATH", "OIDC_SIGNING_KID",
+		"OIDC_LOGIN_URL", "OIDC_SIGNING_PRIVATE_KEY_FILE_PATH", "OIDC_SIGNING_KID",
 		"OIDC_PROVIDER_CRYPTO_KEY_FILE_PATH", "OIDC_CODE_HMAC_KEY_FILE_PATH",
 		"OIDC_ALLOW_INSECURE_HTTP_ISSUER",
 	}
@@ -76,11 +74,10 @@ func loadOIDCConfig() (OIDCConfig, error) {
 		return OIDCConfig{}, err
 	}
 
-	issuer := strings.TrimSuffix(strings.TrimSpace(os.Getenv("OIDC_ISSUER")), "/")
-	clientSecret, err := readEnvSecret("OIDC_CLIENT_SECRET")
-	if err != nil {
-		return OIDCConfig{}, err
-	}
+	issuer := strings.TrimSuffix(
+		strings.TrimSpace(coreconfig.GetStringEnv("AUTH_BASE_URL", DefaultAccessTokenIssuer)),
+		"/",
+	)
 	signingPEM, err := readBinarySecret("OIDC_SIGNING_PRIVATE_KEY_FILE_PATH")
 	if err != nil {
 		return OIDCConfig{}, err
@@ -98,13 +95,21 @@ func loadOIDCConfig() (OIDCConfig, error) {
 		return OIDCConfig{}, err
 	}
 
+	var previous []byte
+	if path := strings.TrimSpace(os.Getenv("ACCESS_TOKEN_PREVIOUS_JWKS_FILE_PATH")); path != "" {
+		previous, err = os.ReadFile(path)
+		if err != nil {
+			return OIDCConfig{}, err
+		}
+	}
 	cfg := OIDCConfig{
+		PlatformAPIBaseURL: coreconfig.GetStringEnv(
+			"API_BASE_URL",
+			"http://localhost:8080",
+		), PreviousAccessJWKS: previous,
 		Issuer:                  issuer,
 		LoginURL:                strings.TrimSpace(os.Getenv("OIDC_LOGIN_URL")),
 		AllowInsecureHTTPIssuer: allowHTTP,
-		ClientID:                strings.TrimSpace(os.Getenv("OIDC_CLIENT_ID")),
-		RedirectURIs:            splitRedirectURIs(os.Getenv("OIDC_REDIRECT_URIS")),
-		ClientSecret:            clientSecret,
 		SigningPrivateKey:       signingKey,
 		SigningKeyID:            strings.TrimSpace(os.Getenv("OIDC_SIGNING_KID")),
 		ProviderCryptoKey:       providerKey,
@@ -119,48 +124,33 @@ func loadOIDCConfig() (OIDCConfig, error) {
 func (c OIDCConfig) validate() error {
 	issuer, err := url.Parse(c.Issuer)
 	if err != nil || issuer.Scheme == "" || issuer.Host == "" {
-		return errors.New("OIDC_ISSUER must be an absolute URL")
+		return errors.New("AUTH_BASE_URL must be an absolute URL")
 	}
 	if issuer.User != nil || issuer.ForceQuery || issuer.RawQuery != "" ||
 		issuer.Fragment != "" || strings.Contains(c.Issuer, "#") {
-		return errors.New("OIDC_ISSUER must not contain userinfo, query, or fragment")
+		return errors.New("AUTH_BASE_URL must not contain userinfo, query, or fragment")
 	}
 	if issuer.Path != "" {
-		return errors.New("OIDC_ISSUER must not contain a path or trailing slash")
+		return errors.New("AUTH_BASE_URL must not contain a path or trailing slash")
 	}
 	switch issuer.Scheme {
 	case "https":
 	case "http":
 		if !c.AllowInsecureHTTPIssuer || !isLocalDevHTTPHost(issuer.Hostname()) {
-			return errors.New("HTTP OIDC_ISSUER requires OIDC_ALLOW_INSECURE_HTTP_ISSUER=true and a loopback or private-network hostname")
+			return errors.New(
+				"HTTP AUTH_BASE_URL requires OIDC_ALLOW_INSECURE_HTTP_ISSUER=true and a loopback, private-network, or Compose service hostname",
+			)
 		}
 	default:
-		return errors.New("OIDC_ISSUER scheme must be https")
+		return errors.New("AUTH_BASE_URL scheme must be https")
 	}
 	if err := validateLoginURL(c.LoginURL); err != nil {
 		return fmt.Errorf("invalid OIDC_LOGIN_URL: %w", err)
 	}
-	if c.ClientID == "" {
-		return errors.New("OIDC_CLIENT_ID is required")
-	}
-	if len(c.ClientID) > maximumOIDCClientIDLen {
-		return fmt.Errorf("OIDC_CLIENT_ID must be at most %d bytes", maximumOIDCClientIDLen)
-	}
-	if len(c.ClientSecret) < minimumOIDCClientSecretLen {
-		return fmt.Errorf("OIDC_CLIENT_SECRET must be at least %d bytes", minimumOIDCClientSecretLen)
-	}
-	if len(c.RedirectURIs) == 0 {
-		return errors.New("OIDC_REDIRECT_URIS must contain at least one URI")
-	}
-	seen := make(map[string]struct{}, len(c.RedirectURIs))
-	for _, raw := range c.RedirectURIs {
-		if err := validateRedirectURI(raw); err != nil {
-			return fmt.Errorf("invalid OIDC_REDIRECT_URIS entry: %w", err)
-		}
-		if _, ok := seen[raw]; ok {
-			return errors.New("OIDC_REDIRECT_URIS contains a duplicate URI")
-		}
-		seen[raw] = struct{}{}
+	api, err := url.Parse(c.PlatformAPIBaseURL)
+	if err != nil || api.Host == "" || api.User != nil || api.Path != "" || api.RawQuery != "" || api.Fragment != "" ||
+		(api.Scheme != "https" && api.Scheme != "http") {
+		return errors.New("API_BASE_URL must be an HTTP(S) origin")
 	}
 	if c.SigningPrivateKey == nil {
 		return errors.New("OIDC signing private key is required")
@@ -204,14 +194,6 @@ func validateLoginURL(raw string) error {
 	return errors.New("must use HTTPS, except for loopback development")
 }
 
-func readEnvSecret(name string) ([]byte, error) {
-	secret, ok := os.LookupEnv(name)
-	if !ok || secret == "" {
-		return nil, fmt.Errorf("%s is required", name)
-	}
-	return []byte(secret), nil
-}
-
 func readBinarySecret(fileEnvName string) ([]byte, error) {
 	filePath := strings.TrimSpace(os.Getenv(fileEnvName))
 	if filePath == "" {
@@ -243,17 +225,6 @@ func parsePKCS8RSAKey(data []byte) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-func splitRedirectURIs(raw string) []string {
-	parts := strings.Split(raw, ",")
-	redirects := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if uri := strings.TrimSpace(part); uri != "" {
-			redirects = append(redirects, uri)
-		}
-	}
-	return redirects
-}
-
 func validateRedirectURI(raw string) error {
 	if len(raw) > 2048 {
 		return errors.New("redirect URI is too long")
@@ -280,11 +251,15 @@ func isLoopbackHost(host string) bool {
 }
 
 func isLocalDevHTTPHost(host string) bool {
-	if isLoopbackHost(host) {
+	if isLoopbackHost(host) || strings.EqualFold(host, "host.docker.internal") {
 		return true
 	}
 	ip := net.ParseIP(host)
-	return ip != nil && ip.IsPrivate()
+	if ip != nil && ip.IsPrivate() {
+		return true
+	}
+	// Compose DNS name ("auth"): the API container fetches JWKS from this issuer.
+	return host != "" && !strings.Contains(host, ".")
 }
 
 func validKeyID(kid string) bool {

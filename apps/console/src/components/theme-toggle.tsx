@@ -22,7 +22,7 @@ export function ThemeToggle() {
       type="button"
       variant="outline"
       size="icon"
-      className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full"
+      className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={t("header.toggleTheme")}
     >

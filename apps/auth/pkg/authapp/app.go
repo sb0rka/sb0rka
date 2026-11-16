@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
@@ -14,6 +15,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/verification"
+	"github.com/sb0rka/sb0rka/packages/core/buildinfo"
 	coretransport "github.com/sb0rka/sb0rka/packages/core/transport"
 )
 
@@ -37,6 +39,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	slog.SetDefault(log)
 	log.Info("logger initialized")
+	buildinfo.Log(log)
 
 	log.Info("initializing database connection")
 	database, err := store.CreateDatabase(
@@ -66,14 +69,28 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	verificationHook := verification.Noop()
+	trustEmailOnRegister := true
 	if a.opts.VerificationRepositoryFactory != nil && a.opts.VerificationHookFactory != nil {
 		repo := a.opts.VerificationRepositoryFactory(database.PgxPool())
 		verificationHook = a.opts.VerificationHookFactory(repo)
+		trustEmailOnRegister = false
 	}
 
 	var additionalRoutes []route.Route
 	if cfg.Server.OIDC != nil {
-		log.Info("OIDC provider enabled", "client_id", cfg.Server.OIDC.ClientID)
+		policies, err := database.ClientPolicies(ctx)
+		if err != nil {
+			return fmt.Errorf("load platform clients: %w", err)
+		}
+		registry, skipped, err := config.RegistryFromPolicies(policies, cfg.Server.OIDC.AllowInsecureHTTPIssuer, os.LookupEnv)
+		if err != nil {
+			return fmt.Errorf("initialize platform clients: %w", err)
+		}
+		cfg.Server.OIDC.Registry = registry
+		for _, client := range skipped {
+			log.Info("platform client not initialized", "client_id", client.ClientID, "secret_env", client.SecretEnv)
+		}
+		log.Info("OIDC provider enabled", "clients", len(registry.Clients))
 	}
 	// Extension handlers only need the pool. Public, JWT, live-session, and
 	// email-verification policy is applied by the router before they run.
@@ -104,13 +121,14 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	newSrv := transport.NewServer(transport.Dependencies{
-		Database:         database,
-		Cfg:              cfg.Server,
-		Log:              log,
-		InviteHook:       inviteHook,
-		VerificationHook: verificationHook,
-		AdditionalRoutes: additionalRoutes,
-		SubjectResolvers: resolvers,
+		Database:             database,
+		Cfg:                  cfg.Server,
+		Log:                  log,
+		InviteHook:           inviteHook,
+		VerificationHook:     verificationHook,
+		TrustEmailOnRegister: trustEmailOnRegister,
+		AdditionalRoutes:     additionalRoutes,
+		SubjectResolvers:     resolvers,
 	})
 	handler, err := newSrv.BuildCommonHandler()
 	if err != nil {

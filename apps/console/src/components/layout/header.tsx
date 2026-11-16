@@ -48,8 +48,8 @@ export function Header({ breadcrumbs }: HeaderProps) {
   const logoutMutation = useLogout()
 
   return (
-    <header className="flex h-[var(--app-header-height)] shrink-0 items-center justify-between border-b border-border bg-[var(--sidebar-bg)] px-6">
-      <nav className="flex items-center gap-2.5">
+    <header className="flex h-[var(--app-header-height)] shrink-0 items-center justify-between gap-4 border-b border-border bg-[var(--sidebar-bg)] px-6">
+      <nav className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
         {breadcrumbs.map((item, index) => {
           const isLast = index === breadcrumbs.length - 1
           const isLink = !!item.href && !isLast
@@ -61,19 +61,23 @@ export function Header({ breadcrumbs }: HeaderProps) {
                   <Icon className="h-4 w-4" />
                 </span>
               ) : null}
-              {item.label}
+              <span className="truncate">{item.label}</span>
             </>
           )
           return (
-            <div key={`${item.label}-${index}`} className="flex items-center gap-2.5">
+            <div
+              key={`${item.label}-${index}`}
+              className={cn("flex min-w-0 items-center gap-2.5", isLast ? "flex-1" : "shrink-0")}
+            >
               {index > 0 && (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
               {isLink ? (
                 <Link
                   to={item.href as string}
+                  title={item.label}
                   className={cn(
-                    "text-sm text-muted-foreground hover:text-foreground flex items-center gap-2",
+                    "flex min-w-0 max-w-full items-center gap-2 text-sm text-muted-foreground hover:text-foreground",
                     buttonPressClass,
                   )}
                 >
@@ -81,14 +85,11 @@ export function Header({ breadcrumbs }: HeaderProps) {
                 </Link>
               ) : (
                 <span
-                  className={
-                    cn(
-                      "flex items-center gap-2",
-                      isLast
-                        ? "text-sm text-foreground"
-                        : "text-sm text-muted-foreground"
-                    )
-                  }
+                  title={item.label}
+                  className={cn(
+                    "flex min-w-0 max-w-full items-center gap-2",
+                    isLast ? "text-sm text-foreground" : "text-sm text-muted-foreground",
+                  )}
                 >
                   {content}
                 </span>
@@ -98,7 +99,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
         })}
       </nav>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {/* <Button variant="ghost" size="sm" className="text-sm font-medium">
           Оставить фидбек
         </Button>
@@ -138,7 +139,7 @@ export function Header({ breadcrumbs }: HeaderProps) {
                       {user.username}
                     </span>
                   </div>
-                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background">
                     <span className="text-xs font-medium text-muted-foreground">
                       {accountInitial(user.email, user.username)}
                     </span>

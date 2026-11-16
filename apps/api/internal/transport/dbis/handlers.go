@@ -665,18 +665,19 @@ func toDBInstanceResponse(d model.DBInstance) contract.DBInstanceResponse {
 
 func toSecretResponse(s model.Secret) contract.SecretResponse {
 	resp := contract.SecretResponse{
-		PublicID:           s.PublicID,
-		ProjectID:          s.ProjectID.String(),
-		SecretID:           s.ResourceID.String(),
-		Name:               s.Name,
-		Description:        s.Description,
-		PayloadKind:        s.PayloadKind,
-		ProtectionClass:    s.ProtectionClass,
-		CurrentVersionNo:   s.CurrentVersionNo,
-		CreatedBySubjectID: s.CreatedBySubjectID.String(),
-		CreatedAt:          s.CreatedAt,
-		UpdatedAt:          s.UpdatedAt,
-		ScheduledDestroyAt: s.ScheduledDestroyAt,
+		PublicID:             s.PublicID,
+		ProjectID:            s.ProjectID.String(),
+		SecretID:             s.ResourceID.String(),
+		Name:                 s.Name,
+		Description:          s.Description,
+		PayloadKind:          s.PayloadKind,
+		ProtectionClass:      s.ProtectionClass,
+		CurrentVersionNo:     s.CurrentVersionNo,
+		CreatedBySubjectID:   s.CreatedBySubjectID.String(),
+		CreatedBySubjectKind: s.CreatedBySubjectKind,
+		CreatedAt:            s.CreatedAt,
+		UpdatedAt:            s.UpdatedAt,
+		ScheduledDestroyAt:   s.ScheduledDestroyAt,
 	}
 	if s.ResourceState != nil {
 		resp.ResourceState = &contract.ResourceStateResponse{

@@ -59,7 +59,7 @@ runs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version-file: ${{ inputs.module-dir }}/go.mod
+        go-version: "1.27.3"
         cache-dependency-path: ${{ inputs.module-dir }}/go.sum
 
     - name: Read version

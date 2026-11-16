@@ -1,8 +1,7 @@
 package service
 
 import (
-	"crypto/ed25519"
-	"fmt"
+	"context"
 
 	"github.com/sb0rka/sb0rka/apps/api/internal/config"
 	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
@@ -14,16 +13,14 @@ type AccessTokenClaims = coreauth.AccessTokenClaims
 var ErrUnauthorized = coreauth.ErrUnauthorized
 
 func verificationConfig(authConfig config.AuthConfig) (coreauth.VerificationConfig, error) {
-	publicKey, ok := authConfig.AccessTokenPrivateKey.Public().(ed25519.PublicKey)
-	if !ok {
-		return coreauth.VerificationConfig{}, fmt.Errorf("%w: invalid access token key", ErrUnauthorized)
+	if authConfig.VerificationKeys == nil {
+		return coreauth.VerificationConfig{}, coreauth.ErrKeysUnavailable
 	}
 	return coreauth.VerificationConfig{
-		PublicKey: publicKey,
-		KeyID:     authConfig.AccessTokenKid,
-		TokenType: authConfig.AccessTokenTyp,
-		Issuer:    authConfig.AccessTokenIssuer,
-		Audience:  authConfig.AccessTokenAudience,
+		Keys:     authConfig.VerificationKeys,
+		Issuer:   authConfig.AccessTokenIssuer,
+		Audience: authConfig.AccessTokenAudience,
+		Policy:   authConfig.AccessTokenPolicy,
 	}, nil
 }
 
@@ -31,18 +28,18 @@ func ParseBearerToken(authorizationHeader string) (string, error) {
 	return coreauth.ParseBearerToken(authorizationHeader)
 }
 
-func ParseAndVerifyAccessTokenFromAuthHeader(authorizationHeader string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
+func ParseAndVerifyAccessTokenFromAuthHeader(ctx context.Context, authorizationHeader string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
 	cfg, err := verificationConfig(authConfig)
 	if err != nil {
 		return AccessTokenIdentity{}, err
 	}
-	return coreauth.ParseAndVerifyAccessToken(authorizationHeader, cfg)
+	return coreauth.ParseAndVerifyAccessToken(ctx, authorizationHeader, cfg)
 }
 
-func VerifyAccessToken(rawToken string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
+func VerifyAccessToken(ctx context.Context, rawToken string, authConfig config.AuthConfig) (AccessTokenIdentity, error) {
 	cfg, err := verificationConfig(authConfig)
 	if err != nil {
 		return AccessTokenIdentity{}, err
 	}
-	return coreauth.VerifyAccessToken(rawToken, cfg)
+	return coreauth.VerifyAccessToken(ctx, rawToken, cfg)
 }

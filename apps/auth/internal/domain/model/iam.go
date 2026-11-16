@@ -13,7 +13,6 @@ type Subject struct {
 	ID        uuid.UUID `json:"id"`
 	Kind      string    `json:"kind"`
 	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type AuthSession struct {
@@ -21,8 +20,8 @@ type AuthSession struct {
 	SubjectID        uuid.UUID  `json:"subject_id"`
 	SubjectKind      string     `json:"subject_kind"`
 	FamilyID         uuid.UUID  `json:"family_id"`
+	OAuthScopes      []string   `json:"oauth_scopes,omitempty"`
 	OAuthClientID    *string    `json:"oauth_client_id,omitempty"`
-	RefreshTokenHash string     `json:"refresh_token_hash"`
 	CreatedIP        net.IP     `json:"created_ip"`
 	CreatedUserAgent *string    `json:"created_user_agent,omitempty"`
 	CreatedAt        time.Time  `json:"created_at"`

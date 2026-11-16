@@ -4,10 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
@@ -24,9 +27,9 @@ type idTokenClaims struct {
 	Nonce              string   `json:"nonce"`
 	AuthenticationTime int64    `json:"auth_time"`
 	AMR                []string `json:"amr"`
-	PreferredUsername  string   `json:"preferred_username"`
-	Email              string   `json:"email"`
-	EmailVerified      bool     `json:"email_verified"`
+	PreferredUsername  string   `json:"preferred_username,omitempty"`
+	Email              string   `json:"email,omitempty"`
+	EmailVerified      *bool    `json:"email_verified,omitempty"`
 	AccessTokenHash    string   `json:"at_hash"`
 }
 
@@ -36,13 +39,19 @@ func newTokenIssuer(cfg config.OIDCConfig, authConfig config.AuthConfig) *tokenI
 }
 
 // Issue creates the code-exchange ID token and its separate Platform access token.
-func (i *tokenIssuer) Issue(user db.OIDCUserClaims, sessionID uuid.UUID, now time.Time) (db.OIDCTokenSet, error) {
+func (i *tokenIssuer) Issue(
+	user db.OIDCUserClaims,
+	sessionID uuid.UUID,
+	now time.Time,
+	client config.RegisteredClient,
+) (db.OIDCTokenSet, error) {
 	now = now.UTC().Truncate(time.Second)
 	accessToken, err := service.CreateClientAccessToken(
 		user.ID,
 		sessionID,
 		model.SubjectKindUser,
-		i.config.ClientID,
+		client.ClientID,
+		client.AccessAudience,
 		i.authConfig,
 	)
 	if err != nil {
@@ -54,7 +63,7 @@ func (i *tokenIssuer) Issue(user db.OIDCUserClaims, sessionID uuid.UUID, now tim
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    i.config.Issuer,
 			Subject:   user.ID.String(),
-			Audience:  jwt.ClaimStrings{i.config.ClientID},
+			Audience:  jwt.ClaimStrings{client.ClientID},
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			ID:        uuid.NewString(),
@@ -62,10 +71,15 @@ func (i *tokenIssuer) Issue(user db.OIDCUserClaims, sessionID uuid.UUID, now tim
 		Nonce:              user.Nonce,
 		AuthenticationTime: user.AuthenticationTime.UTC().Unix(),
 		AMR:                []string{"pwd"},
-		PreferredUsername:  user.Username,
-		Email:              user.Email,
-		EmailVerified:      user.EmailVerified,
 		AccessTokenHash:    base64.RawURLEncoding.EncodeToString(digest[:len(digest)/2]),
+	}
+	scopes := strings.Fields(user.Scopes)
+	if slices.Contains(scopes, "profile") {
+		idClaims.PreferredUsername = user.Username
+	}
+	if slices.Contains(scopes, "email") {
+		idClaims.Email = user.Email
+		idClaims.EmailVerified = &user.EmailVerified
 	}
 	idToken, err := i.signIDToken(idClaims)
 	if err != nil {
@@ -73,6 +87,7 @@ func (i *tokenIssuer) Issue(user db.OIDCUserClaims, sessionID uuid.UUID, now tim
 	}
 
 	return db.OIDCTokenSet{
+		Scope:       user.Scopes,
 		AccessToken: accessToken,
 		IDToken:     idToken,
 		ExpiresIn:   int64(i.authConfig.AccessTokenTTL / time.Second),
@@ -80,12 +95,13 @@ func (i *tokenIssuer) Issue(user db.OIDCUserClaims, sessionID uuid.UUID, now tim
 }
 
 // IssueAccessToken creates a replacement Platform access token after OAuth refresh rotation.
-func (i *tokenIssuer) IssueAccessToken(subjectID, sessionID uuid.UUID) (string, error) {
+func (i *tokenIssuer) IssueAccessToken(subjectID, sessionID uuid.UUID, client config.RegisteredClient) (string, error) {
 	return service.CreateClientAccessToken(
 		subjectID,
 		sessionID,
 		model.SubjectKindUser,
-		i.config.ClientID,
+		client.ClientID,
+		client.AccessAudience,
 		i.authConfig,
 	)
 }

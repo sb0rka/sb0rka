@@ -16,6 +16,15 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/authapp"
 )
 
+// @title Sb0rka Auth API
+// @version 1.0
+// @description Platform OIDC issuer, client registry policies, explicit delegation and workload identity.
+// @BasePath /
+// @securityDefinitions.basic OAuthClientAuth
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
 //go:embed version.txt
 var versionFile string
 

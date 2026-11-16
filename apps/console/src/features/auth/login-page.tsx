@@ -23,11 +23,11 @@ import { useAuth } from "./auth-provider"
 import { ApiError } from "@/lib/api-client"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
-export function LoginPage() {
+export function LoginPage({ onLoginSuccess }: { onLoginSuccess?: () => void | Promise<void> } = {}) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const { isAuthenticated, isLoading } = useAuth()
-  const authRequestId = getOidcAuthRequestId(searchParams.get("return_to"))
+  const authRequestId = onLoginSuccess ? null : getOidcAuthRequestId(searchParams.get("return_to"))
   const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
   const [continuationError, setContinuationError] = useState<unknown>(null)
@@ -51,7 +51,7 @@ export function LoginPage() {
     }
   }, [authRequestId])
 
-  const loginMutation = useLogin(authRequestId ? continueOidcAuthorization : undefined)
+  const loginMutation = useLogin(onLoginSuccess ?? (authRequestId ? continueOidcAuthorization : undefined))
 
   useEffect(() => {
     if (
@@ -132,6 +132,7 @@ export function LoginPage() {
           </CardHeader>
 
           <CardContent>
+          {searchParams.get("password_changed") === "1" && <p role="status" className="mb-4 text-sm">{t("profile.passwordReauthentication")}</p>}
             <form id="login-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="login">{t("auth.login.loginLabel")}</Label>

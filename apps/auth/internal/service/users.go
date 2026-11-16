@@ -28,6 +28,9 @@ func ValidateEmail(emailRaw string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse email: %w", err)
 	}
+	if len(emailAddress.Address) > 128 {
+		return "", fmt.Errorf("email must not exceed 128 UTF-8 bytes")
+	}
 	return emailAddress.Address, nil
 }
 

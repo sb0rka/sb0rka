@@ -30,6 +30,7 @@ function useDataExplorerNarrowViewport() {
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
+  models: "tabs.models",
   databases: "tabs.databases",
   "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
@@ -80,6 +81,7 @@ function AppLayoutContent() {
   const projectOverviewHref = `/projects/${projectId}?tab=overview`
   const tabLabelById: Record<ProjectTab, string> = {
     overview: t(projectTabLabelKeyById.overview),
+    models: t(projectTabLabelKeyById.models),
     databases: t(projectTabLabelKeyById.databases),
     "data-explorer": t(projectTabLabelKeyById["data-explorer"]),
     secrets: t(projectTabLabelKeyById.secrets),

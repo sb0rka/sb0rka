@@ -2,10 +2,12 @@ package secrets
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/sb0rka/sb0rka/apps/api/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/api/internal/service"
 	"github.com/sb0rka/sb0rka/apps/api/internal/store/db"
 	secrethook "github.com/sb0rka/sb0rka/apps/api/pkg/secret"
@@ -15,6 +17,12 @@ import (
 func (h *Handler) prepareSecretValue(ctx context.Context, payloadKind, value, purpose string) (string, error) {
 	if purpose != "" {
 		return h.deps.SecretHook.GenerateValue(ctx, payloadKind, purpose)
+	}
+	if payloadKind == model.SecretPayloadKindJSON && !json.Valid([]byte(value)) {
+		return "", &secrethook.StatusError{Status: http.StatusBadRequest, Message: "Invalid JSON secret value"}
+	}
+	if payloadKind == model.SecretPayloadKindText || payloadKind == model.SecretPayloadKindJSON {
+		return value, nil
 	}
 	validated, err := service.ValidateSecretValue(value)
 	if err != nil {

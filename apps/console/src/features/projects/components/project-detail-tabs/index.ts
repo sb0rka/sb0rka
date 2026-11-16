@@ -1,4 +1,5 @@
 export { OverviewTab } from "../overview-tab"
+export { ModelsTab } from "../models-tab"
 export { DatabasesTab } from "../databases-tab"
 export { DataExplorerTab } from "../data-explorer-tab"
 export { SecretsTab } from "../secrets-tab"

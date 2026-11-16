@@ -37,10 +37,10 @@ tasks:
       - cd packages/contract && go mod tidy
 
   swagger:
-    desc: Перегенерировать OpenAPI-спеку api из swaggo-аннотаций
-    dir: apps/api
+    desc: Перегенерировать OpenAPI-спеки api и auth из swaggo-аннотаций
     cmds:
-      - go run github.com/swaggo/swag/cmd/swag init -g cmd/api/main.go --output internal/openapi --parseDependency --parseInternal
+      - cd apps/api && go run github.com/swaggo/swag/cmd/swag init -g cmd/api/main.go --output internal/openapi --parseDependency --parseInternal
+      - cd apps/auth && go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g cmd/auth/main.go --output internal/openapi --parseDependency --parseInternal
 
   dev:up:
     desc: Собрать и запустить весь локальный стенд
@@ -50,7 +50,12 @@ tasks:
   dev:down:
     desc: Остановить локальный стенд
     cmds:
-      - docker compose --profile proxy down
+      - docker compose down
+
+  dev:wipe:
+    desc: Остановить стенд и удалить volumes
+    cmds:
+      - docker compose down -v
 
   dev:logs:
     desc: Смотреть логи всех сервисов или указанных после --

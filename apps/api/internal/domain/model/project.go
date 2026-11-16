@@ -11,6 +11,7 @@ const (
 	PrjMemberRoleAdmin  = "admin"
 	PrjMemberRoleEditor = "editor"
 	PrjMemberRoleViewer = "viewer"
+	PrjMemberRoleAgent  = "agent"
 )
 
 type Project struct {

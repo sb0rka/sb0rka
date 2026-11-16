@@ -26,7 +26,7 @@ type validatedAuthorizationRequest struct {
 }
 
 // validateAuthorizationRequest enforces the supported client, redirect, scope, nonce, and PKCE profile before persistence.
-func validateAuthorizationRequest(rawQuery string, cfg config.OIDCConfig) (validatedAuthorizationRequest, *protocolError, bool) {
+func validateAuthorizationRequest(rawQuery string, cfg config.RegisteredClient) (validatedAuthorizationRequest, *protocolError, bool) {
 	if len(rawQuery) > 8192 {
 		return validatedAuthorizationRequest{}, newProtocolError("invalid_request", http.StatusBadRequest), false
 	}
@@ -83,7 +83,7 @@ func validateAuthorizationRequest(rawQuery string, cfg config.OIDCConfig) (valid
 		return redirectError("unsupported_response_mode")
 	}
 	scope, ok := singleValue(values, "scope")
-	if !ok || !exactScopes(scope) {
+	if !ok || !allowedOIDCScopes(scope, cfg.OIDCScopes) {
 		return redirectError("invalid_scope")
 	}
 	challenge, ok := singleValue(values, "code_challenge")
@@ -100,28 +100,9 @@ func validateAuthorizationRequest(rawQuery string, cfg config.OIDCConfig) (valid
 		RedirectURI:   redirectURI,
 		State:         state,
 		Nonce:         nonce,
-		Scopes:        canonicalScopes,
+		Scopes:        strings.Join(strings.Fields(scope), " "),
 		CodeChallenge: challenge,
 	}, nil, true
-}
-
-// exactScopes requires the complete supported scope set while allowing clients to vary its order.
-func exactScopes(raw string) bool {
-	fields := strings.Split(raw, " ")
-	if len(fields) != 4 {
-		return false
-	}
-	allowed := map[string]struct{}{
-		"openid": {}, "profile": {}, "email": {}, "offline_access": {},
-	}
-	seen := make(map[string]bool, 4)
-	for _, scope := range fields {
-		if _, ok := allowed[scope]; !ok || seen[scope] {
-			return false
-		}
-		seen[scope] = true
-	}
-	return len(seen) == len(allowed)
 }
 
 // validNonce accepts only a canonical 256-bit base64url nonce for ID-token replay binding.

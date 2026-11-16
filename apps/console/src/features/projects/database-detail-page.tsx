@@ -16,7 +16,7 @@ import {
   Input,
   Label,
 } from "@sb0rka/ui"
-import { getResolvedLanguage } from "@/lib/i18n"
+import { formatDateOnly } from "@/lib/format-date"
 import { useConfirmDialog } from "@/components/confirm-dialog-provider"
 import { useToast } from "@sb0rka/ui"
 import { AddTagDialog } from "./components/add-tag-dialog"
@@ -70,13 +70,6 @@ function maskPostgresUri(parsed: {
   database: string
 }): string {
   return `postgresql://****:****@${parsed.hostname}:${parsed.port}/${parsed.database}`
-}
-
-function formatDateOnly(value: string | undefined, locale: string): string {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date)
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -239,7 +232,6 @@ function SensitiveConnectionField({
 
 export function DatabaseDetailPage() {
   const { t } = useTranslation()
-  const locale = getResolvedLanguage()
   const confirm = useConfirmDialog()
   const { showSuccess, showError } = useToast()
   const { id = "", resourceId = "" } = useParams<{
@@ -533,13 +525,13 @@ export function DatabaseDetailPage() {
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("common.labels.createdAt")}</p>
               <p className="text-base text-muted-foreground">
-                {formatDateOnly(resourceTimestamps?.createdAt, locale)}
+                {formatDateOnly(resourceTimestamps?.createdAt)}
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <p className="text-sm font-medium text-foreground">{t("common.labels.updatedAt")}</p>
               <p className="text-base text-muted-foreground">
-                {formatDateOnly(resourceTimestamps?.updatedAt, locale)}
+                {formatDateOnly(resourceTimestamps?.updatedAt)}
               </p>
             </div>
           </CardContent>

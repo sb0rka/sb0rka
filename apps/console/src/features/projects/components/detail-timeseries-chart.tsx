@@ -15,6 +15,11 @@ import {
   buttonPressClass,
   cn,
 } from "@sb0rka/ui"
+import {
+  formatDateTimeShort,
+  formatDayMonth,
+  formatTimeOnly,
+} from "@/lib/format-date"
 import { getResolvedLanguage } from "@/lib/i18n"
 import type { ObservabilityMetricPoint } from "../api"
 
@@ -112,11 +117,8 @@ const STEP_OPTIONS = [
   { ms: 2 * 60 * 60_000 },
 ] as const
 
-function formatAxisDateOnlyLabel(timestampMs: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "2-digit",
-  }).format(new Date(timestampMs))
+function formatAxisDateOnlyLabel(timestampMs: number): string {
+  return formatDayMonth(timestampMs)
 }
 
 function getAxisDayKey(timestampMs: number): string {
@@ -124,20 +126,12 @@ function getAxisDayKey(timestampMs: number): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 }
 
-function formatAxisDateTimeLabel(timestampMs: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(timestampMs))
+function formatAxisDateTimeLabel(timestampMs: number): string {
+  return formatDateTimeShort(timestampMs)
 }
 
-function formatAxisTimeLabel(timestampMs: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(timestampMs))
+function formatAxisTimeLabel(timestampMs: number): string {
+  return formatTimeOnly(timestampMs)
 }
 
 const AXIS_TICK_STEPS_MS: readonly number[] = [
@@ -445,7 +439,7 @@ export function DetailTimeseriesChart({
                 fill="var(--muted-foreground)"
               >
                 <tspan fill="var(--foreground)" fontWeight={600}>
-                  {formatAxisDateOnlyLabel(timestampMs, locale)}
+                  {formatAxisDateOnlyLabel(timestampMs)}
                 </tspan>
                 {/* <tspan dx={4}>{formatAxisTimeLabel(timestampMs)}</tspan> */}
               </text>
@@ -461,7 +455,7 @@ export function DetailTimeseriesChart({
               fontSize={12}
               fill="var(--muted-foreground)"
             >
-              {formatAxisTimeLabel(timestampMs, locale)}
+              {formatAxisTimeLabel(timestampMs)}
             </text>
           </g>
         )
@@ -593,7 +587,7 @@ export function DetailTimeseriesChart({
                 labelFormatter={(label: unknown) => {
                   const timestamp = asNumber(label)
                   if (timestamp === null) return "—"
-                  return formatAxisDateTimeLabel(timestamp, locale)
+                  return formatAxisDateTimeLabel(timestamp)
                 }}
                 contentStyle={{
                   borderRadius: "0.5rem",

@@ -32,6 +32,28 @@ export function useAccountPlan() {
   })
 }
 
+export function useEnsureAccountPlan() {
+  const { isAuthenticated, user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useQuery({
+    queryKey: ["subscription", "account-initialized", user?.id],
+    enabled: isAuthenticated && Boolean(user?.id),
+    queryFn: async () => {
+      try {
+        await getAccountPlan()
+        return true
+      } catch (error) {
+        if (!isNotFound(error)) throw error
+      }
+
+      await initializeAccount()
+      await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
+      return true
+    },
+  })
+}
+
 // TODO: BACKEND_TODO — 24h peaks are not on the API yet. Leave this off so a
 // missing route is not a failed load; the usage table shows limits only.
 const quotaPeaksReady = false

@@ -11,7 +11,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@sb0rka/ui"
-import { getResolvedLanguage } from "@/lib/i18n"
+import { formatDateTime } from "@/lib/format-date"
 import type { SqlExplorerHistoryItem } from "../sql-explorer-history-storage"
 
 export type AiQueryChatHistoryView = "history" | "bookmarks"
@@ -27,15 +27,6 @@ export type AiQueryChatHistoryDialogProps = {
   onApplySql?: (sql: string, title: string) => void
   onApplySqlAndRun?: (sql: string, title: string) => void
   onToggleBookmark?: (item: SqlExplorerHistoryItem) => void
-}
-
-function formatHistoryDate(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return new Intl.DateTimeFormat(getResolvedLanguage(), {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date)
 }
 
 function filterSqlHistoryItems(
@@ -147,7 +138,7 @@ function SqlHistoryList({
                   {renderHighlightedText(item.title, searchQuery)}
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {formatHistoryDate(item.createdAt)}
+                  {formatDateTime(item.createdAt, "")}
                 </p>
               </div>
               <Button
