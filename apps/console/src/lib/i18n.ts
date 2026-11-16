@@ -497,7 +497,7 @@ const resources = {
       },
       subscription: {
         title: "Подписка",
-        description: "Лимиты проектов и аккаунта",
+        onPlan: "<user>{{user}}</user> на тарифе <plan>{{plan}}</plan>",
         current: "Текущий",
         changePlan: "Сменить тариф",
         upgradeLimits: "Увеличить лимиты",
@@ -1125,7 +1125,7 @@ const resources = {
       },
       subscription: {
         title: "Subscription",
-        description: "Project and account limits",
+        onPlan: "<user>{{user}}</user> is on the <plan>{{plan}}</plan> plan",
         current: "Current",
         changePlan: "Change plan",
         upgradeLimits: "Upgrade limits",

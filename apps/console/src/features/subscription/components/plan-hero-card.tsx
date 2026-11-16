@@ -1,12 +1,10 @@
-import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@sb0rka/ui"
-import type { BalanceResponse, PlanResponse } from "../api"
+import type { BalanceResponse } from "../api"
 import {
   accountBalanceEntries,
   displayCurrency,
   formatMoneyWithSign,
-  localizedName,
 } from "../quota-format"
 
 interface BalanceFigure {
@@ -28,10 +26,6 @@ function balanceFigures(
 }
 
 const balanceRowClass = "flex w-fit max-w-full flex-wrap items-center gap-3"
-
-function AccountDivider() {
-  return <div className="hidden h-8 w-px bg-border sm:block" aria-hidden />
-}
 
 function TopUpButton() {
   const { t } = useTranslation()
@@ -115,34 +109,21 @@ function BalanceFigures({
 }
 
 export function PlanHeroCard({
-  plan,
   balance,
   balanceLoading,
   balanceError,
   onBalanceRetry,
 }: {
-  plan: PlanResponse
   balance: BalanceResponse | null | undefined
   balanceLoading: boolean
   balanceError: boolean
   onBalanceRetry: () => void
 }) {
-  const { t, i18n } = useTranslation()
-
   return (
     <div
       id="subscription-balance"
       className="flex w-fit max-w-full flex-wrap items-center gap-x-6 gap-y-3 scroll-mt-4"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-foreground">
-          {localizedName(plan, i18n.language)}
-        </p>
-        <Button asChild>
-          <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
-        </Button>
-      </div>
-      <AccountDivider />
       <BalanceFigures
         balance={balance}
         isLoading={balanceLoading}
