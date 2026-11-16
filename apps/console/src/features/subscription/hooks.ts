@@ -1,19 +1,33 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { initializeAccount } from "@/features/auth/api"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/features/auth/auth-provider"
-import { listDatabases, listProjects, listSecrets } from "@/features/projects/api"
-import { ApiError } from "@/lib/api-client"
-import { getCurrentPlan, listPlans } from "./api"
-import type { PlanListResponse, PlanResponse } from "./api"
+import type { ProjectResponse } from "@/features/projects/api"
+import {
+  getAccountBalance,
+  getAccountPlan,
+  getPlan,
+  getProjectPlan,
+  getProjectQuotaPeaks,
+  getProjectQuotas,
+  getProjectUsage,
+  initializeAccount,
+  isNotFound,
+  listPublicPlans,
+  type BalanceResponse,
+  type PlanListResponse,
+  type PlanResponse,
+  type PlanWithQuotas,
+  type ProjectQuotaListResponse,
+  type ProjectUsageResponse,
+  type QuotaPeaks,
+} from "./api"
+import { joinQuotaRows, type QuotaRowView } from "./quota-format"
 
-const CURRENT_PLAN_KEY = ["subscription", "current-plan"] as const
-
-export function useCurrentPlan() {
+export function useAccountPlan() {
   const { isAuthenticated } = useAuth()
 
   return useQuery<PlanResponse>({
-    queryKey: CURRENT_PLAN_KEY,
-    queryFn: getCurrentPlan,
+    queryKey: ["subscription", "account-plan"],
+    queryFn: getAccountPlan,
     enabled: isAuthenticated,
   })
 }
@@ -27,67 +41,161 @@ export function useEnsureAccountPlan() {
     enabled: isAuthenticated && Boolean(user?.id),
     queryFn: async () => {
       try {
-        await getCurrentPlan()
+        await getAccountPlan()
         return true
-      } catch (err) {
-        if (!(err instanceof ApiError) || err.status !== 404) throw err
+      } catch (error) {
+        if (!isNotFound(error)) throw error
       }
 
       await initializeAccount()
-      await queryClient.invalidateQueries({ queryKey: CURRENT_PLAN_KEY })
+      await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
       return true
     },
   })
 }
 
-export function usePlans() {
-  return useQuery<PlanListResponse>({
-    queryKey: ["subscription", "plans"],
-    queryFn: listPlans,
+// TODO: BACKEND_TODO — 24h peaks are not on the API yet. Leave this off so a
+// missing route is not a failed load; the usage table shows limits only.
+const quotaPeaksReady = false
+
+export function useProjectQuotaPeaks(projectId: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<QuotaPeaks | null>({
+    queryKey: ["subscription", "project", projectId, "quota-peaks"],
+    queryFn: () => getProjectQuotaPeaks(projectId),
+    enabled: quotaPeaksReady && isAuthenticated && projectId !== "",
   })
 }
 
-export interface SubscriptionUsage {
-  projects: number
-  databases: number
-  secrets: number
-}
-
-export function useSubscriptionUsage() {
+export function useProjectPlan(projectId: string | null) {
   const { isAuthenticated } = useAuth()
 
-  return useQuery<SubscriptionUsage>({
-    queryKey: ["subscription", "usage"],
+  return useQuery<PlanResponse>({
+    queryKey: ["subscription", "project", projectId, "plan"],
+    queryFn: () => getProjectPlan(projectId ?? ""),
+    enabled: isAuthenticated && projectId != null && projectId !== "",
+  })
+}
+
+export function usePlan(planId: string | null) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<PlanWithQuotas>({
+    queryKey: ["subscription", "plan", planId],
+    queryFn: () => getPlan(planId ?? ""),
+    enabled: isAuthenticated && planId != null && planId !== "",
+  })
+}
+
+export function usePublicPlans(enabled: boolean) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<PlanListResponse>({
+    queryKey: ["subscription", "plans"],
+    queryFn: listPublicPlans,
+    enabled: isAuthenticated && enabled,
+  })
+}
+
+export function useAccountBalance() {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<BalanceResponse | null>({
+    queryKey: ["subscription", "balance"],
     queryFn: async () => {
-      const projectsResponse = await listProjects()
-      const projects = projectsResponse.projects
-
-      const perProjectUsage = await Promise.all(
-        projects.map(async (project) => {
-          const [databasesResponse, secretsResponse] = await Promise.all([
-            listDatabases(project.public_id),
-            listSecrets(project.public_id),
-          ])
-
-          return {
-            databases: databasesResponse.dbis.length,
-            secrets: secretsResponse.secrets.length,
-          }
-        }),
-      )
-
-      const databases = perProjectUsage.reduce(
-        (sum, item) => sum + item.databases,
-        0,
-      )
-      const secrets = perProjectUsage.reduce((sum, item) => sum + item.secrets, 0)
-
-      return {
-        projects: projects.length,
-        databases,
-        secrets,
+      try {
+        return await getAccountBalance()
+      } catch (error) {
+        if (isNotFound(error)) return null
+        throw error
       }
     },
     enabled: isAuthenticated,
+    retry: false,
+  })
+}
+
+export function useInitializeAccount() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: initializeAccount,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
+    },
+  })
+}
+
+export interface ProjectQuotaView {
+  project: ProjectResponse
+  plan: PlanResponse | undefined
+  planError: boolean
+  rows: QuotaRowView[]
+  quotasError: boolean
+  usageAbsent: boolean
+  usageError: boolean
+  loading: boolean
+  nearLimit: boolean
+  refetchPlan: () => void
+  refetchQuotas: () => void
+  refetchUsage: () => void
+}
+
+export function useProjectsQuotaOverview(projects: ProjectResponse[]): ProjectQuotaView[] {
+  const { isAuthenticated } = useAuth()
+
+  const planQueries = useQueries({
+    queries: projects.map((project) => ({
+      queryKey: ["subscription", "project", project.public_id, "plan"],
+      queryFn: () => getProjectPlan(project.public_id),
+      enabled: isAuthenticated,
+    })),
+  })
+
+  const quotaQueries = useQueries({
+    queries: projects.map((project) => ({
+      queryKey: ["subscription", "project", project.public_id, "quotas"],
+      queryFn: () => getProjectQuotas(project.public_id),
+      enabled: isAuthenticated,
+    })),
+  })
+
+  const usageQueries = useQueries({
+    queries: projects.map((project) => ({
+      queryKey: ["subscription", "project", project.public_id, "usage"],
+      queryFn: () => getProjectUsage(project.public_id),
+      enabled: isAuthenticated,
+    })),
+  })
+
+  return projects.map((project, index) => {
+    const planQuery = planQueries[index]
+    const quotaQuery = quotaQueries[index]
+    const usageQuery = usageQueries[index]
+    const usage = (usageQuery?.data ?? null) as ProjectUsageResponse | null
+    const quotas = (quotaQuery?.data as ProjectQuotaListResponse | undefined)?.quotas ?? []
+    const rows = quotaQuery?.data ? joinQuotaRows(quotas, usage) : []
+
+    return {
+      project,
+      plan: planQuery?.data as PlanResponse | undefined,
+      planError: planQuery?.isError ?? false,
+      rows,
+      quotasError: quotaQuery?.isError ?? false,
+      usageAbsent: usageQuery?.isSuccess === true && usageQuery.data == null,
+      usageError: usageQuery?.isError ?? false,
+      loading: Boolean(planQuery?.isPending || quotaQuery?.isPending || usageQuery?.isPending),
+      nearLimit: rows.some((row) => row.nearLimit),
+      refetchPlan: () => {
+        void planQuery?.refetch()
+      },
+      refetchQuotas: () => {
+        void quotaQuery?.refetch()
+      },
+      refetchUsage: () => {
+        void usageQuery?.refetch()
+      },
+    }
   })
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { queryClient } from "@/lib/query-client"
@@ -16,13 +16,22 @@ import { ProjectDetailPage } from "@/features/projects/project-detail-page"
 import { DatabaseDetailPage } from "@/features/projects/database-detail-page"
 import { DatabaseQueryPage } from "@/features/projects/database-query-page"
 import { MetricDetailPage } from "@/features/projects/metric-detail-page"
+import { PlansPage } from "@/features/subscription/plans-page"
 import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
 import { ConsentEntry } from "@/features/auth/consent-page"
 import { MobileDataExplorerPage } from "./features/projects/mobile-data-explorer-page"
+import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
 import "@/lib/i18n"
+
+function SubscriptionGate() {
+  const info = usePlatformInfo()
+  if (info.isPending) return null
+  if (isCommunityEdition(info.data)) return <Navigate to="/projects" replace />
+  return <Outlet />
+}
 
 export default function App() {
   const { t } = useTranslation()
@@ -60,7 +69,10 @@ export default function App() {
                         />
                         <Route element={<AppLayout />}>
                           <Route path="/projects" element={<ProjectsPage />} />
-                          <Route path="/subscription" element={<SubscriptionPage />} />
+                          <Route element={<SubscriptionGate />}>
+                            <Route path="/subscription" element={<SubscriptionPage />} />
+                            <Route path="/subscription/plans" element={<PlansPage />} />
+                          </Route>
                           <Route path="/profile" element={<ProfilePage />} />
                           <Route path="/projects/:id" element={<ProjectDetailPage />} />
                           <Route
