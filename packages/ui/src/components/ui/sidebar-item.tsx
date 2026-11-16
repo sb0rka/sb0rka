@@ -77,6 +77,7 @@ export function SidebarUpgradeAction({
 
 export interface SidebarItemProps {
   icon: React.ComponentType<{ className?: string }>
+  iconClassName?: string
   label: string
   active?: boolean
   collapsed?: boolean
@@ -95,6 +96,7 @@ export interface SidebarItemProps {
 
 export function SidebarItem({
   icon: Icon,
+  iconClassName,
   label,
   active = false,
   collapsed = false,
@@ -127,7 +129,9 @@ export function SidebarItem({
         )}
         aria-hidden
       />
-      <Icon className={cn(navIconClass, sidebarIconSlotClass)} />
+      <span className={sidebarIconSlotClass} aria-hidden>
+        <Icon className={cn(navIconClass, iconClassName)} />
+      </span>
       <span
         className={cn(
           itemLabelClass(collapsed),
