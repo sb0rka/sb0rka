@@ -1,5 +1,6 @@
+import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Badge, Button } from "@sb0rka/ui"
+import { Button } from "@sb0rka/ui"
 import type { BalanceResponse } from "../api"
 import {
   accountBalanceEntries,
@@ -25,28 +26,26 @@ function balanceFigures(
   })
 }
 
-const balanceRowClass = "flex w-fit max-w-full flex-wrap items-center gap-3"
+const cellClass = "flex min-w-0 flex-col gap-2 px-5 py-3.5"
+const labelClass = "text-xs font-medium uppercase tracking-wider text-muted-foreground"
+const cellBodyClass = "flex flex-wrap items-end justify-between gap-3"
+const valueClass = "text-lg font-semibold tracking-tight text-foreground"
 
 function TopUpButton() {
   const { t } = useTranslation()
 
   return (
-    <span className="relative inline-flex">
-      <Button type="button" variant="outline" disabled>
-        {t("subscription.topUp")}
-        <span className="sr-only">, {t("subscription.soon")}</span>
-      </Button>
-      <Badge
-        variant="inactive"
-        className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
-      >
+    <Button type="button" variant="outline" disabled>
+      {t("subscription.topUp")}
+      <span className="text-muted-foreground">
+        <span aria-hidden="true">· </span>
         {t("subscription.soon")}
-      </Badge>
-    </span>
+      </span>
+    </Button>
   )
 }
 
-function BalanceFigures({
+function BalanceValue({
   balance,
   isLoading,
   isError,
@@ -60,76 +59,86 @@ function BalanceFigures({
   const { t, i18n } = useTranslation()
 
   if (isLoading) {
-    return (
-      <div className={balanceRowClass}>
-        <div aria-busy="true" className="h-8 w-24 animate-pulse rounded-md bg-muted" />
-        <TopUpButton />
-      </div>
-    )
+    return <div aria-busy="true" className="h-7 w-20 animate-pulse rounded-md bg-muted" />
   }
 
   if (isError) {
     return (
-      <div className={balanceRowClass}>
+      <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-destructive">{t("subscription.balanceError")}</p>
-        <Button type="button" variant="outline" onClick={onRetry}>
+        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
           {t("subscription.retry")}
         </Button>
-        <TopUpButton />
       </div>
     )
   }
 
   const figures = balanceFigures(balance, i18n.language)
-  if (figures.length === 0) return <TopUpButton />
+  if (figures.length === 0) return <p className={valueClass}>—</p>
   const showCode = figures.length > 1
 
   return (
-    <div className={balanceRowClass}>
-      <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-2xl font-semibold tracking-tight text-foreground">
-          {t("subscription.balanceTitle")}
-        </span>
-        {figures.map((figure) => (
-          <span key={figure.code} className="inline-flex items-baseline gap-x-2">
-            {showCode ? (
-              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-                {figure.code}
-              </span>
-            ) : null}
-            <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-              {figure.text}
+    <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+      {figures.map((figure) => (
+        <span key={figure.code} className="inline-flex items-baseline gap-x-2">
+          {showCode ? (
+            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+              {figure.code}
             </span>
-          </span>
-        ))}
-      </p>
-      <TopUpButton />
-    </div>
+          ) : null}
+          <span className={`${valueClass} tabular-nums`}>{figure.text}</span>
+        </span>
+      ))}
+    </p>
   )
 }
 
-export function PlanHeroCard({
+export function AccountSummary({
+  planName,
   balance,
   balanceLoading,
   balanceError,
   onBalanceRetry,
 }: {
+  planName: string
   balance: BalanceResponse | null | undefined
   balanceLoading: boolean
   balanceError: boolean
   onBalanceRetry: () => void
 }) {
+  const { t } = useTranslation()
+
   return (
-    <div
-      id="subscription-balance"
-      className="flex w-fit max-w-full flex-wrap items-center gap-x-6 gap-y-3 scroll-mt-4"
-    >
-      <BalanceFigures
-        balance={balance}
-        isLoading={balanceLoading}
-        isError={balanceError}
-        onRetry={onBalanceRetry}
-      />
+    <div className="grid grid-cols-1 divide-y divide-border rounded-lg border border-border md:grid-cols-2 md:divide-x md:divide-y-0">
+      <section className={cellClass} aria-labelledby="subscription-plan-label">
+        <h2 id="subscription-plan-label" className={labelClass}>
+          {t("subscription.planLabel")}
+        </h2>
+        <div className={cellBodyClass}>
+          <p className={`${valueClass} min-w-0 truncate`}>{planName}</p>
+          <Button asChild>
+            <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
+          </Button>
+        </div>
+      </section>
+      <section
+        id="subscription-balance"
+        className={`${cellClass} scroll-mt-4`}
+        aria-labelledby="subscription-balance-label"
+      >
+        <h2 id="subscription-balance-label" className={labelClass}>
+          {t("subscription.balanceTitle")}
+        </h2>
+        <div className={cellBodyClass}>
+          <BalanceValue
+            balance={balance}
+            isLoading={balanceLoading}
+            isError={balanceError}
+            onRetry={onBalanceRetry}
+          />
+          <TopUpButton />
+        </div>
+      </section>
     </div>
   )
 }

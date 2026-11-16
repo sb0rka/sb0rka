@@ -1,13 +1,12 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { Trans, useTranslation } from "react-i18next"
+import { useTranslation } from "react-i18next"
 import { Button } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-import { useAuth } from "@/features/auth/auth-provider"
 import { useProjects } from "@/features/projects/hooks"
 import { isNotFound } from "./api"
 import { ASSEMBLY_MIN_VISIBLE_MS, AssemblingLoader, useMinimumVisible } from "./components/assembling.tsx"
-import { PlanHeroCard } from "./components/plan-hero-card"
+import { AccountSummary } from "./components/plan-hero-card"
 import { ProjectPlanUsageCard } from "./components/project-plan-usage-card"
 import { ProjectQuotasCard } from "./components/project-quotas-card"
 import {
@@ -18,36 +17,9 @@ import {
 } from "./hooks"
 import { localizedName } from "./quota-format"
 
-function PageTitle({ planName }: { planName?: string }) {
+function PageTitle() {
   const { t } = useTranslation()
-  const { user } = useAuth()
-  const username = user?.username.trim()
-  const plan = planName?.trim()
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold text-foreground">{t("subscription.title")}</h1>
-        {username && plan ? (
-          <p className="text-sm text-muted-foreground">
-            <Trans
-              i18nKey="subscription.onPlan"
-              values={{ user: username, plan }}
-              components={{
-                user: <span className="font-bold text-foreground" />,
-                plan: <span className="font-semibold text-[var(--subscription-plan)]" />,
-              }}
-            />
-          </p>
-        ) : null}
-      </div>
-      {plan ? (
-        <Button asChild>
-          <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
-        </Button>
-      ) : null}
-    </div>
-  )
+  return <h1 className="text-2xl font-semibold text-foreground">{t("subscription.title")}</h1>
 }
 
 export function SubscriptionPage() {
@@ -124,17 +96,16 @@ export function SubscriptionPage() {
   }
 
   return (
-    <PageStagger className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6">
-      <SlideIn>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <PageTitle planName={localizedName(planQuery.data, i18n.language)} />
-          <PlanHeroCard
-            balance={balanceQuery.data}
-            balanceLoading={balanceQuery.isPending}
-            balanceError={balanceQuery.isError}
-            onBalanceRetry={() => void balanceQuery.refetch()}
-          />
-        </div>
+    <PageStagger className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-10">
+      <SlideIn className="flex flex-col gap-4">
+        <PageTitle />
+        <AccountSummary
+          planName={localizedName(planQuery.data, i18n.language)}
+          balance={balanceQuery.data}
+          balanceLoading={balanceQuery.isPending}
+          balanceError={balanceQuery.isError}
+          onBalanceRetry={() => void balanceQuery.refetch()}
+        />
       </SlideIn>
       <SlideIn className="flex min-h-0 flex-1 flex-col">
         <section className="flex min-h-0 flex-1 flex-col gap-3">

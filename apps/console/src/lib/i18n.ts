@@ -497,7 +497,7 @@ const resources = {
       },
       subscription: {
         title: "Подписка",
-        onPlan: "<user>{{user}}</user> на тарифе <plan>{{plan}}</plan>",
+        planLabel: "Тариф",
         current: "Текущий",
         changePlan: "Сменить тариф",
         upgradeLimits: "Увеличить лимиты",
@@ -1125,7 +1125,7 @@ const resources = {
       },
       subscription: {
         title: "Subscription",
-        onPlan: "<user>{{user}}</user> is on the <plan>{{plan}}</plan> plan",
+        planLabel: "Plan",
         current: "Current",
         changePlan: "Change plan",
         upgradeLimits: "Upgrade limits",
