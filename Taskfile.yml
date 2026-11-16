@@ -79,3 +79,49 @@ tasks:
     dir: bin
     cmds:
       - ./drones {{.CLI_ARGS}}
+
+  ui:build:
+    desc: Собрать локальный @sb0rka/ui в packages/ui/dist
+    dir: packages/ui
+    sources:
+      - src/**/*
+      - package.json
+      - vite.config.ts
+      - tsconfig.json
+      - tsconfig.app.json
+      - tsconfig.node.json
+      - tailwind-preset.js
+      - tailwind-content.js
+    generates:
+      - dist/**/*
+    cmds:
+      - npm run build
+
+  console:link-ui:
+    internal: true
+    cmds:
+      # node резолвит @sb0rka/ui из node_modules, симлинк подставляет пакет репозитория, не меняя package.json
+      - |
+          set -euo pipefail
+          link="apps/console/node_modules/@sb0rka/ui"
+          target="$(pwd)/packages/ui"
+          mkdir -p apps/console/node_modules/@sb0rka
+          current="$(readlink -f "$link" 2>/dev/null || true)"
+          if [ "$current" != "$target" ]; then
+            rm -rf "$link"
+            ln -s ../../../../packages/ui "$link"
+            rm -rf apps/console/node_modules/.vite
+          fi
+
+  console:dev-serve:
+    internal: true
+    dir: apps/console
+    cmds:
+      - npm run dev
+
+  console:dev:
+    desc: Dev-сервер консоли на локальном packages/ui
+    cmds:
+      - task: ui:build
+      - task: console:link-ui
+      - task: console:dev-serve
