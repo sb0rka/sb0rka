@@ -5,7 +5,6 @@ import { cn } from "@sb0rka/ui"
 // Three equal beats: frames assemble, hold filled, frames leave.
 const ASSEMBLY_CYCLE_MS = 2700
 const ASSEMBLY_PHASE_PCT = 100 / 3
-const ASSEMBLY_GLOW_PCT = (200 / ASSEMBLY_CYCLE_MS) * 100
 // Keep the loader up through assemble + filled hold, not only until the snap.
 export const ASSEMBLY_MIN_VISIBLE_MS = Math.round((ASSEMBLY_CYCLE_MS * 2) / 3)
 
@@ -57,22 +56,14 @@ const ASSEMBLY_CSS = `
   0%, ${ASSEMBLY_PHASE_PCT - 0.01}% {
     fill-opacity: 0;
     stroke-opacity: 1;
-    filter: drop-shadow(0 0 0 currentColor);
   }
-  ${ASSEMBLY_PHASE_PCT}% {
+  ${ASSEMBLY_PHASE_PCT}%, ${ASSEMBLY_PHASE_PCT * 2}% {
     fill-opacity: 1;
     stroke-opacity: 0;
-    filter: drop-shadow(0 0 0.55rem currentColor);
-  }
-  ${ASSEMBLY_PHASE_PCT + ASSEMBLY_GLOW_PCT}%, ${ASSEMBLY_PHASE_PCT * 2}% {
-    fill-opacity: 1;
-    stroke-opacity: 0;
-    filter: drop-shadow(0 0 0 currentColor);
   }
   ${ASSEMBLY_PHASE_PCT * 2 + 0.01}%, 100% {
     fill-opacity: 0;
     stroke-opacity: 1;
-    filter: drop-shadow(0 0 0 currentColor);
   }
 }
 @keyframes sb-asm-breathe {
@@ -87,7 +78,7 @@ const ASSEMBLY_CSS = `
   paint-order: stroke fill;
   transform-box: fill-box;
   transform-origin: center;
-  will-change: transform, opacity, filter, fill-opacity, stroke-opacity;
+  will-change: transform, opacity, fill-opacity, stroke-opacity;
 }
 .sb-asm-narrow {
   animation:
@@ -104,7 +95,6 @@ const ASSEMBLY_CSS = `
   .sb-asm-wide {
     animation: sb-asm-breathe 2.4s ease-in-out infinite;
     transform: none;
-    filter: none;
     fill-opacity: 1;
     stroke-opacity: 0;
     will-change: opacity;
