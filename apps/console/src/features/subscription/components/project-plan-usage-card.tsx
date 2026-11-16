@@ -82,8 +82,8 @@ function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boole
   return (
     <div
       className={cn(
-        "flex items-start gap-3 border-t border-border px-6 py-3.5",
-        separated && "mt-2",
+        "flex items-center gap-3 border-t border-border px-6 py-2",
+        separated && "mt-1",
       )}
     >
       <UsageDial ratio={row.ratio} nearLimit={row.nearLimit} />
