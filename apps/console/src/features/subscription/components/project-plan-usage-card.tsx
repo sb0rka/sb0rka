@@ -100,7 +100,7 @@ function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boole
           {label}
         </span>
         {showPeak ? (
-          <span className="text-xs text-muted-foreground">{t("subscription.peak24h")}</span>
+          <span className="text-sm text-muted-foreground">{t("subscription.peak24h")}</span>
         ) : null}
       </span>
     </div>
@@ -130,10 +130,7 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
             {t("subscription.upgradeLimits")}
             <span className="sr-only">, {t("subscription.soon")}</span>
           </Button>
-          <Badge
-            variant="inactive"
-            className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
-          >
+          <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
             {t("subscription.soon")}
           </Badge>
         </span>
@@ -157,7 +154,7 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
         <div>
           {view.usageError ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-3">
-              <p className="text-xs text-muted-foreground">{t("subscription.usageError")}</p>
+              <p className="text-sm text-muted-foreground">{t("subscription.usageError")}</p>
               <Button type="button" variant="ghost" size="sm" onClick={view.refetchUsage}>
                 {t("subscription.retry")}
               </Button>

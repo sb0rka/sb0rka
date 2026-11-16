@@ -34,7 +34,7 @@ export function ResourceBreakdown({
           : withCredits(formatQuotaValue(resource.used, unit), unit, credits)
         return (
           <li key={resource.id} className="flex items-center justify-between gap-3 px-3 py-2">
-            <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+            <span className="min-w-0 truncate font-mono text-sm text-muted-foreground">
               {resource.public_id}
             </span>
             {resource.status === "unavailable" ? (
@@ -45,12 +45,12 @@ export function ResourceBreakdown({
                 <TooltipContent>{t("subscription.unavailable")}</TooltipContent>
               </Tooltip>
             ) : resource.status === "unsupported" ? (
-              <span className="text-xs text-muted-foreground">{t("subscription.notMeasured")}</span>
+              <span className="text-sm text-muted-foreground">{t("subscription.notMeasured")}</span>
             ) : (
               <span className="shrink-0 text-sm tabular-nums">
                 {amount}
                 {when ? (
-                  <span className="ml-2 text-xs text-muted-foreground">
+                  <span className="ml-2 text-sm text-muted-foreground">
                     {t("subscription.updated", { when })}
                   </span>
                 ) : null}

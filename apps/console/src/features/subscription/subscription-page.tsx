@@ -109,7 +109,7 @@ export function SubscriptionPage() {
       </SlideIn>
       <SlideIn className="flex min-h-0 flex-1 flex-col">
         <section className="flex min-h-0 flex-1 flex-col gap-3">
-          <h2 className="text-lg font-semibold">{t("subscription.projectsTitle")}</h2>
+          <h2 className="text-sm font-semibold">{t("subscription.projectsTitle")}</h2>
           {showProjectsAssembling ? (
             <AssemblingLoader className="min-h-0 flex-1 py-0" />
           ) : projectsQuery.isError ? (

@@ -27,9 +27,10 @@ function balanceFigures(
 }
 
 const cellClass = "flex min-w-0 flex-col gap-2 px-5 py-3.5"
-const labelClass = "text-xs font-medium uppercase tracking-wider text-muted-foreground"
+const labelClass = "text-sm font-medium text-muted-foreground"
 const cellBodyClass = "flex flex-wrap items-end justify-between gap-3"
-const valueClass = "text-lg font-semibold tracking-tight text-foreground"
+const nameClass = "text-lg font-semibold text-foreground"
+const valueClass = "text-sm font-semibold text-foreground"
 
 function TopUpButton() {
   const { t } = useTranslation()
@@ -40,10 +41,7 @@ function TopUpButton() {
         {t("subscription.topUp")}
         <span className="sr-only">, {t("subscription.soon")}</span>
       </Button>
-      <Badge
-        variant="inactive"
-        className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
-      >
+      <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
         {t("subscription.soon")}
       </Badge>
     </span>
@@ -87,7 +85,7 @@ function BalanceValue({
       {figures.map((figure) => (
         <span key={figure.code} className="inline-flex items-baseline gap-x-2">
           {showCode ? (
-            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-muted-foreground">
               {figure.code}
             </span>
           ) : null}
@@ -120,7 +118,7 @@ export function AccountSummary({
           {t("subscription.planLabel")}
         </h2>
         <div className={cellBodyClass}>
-          <p className={`${valueClass} min-w-0 truncate`}>{planName}</p>
+          <p className={`${nameClass} min-w-0 truncate`}>{planName}</p>
           <Button asChild>
             <Link to="/subscription/plans">{t("subscription.changePlan")}</Link>
           </Button>

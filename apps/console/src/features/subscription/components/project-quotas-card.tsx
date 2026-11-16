@@ -43,7 +43,7 @@ function QuotaSummary({ rows }: { rows: QuotaRowView[] }) {
             <TooltipTrigger asChild>
               <span
                 className={cn(
-                  "inline-flex items-baseline gap-1 text-xs",
+                  "inline-flex items-baseline gap-1 text-sm",
                   row.nearLimit ? "text-[#c75a48]" : "text-foreground",
                 )}
               >
@@ -108,14 +108,16 @@ export function ProjectQuotasCard({
           onSelect()
         }}
       >
-        <span className="flex min-w-0 items-start justify-between gap-3">
+        <span className="flex min-w-0 items-center justify-between gap-3">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="truncate text-2xl font-semibold tracking-tight">{view.project.name}</span>
+            <span className="truncate text-lg font-semibold">{view.project.name}</span>
             {!view.project.is_active ? (
-              <Badge variant="inactive">{t("subscription.projectInactive")}</Badge>
+              <Badge variant="inactive" className="text-sm">
+                {t("subscription.projectInactive")}
+              </Badge>
             ) : null}
           </span>
-          <span className="shrink-0 pt-1.5 text-right text-sm text-muted-foreground">{planName}</span>
+          <span className="shrink-0 text-right text-sm text-muted-foreground">{planName}</span>
         </span>
         {!view.loading ? <QuotaSummary rows={toggleSummaryRows(view.rows)} /> : null}
       </div>

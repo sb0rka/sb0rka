@@ -91,12 +91,18 @@ function PlanColumn({
       <div className={cn("flex max-w-64 flex-1 flex-col gap-4", kind === "account" ? "w-64" : "w-max")}>
         <div className={cn("flex flex-col gap-4", kind === "account" && "min-h-24")}>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-base font-semibold text-foreground">
+            <span className="text-lg font-semibold text-foreground">
               {localizedName(plan, i18n.language)}
             </span>
-            {current ? <Badge variant="active">{t("subscription.current")}</Badge> : null}
+            {current ? (
+              <Badge variant="active" className="text-sm">
+                {t("subscription.current")}
+              </Badge>
+            ) : null}
             {!plan.is_available ? (
-              <Badge variant="destructive">{t("subscription.legacyPlan")}</Badge>
+              <Badge variant="destructive" className="text-sm">
+                {t("subscription.legacyPlan")}
+              </Badge>
             ) : null}
           </div>
           {custom ? (
