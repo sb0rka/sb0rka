@@ -22,6 +22,7 @@ import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
@@ -185,6 +186,8 @@ function useMobileProjectHeader() {
 
 function useMobileNavItems(): MobileNavItem[] {
   const location = useLocation()
+  const platformInfo = usePlatformInfo()
+  const subscriptionLocked = isCommunityEdition(platformInfo.data)
   const {
     projectId,
     isProjectView,
@@ -197,6 +200,7 @@ function useMobileNavItems(): MobileNavItem[] {
   if (!isProjectView || !projectId) {
     return rootMobileNavItems.map((item) => ({
       ...item,
+      locked: item.href === "/subscription" && subscriptionLocked,
       isActive:
         item.href === "/projects" || item.href === "/subscription"
           ? location.pathname === item.href ||
@@ -346,7 +350,7 @@ export function MobileRootNav() {
               lockedBadge={
                 item.locked ? (item.lockedBadge ?? t("nav.lockedBadge")) : undefined
               }
-              upgradeLabel={item.locked ? (item.upgradeLabel ?? t("nav.upgrade")) : undefined}
+              upgradeLabel={item.upgradeLabel}
               upgradeHref={item.upgradeHref}
             >
               <Link to={item.href} />

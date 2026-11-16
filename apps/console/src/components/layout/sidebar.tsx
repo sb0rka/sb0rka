@@ -9,6 +9,7 @@ import {
   Separator,
 } from "@sb0rka/ui"
 import { SidebarLogo } from "@/components/layout/sidebar-logo"
+import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
 import {
   dividerClass,
   navIconClass,
@@ -59,6 +60,8 @@ interface SidebarProps {
 export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
+  const platformInfo = usePlatformInfo()
+  const subscriptionLocked = isCommunityEdition(platformInfo.data)
 
   return (
     <aside
@@ -82,6 +85,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                 ? location.pathname === item.href ||
                   location.pathname.startsWith(`${item.href}/`)
                 : location.pathname === item.href
+            const locked = item.href === "/subscription" && subscriptionLocked
             return (
               <SidebarItem
                 key={item.href}
@@ -90,6 +94,8 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                 label={label}
                 active={isActive}
                 collapsed={collapsed}
+                locked={locked}
+                lockedBadge={locked ? t("nav.lockedBadge") : undefined}
               >
                 <Link to={item.href} />
               </SidebarItem>
