@@ -3,14 +3,44 @@ package contract
 import "time"
 
 type LLMModelResponse struct {
-	ID            string                   `json:"id" format:"uuid"`
-	Slug          string                   `json:"slug"`
-	Name          string                   `json:"name"`
-	DescriptionEN *string                  `json:"description_en" extensions:"x-nullable"`
-	DescriptionRU *string                  `json:"description_ru" extensions:"x-nullable"`
-	Pricing       *LLMModelPricingResponse `json:"pricing" extensions:"x-nullable"`
-	CreatedAt     time.Time                `json:"created_at"`
-	UpdatedAt     time.Time                `json:"updated_at"`
+	ID             string                   `json:"id" format:"uuid"`
+	Slug           string                   `json:"slug"`
+	Name           string                   `json:"name"`
+	DescriptionEN  *string                  `json:"description_en" extensions:"x-nullable"`
+	DescriptionRU  *string                  `json:"description_ru" extensions:"x-nullable"`
+	Pricing        *LLMModelPricingResponse `json:"pricing" extensions:"x-nullable"`
+	Specifications *LLMModelSpecifications  `json:"specifications,omitempty"`
+	CreatedAt      time.Time                `json:"created_at"`
+	UpdatedAt      time.Time                `json:"updated_at"`
+}
+
+// LLMModelSpecifications contains public model capabilities.
+type LLMModelSpecifications struct {
+	Limit            LLMModelLimit             `json:"limit"`
+	Modalities       LLMModelModalities        `json:"modalities"`
+	Attachment       bool                      `json:"attachment"`
+	Temperature      bool                      `json:"temperature"`
+	ToolCall         bool                      `json:"tool_call"`
+	Reasoning        bool                      `json:"reasoning"`
+	ReasoningOptions []LLMModelReasoningOption `json:"reasoning_options,omitempty"`
+}
+
+type LLMModelLimit struct {
+	Context int64  `json:"context"`
+	Input   *int64 `json:"input,omitempty"`
+	Output  int64  `json:"output"`
+}
+
+type LLMModelModalities struct {
+	Input  []string `json:"input"`
+	Output []string `json:"output"`
+}
+
+type LLMModelReasoningOption struct {
+	Type   string    `json:"type" enums:"effort,toggle,budget_tokens"`
+	Values []*string `json:"values,omitempty"`
+	Min    *int64    `json:"min,omitempty"`
+	Max    *int64    `json:"max,omitempty"`
 }
 
 type LLMModelPricingResponse struct {

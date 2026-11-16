@@ -1,15 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { AnimatePresence, motion } from "framer-motion"
-import {
-  Home,
-  RussianRuble,
-  FileText,
-  Code2,
-  ExternalLink,
-  PanelLeft,
-  User,
-  ChevronsUp,
-} from "lucide-react"
+import { Home, RussianRuble, FileText, Code2, PanelLeft, User, ChevronsUp } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Button,
@@ -20,11 +11,11 @@ import {
 import { SidebarLogo } from "@/components/layout/sidebar-logo"
 import {
   dividerClass,
-  itemLabelClass,
   navIconClass,
   rowChromeClass,
   sidebarIconSlotClass,
-} from "@/components/layout/sidebar-rail"
+  SidebarItem,
+} from "@sb0rka/ui"
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
@@ -40,13 +31,11 @@ const externalItems = [
     labelKey: "nav.documentation",
     icon: FileText,
     hrefKey: "nav.docsHref",
-    external: true,
   },
   {
     labelKey: "nav.code",
     icon: Code2,
     href: "https://github.com/sb0rka/sb0rka",
-    external: true,
   },
 ]
 
@@ -71,14 +60,6 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
   const { t } = useTranslation()
   const location = useLocation()
 
-  const itemLabel = itemLabelClass(collapsed)
-
-  const externalIconWrapClass = cn(
-    "pointer-events-none overflow-hidden",
-    "transition-[max-width,opacity] duration-[400ms] ease-out",
-    collapsed ? "max-w-0 opacity-0" : "max-w-6 opacity-100",
-  )
-
   return (
     <aside
       className={cn(
@@ -102,32 +83,16 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                   location.pathname.startsWith("/projects/")
                 : location.pathname === item.href
             return (
-              <Link
+              <SidebarItem
                 key={item.href}
-                to={item.href}
-                className={cn(
-                  "group relative block h-9 w-full rounded-lg text-sm font-medium pressable",
-                  isActive ? "text-foreground" : "text-muted-foreground",
-                )}
-                title={collapsed ? label : undefined}
+                asChild
+                icon={item.icon}
+                label={label}
+                active={isActive}
+                collapsed={collapsed}
               >
-                <span
-                  className={cn(
-                    rowChromeClass(collapsed),
-                    isActive ? "bg-muted" : "group-hover:bg-muted/50",
-                  )}
-                  aria-hidden
-                />
-                <item.icon className={cn(navIconClass, sidebarIconSlotClass)} />
-                <span
-                  className={cn(
-                    itemLabel,
-                    "absolute top-1/2 -translate-y-1/2",
-                  )}
-                >
-                  {label}
-                </span>
-              </Link>
+                <Link to={item.href} />
+              </SidebarItem>
             )
           })}
 
@@ -139,39 +104,16 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
             const href = "hrefKey" in item ? t(item.hrefKey ?? "") : item.href
             const label = t(item.labelKey)
             return (
-              <a
+              <SidebarItem
                 key={item.labelKey}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative block h-9 w-full rounded-lg text-sm font-medium text-muted-foreground pressable"
-                title={collapsed ? label : undefined}
+                asChild
+                icon={item.icon}
+                label={label}
+                collapsed={collapsed}
+                external
               >
-                <span
-                  className={cn(
-                    rowChromeClass(collapsed),
-                    "group-hover:bg-muted/50",
-                  )}
-                  aria-hidden
-                />
-                <item.icon className={cn(navIconClass, sidebarIconSlotClass)} />
-                <span
-                  className={cn(
-                    itemLabel,
-                    "absolute right-9 top-1/2 -translate-y-1/2",
-                  )}
-                >
-                  {label}
-                </span>
-                <span
-                  className={cn(
-                    externalIconWrapClass,
-                    "absolute right-3 top-1/2 -translate-y-1/2",
-                  )}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </span>
-              </a>
+                <a href={href} target="_blank" rel="noopener noreferrer" />
+              </SidebarItem>
             )
           })}
         </nav>
