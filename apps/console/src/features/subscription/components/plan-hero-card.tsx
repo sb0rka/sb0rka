@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Button } from "@sb0rka/ui"
+import { Badge, Button } from "@sb0rka/ui"
 import type { BalanceResponse } from "../api"
 import {
   accountBalanceEntries,
@@ -35,13 +35,18 @@ function TopUpButton() {
   const { t } = useTranslation()
 
   return (
-    <Button type="button" variant="outline" disabled>
-      {t("subscription.topUp")}
-      <span className="text-muted-foreground">
-        <span aria-hidden="true">· </span>
+    <span className="relative inline-flex shrink-0">
+      <Button type="button" variant="outline" disabled>
+        {t("subscription.topUp")}
+        <span className="sr-only">, {t("subscription.soon")}</span>
+      </Button>
+      <Badge
+        variant="inactive"
+        className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
+      >
         {t("subscription.soon")}
-      </span>
-    </Button>
+      </Badge>
+    </span>
   )
 }
 
