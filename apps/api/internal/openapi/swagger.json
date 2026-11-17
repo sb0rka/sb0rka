@@ -3143,6 +3143,9 @@
                     "type": "string",
                     "format": "uuid"
                 },
+                "is_visible": {
+                    "type": "boolean"
+                },
                 "kind": {
                     "type": "string",
                     "enum": [
@@ -3424,6 +3427,9 @@
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_visible": {
+                    "type": "boolean"
                 },
                 "kind": {
                     "type": "string",
