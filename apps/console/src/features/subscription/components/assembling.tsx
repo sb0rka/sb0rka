@@ -114,7 +114,7 @@ export function AssemblingLoader({ className }: { className?: string }) {
       {/* Geometry matches SborkaLogo, not the collapsed icon mark. */}
       <svg
         viewBox="0 0 24.27995 25"
-        className="aspect-[24.27995/25] h-12 overflow-visible text-foreground"
+        className="aspect-[24.27995/25] h-9 overflow-visible text-foreground"
         aria-hidden="true"
       >
         <rect className="sb-asm-narrow" y="5.95972" width="7.28394" height="12.6641" rx="0.744949" fill="currentColor" />

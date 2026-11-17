@@ -203,6 +203,55 @@ export async function getProjectUsage(projectId: string): Promise<ProjectUsageRe
   }
 }
 
+export interface TopUpLimits {
+  enabled: boolean
+  min_rub: number
+  max_rub: number
+  cap_rub: number
+  room_rub: number
+}
+
+export interface TopUpStart {
+  order_id: string
+  payment_url: string
+  amount_rub: string
+}
+
+export interface TopUpOrder {
+  order_id: string
+  status: string
+  amount_rub: string
+  created_at: string
+}
+
+export async function getTopUpLimits(): Promise<TopUpLimits | null> {
+  try {
+    return await apiRequest<TopUpLimits>({
+      path: "/account/balance/topup",
+      base: "resource",
+    })
+  } catch (error) {
+    if (isNotFound(error) || (error instanceof ApiError && error.status === 503)) return null
+    throw error
+  }
+}
+
+export async function startTopUp(amountRub: number): Promise<TopUpStart> {
+  return apiRequest<TopUpStart>({
+    method: "POST",
+    path: "/account/balance/topup",
+    base: "resource",
+    json: { amount_rub: amountRub },
+  })
+}
+
+export async function getTopUpOrder(orderId: string): Promise<TopUpOrder> {
+  return apiRequest<TopUpOrder>({
+    path: `/account/balance/topup/${orderId}`,
+    base: "resource",
+  })
+}
+
 export async function getAccountBalance(): Promise<BalanceResponse> {
   return apiRequest<BalanceResponse>({
     path: ACCOUNT_BALANCE_PATH,

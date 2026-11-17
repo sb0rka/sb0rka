@@ -7,6 +7,7 @@ import { useProjects } from "@/features/projects/hooks"
 import { isNotFound } from "./api"
 import { ASSEMBLY_MIN_VISIBLE_MS, AssemblingLoader, useMinimumVisible } from "./components/assembling.tsx"
 import { AccountSummary } from "./components/plan-hero-card"
+import { TopUpReturn } from "./components/top-up-dialog"
 import { ProjectPlanUsageCard } from "./components/project-plan-usage-card"
 import { ProjectQuotasCard } from "./components/project-quotas-card"
 import {
@@ -23,6 +24,15 @@ function PageTitle() {
 }
 
 export function SubscriptionPage() {
+  return (
+    <>
+      <TopUpReturn />
+      <SubscriptionContent />
+    </>
+  )
+}
+
+function SubscriptionContent() {
   const { t, i18n } = useTranslation()
   const planQuery = useAccountPlan()
   const balanceQuery = useAccountBalance()

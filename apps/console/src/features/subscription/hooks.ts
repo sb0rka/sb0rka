@@ -4,6 +4,9 @@ import type { ProjectResponse } from "@/features/projects/api"
 import {
   getAccountBalance,
   getAccountPlan,
+  getTopUpLimits,
+  getTopUpOrder,
+  startTopUp,
   getPlan,
   getProjectPlan,
   getProjectQuotaPeaks,
@@ -13,6 +16,9 @@ import {
   isNotFound,
   listPublicPlans,
   type BalanceResponse,
+  type TopUpLimits,
+  type TopUpOrder,
+  type TopUpStart,
   type PlanListResponse,
   type PlanResponse,
   type PlanWithQuotas,
@@ -22,11 +28,13 @@ import {
 } from "./api"
 import { joinQuotaRows, type QuotaRowView } from "./quota-format"
 
+const ACCOUNT_PLAN_KEY = ["subscription", "account-plan"] as const
+
 export function useAccountPlan() {
   const { isAuthenticated } = useAuth()
 
   return useQuery<PlanResponse>({
-    queryKey: ["subscription", "account-plan"],
+    queryKey: ACCOUNT_PLAN_KEY,
     queryFn: getAccountPlan,
     enabled: isAuthenticated,
   })
@@ -98,6 +106,33 @@ export function usePublicPlans(enabled: boolean) {
   })
 }
 
+export function useTopUpLimits() {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<TopUpLimits | null>({
+    queryKey: ["subscription", "topup-limits"],
+    queryFn: getTopUpLimits,
+    enabled: isAuthenticated,
+    retry: false,
+  })
+}
+
+export function useStartTopUp() {
+  return useMutation<TopUpStart, Error, number>({
+    mutationFn: startTopUp,
+  })
+}
+
+export function useTopUpOrder(orderId: string | null) {
+  return useQuery<TopUpOrder>({
+    queryKey: ["subscription", "topup-order", orderId],
+    queryFn: () => getTopUpOrder(orderId ?? ""),
+    enabled: orderId != null && orderId !== "",
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 2000 : false),
+  })
+}
+
 export function useAccountBalance() {
   const { isAuthenticated } = useAuth()
 
@@ -122,7 +157,7 @@ export function useInitializeAccount() {
   return useMutation({
     mutationFn: initializeAccount,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
+      await queryClient.invalidateQueries({ queryKey: ACCOUNT_PLAN_KEY })
     },
   })
 }
