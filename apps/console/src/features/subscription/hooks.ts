@@ -4,6 +4,9 @@ import type { ProjectResponse } from "@/features/projects/api"
 import {
   getAccountBalance,
   getAccountPlan,
+  getTopUpLimits,
+  getTopUpOrder,
+  startTopUp,
   getPlan,
   getProjectPlan,
   getProjectQuotaPeaks,
@@ -13,6 +16,9 @@ import {
   isNotFound,
   listPublicPlans,
   type BalanceResponse,
+  type TopUpLimits,
+  type TopUpOrder,
+  type TopUpStart,
   type PlanListResponse,
   type PlanResponse,
   type PlanWithQuotas,
@@ -97,6 +103,33 @@ export function usePublicPlans(enabled: boolean) {
     queryKey: ["subscription", "plans"],
     queryFn: listPublicPlans,
     enabled: isAuthenticated && enabled,
+  })
+}
+
+export function useTopUpLimits() {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<TopUpLimits | null>({
+    queryKey: ["subscription", "topup-limits"],
+    queryFn: getTopUpLimits,
+    enabled: isAuthenticated,
+    retry: false,
+  })
+}
+
+export function useStartTopUp() {
+  return useMutation<TopUpStart, Error, number>({
+    mutationFn: startTopUp,
+  })
+}
+
+export function useTopUpOrder(orderId: string | null) {
+  return useQuery<TopUpOrder>({
+    queryKey: ["subscription", "topup-order", orderId],
+    queryFn: () => getTopUpOrder(orderId ?? ""),
+    enabled: orderId != null && orderId !== "",
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.status === "pending" ? 2000 : false),
   })
 }
 
