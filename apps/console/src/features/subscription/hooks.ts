@@ -45,12 +45,12 @@ export function useEnsureAccountPlan() {
       try {
         await getAccountPlan()
         return true
-      } catch (err) {
-        if (!isNotFound(err)) throw err
+      } catch (error) {
+        if (!isNotFound(error)) throw error
       }
 
       await initializeAccount()
-      await queryClient.invalidateQueries({ queryKey: ACCOUNT_PLAN_KEY })
+      await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
       return true
     },
   })

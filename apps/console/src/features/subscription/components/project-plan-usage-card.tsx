@@ -82,8 +82,8 @@ function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boole
   return (
     <div
       className={cn(
-        "flex items-start gap-3 border-t border-border px-6 py-3.5",
-        separated && "mt-2",
+        "flex items-center gap-3 border-t border-border px-6 py-2",
+        separated && "mt-1",
       )}
     >
       <UsageDial ratio={row.ratio} nearLimit={row.nearLimit} />
@@ -100,7 +100,7 @@ function UsageMeterRow({ row, separated }: { row: QuotaRowView; separated: boole
           {label}
         </span>
         {showPeak ? (
-          <span className="text-xs text-muted-foreground">{t("subscription.peak24h")}</span>
+          <span className="text-sm text-muted-foreground">{t("subscription.peak24h")}</span>
         ) : null}
       </span>
     </div>
@@ -114,7 +114,10 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
   const showCycle = rows.some((row) => windowLabelKey(row.definition.window) === "month")
 
   return (
-    <Card id="project-plan-usage" className="w-full shrink-0 scroll-mt-4 md:sticky md:top-4 md:w-[min(100%,36rem)]">
+    <Card
+      id="project-plan-usage"
+      className="w-full min-w-0 flex-1 scroll-mt-4 md:sticky md:top-4 md:w-auto md:min-w-[min(100%,36rem)]"
+    >
       <div className="flex items-center justify-between gap-3 px-6 py-5">
         <div className="min-w-0">
           <h3 className="truncate text-lg font-semibold text-foreground">{view.project.name}</h3>
@@ -123,14 +126,11 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
           ) : null}
         </div>
         <span className="relative inline-flex shrink-0">
-          <Button type="button" variant="outline" className="rounded-full" disabled>
+          <Button type="button" variant="outline" disabled>
             {t("subscription.upgradeLimits")}
             <span className="sr-only">, {t("subscription.soon")}</span>
           </Button>
-          <Badge
-            variant="inactive"
-            className="pointer-events-none absolute -right-1.5 -top-1.5 px-1 text-[10px]"
-          >
+          <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
             {t("subscription.soon")}
           </Badge>
         </span>
@@ -154,7 +154,7 @@ export function ProjectPlanUsageCard({ view }: { view: ProjectQuotaView }) {
         <div>
           {view.usageError ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-3">
-              <p className="text-xs text-muted-foreground">{t("subscription.usageError")}</p>
+              <p className="text-sm text-muted-foreground">{t("subscription.usageError")}</p>
               <Button type="button" variant="ghost" size="sm" onClick={view.refetchUsage}>
                 {t("subscription.retry")}
               </Button>

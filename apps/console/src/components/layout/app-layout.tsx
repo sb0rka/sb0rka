@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Home } from "lucide-react"
+import { Home, RussianRuble } from "lucide-react"
 import { Sidebar } from "./sidebar"
 import { ProjectSidebar, projectTabIcon } from "./project-sidebar"
 import { Header, type BreadcrumbItem } from "./header"
@@ -30,6 +30,7 @@ function useDataExplorerNarrowViewport() {
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
+  models: "tabs.models",
   databases: "tabs.databases",
   "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
@@ -55,6 +56,7 @@ function AppLayoutContent() {
   const projectNestedMatch = useMatch("/projects/:id/*")
   const databaseDetailsMatch = useMatch("/projects/:id/databases/:resourceId")
   const isProjectOpen = isProjectRoot || isProjectNested
+  const isPlansPage = useMatch("/subscription/plans") !== null
   const projectId =
     databaseDetailsMatch?.params.id ??
     projectNestedMatch?.params.id ??
@@ -79,6 +81,7 @@ function AppLayoutContent() {
   const projectOverviewHref = `/projects/${projectId}?tab=overview`
   const tabLabelById: Record<ProjectTab, string> = {
     overview: t(projectTabLabelKeyById.overview),
+    models: t(projectTabLabelKeyById.models),
     databases: t(projectTabLabelKeyById.databases),
     "data-explorer": t(projectTabLabelKeyById["data-explorer"]),
     secrets: t(projectTabLabelKeyById.secrets),
@@ -133,7 +136,18 @@ function AppLayoutContent() {
                   },
                 ]),
       ]
-    : [] // No breadcrumbs for non-project routes
+    : isPlansPage
+      ? [
+          { label: t("nav.subscription"), href: "/subscription", icon: RussianRuble },
+          {
+            label: t(
+              searchParams.get("kind") === "project"
+                ? "subscription.projectPlansTitle"
+                : "subscription.plansTitle",
+            ),
+          },
+        ]
+      : []
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectSidebarCollapsed, setProjectSidebarCollapsed] = useState(false)

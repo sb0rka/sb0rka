@@ -70,14 +70,14 @@ export function QuotaRow({ row }: { row: QuotaRowView }) {
           ) : (
             <span className="text-sm font-medium">{name}</span>
           )}
-          <span className="text-xs text-muted-foreground">{kindHint(row, t)}</span>
+          <span className="text-sm text-muted-foreground">{kindHint(row, t)}</span>
           {row.usage?.aggregation === "max" ? (
-            <span className="text-xs text-muted-foreground">{t("subscription.peak")}</span>
+            <span className="text-sm text-muted-foreground">{t("subscription.peak")}</span>
           ) : null}
           {row.entitled > 0 ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge variant="inactive" className="px-1.5">
+                <Badge variant="inactive" className="px-1.5 text-sm">
                   {t("subscription.bonus", { value: entitledLabel })}
                 </Badge>
               </TooltipTrigger>
@@ -104,12 +104,12 @@ export function QuotaRow({ row }: { row: QuotaRowView }) {
             <span className="text-muted-foreground">{t("subscription.limit", { value: limitLabel })}</span>
           )}
           {observed ? (
-            <span className="ml-2 text-xs text-muted-foreground">{observed}</span>
+            <span className="ml-2 text-sm text-muted-foreground">{observed}</span>
           ) : null}
         </div>
       </div>
       {status === "unsupported" ? (
-        <p className="text-xs text-muted-foreground">{t("subscription.notMeasured")}</p>
+        <p className="text-sm text-muted-foreground">{t("subscription.notMeasured")}</p>
       ) : null}
       {showMeter ? (
         <Progress
@@ -121,7 +121,7 @@ export function QuotaRow({ row }: { row: QuotaRowView }) {
       {resources.length > 0 ? (
         <div>
           <span
-            className="cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="cursor-pointer text-sm font-medium text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-expanded={resourcesOpen}
             tabIndex={0}
             onClick={() => setResourcesOpen((open) => !open)}

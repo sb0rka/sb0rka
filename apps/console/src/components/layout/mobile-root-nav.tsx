@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
-import { BarChart3, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
+import { BarChart3, Cpu, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Badge,
@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  MobileNavItem as MobileNavTab,
   SborkaLogoMark,
   SborkaLogoWordmarkText,
 } from "@sb0rka/ui"
@@ -21,9 +22,11 @@ import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
+  models: "tabs.models",
   databases: "tabs.databases",
   "data-explorer": "tabs.dataExplorer",
   secrets: "tabs.secrets",
@@ -36,6 +39,10 @@ type MobileNavItem = {
   icon?: ComponentType<{ className?: string }>
   href: string
   isActive: boolean
+  locked?: boolean
+  lockedBadge?: string
+  upgradeLabel?: string
+  upgradeHref?: string
 }
 
 const rootMobileNavItems = [
@@ -179,6 +186,8 @@ function useMobileProjectHeader() {
 
 function useMobileNavItems(): MobileNavItem[] {
   const location = useLocation()
+  const platformInfo = usePlatformInfo()
+  const subscriptionLocked = isCommunityEdition(platformInfo.data)
   const {
     projectId,
     isProjectView,
@@ -191,10 +200,11 @@ function useMobileNavItems(): MobileNavItem[] {
   if (!isProjectView || !projectId) {
     return rootMobileNavItems.map((item) => ({
       ...item,
+      locked: item.href === "/subscription" && subscriptionLocked,
       isActive:
-        item.href === "/projects"
-          ? location.pathname === "/projects" ||
-            location.pathname.startsWith("/projects/")
+        item.href === "/projects" || item.href === "/subscription"
+          ? location.pathname === item.href ||
+            location.pathname.startsWith(`${item.href}/`)
           : location.pathname === item.href,
     }))
   }
@@ -214,6 +224,12 @@ function useMobileNavItems(): MobileNavItem[] {
         activeTab === "overview" ||
         activeTab === "settings" ||
         metricDetailsMatch !== null,
+    },
+    {
+      labelKey: "tabs.models",
+      icon: Cpu,
+      href: `/projects/${projectId}?tab=models`,
+      isActive: activeTab === "models",
     },
     {
       labelKey: "tabs.databases",
@@ -319,24 +335,27 @@ export function MobileRootNav() {
       </header>
 
       <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--mobile-chrome-bg)] p-1.5 shadow-lg">
-        <div className="grid grid-cols-3 gap-1">
+        <div className={cn(
+            "grid gap-1",
+            mobileNavItems.length === 4 ? "grid-cols-4" : "grid-cols-3",
+          )}>
           {mobileNavItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-medium pressable",
-                  item.isActive
-                    ? "bg-background text-foreground shadow-sm dark:bg-muted dark:shadow-none"
-                    : "text-muted-foreground hover:bg-background/60 hover:text-foreground dark:hover:bg-muted/50",
-                )}
-              >
-                {item.icon ? <item.icon className="size-4" /> : null}
-                <span className="max-w-full truncate">
-                  {item.label ?? t(item.labelKey!)}
-                </span>
-              </Link>
-            ))}
+            <MobileNavTab
+              key={item.href}
+              asChild
+              icon={item.icon}
+              label={item.label ?? t(item.labelKey!)}
+              active={item.isActive}
+              locked={item.locked}
+              lockedBadge={
+                item.locked ? (item.lockedBadge ?? t("nav.lockedBadge")) : undefined
+              }
+              upgradeLabel={item.upgradeLabel}
+              upgradeHref={item.upgradeHref}
+            >
+              <Link to={item.href} />
+            </MobileNavTab>
+          ))}
         </div>
       </nav>
     </>
