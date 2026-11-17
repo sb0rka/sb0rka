@@ -15,7 +15,9 @@ import { cn } from "../lib/utils"
 import { CloseButton } from "./ui/close-button"
 import { useA11yLabels } from "./a11y-labels"
 
-const TOAST_DURATION_MS = 4500
+const SUCCESS_DURATION_MS = 10_000
+const WARNING_DURATION_MS = 15_000
+const POINTER_LEAVE_DURATION_MS = 10_000
 const STACK_OFFSET_PX = 8
 const STACK_MAX_LAYERS = 2
 const STUCK_EPSILON_PX = 0.5
@@ -145,6 +147,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timeoutsRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
     new Map(),
   )
+  const autoCloseIdsRef = useRef<Set<number>>(new Set())
   const [pinnedToast, setPinnedToast] = useState<HTMLDivElement | null>(null)
 
   const dismiss = useCallback((id: number) => {
@@ -153,30 +156,59 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       timeoutsRef.current.delete(id)
     }
+    autoCloseIdsRef.current.delete(id)
     setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }, [])
 
-  const show = useCallback(
-    (type: ToastType, message: string, isPersistent = false) => {
-      const id = idRef.current++
-      setToasts((prev) => [...prev, { id, type, message }])
-      if (isPersistent) return
-      const timeout = setTimeout(() => dismiss(id), TOAST_DURATION_MS)
-      timeoutsRef.current.set(id, timeout)
+  const scheduleClose = useCallback(
+    (id: number, delayMs: number) => {
+      const existing = timeoutsRef.current.get(id)
+      if (existing) clearTimeout(existing)
+      timeoutsRef.current.set(
+        id,
+        setTimeout(() => dismiss(id), delayMs),
+      )
     },
     [dismiss],
   )
 
+  const pauseClose = useCallback((id: number) => {
+    if (!autoCloseIdsRef.current.has(id)) return
+    const existing = timeoutsRef.current.get(id)
+    if (!existing) return
+    clearTimeout(existing)
+    timeoutsRef.current.delete(id)
+  }, [])
+
+  const resumeClose = useCallback(
+    (id: number) => {
+      if (!autoCloseIdsRef.current.has(id)) return
+      scheduleClose(id, POINTER_LEAVE_DURATION_MS)
+    },
+    [scheduleClose],
+  )
+
+  const show = useCallback(
+    (type: ToastType, message: string, durationMs: number | null) => {
+      const id = idRef.current++
+      setToasts((prev) => [...prev, { id, type, message }])
+      if (durationMs == null) return
+      autoCloseIdsRef.current.add(id)
+      scheduleClose(id, durationMs)
+    },
+    [scheduleClose],
+  )
+
   const showSuccess = useCallback(
-    (message: string) => show("success", message),
+    (message: string) => show("success", message, SUCCESS_DURATION_MS),
     [show],
   )
   const showError = useCallback(
-    (message: string) => show("error", message, true),
+    (message: string) => show("error", message, null),
     [show],
   )
   const showWarning = useCallback(
-    (message: string) => show("warning", message),
+    (message: string) => show("warning", message, WARNING_DURATION_MS),
     [show],
   )
 
@@ -211,6 +243,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <div
                   key={toast.id}
                   role="status"
+                  onPointerEnter={() => pauseClose(toast.id)}
+                  onPointerLeave={() => resumeClose(toast.id)}
                   className={cn(
                     "sticky flex w-full shrink-0 items-center gap-3 overflow-hidden",
                     "rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg",
