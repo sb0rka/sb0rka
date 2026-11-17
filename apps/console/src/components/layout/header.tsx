@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@sb0rka/ui"
 import { LanguageSwitcher } from "@/components/language-switcher"
+import { ContactFormButton } from "@/components/layout/contact-form-button"
 
 export interface BreadcrumbItem {
   label: string
@@ -120,6 +121,8 @@ export function Header({ breadcrumbs }: HeaderProps) {
         >
           alpha
         </Badge>
+
+        <ContactFormButton />
 
         <ThemeToggle />
 

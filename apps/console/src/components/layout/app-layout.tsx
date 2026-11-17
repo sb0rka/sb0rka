@@ -143,7 +143,7 @@ function AppLayoutContent() {
             label: t(
               searchParams.get("kind") === "project"
                 ? "subscription.projectPlansTitle"
-                : "subscription.plansTitle",
+                : "subscription.accountPlansTitle",
             ),
           },
         ]

@@ -57,6 +57,7 @@ export function useEnsureAccountPlan() {
 
       await initializeAccount()
       await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
+      await queryClient.invalidateQueries({ queryKey: ["projects"], exact: true })
       return true
     },
   })
@@ -158,6 +159,7 @@ export function useInitializeAccount() {
     mutationFn: initializeAccount,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ACCOUNT_PLAN_KEY })
+      await queryClient.invalidateQueries({ queryKey: ["projects"], exact: true })
     },
   })
 }

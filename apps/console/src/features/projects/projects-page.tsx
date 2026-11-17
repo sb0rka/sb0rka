@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus, Copy } from "lucide-react"
@@ -117,6 +118,7 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
 export function ProjectsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [emailVerifiedOpen, setEmailVerifiedOpen] = useState(false)
   const [alphaToastOpen, setAlphaToastOpen] = useState(false)
@@ -127,6 +129,7 @@ export function ProjectsPage() {
   async function handleEmailVerified() {
     try {
       await initializeAccount()
+      await queryClient.invalidateQueries({ queryKey: ["projects"], exact: true })
       setEmailVerifiedOpen(false)
     } catch (err) {
       console.error("Account initialization failed", err)
