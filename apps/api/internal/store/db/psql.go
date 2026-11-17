@@ -146,7 +146,7 @@ func (p *PsqlDB) GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, 
 	return out, nil
 }
 
-func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error {
+func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) (bool, error) {
 	const existingQuery = `
 		SELECT 1
 		FROM subject_plans sp
@@ -157,14 +157,14 @@ func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, pla
 	`
 	var existing int
 	if err := p.pool.QueryRow(ctx, existingQuery, subjectID, kind).Scan(&existing); err == nil {
-		return nil
+		return false, nil
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return err
+		return false, err
 	}
 
 	planID, err := p.getPlanIDByCodeAndKind(ctx, planCode, kind)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	const insertQuery = `
@@ -172,16 +172,16 @@ func (p *PsqlDB) EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, pla
 		VALUES ($1, $2)
 	`
 	if _, err := p.pool.Exec(ctx, insertQuery, subjectID, planID); err != nil {
-		// Конкурентный init мог вставить план между SELECT и INSERT — операция
-		// идемпотентна, гонка на pk_subject_plans не ошибка.
+		// Concurrent init could have inserted the plan between SELECT and INSERT.
+		// The winner already leads the initialization, so this call should not continue.
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (p *PsqlDB) GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model.Plan, error) {
