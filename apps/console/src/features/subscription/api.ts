@@ -28,6 +28,7 @@ export interface PlanQuota {
   kind: "snapshot" | "periodic" | "balance" | string
   unit: string
   window: string | null
+  is_visible?: boolean
   limit_value: number
 }
 
@@ -50,6 +51,7 @@ export interface QuotaDefinitionSnippet {
   scope: string
   kind: "snapshot" | "periodic" | "balance" | string
   window: string | null
+  is_visible?: boolean
 }
 
 export interface ProjectQuotaItem {

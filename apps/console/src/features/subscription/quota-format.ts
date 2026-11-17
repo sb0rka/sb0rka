@@ -217,23 +217,25 @@ export function joinQuotaRows(
   items: ProjectQuotaItem[],
   usage: ProjectUsageResponse | null,
 ): QuotaRowView[] {
-  return items.map((item) => {
-    const effective = effectiveLimit(item.limit_value, item.entitled)
-    const sample = usage?.usage[item.quota_definition.code] ?? null
-    const measurable = sample?.status === "available" && sample.used != null
-    const ratio = measurable ? usageRatio(sample.used, effective) : null
-    return {
-      code: item.quota_definition.code,
-      definition: item.quota_definition,
-      limitValue: item.limit_value,
-      entitled: item.entitled,
-      effective,
-      usage: sample,
-      ratio,
-      level: thresholdLevel(ratio),
-      nearLimit: isNearLimit(ratio),
-    }
-  })
+  return items
+    .filter((item) => item.quota_definition.is_visible !== false)
+    .map((item) => {
+      const effective = effectiveLimit(item.limit_value, item.entitled)
+      const sample = usage?.usage[item.quota_definition.code] ?? null
+      const measurable = sample?.status === "available" && sample.used != null
+      const ratio = measurable ? usageRatio(sample.used, effective) : null
+      return {
+        code: item.quota_definition.code,
+        definition: item.quota_definition,
+        limitValue: item.limit_value,
+        entitled: item.entitled,
+        effective,
+        usage: sample,
+        ratio,
+        level: thresholdLevel(ratio),
+        nearLimit: isNearLimit(ratio),
+      }
+    })
 }
 
 export type RelativeAge =

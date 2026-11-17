@@ -499,7 +499,7 @@ const resources = {
         tables: "Таблицы",
       },
       subscription: {
-        title: "Подписка",
+        title: "Финансы",
         planLabel: "Тариф аккаунта",
         current: "Текущий",
         changePlan: "Сменить тариф",
@@ -1165,7 +1165,7 @@ const resources = {
         tables: "Tables",
       },
       subscription: {
-        title: "Subscription",
+        title: "Billing",
         planLabel: "Account plan",
         current: "Current",
         changePlan: "Change plan",

@@ -14,8 +14,6 @@ import {
   withCredits,
 } from "./quota-format"
 
-const LLM_BALANCE_CODE = "llms.spend.micros"
-
 function planQuotaValue(quota: PlanQuota, credits: string): string {
   return withCredits(formatQuotaValue(quota.limit_value, quota.unit), quota.unit, credits)
 }
@@ -38,7 +36,7 @@ function AccountPlanQuotas({ quotas }: { quotas: PlanQuota[] }) {
   const { t, i18n } = useTranslation()
   const credits = t("subscription.credits")
   const rows = quotas
-    .filter((quota) => quota.code !== LLM_BALANCE_CODE)
+    .filter((quota) => quota.is_visible !== false)
     .sort((left, right) =>
       localizedName(left, i18n.language).localeCompare(localizedName(right, i18n.language), i18n.language),
     )

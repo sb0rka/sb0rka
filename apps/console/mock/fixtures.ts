@@ -39,6 +39,7 @@ function accountQuota(
     kind,
     unit,
     window: null,
+    is_visible: true,
     limit_value,
   }
 }
@@ -115,6 +116,7 @@ function quota(
       scope: "project",
       kind,
       window,
+      is_visible: true,
     },
     limit_value,
     entitled,
