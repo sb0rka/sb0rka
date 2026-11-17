@@ -15,7 +15,7 @@ import {
   useToast,
 } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
-import type { TopUpLimits } from "../api"
+import { rublesFromKopecks, type TopUpLimits } from "../api"
 import { useStartTopUp, useTopUpOrder } from "../hooks"
 
 const wholeRubles = /^[1-9][0-9]*$/
@@ -145,11 +145,14 @@ export function TopUpReturn() {
   const order = useTopUpOrder(orderId)
   const shown = useRef(new Set<string>())
   const status = order.data?.status
-  const amount = order.data?.amount_rub
+  const amount = order.data ? rublesFromKopecks(order.data.amount_kopecks) : undefined
 
   useEffect(() => {
     if (status === "confirmed" || status === "refunded") {
       void queryClient.invalidateQueries({ queryKey: ["subscription", "balance"] })
+    }
+    if (status != null) {
+      void queryClient.invalidateQueries({ queryKey: ["subscription", "payments"] })
     }
   }, [status, queryClient])
 

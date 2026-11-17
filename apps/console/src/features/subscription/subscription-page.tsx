@@ -18,6 +18,8 @@ import {
 } from "./hooks"
 import { localizedName } from "./quota-format"
 
+const SALES_EMAIL = "sales@sb0rka.ru"
+
 function PageTitle() {
   const { t } = useTranslation()
   return <h1 className="text-2xl font-semibold text-foreground">{t("subscription.title")}</h1>
@@ -116,6 +118,23 @@ function SubscriptionContent() {
           balanceError={balanceQuery.isError}
           onBalanceRetry={() => void balanceQuery.refetch()}
         />
+        <div className="flex items-baseline justify-between gap-4 pr-2">
+          <p className="min-w-0 text-sm text-muted-foreground">
+            {t("subscription.receiptsCorporate")}{" "}
+            <a
+              href={`mailto:${SALES_EMAIL}`}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              {SALES_EMAIL}
+            </a>
+          </p>
+          <Link
+            to="/subscription/receipts"
+            className="shrink-0 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            {t("subscription.receiptsTitle")}
+          </Link>
+        </div>
       </SlideIn>
       <SlideIn className="flex min-h-0 flex-1 flex-col">
         <section className="flex min-h-0 flex-1 flex-col gap-3">

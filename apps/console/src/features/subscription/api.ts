@@ -217,11 +217,26 @@ export interface TopUpStart {
   amount_rub: string
 }
 
+export function rublesFromKopecks(kopecks: number): string {
+  const rubles = kopecks / 100
+  return Number.isInteger(rubles) ? String(rubles) : rubles.toFixed(2)
+}
+
 export interface TopUpOrder {
   order_id: string
+  provider_transaction_id?: string
   status: string
-  amount_rub: string
+  amount_kopecks: number
   created_at: string
+  paid_at: string | null
+  refunded_at: string | null
+  receipt_url: string | null
+  refund_receipt_url: string | null
+}
+
+export interface PaymentList {
+  items: TopUpOrder[]
+  next_before: string | null
 }
 
 export async function getTopUpLimits(): Promise<TopUpLimits | null> {
@@ -243,6 +258,19 @@ export async function startTopUp(amountRub: number): Promise<TopUpStart> {
     base: "resource",
     json: { amount_rub: amountRub },
   })
+}
+
+export async function listPayments(before?: string): Promise<PaymentList | null> {
+  const query = before ? `?before=${encodeURIComponent(before)}` : ""
+  try {
+    return await apiRequest<PaymentList>({
+      path: `/account/payments${query}`,
+      base: "resource",
+    })
+  } catch (error) {
+    if (isNotFound(error) || (error instanceof ApiError && error.status === 503)) return null
+    throw error
+  }
 }
 
 export async function getTopUpOrder(orderId: string): Promise<TopUpOrder> {

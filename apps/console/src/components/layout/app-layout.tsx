@@ -57,6 +57,7 @@ function AppLayoutContent() {
   const databaseDetailsMatch = useMatch("/projects/:id/databases/:resourceId")
   const isProjectOpen = isProjectRoot || isProjectNested
   const isPlansPage = useMatch("/subscription/plans") !== null
+  const isReceiptsPage = useMatch("/subscription/receipts") !== null
   const projectId =
     databaseDetailsMatch?.params.id ??
     projectNestedMatch?.params.id ??
@@ -136,7 +137,12 @@ function AppLayoutContent() {
                   },
                 ]),
       ]
-    : isPlansPage
+    : isReceiptsPage
+      ? [
+          { label: t("nav.subscription"), href: "/subscription", icon: RussianRuble },
+          { label: t("subscription.receiptsTitle") },
+        ]
+      : isPlansPage
       ? [
           { label: t("nav.subscription"), href: "/subscription", icon: RussianRuble },
           {
