@@ -220,6 +220,8 @@ definitions:
       id:
         format: uuid
         type: string
+      is_visible:
+        type: boolean
       kind:
         enum:
         - snapshot
@@ -408,6 +410,8 @@ definitions:
         type: string
       id:
         type: string
+      is_visible:
+        type: boolean
       kind:
         enum:
         - snapshot

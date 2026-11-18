@@ -57,6 +57,7 @@ type PlanQuotaResponse struct {
 	Kind          string  `json:"kind" enums:"snapshot,periodic,balance"`
 	Unit          string  `json:"unit"`
 	Window        *string `json:"window"`
+	IsVisible     bool    `json:"is_visible"`
 	LimitValue    int64   `json:"limit_value" format:"int64"`
 }
 
@@ -71,6 +72,7 @@ type QuotaDefinitionResponse struct {
 	Kind          string    `json:"kind" enums:"snapshot,periodic,balance"`
 	Unit          string    `json:"unit"`
 	Window        *string   `json:"window"`
+	IsVisible     bool      `json:"is_visible"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
@@ -86,6 +88,7 @@ type QuotaDefinitionSnippet struct {
 	Scope         string  `json:"scope"`
 	Kind          string  `json:"kind" enums:"snapshot,periodic,balance"`
 	Window        *string `json:"window"`
+	IsVisible     bool    `json:"is_visible"`
 }
 
 type ProjectQuotaItemResponse struct {

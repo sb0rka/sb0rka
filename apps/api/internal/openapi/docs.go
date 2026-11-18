@@ -3154,6 +3154,9 @@ const docTemplate = `{
                     "type": "string",
                     "format": "uuid"
                 },
+                "is_visible": {
+                    "type": "boolean"
+                },
                 "kind": {
                     "type": "string",
                     "enum": [
@@ -3435,6 +3438,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_visible": {
+                    "type": "boolean"
                 },
                 "kind": {
                     "type": "string",
