@@ -14,8 +14,6 @@ import {
   withCredits,
 } from "./quota-format"
 
-const LLM_BALANCE_CODE = "llms.spend.micros"
-
 function planQuotaValue(quota: PlanQuota, credits: string): string {
   return withCredits(formatQuotaValue(quota.limit_value, quota.unit), quota.unit, credits)
 }
@@ -38,7 +36,7 @@ function AccountPlanQuotas({ quotas }: { quotas: PlanQuota[] }) {
   const { t, i18n } = useTranslation()
   const credits = t("subscription.credits")
   const rows = quotas
-    .filter((quota) => quota.code !== LLM_BALANCE_CODE)
+    .filter((quota) => quota.is_visible !== false)
     .sort((left, right) =>
       localizedName(left, i18n.language).localeCompare(localizedName(right, i18n.language), i18n.language),
     )
@@ -86,30 +84,25 @@ function PlanColumn({
   return (
     <div
       aria-current={current ? "true" : undefined}
-      className="flex w-max max-w-72 shrink-0 flex-col rounded-lg border border-border p-4"
+      className="relative flex w-[18.75rem] max-w-full shrink-0 flex-col rounded-lg border border-border p-4"
     >
-      <div className={cn("flex max-w-64 flex-1 flex-col gap-4", kind === "account" ? "w-64" : "w-max")}>
+      {current ? (
+        <Badge variant="active" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
+          {t("subscription.current")}
+        </Badge>
+      ) : null}
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
         <div className={cn("flex flex-col gap-4", kind === "account" && "min-h-24")}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-lg font-semibold text-foreground">
               {localizedName(plan, i18n.language)}
             </span>
-            {current ? (
-              <Badge variant="active" className="text-sm">
-                {t("subscription.current")}
-              </Badge>
-            ) : null}
             {!plan.is_available ? (
               <Badge variant="destructive" className="text-sm">
                 {t("subscription.legacyPlan")}
               </Badge>
             ) : null}
           </div>
-          {custom ? (
-            <p className="whitespace-nowrap text-sm font-semibold tracking-tight text-foreground">
-              {t("subscription.customNotListed")}
-            </p>
-          ) : null}
           {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         </div>
         {showQuotas ? (
@@ -129,7 +122,11 @@ function PlanColumn({
             <AccountPlanQuotas quotas={plan.quotas ?? []} />
           )
         ) : null}
-        {current ? null : (
+        {custom ? (
+          <div className="mt-auto flex min-h-9 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-center text-sm font-medium text-foreground">
+            {t("subscription.customNotListed")}
+          </div>
+        ) : current ? null : (
           <span className="relative mt-auto inline-flex w-full">
             <Button type="button" className="w-full" disabled>
               {t("subscription.select")}
@@ -185,13 +182,13 @@ export function PlansPage() {
       <SlideIn>
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold text-foreground">
-            {t(kind === "project" ? "subscription.projectPlansTitle" : "subscription.plansTitle")}
+            {t(kind === "project" ? "subscription.projectPlansTitle" : "subscription.accountPlansTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {t(
               kind === "project"
                 ? "subscription.projectPlansDescription"
-                : "subscription.plansDescription",
+                : "subscription.accountPlansDescription",
             )}
           </p>
         </div>
@@ -220,8 +217,17 @@ export function PlansPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {/* TODO: BACKEND_TODO — plan price is not on the catalog response. */}
-            <div className="overflow-x-auto p-0">
-              <div className="flex w-max items-stretch gap-3 text-left">
+            <div className="px-2 pt-3">
+              <div className="flex w-full min-w-0 flex-wrap items-stretch justify-center gap-3 text-left md:justify-start">
+                {listedPlans.map((plan) => (
+                  <PlanColumn
+                    key={plan.id}
+                    plan={plan}
+                    current={plan.id === currentPlan?.id}
+                    custom={false}
+                    kind={kind}
+                  />
+                ))}
                 {customPlanWithQuotas ? (
                   <PlanColumn
                     plan={customPlanWithQuotas}
@@ -233,15 +239,6 @@ export function PlansPage() {
                     onQuotasRetry={() => void customQuotasQuery.refetch()}
                   />
                 ) : null}
-                {listedPlans.map((plan) => (
-                  <PlanColumn
-                    key={plan.id}
-                    plan={plan}
-                    current={plan.id === currentPlan?.id}
-                    custom={false}
-                    kind={kind}
-                  />
-                ))}
               </div>
             </div>
           </div>

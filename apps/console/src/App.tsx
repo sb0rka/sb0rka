@@ -17,6 +17,7 @@ import { DatabaseDetailPage } from "@/features/projects/database-detail-page"
 import { DatabaseQueryPage } from "@/features/projects/database-query-page"
 import { MetricDetailPage } from "@/features/projects/metric-detail-page"
 import { PlansPage } from "@/features/subscription/plans-page"
+import { ReceiptsPage } from "@/features/subscription/receipts-page"
 import { SubscriptionPage } from "@/features/subscription/subscription-page"
 import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
@@ -72,6 +73,7 @@ export default function App() {
                           <Route element={<SubscriptionGate />}>
                             <Route path="/subscription" element={<SubscriptionPage />} />
                             <Route path="/subscription/plans" element={<PlansPage />} />
+                            <Route path="/subscription/receipts" element={<ReceiptsPage />} />
                           </Route>
                           <Route path="/profile" element={<ProfilePage />} />
                           <Route path="/projects/:id" element={<ProjectDetailPage />} />

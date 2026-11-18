@@ -24,9 +24,6 @@ const navItems = [
   { labelKey: "nav.profile", icon: User, href: "/profile" },
 ]
 
-const UPGRADE_LIMITS_FORM_URL =
-  "https://forms.yandex.ru/cloud/6984ca2c84227c2270c569db"
-
 const externalItems = [
   {
     labelKey: "nav.documentation",
@@ -131,10 +128,8 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
           className="relative h-9 w-full overflow-hidden border-transparent bg-transparent p-0 shadow-none"
           asChild
         >
-          <a
-            href={UPGRADE_LIMITS_FORM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to="/subscription/plans"
             className="relative block h-9 w-full"
             title={collapsed ? t("nav.upgradeLimits") : undefined}
           >
@@ -164,7 +159,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                 </motion.span>
               )}
             </AnimatePresence>
-          </a>
+          </Link>
         </Button>
         <div className="relative h-px w-full">
           <Separator className={dividerClass(collapsed)} />

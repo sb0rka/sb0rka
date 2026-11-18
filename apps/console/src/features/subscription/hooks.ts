@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/features/auth/auth-provider"
 import type { ProjectResponse } from "@/features/projects/api"
 import {
@@ -6,6 +6,7 @@ import {
   getAccountPlan,
   getTopUpLimits,
   getTopUpOrder,
+  listPayments,
   startTopUp,
   getPlan,
   getProjectPlan,
@@ -16,6 +17,7 @@ import {
   isNotFound,
   listPublicPlans,
   type BalanceResponse,
+  type PaymentList,
   type TopUpLimits,
   type TopUpOrder,
   type TopUpStart,
@@ -57,6 +59,7 @@ export function useEnsureAccountPlan() {
 
       await initializeAccount()
       await queryClient.invalidateQueries({ queryKey: ["subscription", "account-plan"] })
+      await queryClient.invalidateQueries({ queryKey: ["projects"], exact: true })
       return true
     },
   })
@@ -133,6 +136,19 @@ export function useTopUpOrder(orderId: string | null) {
   })
 }
 
+export function usePayments() {
+  const { isAuthenticated } = useAuth()
+
+  return useInfiniteQuery<PaymentList | null>({
+    queryKey: ["subscription", "payments"],
+    queryFn: ({ pageParam }) => listPayments(typeof pageParam === "string" ? pageParam : undefined),
+    initialPageParam: undefined,
+    getNextPageParam: (page) => page?.next_before ?? undefined,
+    enabled: isAuthenticated,
+    retry: false,
+  })
+}
+
 export function useAccountBalance() {
   const { isAuthenticated } = useAuth()
 
@@ -158,6 +174,7 @@ export function useInitializeAccount() {
     mutationFn: initializeAccount,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ACCOUNT_PLAN_KEY })
+      await queryClient.invalidateQueries({ queryKey: ["projects"], exact: true })
     },
   })
 }

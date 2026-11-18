@@ -1,14 +1,18 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Button,
+  buttonPressClass,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
+  FloatingHint,
   Input,
   Label,
+  cn,
   useToast,
 } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
@@ -23,6 +27,45 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+function useCopyHint() {
+  const { t } = useTranslation()
+  const [message, setMessage] = useState<string | null>(null)
+  const timeoutRef = useRef<number | null>(null)
+
+  const clear = useCallback(() => {
+    if (timeoutRef.current != null) {
+      window.clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    setMessage(null)
+  }, [])
+
+  useEffect(() => clear, [clear])
+
+  const copy = useCallback(
+    async (text: string | undefined) => {
+      if (!text) return
+      const show = (next: string, durationMs: number) => {
+        if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current)
+        setMessage(next)
+        timeoutRef.current = window.setTimeout(() => {
+          setMessage(null)
+          timeoutRef.current = null
+        }, durationMs)
+      }
+      try {
+        await navigator.clipboard.writeText(text)
+        show(t("common.messages.copied"), 2000)
+      } catch {
+        show(t("common.messages.copyFailed"), 3000)
+      }
+    },
+    [t],
+  )
+
+  return { message, copy }
+}
+
 export function ProfilePage() {
   const { t } = useTranslation()
   const userQuery = useUser()
@@ -31,6 +74,7 @@ export function ProfilePage() {
   const deactivateAccount = useDeactivateAccount()
   const confirm = useConfirmDialog()
   const { showError } = useToast()
+  const { message: copyIdMessage, copy: copyUserId } = useCopyHint()
 
   const user = userQuery.data
 
@@ -162,8 +206,35 @@ export function ProfilePage() {
 
   return (
     <PageStagger className="flex flex-col gap-4">
-      <SlideIn className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">{t("profile.title")}</h1>
+      <SlideIn className="flex flex-col gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-6">
+          <h1
+            className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight text-foreground md:text-2xl"
+            title={t("profile.heading", { username: user.username })}
+          >
+            {t("profile.heading", { username: user.username })}
+          </h1>
+          <div className="relative mr-1 flex min-w-0 shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void copyUserId(user.id)}
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center text-muted-foreground",
+                buttonPressClass,
+              )}
+              aria-label={t("profile.copyUserId")}
+            >
+              <Copy className="size-4 shrink-0" />
+            </button>
+            <span
+              className="max-w-[14rem] truncate text-left text-sm leading-5 text-muted-foreground sm:max-w-[22rem]"
+              title={user.id}
+            >
+              {user.id}
+            </span>
+            <FloatingHint message={copyIdMessage} placement="bottom" align="end" />
+          </div>
+        </div>
       </SlideIn>
 
       <div className="flex flex-col gap-6">
