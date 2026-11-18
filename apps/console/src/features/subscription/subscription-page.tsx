@@ -61,7 +61,7 @@ function SubscriptionContent() {
 
   if (showPlanAssembling) {
     return (
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4">
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
         <PageTitle />
         <AssemblingLoader className="min-h-0 flex-1 py-0" />
       </div>
@@ -70,7 +70,7 @@ function SubscriptionContent() {
 
   if (isNotFound(planQuery.error)) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+      <div className="flex w-full flex-col gap-4">
         <PageTitle />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-border px-6 py-16 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">{t("subscription.notInitializedTitle")}</h2>
@@ -95,7 +95,7 @@ function SubscriptionContent() {
 
   if (planQuery.isError || !planQuery.data) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+      <div className="flex w-full flex-col gap-4">
         <PageTitle />
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border p-6">
           <p className="text-sm text-destructive">{t("subscription.loadError")}</p>
@@ -108,7 +108,7 @@ function SubscriptionContent() {
   }
 
   return (
-    <PageStagger className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-10">
+    <PageStagger className="flex min-h-0 w-full flex-1 flex-col gap-10">
       <SlideIn className="flex flex-col gap-4">
         <PageTitle />
         <AccountSummary
