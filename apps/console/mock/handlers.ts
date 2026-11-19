@@ -62,6 +62,7 @@ function matchPath(pathname: string): { name: string; params: Record<string, str
     { name: "auth.signup", pattern: /^\/auth\/signup$/ },
     { name: "auth.refresh", pattern: /^\/auth\/refresh$/ },
     { name: "auth.logout", pattern: /^\/auth\/logout$/ },
+    { name: "auth.integrations", pattern: /^\/auth\/integrations$/ },
     { name: "user.get", pattern: /^\/user$/ },
     { name: "identity.current", pattern: /^\/identity\/users\/current$/ },
     { name: "account.plan", pattern: /^\/account\/plan$/ },
@@ -163,6 +164,15 @@ export async function handleMockRequest(
     case "auth.logout": {
       if (method !== "POST") break
       sendNoContent(res)
+      return true
+    }
+    case "auth.integrations": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      sendJson(res, 200, {
+        som: { available: true, active_sessions: 2 },
+        ir: { available: false },
+      })
       return true
     }
     case "user.get":

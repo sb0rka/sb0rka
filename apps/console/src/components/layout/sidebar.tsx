@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { AnimatePresence, motion } from "framer-motion"
-import { Home, RussianRuble, FileText, Code2, PanelLeft, User, ChevronsUp } from "lucide-react"
+import { Home, RussianRuble, FileText, Code2, PanelLeft, Blocks, ChevronsUp } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Button,
@@ -21,7 +21,7 @@ import {
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
-  { labelKey: "nav.profile", icon: User, href: "/profile" },
+  { labelKey: "nav.integrations", icon: Blocks, href: "/integrations" },
 ]
 
 const externalItems = [

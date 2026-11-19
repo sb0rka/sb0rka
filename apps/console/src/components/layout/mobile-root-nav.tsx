@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
-import { BarChart3, Cpu, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
+import { BarChart3, Blocks, Cpu, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Badge,
@@ -49,7 +49,7 @@ type MobileNavItem = {
 const rootMobileNavItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
-  { labelKey: "nav.profile", icon: User, href: "/profile" },
+  { labelKey: "nav.integrations", icon: Blocks, href: "/integrations" },
 ] as const
 
 function useMobileProjectContext() {
