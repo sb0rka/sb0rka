@@ -27,6 +27,49 @@
                 }
             }
         },
+        "/auth/integrations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Active sessions are included only for available integrations.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "List the current user's integration access and active OIDC session counts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contract.IntegrationsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "JSON body is limited to 16 KiB. PostgreSQL-backed account and peer quotas return 429 with Retry-After; unavailable quota storage returns 503. Responses are not cacheable.",
@@ -1203,6 +1246,28 @@
                 },
                 "version": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.IntegrationStatusResponse": {
+            "type": "object",
+            "properties": {
+                "active_sessions": {
+                    "type": "integer"
+                },
+                "available": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "contract.IntegrationsResponse": {
+            "type": "object",
+            "properties": {
+                "ir": {
+                    "$ref": "#/definitions/contract.IntegrationStatusResponse"
+                },
+                "som": {
+                    "$ref": "#/definitions/contract.IntegrationStatusResponse"
                 }
             }
         },

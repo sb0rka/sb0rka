@@ -22,6 +22,7 @@ import (
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/oidcaccess"
 	"github.com/sb0rka/sb0rka/packages/contract"
 	"github.com/sb0rka/sb0rka/packages/core/transport/authctx"
 )
@@ -31,6 +32,7 @@ const maxFormBytes = 8192
 type Handler struct {
 	config      config.OIDCConfig
 	database    db.Database
+	access      oidcaccess.Hook
 	authConfig  config.AuthConfig
 	credentials *credentialProtector
 	tokens      *tokenIssuer
@@ -43,12 +45,14 @@ func NewHandler(
 	database db.Database,
 	authConfig config.AuthConfig,
 	cfg config.OIDCConfig,
+	access oidcaccess.Hook,
 	logger *slog.Logger,
 ) *Handler {
 	cfg = cfg.Clone()
 	return &Handler{
 		config:      cfg,
 		database:    database,
+		access:      access,
 		authConfig:  authConfig,
 		credentials: newCredentialProtector(cfg),
 		tokens:      newTokenIssuer(cfg, authConfig),
@@ -175,7 +179,7 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, authenticated := authctx.RequireUserSubject(r.Context()); authenticated {
-		target, protocolErr := h.completeAuthorization(r, opaqueID)
+		target, protocolErr := h.completeAuthorization(r, opaqueID, "authorize")
 		if protocolErr != nil {
 			h.audit("authorize", "error", protocolErr.Code)
 			h.redirectAuthorizationError(w, r, request, protocolErr.Code)
@@ -183,7 +187,6 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 		}
 		setNoStore(w.Header())
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		h.audit("authorize", "success", "none")
 		http.Redirect(w, r, target, http.StatusSeeOther)
 		return
 	}
@@ -196,7 +199,7 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	}
 	setNoStore(w.Header())
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	h.audit("authorize", "success", "none")
+	h.audit("authorize", "pending", "none")
 	http.Redirect(w, r, loginURL, http.StatusSeeOther)
 }
 
@@ -225,11 +228,12 @@ func (h *Handler) ContinueBrowser(w http.ResponseWriter, r *http.Request) {
 		}
 		setNoStore(w.Header())
 		w.Header().Set("Referrer-Policy", "no-referrer")
+		h.audit("continuation", "pending", "none")
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
 	}
 
-	target, protocolErr := h.completeAuthorization(r, opaqueID)
+	target, protocolErr := h.completeAuthorization(r, opaqueID, "continuation")
 	if protocolErr != nil {
 		h.audit("continuation", "rejected", protocolErr.Code)
 		h.writeOAuthError(w, protocolErr)
@@ -237,7 +241,6 @@ func (h *Handler) ContinueBrowser(w http.ResponseWriter, r *http.Request) {
 	}
 	setNoStore(w.Header())
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	h.audit("continuation", "success", "none")
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
@@ -267,7 +270,7 @@ func (h *Handler) ContinueConsole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target, protocolErr := h.completeAuthorization(r, opaqueID)
+	target, protocolErr := h.completeAuthorization(r, opaqueID, "continuation")
 	if protocolErr != nil {
 		h.audit("continuation", "rejected", protocolErr.Code)
 		h.writeOAuthError(w, protocolErr)
@@ -277,12 +280,11 @@ func (h *Handler) ContinueConsole(w http.ResponseWriter, r *http.Request) {
 	setNoStore(w.Header())
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	h.audit("continuation", "success", "none")
 	_ = json.NewEncoder(w).Encode(ToOIDCContinuationResponse(target))
 }
 
 // completeAuthorization binds a verified user to a pending request and creates its one-time code redirect.
-func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (string, *protocolError) {
+func (h *Handler) completeAuthorization(r *http.Request, opaqueID, stage string) (string, *protocolError) {
 	requestID, err := h.credentials.openAuthRequestID(opaqueID)
 	if err != nil {
 		return "", newProtocolError("invalid_request", http.StatusBadRequest)
@@ -300,6 +302,7 @@ func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (strin
 		if delegation.SubjectID != userID {
 			return "", newProtocolError("access_denied", http.StatusForbidden)
 		}
+		h.audit(stage, "pending", "none")
 		return h.config.Issuer + "/oauth2/delegations/consent?request_id=" + requestID.String(), nil
 	}
 	sourceRaw, sourceOK := authctx.SessionIDFromContext(r.Context())
@@ -326,20 +329,23 @@ func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (strin
 	user, err := h.database.GetOIDCActiveUser(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, db.ErrOIDCInactiveUser) {
-			return h.rejectAuthorization(r, requestID)
+			return h.rejectAuthorization(r, requestID, stage, "access_denied")
 		}
 		return "", newProtocolError("server_error", http.StatusInternalServerError)
 	}
 	if !user.EmailVerified {
-		return h.rejectAuthorization(r, requestID)
+		return h.rejectAuthorization(r, requestID, stage, "access_denied")
 	}
 
 	code, codeHash, err := h.credentials.newAuthorizationCode()
 	if err != nil {
 		return "", newProtocolError("server_error", http.StatusInternalServerError)
 	}
-	redirect, err := h.database.AuthorizeOIDC(r.Context(), requestID, userID, sourceSessionID, authTime.UTC(), codeHash, h.now().UTC())
+	redirect, err := h.database.AuthorizeOIDC(r.Context(), requestID, userID, sourceSessionID, authTime.UTC(), codeHash, h.now().UTC(), h.access.Allowed)
 	if err != nil {
+		if errors.Is(err, db.ErrOIDCAccessDenied) {
+			return h.rejectAuthorization(r, requestID, stage, auditIntegrationAccessDenied)
+		}
 		if errors.Is(err, db.ErrOIDCAuthRequestNotFound) || errors.Is(err, db.ErrOIDCAuthRequestExpired) {
 			return "", newProtocolError("invalid_request", http.StatusBadRequest)
 		}
@@ -349,11 +355,12 @@ func (h *Handler) completeAuthorization(r *http.Request, opaqueID string) (strin
 	if err != nil {
 		return "", newProtocolError("server_error", http.StatusInternalServerError)
 	}
+	h.audit(stage, "success", "none")
 	return target, nil
 }
 
 // rejectAuthorization consumes an unusable pending request and returns a client-safe access_denied redirect.
-func (h *Handler) rejectAuthorization(r *http.Request, requestID uuid.UUID) (string, *protocolError) {
+func (h *Handler) rejectAuthorization(r *http.Request, requestID uuid.UUID, stage, reason string) (string, *protocolError) {
 	redirect, err := h.database.CancelOIDC(r.Context(), requestID, h.now().UTC())
 	if err != nil {
 		if errors.Is(err, db.ErrOIDCAuthRequestNotFound) {
@@ -365,7 +372,7 @@ func (h *Handler) rejectAuthorization(r *http.Request, requestID uuid.UUID) (str
 	if err != nil {
 		return "", newProtocolError("server_error", http.StatusInternalServerError)
 	}
-	h.audit("continuation", "denied", "access_denied")
+	h.audit(stage, "denied", reason)
 	return target, nil
 }
 
@@ -482,14 +489,17 @@ func (h *Handler) authorizationCodeGrant(w http.ResponseWriter, r *http.Request,
 		CreatedIP:        requestIP(r),
 		CreatedUserAgent: optionalString(r.UserAgent()),
 		SessionExpiresAt: now.Add(h.authConfig.AccessSessionTTL),
-	}, func(user db.OIDCUserClaims, exchangeTime time.Time) (db.OIDCTokenSet, error) {
+	}, h.access.Allowed, func(user db.OIDCUserClaims, exchangeTime time.Time) (db.OIDCTokenSet, error) {
 		client, _ := h.config.Registry.Client(clientID)
 		return h.tokens.Issue(user, sessionID, exchangeTime, client)
 	})
 	if err != nil {
+		if errors.Is(err, db.ErrOIDCAccessDenied) {
+			h.writeIntegrationAccessDenied(w, "token")
+			return
+		}
 		if errors.Is(err, db.ErrOIDCInvalidGrant) || errors.Is(err, db.ErrOIDCInactiveUser) {
-			h.audit("token", "rejected", "invalid_grant")
-			h.writeOAuthError(w, newProtocolError("invalid_grant", http.StatusBadRequest))
+			h.writeInvalidGrant(w)
 			return
 		}
 		h.audit("token", "error", "store_or_signing")
@@ -533,6 +543,7 @@ func (h *Handler) refreshTokenGrant(w http.ResponseWriter, r *http.Request, valu
 		newRefreshHash,
 		clientID,
 		operation,
+		h.access.Allowed,
 		func(session model.AuthSession) (string, error) {
 			client, _ := h.config.Registry.Client(clientID)
 			if !allowedOIDCScopes(strings.Join(session.OAuthScopes, " "), client.OIDCScopes) {
@@ -557,6 +568,10 @@ func (h *Handler) refreshTokenGrant(w http.ResponseWriter, r *http.Request, valu
 		},
 	)
 	if err != nil {
+		if errors.Is(err, db.ErrOIDCAccessDenied) {
+			h.writeIntegrationAccessDenied(w, "token")
+			return
+		}
 		if errors.Is(err, db.ErrTokenNotFound) || errors.Is(err, db.ErrTokenExpired) ||
 			errors.Is(err, db.ErrTokenReuseDetected) ||
 			errors.Is(err, db.ErrUserNotFound) {
@@ -626,6 +641,14 @@ func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit("revoke", "success", "none")
 	w.WriteHeader(http.StatusOK)
+}
+
+const auditIntegrationAccessDenied = "integration_access_denied"
+
+// The client receives the same error as for invalid credentials.
+func (h *Handler) writeIntegrationAccessDenied(w http.ResponseWriter, stage string) {
+	h.audit(stage, "denied", auditIntegrationAccessDenied)
+	h.writeOAuthError(w, newProtocolError("invalid_grant", http.StatusBadRequest))
 }
 
 // writeInvalidGrant keeps all rejected refresh credentials indistinguishable to the caller.

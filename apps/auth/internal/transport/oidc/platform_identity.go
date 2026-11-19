@@ -618,7 +618,11 @@ func (h *Handler) ReserveAgent(w http.ResponseWriter, r *http.Request) {
 		h.writeInvalidGrant(w)
 		return
 	}
-	subjectID, err := h.database.ReserveAgent(r.Context(), client.ClientID, body.HostID, ownerID)
+	subjectID, err := h.database.ReserveAgent(r.Context(), client.ClientID, body.HostID, ownerID, h.access.Allowed)
+	if errors.Is(err, db.ErrOIDCAccessDenied) {
+		h.writeIntegrationAccessDenied(w, "agent.reserve")
+		return
+	}
 	if errors.Is(err, db.ErrOIDCInvalidGrant) {
 		h.writeInvalidGrant(w)
 		return
@@ -642,6 +646,7 @@ func (h *Handler) agentToken(w http.ResponseWriter, r *http.Request, values url.
 	}
 	var a contract.AgentAttestation
 	audited := false
+	rejectionResult := "rejected"
 	defer func() {
 		if audited {
 			return
@@ -664,7 +669,7 @@ func (h *Handler) agentToken(w http.ResponseWriter, r *http.Request, values url.
 			attestation,
 			nil,
 			a.KeyThumbprint,
-			"rejected",
+			rejectionResult,
 		)
 	}()
 	for name := range values {
@@ -731,13 +736,12 @@ func (h *Handler) agentToken(w http.ResponseWriter, r *http.Request, values url.
 		h.writeInvalidGrant(w)
 		return
 	}
-	var identity db.AgentIdentity
 	if a.Purpose == "revoke" {
 		if a.SubjectID == nil {
 			h.writeInvalidGrant(w)
 			return
 		}
-		identity, err = h.database.AgentIdentity(r.Context(), client.ClientID, *a.SubjectID)
+		identity, err := h.database.AgentIdentity(r.Context(), client.ClientID, *a.SubjectID)
 		if err != nil || identity.HostID != a.HostID || identity.Thumbprint != a.KeyThumbprint ||
 			!bytes.Equal(identity.PublicKey, pub) {
 			h.writeInvalidGrant(w)
@@ -751,25 +755,23 @@ func (h *Handler) agentToken(w http.ResponseWriter, r *http.Request, values url.
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if a.Purpose == "enroll" && a.SubjectID == nil {
-		identity, err = h.database.EnrollAgent(r.Context(), client.ClientID, a.HostID, pub, a.KeyThumbprint, a.ID)
-	} else if a.Purpose == "issue" && a.SubjectID != nil {
-		identity, err = h.database.AgentIdentity(r.Context(), client.ClientID, *a.SubjectID)
-		// A reserved principal has no key yet. The first issue after prepare fills it.
-		if err == nil && !identity.Revoked && len(identity.PublicKey) == 0 {
-			identity, err = h.database.EnrollAgent(r.Context(), client.ClientID, a.HostID, pub, a.KeyThumbprint, a.ID)
-			if err == nil && identity.SubjectID != *a.SubjectID {
-				h.writeInvalidGrant(w)
-				return
-			}
-		}
-	} else {
+	validPurpose := (a.Purpose == "enroll" && a.SubjectID == nil) || (a.Purpose == "issue" && a.SubjectID != nil)
+	if !validPurpose {
 		h.writeInvalidGrant(w)
 		return
 	}
-	if err != nil || identity.Revoked || identity.HostID != a.HostID || identity.Thumbprint != a.KeyThumbprint ||
-		!bytes.Equal(identity.PublicKey, pub) {
+	identity, err := h.database.EnrollAgent(r.Context(), client.ClientID, a.HostID, pub, a.KeyThumbprint, a.ID, a.SubjectID, h.access.Allowed)
+	if errors.Is(err, db.ErrOIDCAccessDenied) {
+		rejectionResult = auditIntegrationAccessDenied
+		h.writeIntegrationAccessDenied(w, "token")
+		return
+	}
+	if errors.Is(err, db.ErrOIDCInvalidGrant) {
 		h.writeInvalidGrant(w)
+		return
+	}
+	if err != nil {
+		h.writeTemporarilyUnavailable(w)
 		return
 	}
 	jti := uuid.New()

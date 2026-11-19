@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/oidcaccess"
 
 	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 
@@ -40,8 +41,8 @@ type Database interface {
 	RevokeDelegation(ctx context.Context, subjectID uuid.UUID, clientID, audience string) error
 	LiveSession(ctx context.Context, sessionID, subjectID uuid.UUID) (bool, error)
 	LiveDelegation(ctx context.Context, grant DelegationGrant, scopes, projectIDs []string) (bool, error)
-	ReserveAgent(ctx context.Context, clientID string, hostID, ownerID uuid.UUID) (uuid.UUID, error)
-	EnrollAgent(ctx context.Context, clientID string, hostID uuid.UUID, publicKey []byte, thumbprint string, attestationID uuid.UUID) (AgentIdentity, error)
+	ReserveAgent(ctx context.Context, clientID string, hostID, ownerID uuid.UUID, check oidcaccess.Check) (uuid.UUID, error)
+	EnrollAgent(ctx context.Context, clientID string, hostID uuid.UUID, publicKey []byte, thumbprint string, attestationID uuid.UUID, expectedSubjectID *uuid.UUID, check oidcaccess.Check) (AgentIdentity, error)
 	AgentIdentity(ctx context.Context, clientID string, subjectID uuid.UUID) (AgentIdentity, error)
 	RevokeAgent(ctx context.Context, clientID string, subjectID, attestationID uuid.UUID) error
 	AuditPlatform(ctx context.Context, action, clientID string, subjectID, hostID, attestationID, tokenJTI *uuid.UUID, thumbprint, result string) error
@@ -65,20 +66,19 @@ type Database interface {
 	CreateAuthSession(ctx context.Context, sessionID uuid.UUID, subjectID, familyID uuid.UUID, refreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedPasswordHash string) (model.AuthSession, error)
 	GetAuthSession(ctx context.Context, sessionID uuid.UUID) (model.AuthSession, error)
 	ResolveBrowserSession(ctx context.Context, refreshTokenHash string) (model.BrowserSession, error)
-	RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error)
-	RefreshOAuthResult(ctx context.Context, oldHash, newHash, client, operation string, issue func(model.AuthSession) (string, error)) (string, error)
-	RefreshOAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, oauthClientID string) (model.AuthSession, error)
+	RefreshOAuthResult(ctx context.Context, oldHash, newHash, client, operation string, check oidcaccess.Check, issue func(model.AuthSession) (string, error)) (string, error)
 	RevokeOAuthSessionFamily(ctx context.Context, refreshTokenHash, oauthClientID string) error
 	ListAuthSessions(ctx context.Context, subjectID uuid.UUID) ([]model.AuthSession, error)
+	AccessibleOIDCSessionCounts(ctx context.Context, subjectID uuid.UUID, clientIDs []string, check oidcaccess.Check) (map[string]int64, error)
 	RevokeAuthSession(ctx context.Context, sessionID, subjectID uuid.UUID, reason string, replacedBy *uuid.UUID) error
 	RevokeAllAuthSessions(ctx context.Context, subjectID uuid.UUID) error
 
 	// --- OAuth/OIDC ---
 
 	CreateOIDCPending(ctx context.Context, request OIDCPendingRequest) error
-	AuthorizeOIDC(ctx context.Context, requestID, userID, sourceSessionID uuid.UUID, authTime time.Time, codeHash []byte, now time.Time) (OIDCClientRedirect, error)
+	AuthorizeOIDC(ctx context.Context, requestID, userID, sourceSessionID uuid.UUID, authTime time.Time, codeHash []byte, now time.Time, check oidcaccess.Check) (OIDCClientRedirect, error)
 	CancelOIDC(ctx context.Context, requestID uuid.UUID, now time.Time) (OIDCClientRedirect, error)
 	GetOIDCSessionAuthenticationTime(ctx context.Context, sessionID, userID uuid.UUID) (time.Time, error)
-	ExchangeOIDCCode(ctx context.Context, request OIDCExchangeRequest, issue IssueOIDCTokensFunc) (OIDCTokenSet, error)
+	ExchangeOIDCCode(ctx context.Context, request OIDCExchangeRequest, check oidcaccess.Check, issue IssueOIDCTokensFunc) (OIDCTokenSet, error)
 	GetOIDCActiveUser(ctx context.Context, userID uuid.UUID) (OIDCUserClaims, error)
 }

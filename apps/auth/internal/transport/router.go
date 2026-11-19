@@ -43,6 +43,7 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 	mux.HandleFunc("POST /auth/refresh", s.auth.AuthRefresh)
 	mux.Handle("POST /auth/logout", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.AuthLogout))))
 	mux.Handle("GET /auth/subject", s.authMiddleware(http.HandlerFunc(s.auth.AuthGetSubject)))
+	mux.Handle("GET /auth/integrations", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.Integrations))))
 	mux.Handle("GET /auth/sessions", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.AuthSessionsList))))
 	mux.Handle("DELETE /auth/sessions", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.AuthSessionsRevokeAll))))
 	mux.Handle("DELETE /auth/sessions/{session_id}", s.authMiddleware(s.requireLiveSessionMiddleware(http.HandlerFunc(s.auth.AuthSessionRevokeOne))))
@@ -62,6 +63,7 @@ func (s *Server) BuildCommonHandler() (*http.Handler, error) {
 			s.deps.Database,
 			s.deps.Cfg.AuthConfig,
 			*s.deps.Cfg.OIDC,
+			s.deps.OIDCAccessHook,
 			s.deps.Log,
 		)
 		routes = append(routes,

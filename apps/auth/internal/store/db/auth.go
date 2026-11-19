@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/oidcaccess"
 
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 )
@@ -134,55 +135,6 @@ func (p *PsqlDB) ResolveBrowserSession(ctx context.Context, refreshTokenHash str
 	return session, nil
 }
 
-func (p *PsqlDB) RefreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time) (model.AuthSession, error) {
-	return p.refreshAuthSession(ctx, oldRefreshTokenHash, newSessionID, newRefreshTokenHash, createdIP, createdUserAgent, expiresAt, nil)
-}
-
-func (p *PsqlDB) RefreshOAuthSession(ctx context.Context, oldRefreshTokenHash string, newSessionID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, oauthClientID string) (model.AuthSession, error) {
-	if oauthClientID == "" {
-		return model.AuthSession{}, ErrTokenNotFound
-	}
-	return p.refreshAuthSession(ctx, oldRefreshTokenHash, newSessionID, newRefreshTokenHash, createdIP, createdUserAgent, expiresAt, &oauthClientID)
-}
-
-func (p *PsqlDB) refreshAuthSession(ctx context.Context, oldRefreshTokenHash string, newTokenID uuid.UUID, newRefreshTokenHash, createdIP string, createdUserAgent *string, expiresAt time.Time, expectedOAuthClientID *string) (model.AuthSession, error) {
-	tx, err := p.pool.Begin(ctx)
-	if err != nil {
-		return model.AuthSession{}, err
-	}
-	defer tx.Rollback(ctx)
-
-	session, oldTokenID, consumed, err := lockRefresh(ctx, tx, oldRefreshTokenHash, expectedOAuthClientID)
-	if err != nil {
-		return session, err
-	}
-
-	// A consumed refresh token presented again means it leaked: revoke the session
-
-	if consumed {
-		const revokeReusedQuery = `
-			UPDATE auth_sessions
-			SET revoked_at = COALESCE(revoked_at, NOW()), revoke_reason = 'reuse_detected'
-			WHERE id = $1
-		`
-		if _, err = tx.Exec(ctx, revokeReusedQuery, session.ID); err != nil {
-			return session, err
-		}
-		if err = tx.Commit(ctx); err != nil {
-			return session, err
-		}
-		return session, ErrTokenReuseDetected
-	}
-
-	if err = rotateRefresh(ctx, tx, session, oldTokenID, newTokenID, newRefreshTokenHash); err != nil {
-		return session, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return session, err
-	}
-	return session, nil
-}
-
 // lockRefresh locks a refresh token and its session, then checks that the OAuth
 // client binding matches, the session and token are still valid and the user is active.
 // The returned flag reports whether the token was already consumed.
@@ -262,11 +214,19 @@ func rotateRefresh(ctx context.Context, tx pgx.Tx, session model.AuthSession, ol
 	return err
 }
 
+// lockRefresh has already matched the locked session to the requesting client.
+func requireRefreshAccess(ctx context.Context, tx pgx.Tx, session model.AuthSession, check oidcaccess.Check) error {
+	if session.OAuthClientID == nil {
+		return nil
+	}
+	return requireOIDCAccess(ctx, tx, session.SubjectID, *session.OAuthClientID, check)
+}
+
 // RefreshOAuthResult rotates a refresh token and stores the sealed response in the same
 // transaction, so a retried request with the same operation (idempotency key) replays the
 // first result instead of tripping reuse detection. issue signs the new tokens and returns
 // the sealed response; an empty client selects the native cookie flow.
-func (p *PsqlDB) RefreshOAuthResult(ctx context.Context, oldRefreshTokenHash, newRefreshTokenHash, oauthClientID, operation string, issue func(model.AuthSession) (string, error)) (string, error) {
+func (p *PsqlDB) RefreshOAuthResult(ctx context.Context, oldRefreshTokenHash, newRefreshTokenHash, oauthClientID, operation string, check oidcaccess.Check, issue func(model.AuthSession) (string, error)) (string, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return "", err
@@ -292,7 +252,13 @@ func (p *PsqlDB) RefreshOAuthResult(ctx context.Context, oldRefreshTokenHash, ne
 		`
 		var sealed string
 		err = tx.QueryRow(ctx, selectReplayQuery, oldTokenID, operation).Scan(&sealed)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return "", err
+		}
 		if operation != "" && err == nil {
+			if err = requireRefreshAccess(ctx, tx, session, check); err != nil {
+				return "", err
+			}
 			return sealed, tx.Commit(ctx)
 		}
 
@@ -310,6 +276,9 @@ func (p *PsqlDB) RefreshOAuthResult(ctx context.Context, oldRefreshTokenHash, ne
 		return "", ErrTokenReuseDetected
 	}
 
+	if err = requireRefreshAccess(ctx, tx, session, check); err != nil {
+		return "", err
+	}
 	sealed, err := issue(session)
 	if err != nil {
 		return "", err

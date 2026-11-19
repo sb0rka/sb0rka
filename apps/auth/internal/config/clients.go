@@ -111,6 +111,11 @@ func (r ClientRegistry) Client(id string) (RegisteredClient, bool) {
 	return RegisteredClient{}, false
 }
 
+func (r ClientRegistry) AllowsGrant(clientID, grant string) bool {
+	client, ok := r.Client(clientID)
+	return ok && slices.Contains(client.GrantTypes, grant)
+}
+
 func (c RegisteredClient) Authenticate(secret string) bool {
 	match := 0
 	for _, expected := range c.Secrets {

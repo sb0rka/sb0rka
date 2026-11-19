@@ -62,6 +62,13 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	log.Info("database connection established successfully")
 
+	// Used oidcaccess.Noop() with both factories unset. An incomplete pair fails startup
+	// so a misconfigured extension cannot silently bypass integration quotas.
+	oidcAccessHook, err := a.opts.buildOIDCAccessHook(database.PgxPool())
+	if err != nil {
+		return err
+	}
+
 	inviteHook := invite.Noop()
 	if a.opts.InviteRepositoryFactory != nil && a.opts.InviteHookFactory != nil {
 		repo := a.opts.InviteRepositoryFactory(database.PgxPool())
@@ -125,6 +132,7 @@ func (a *App) Run(ctx context.Context) error {
 		Cfg:                  cfg.Server,
 		Log:                  log,
 		InviteHook:           inviteHook,
+		OIDCAccessHook:       oidcAccessHook,
 		VerificationHook:     verificationHook,
 		TrustEmailOnRegister: trustEmailOnRegister,
 		AdditionalRoutes:     additionalRoutes,
