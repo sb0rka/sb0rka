@@ -103,7 +103,7 @@ const resources = {
       nav: {
         projects: "Проекты",
         subscription: "Финансы",
-        profile: "Профиль",
+        integrations: "Интеграции",
         documentation: "Документация",
         code: "Код",
         upgradeLimits: "Увеличить лимиты",
@@ -636,6 +636,23 @@ const resources = {
         ageHours: "{{count}} ч назад",
         ageDays: "{{count}} дн назад",
       },
+      integrations: {
+        lead: "Внешние сервисы и расширения",
+        available: "Доступно",
+        unavailable: "Недоступно",
+        activeSessions: "Активных сессий: {{count}}",
+        loadError: "Не удалось загрузить статус интеграций",
+        retry: "Повторить",
+        open: "Открыть {{name}}",
+        som: {
+          name: "System of Minds",
+          description: "Платформа управления проектами, задачами и AI-автоматизация процессов.",
+        },
+        ir: {
+          name: "Incident Response",
+          description: "Единая картина инцидента и AI-автоматизация расследований.",
+        },
+      },
       profile: {
         title: "Профиль",
         heading: "Профиль {{username}}",
@@ -773,7 +790,7 @@ const resources = {
       nav: {
         projects: "Projects",
         subscription: "Billing",
-        profile: "Profile",
+        integrations: "Integrations",
         documentation: "Documentation",
         code: "Code",
         upgradeLimits: "Upgrade limits",
@@ -1301,6 +1318,23 @@ const resources = {
         ageMinutes: "{{count}} min ago",
         ageHours: "{{count}} h ago",
         ageDays: "{{count}} d ago",
+      },
+      integrations: {
+        lead: "External services and extensions",
+        available: "Available",
+        unavailable: "Unavailable",
+        activeSessions: "Active sessions: {{count}}",
+        loadError: "Unable to load integration status",
+        retry: "Try again",
+        open: "Open {{name}}",
+        som: {
+          name: "System of Minds",
+          description: "A platform for managing projects and tasks, with AI automation of processes.",
+        },
+        ir: {
+          name: "Incident Response",
+          description: "A unified incident picture and AI-driven investigation automation.",
+        },
       },
       profile: {
         title: "Profile",

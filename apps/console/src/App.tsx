@@ -19,6 +19,7 @@ import { MetricDetailPage } from "@/features/projects/metric-detail-page"
 import { PlansPage } from "@/features/subscription/plans-page"
 import { ReceiptsPage } from "@/features/subscription/receipts-page"
 import { SubscriptionPage } from "@/features/subscription/subscription-page"
+import { IntegrationsPage } from "@/features/integrations/integrations-page"
 import { ProfilePage } from "@/features/user/profile-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
@@ -75,6 +76,7 @@ export default function App() {
                             <Route path="/subscription/plans" element={<PlansPage />} />
                             <Route path="/subscription/receipts" element={<ReceiptsPage />} />
                           </Route>
+                          <Route path="/integrations" element={<IntegrationsPage />} />
                           <Route path="/profile" element={<ProfilePage />} />
                           <Route path="/projects/:id" element={<ProjectDetailPage />} />
                           <Route
