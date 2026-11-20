@@ -26,12 +26,12 @@ func (r *RegisterUserRequest) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
-	for _, k := range []string{"username", "email", "password", "phone"} {
-		delete(all, k)
-	}
-	for k := range all {
-		if strings.EqualFold(k, "captcha_token") {
-			delete(all, k)
+	for key := range all {
+		for _, field := range [...]string{"username", "email", "password", "phone", "captcha_token"} {
+			if strings.EqualFold(key, field) {
+				delete(all, key)
+				break
+			}
 		}
 	}
 	c.Extras = all
