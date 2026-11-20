@@ -52,6 +52,18 @@ const (
 
 func Load() (*Config, error) {
 	var cfg Config
+	captchaEnabled, err := coreconfig.GetBoolEnvStrict("DG_CAPTCHA_ENABLED", false)
+	if err != nil {
+		return nil, err
+	}
+	captchaPassOnError, err := coreconfig.GetBoolEnvStrict("DG_CAPTCHA_IS_PASS_ON_ERROR", false)
+	if err != nil {
+		return nil, err
+	}
+	captchaPrivateKey := strings.TrimSpace(os.Getenv("DG_CAPTCHA_PRIVATE_KEY"))
+	if captchaEnabled && captchaPrivateKey == "" {
+		return nil, fmt.Errorf("DG_CAPTCHA_PRIVATE_KEY is required when DG_CAPTCHA_ENABLED is true")
+	}
 
 	logLevelEnv := coreconfig.GetStringEnv("LOG_LEVEL", DefaultLoggerLevel)
 	logFormatEnv := coreconfig.GetStringEnv("LOG_FORMAT", DefaultLoggerFormat)
@@ -215,6 +227,11 @@ func Load() (*Config, error) {
 				RefreshTokenCookieHttpOnly: refreshTokenCookieHttpOnly,
 				RefreshTokenCookieSameSite: http.SameSite(refreshTokenCookieSameSite),
 			},
+		},
+		Captcha: CaptchaConfig{
+			Enabled:     captchaEnabled,
+			PrivateKey:  captchaPrivateKey,
+			PassOnError: captchaPassOnError,
 		},
 	}
 

@@ -16,17 +16,28 @@ func credentialPeer(r *http.Request, trusted []*net.IPNet) string {
 // Bound both guessing and concurrent Argon2 allocations. Forwarded headers
 // are a quota key only when the immediate peer is a configured trusted proxy.
 func (h *Handler) passwordWork(w http.ResponseWriter, r *http.Request, bucket string, limit int, window time.Duration) func() {
+	if !h.allowPasswordAttempt(w, r, bucket, limit, window) {
+		return nil
+	}
+	return h.passwordSlot(w)
+}
+
+func (h *Handler) allowPasswordAttempt(w http.ResponseWriter, r *http.Request, bucket string, limit int, window time.Duration) bool {
 	retry, err := h.deps.Database.AuthenticationAttempt(r.Context(), bucket, limit, window)
 	if err != nil {
 		h.deps.Log.Error("authentication_attempt_store_unavailable")
 		http.Error(w, "Authentication unavailable", http.StatusServiceUnavailable)
-		return nil
+		return false
 	}
 	if retry > 0 {
 		w.Header().Set("Retry-After", strconv.FormatInt(int64(retry/time.Second)+1, 10))
 		http.Error(w, "Too many authentication attempts", http.StatusTooManyRequests)
-		return nil
+		return false
 	}
+	return true
+}
+
+func (h *Handler) passwordSlot(w http.ResponseWriter) func() {
 	select {
 	case h.passwordSlots <- struct{}{}:
 		return func() { <-h.passwordSlots }

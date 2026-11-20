@@ -47,6 +47,9 @@ go run ./apps/auth/cmd/auth server
 | `AUTH_BASE_URL` / `ACCESS_TOKEN_KID` | `http://localhost:8020` / `ed25519-v1` | claims токена |
 | `ACCESS_SESSION_TTL_SEC` | `604800` | TTL login-сессии; TTL access JWT фиксирован на 300 с |
 | `REFRESH_TOKEN_COOKIE_*` | `__Host-refresh_token`, secure, path `/`, host-only, httpOnly, lax | параметры refresh-cookie; для `__Host-` контракт проверяется при запуске |
+| `DG_CAPTCHA_ENABLED` | `false` | Требовать dCAPTCHA при регистрации |
+| `DG_CAPTCHA_PRIVATE_KEY` | — | Серверный ключ, обязателен при включенной проверке |
+| `DG_CAPTCHA_IS_PASS_ON_ERROR` | `false` | Разрешать регистрацию с присланным токеном при временном сбое провайдера |
 | `IS_PHONE_REQUIRED` | `false` | требовать телефон при регистрации |
 | `AUTH_BASE_URL` / `OIDC_LOGIN_URL` | — | canonical issuer и community console login URL |
 | `SB0RKA_*_CLIENT_SECRET` / `SB0RKA_SOM_ATTESTATION_SECRET` | — | секреты confidential-клиентов; имя переменной задаёт `secret_env` в `platform_clients.policy`. Клиент без переменной не инициализируется |

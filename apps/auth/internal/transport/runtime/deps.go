@@ -3,6 +3,7 @@ package runtime
 import (
 	"log/slog"
 
+	"github.com/sb0rka/sb0rka/apps/auth/internal/captcha"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
@@ -13,6 +14,7 @@ import (
 )
 
 type Dependencies struct {
+	Captcha              *captcha.Client
 	Database             db.Database
 	Cfg                  config.ServerConfig
 	Log                  *slog.Logger

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/sb0rka/sb0rka/apps/auth/internal/captcha"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/config"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/logger"
@@ -127,7 +128,12 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}
 
+	var verifier *captcha.Client
+	if cfg.Captcha.Enabled {
+		verifier = captcha.New(cfg.Captcha)
+	}
 	newSrv := transport.NewServer(transport.Dependencies{
+		Captcha:              verifier,
 		Database:             database,
 		Cfg:                  cfg.Server,
 		Log:                  log,
