@@ -200,6 +200,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/identity/users": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json",
+                    "text/plain"
+                ],
+                "summary": "Register a user",
+                "parameters": [
+                    {
+                        "description": "captcha_token is required when DG_CAPTCHA_ENABLED is true",
+                        "name": "registration",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/contract.RegisterUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/contract.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid fields, captcha_required or captcha_invalid",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "User already exists",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "413": {
+                        "description": "Request body too large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "Authentication unavailable or captcha_unavailable",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/oauth2/agents": {
             "post": {
                 "security": [
@@ -1446,6 +1507,26 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.RegisterUserRequest": {
+            "type": "object",
+            "properties": {
+                "captcha_token": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.ReserveAgentRequest": {
             "type": "object",
             "properties": {
@@ -1461,6 +1542,35 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "agent_subject_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.UserResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "email_verified_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "phone_verified_at": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }

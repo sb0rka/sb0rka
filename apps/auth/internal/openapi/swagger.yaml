@@ -243,6 +243,19 @@ definitions:
           $ref: '#/definitions/contract.OIDCJWKResponse'
         type: array
     type: object
+  contract.RegisterUserRequest:
+    properties:
+      captcha_token:
+        type: string
+      email:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      username:
+        type: string
+    type: object
   contract.ReserveAgentRequest:
     properties:
       host_id:
@@ -253,6 +266,25 @@ definitions:
   contract.ReserveAgentResponse:
     properties:
       agent_subject_id:
+        type: string
+    type: object
+  contract.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      email_verified_at:
+        type: string
+      id:
+        type: string
+      phone:
+        type: string
+      phone_verified_at:
+        type: string
+      updated_at:
+        type: string
+      username:
         type: string
     type: object
 info:
@@ -386,6 +418,46 @@ paths:
       summary: Rotate a native refresh cookie
       tags:
       - auth
+  /identity/users:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: captcha_token is required when DG_CAPTCHA_ENABLED is true
+        in: body
+        name: registration
+        required: true
+        schema:
+          $ref: '#/definitions/contract.RegisterUserRequest'
+      produces:
+      - application/json
+      - text/plain
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contract.UserResponse'
+        "400":
+          description: Invalid fields, captcha_required or captcha_invalid
+          schema:
+            type: string
+        "409":
+          description: User already exists
+          schema:
+            type: string
+        "413":
+          description: Request body too large
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+        "503":
+          description: Authentication unavailable or captcha_unavailable
+          schema:
+            type: string
+      summary: Register a user
   /oauth2/agents:
     post:
       consumes:

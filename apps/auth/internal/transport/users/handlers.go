@@ -6,10 +6,12 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/sb0rka/sb0rka/apps/auth/internal/captcha"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/domain/model"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/service"
 	"github.com/sb0rka/sb0rka/apps/auth/internal/store/db"
@@ -30,6 +32,17 @@ func NewHandler(deps runtime.Dependencies) *Handler {
 }
 
 // RegisterUser handles POST /identity/users — creates a new user-backed subject.
+// @Summary Register a user
+// @Accept json
+// @Produce json,plain
+// @Param registration body contract.RegisterUserRequest true "captcha_token is required when DG_CAPTCHA_ENABLED is true"
+// @Success 201 {object} contract.UserResponse
+// @Failure 400 {string} string "Invalid fields, captcha_required or captcha_invalid"
+// @Failure 409 {string} string "User already exists"
+// @Failure 413 {string} string "Request body too large"
+// @Failure 429 {string} string "Too many attempts"
+// @Failure 503 {string} string "Authentication unavailable or captcha_unavailable"
+// @Router /identity/users [post]
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req contract.RegisterUserRequest
 	if !runtime.DecodeIdentityJSON(w, r, &req) {
@@ -38,6 +51,12 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	if req.Username == "" || req.Email == "" || req.Password == "" {
 		http.Error(w, "Username, email and password are required", http.StatusBadRequest)
+		return
+	}
+
+	if h.deps.Captcha != nil && strings.TrimSpace(req.CaptchaToken) == "" {
+		h.deps.Log.Info("registration_captcha", "outcome", "invalid", "reason", "missing_token", "duration_ms", 0)
+		http.Error(w, "captcha_required", http.StatusBadRequest)
 		return
 	}
 
@@ -69,7 +88,13 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	release := h.passwordWork(w, r, "register:"+credentialPeer(r, h.deps.Cfg.TrustedProxies), 30, time.Hour)
+	if !h.allowPasswordAttempt(w, r, "register:"+credentialPeer(r, h.deps.Cfg.TrustedProxies), 30, time.Hour) {
+		return
+	}
+	if h.deps.Captcha != nil && !h.verifyRegistrationCaptcha(w, r, req.CaptchaToken) {
+		return
+	}
+	release := h.passwordSlot(w)
 	if release == nil {
 		return
 	}
@@ -115,6 +140,31 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ToUserResponse(user))
+}
+
+func (h *Handler) verifyRegistrationCaptcha(w http.ResponseWriter, r *http.Request, token string) bool {
+	start := time.Now()
+	result := h.deps.Captcha.Verify(r.Context(), token)
+	attrs := []any{"outcome", string(result.Outcome), "reason", result.Reason, "duration_ms", time.Since(start).Milliseconds()}
+	if result.ProviderStatus != 0 {
+		attrs = append(attrs, "provider_status", result.ProviderStatus)
+	}
+	if result.Outcome == captcha.AllowedOnError {
+		h.deps.Log.Warn("registration_captcha", attrs...)
+		return true
+	}
+	h.deps.Log.Info("registration_captcha", attrs...)
+	switch result.Outcome {
+	case captcha.Verified:
+		return true
+	case captcha.Canceled:
+		return false
+	case captcha.Invalid:
+		http.Error(w, "captcha_invalid", http.StatusBadRequest)
+	default:
+		http.Error(w, "captcha_unavailable", http.StatusServiceUnavailable)
+	}
+	return false
 }
 
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {

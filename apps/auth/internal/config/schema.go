@@ -56,8 +56,15 @@ type ServerConfig struct {
 	AuthConfig AuthConfig
 }
 
+type CaptchaConfig struct {
+	Enabled     bool
+	PrivateKey  string
+	PassOnError bool
+}
+
 type Config struct {
 	Logger   LoggerConfig
 	Database DatabaseConfig
 	Server   ServerConfig
+	Captcha  CaptchaConfig
 }

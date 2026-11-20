@@ -47,6 +47,9 @@ Build: `go build -o bin/auth ./apps/auth/cmd/auth`. Local stack — `docker-comp
 | `AUTH_BASE_URL` / `ACCESS_TOKEN_KID` | `http://localhost:8020` / `ed25519-v1` | token claims |
 | `ACCESS_SESSION_TTL_SEC` | `604800` | login session TTL; access JWT TTL is fixed at 300s |
 | `REFRESH_TOKEN_COOKIE_*` | `__Host-refresh_token`, secure, path `/`, host-only, httpOnly, lax | refresh-cookie settings; the `__Host-` contract is validated at startup |
+| `DG_CAPTCHA_ENABLED` | `false` | Require dCAPTCHA for registration |
+| `DG_CAPTCHA_PRIVATE_KEY` | — | Server-side private key, required when enabled |
+| `DG_CAPTCHA_IS_PASS_ON_ERROR` | `false` | Allow registration with a submitted token during a temporary provider outage |
 | `IS_PHONE_REQUIRED` | `false` | require phone on registration |
 | `AUTH_BASE_URL` / `OIDC_LOGIN_URL` | — | canonical issuer and community console login URL |
 | `SB0RKA_*_CLIENT_SECRET` / `SB0RKA_SOM_ATTESTATION_SECRET` | — | confidential-client secrets; `platform_clients.policy` names the variable in `secret_env`. A client whose variable is unset is not initialized |
