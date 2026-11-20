@@ -55,7 +55,7 @@ function IntegrationCard({ id, status }: { id: IntegrationId; status: Integratio
             {t(status.available ? "integrations.available" : "integrations.unavailable")}
           </Badge>
         </div>
-        <CardDescription className="max-w-prose leading-5">
+        <CardDescription className="w-full leading-5">
           {t(`integrations.${id}.description`)}
         </CardDescription>
         {status.available && status.active_sessions > 0 ? (
