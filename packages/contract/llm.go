@@ -53,3 +53,7 @@ type LLMModelPricingResponse struct {
 type LLMModelListResponse struct {
 	Models []LLMModelResponse `json:"models"`
 }
+
+type LLMGatewayResponse struct {
+	BaseURL string `json:"base_url"`
+}
