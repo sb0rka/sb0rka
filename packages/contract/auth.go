@@ -12,6 +12,16 @@ type AuthLoginResponse struct {
 	AccessToken string `json:"access_token"`
 }
 
+type IntegrationsResponse struct {
+	SOM IntegrationStatusResponse `json:"som"`
+	IR  IntegrationStatusResponse `json:"ir"`
+}
+
+type IntegrationStatusResponse struct {
+	Available      bool   `json:"available"`
+	ActiveSessions *int64 `json:"active_sessions,omitempty"`
+}
+
 type AuthSessionResponse struct {
 	ID        string    `json:"id"`
 	IsCurrent bool      `json:"is_current"`
