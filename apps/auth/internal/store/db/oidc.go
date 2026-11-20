@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/oidcaccess"
 )
 
 const (
@@ -22,6 +23,7 @@ var (
 	ErrOIDCAuthRequestNotFound = errors.New("OIDC authorization request not found")
 	ErrOIDCAuthRequestExpired  = errors.New("OIDC authorization request expired")
 	ErrOIDCInvalidGrant        = errors.New("invalid OIDC authorization grant")
+	ErrOIDCAccessDenied        = errors.New("user access to OIDC client denied")
 	ErrOIDCInactiveUser        = errors.New("inactive OIDC user")
 	ErrOIDCAuthSessionNotFound = errors.New("OIDC authentication session not found")
 )
@@ -76,6 +78,20 @@ type OIDCTokenSet struct {
 
 type IssueOIDCTokensFunc func(OIDCUserClaims, time.Time) (OIDCTokenSet, error)
 
+func requireOIDCAccess(ctx context.Context, tx pgx.Tx, subjectID uuid.UUID, clientID string, check oidcaccess.Check) error {
+	if check == nil {
+		return errors.New("missing OIDC access check")
+	}
+	allowed, err := check(ctx, tx, subjectID, clientID)
+	if err != nil {
+		return fmt.Errorf("check OIDC access: %w", err)
+	}
+	if !allowed {
+		return ErrOIDCAccessDenied
+	}
+	return nil
+}
+
 // CreateOIDCPending persists a validated authorization request. Authorization
 // codes are represented exclusively by their HMAC hashes.
 func (p *PsqlDB) CreateOIDCPending(ctx context.Context, request OIDCPendingRequest) error {
@@ -127,6 +143,7 @@ func (p *PsqlDB) AuthorizeOIDC(
 	authTime time.Time,
 	codeHash []byte,
 	_ time.Time,
+	check oidcaccess.Check,
 ) (OIDCClientRedirect, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -137,11 +154,17 @@ func (p *PsqlDB) AuthorizeOIDC(
 		return OIDCClientRedirect{}, err
 	}
 	// Lock the request before its source session; password changes take the user lock first.
-	var locked uuid.UUID
-	if err = tx.QueryRow(ctx, `SELECT id FROM oidc_auth_requests WHERE id=$1 FOR UPDATE`, requestID).Scan(&locked); err != nil {
-		return OIDCClientRedirect{}, ErrOIDCAuthRequestNotFound
+	var clientID string
+	if err = tx.QueryRow(ctx, `SELECT client_id FROM oidc_auth_requests WHERE id=$1 FOR UPDATE`, requestID).Scan(&clientID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OIDCClientRedirect{}, ErrOIDCAuthRequestNotFound
+		}
+		return OIDCClientRedirect{}, err
 	}
 	if err = lockAuthenticationSession(ctx, tx, sourceSessionID, userID); err != nil {
+		return OIDCClientRedirect{}, err
+	}
+	if err = requireOIDCAccess(ctx, tx, userID, clientID, check); err != nil {
 		return OIDCClientRedirect{}, err
 	}
 	const query = `
@@ -235,6 +258,7 @@ func (p *PsqlDB) GetOIDCSessionAuthenticationTime(
 func (p *PsqlDB) ExchangeOIDCCode(
 	ctx context.Context,
 	request OIDCExchangeRequest,
+	check oidcaccess.Check,
 	issue IssueOIDCTokensFunc,
 ) (OIDCTokenSet, error) {
 	tx, err := p.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -336,6 +360,9 @@ func (p *PsqlDB) ExchangeOIDCCode(
 	}
 	if err := validateOIDCPKCEVerifier(request.CodeVerifier, challenge); err != nil {
 		return OIDCTokenSet{}, ErrOIDCInvalidGrant
+	}
+	if err = requireOIDCAccess(ctx, tx, user.ID, clientID, check); err != nil {
+		return OIDCTokenSet{}, err
 	}
 	user.AuthenticationTime = authTime.UTC()
 	user.Scopes = scopes

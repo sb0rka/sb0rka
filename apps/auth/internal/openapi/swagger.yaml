@@ -119,6 +119,20 @@ definitions:
       version:
         type: integer
     type: object
+  contract.IntegrationStatusResponse:
+    properties:
+      active_sessions:
+        type: integer
+      available:
+        type: boolean
+    type: object
+  contract.IntegrationsResponse:
+    properties:
+      ir:
+        $ref: '#/definitions/contract.IntegrationStatusResponse'
+      som:
+        $ref: '#/definitions/contract.IntegrationStatusResponse'
+    type: object
   contract.OAuthErrorResponse:
     properties:
       error:
@@ -260,6 +274,34 @@ paths:
       summary: Discover the platform issuer and OIDC endpoints
       tags:
       - oauth2
+  /auth/integrations:
+    get:
+      description: Active sessions are included only for available integrations.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contract.IntegrationsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: List the current user's integration access and active OIDC session
+        counts
+      tags:
+      - auth
   /auth/login:
     post:
       consumes:

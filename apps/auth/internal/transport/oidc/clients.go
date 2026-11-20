@@ -19,8 +19,7 @@ func (h *Handler) authenticatedClient(r *http.Request) (config.RegisteredClient,
 }
 
 func (h *Handler) clientGrantAllowed(clientID, grant string) bool {
-	c, ok := h.config.Registry.Client(clientID)
-	return ok && slices.Contains(c.GrantTypes, grant)
+	return h.config.Registry.AllowsGrant(clientID, grant)
 }
 
 func allowedOIDCScopes(raw string, allowed []string) bool {

@@ -46,8 +46,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWbZV6S5g=
 github.com/rogpeppe/go-internal v1.16.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
-github.com/sb0rka/sb0rka/packages/contract v0.0.19 h1:jb0/x8uEn17jhC2w9UoNbd6MfZZJBLOmWOEmNvL4Rw0=
-github.com/sb0rka/sb0rka/packages/contract v0.0.19/go.mod h1:stQ0qDc6NgBWp8Jt4QaxPN9fWky3fWPYrsuBQo3uIRI=
+github.com/sb0rka/sb0rka/packages/contract v0.0.24 h1:a/FsiudTHYi9c6+O1fLmKpPKi4cSk7Tzn+GSdYkySv4=
+github.com/sb0rka/sb0rka/packages/contract v0.0.24/go.mod h1:stQ0qDc6NgBWp8Jt4QaxPN9fWky3fWPYrsuBQo3uIRI=
 github.com/sb0rka/sb0rka/packages/core v0.0.7 h1:H3RRnJvt/GNH7u01l7Pv7IVMGB38CVvog1A6h5kGwyo=
 github.com/sb0rka/sb0rka/packages/core v0.0.7/go.mod h1:NP+YEmUxT3IvEmtBrO27ID9HTz74jaXEs5CZWYrlfQg=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

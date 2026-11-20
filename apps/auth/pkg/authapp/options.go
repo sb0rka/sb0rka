@@ -2,12 +2,17 @@ package authapp
 
 import (
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/invite"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/oidcaccess"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/route"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/subject"
 	"github.com/sb0rka/sb0rka/apps/auth/pkg/verification"
 )
 
 type Options struct {
+	// Register both factories to enforce an integration access policy for users and agents.
+	OIDCAccessRepositoryFactory oidcaccess.RepositoryFactory
+	OIDCAccessHookFactory       oidcaccess.HookFactory
+
 	// InviteRepositoryFactory builds the invite repository from the auth database.
 	// Required together with InviteHookFactory for invite-enabled registration.
 	InviteRepositoryFactory invite.RepositoryFactory

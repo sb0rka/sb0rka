@@ -271,7 +271,7 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 		Expires         time.Time
 	}
 	sealPurpose := "native:" + operation
-	sealed, err := h.deps.Database.RefreshOAuthResult(r.Context(), service.HashRefreshToken(refreshToken), newRefreshTokenHash, "", operation, func(session model.AuthSession) (string, error) {
+	sealed, err := h.deps.Database.RefreshOAuthResult(r.Context(), service.HashRefreshToken(refreshToken), newRefreshTokenHash, "", operation, nil, func(session model.AuthSession) (string, error) {
 		access, err := service.CreateAccessToken(session.SubjectID, session.ID, session.SubjectKind, h.deps.Cfg.AuthConfig)
 		if err != nil {
 			return "", err

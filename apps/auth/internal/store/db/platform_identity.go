@@ -1,15 +1,16 @@
 package db
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/sb0rka/sb0rka/apps/auth/pkg/oidcaccess"
 
 	coreauth "github.com/sb0rka/sb0rka/packages/core/auth"
 )
@@ -345,7 +346,8 @@ func (p *PsqlDB) LiveDelegation(ctx context.Context, grant DelegationGrant, scop
 	return live, err
 }
 
-// EnrollAgent registers a Host's principal on first attestation and returns the existing one afterwards.
+// EnrollAgent authorizes an attestation for its host and binds the key on first use.
+// An issue attestation must match the previously registered subject.
 func (p *PsqlDB) EnrollAgent(
 	ctx context.Context,
 	clientID string,
@@ -353,6 +355,8 @@ func (p *PsqlDB) EnrollAgent(
 	publicKey []byte,
 	thumbprint string,
 	attestationID uuid.UUID,
+	expectedSubjectID *uuid.UUID,
+	check oidcaccess.Check,
 ) (AgentIdentity, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -360,29 +364,52 @@ func (p *PsqlDB) EnrollAgent(
 	}
 	defer tx.Rollback(ctx)
 
-	// Serialize enrollment retries so a Host cannot acquire two principals.
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, clientID+":"+hostID.String()); err != nil {
-		return AgentIdentity{}, err
-	}
-
 	const selectPrincipalQuery = `
-		SELECT subject_id, host_id, public_key, key_thumbprint, revoked_at
+		SELECT subject_id, host_id, public_key, COALESCE(key_thumbprint, ''), revoked_at IS NOT NULL, owner_subject_id
 		FROM agent_principals
 		WHERE attester_client_id = $1 AND host_id = $2
-		FOR UPDATE
 	`
 	var d AgentIdentity
-	var thumb *string
-	var revokedAt *time.Time
-	err = tx.QueryRow(ctx, selectPrincipalQuery, clientID, hostID).
-		Scan(&d.SubjectID, &d.HostID, &d.PublicKey, &thumb, &revokedAt)
-	if err == nil {
-		if thumb != nil {
-			d.Thumbprint = *thumb
+	var owner uuid.NullUUID
+	readPrincipal := func(query string) error {
+		err := tx.QueryRow(ctx, query, clientID, hostID).
+			Scan(&d.SubjectID, &d.HostID, &d.PublicKey, &d.Thumbprint, &d.Revoked, &owner)
+		if expectedSubjectID != nil && errors.Is(err, pgx.ErrNoRows) {
+			return ErrOIDCInvalidGrant
 		}
-		if revokedAt != nil {
-			return d, ErrOIDCInvalidGrant
+		if err != nil {
+			return err
 		}
+		if d.Revoked || (expectedSubjectID != nil && d.SubjectID != *expectedSubjectID) {
+			return ErrOIDCInvalidGrant
+		}
+		return nil
+	}
+
+	if expectedSubjectID != nil {
+		if err = readPrincipal(selectPrincipalQuery); err != nil {
+			return d, err
+		}
+	}
+	if expectedSubjectID == nil || d.PublicKey == nil {
+		// Enrollment and first-key binding must recheck the principal under the reservation lock.
+		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, clientID+":"+hostID.String()); err != nil {
+			return d, err
+		}
+		err = readPrincipal(selectPrincipalQuery + " FOR UPDATE")
+	}
+	found := err == nil
+	if !found && !errors.Is(err, pgx.ErrNoRows) {
+		return d, err
+	}
+	if found && d.PublicKey != nil && (d.Thumbprint != thumbprint || !bytes.Equal(d.PublicKey, publicKey)) {
+		return d, ErrOIDCInvalidGrant
+	}
+	// Only the reservation establishes ownership. Legacy and unreserved hosts have no owner.
+	if err := requireOIDCAccess(ctx, tx, owner.UUID, clientID, check); err != nil {
+		return d, err
+	}
+	if found {
 		if d.PublicKey == nil {
 			const bindKeyQuery = `
 				UPDATE agent_principals
@@ -390,7 +417,10 @@ func (p *PsqlDB) EnrollAgent(
 				WHERE subject_id = $3 AND public_key IS NULL AND revoked_at IS NULL
 			`
 			tag, execErr := tx.Exec(ctx, bindKeyQuery, publicKey, thumbprint, d.SubjectID)
-			if execErr != nil || tag.RowsAffected() != 1 {
+			if execErr != nil {
+				return d, execErr
+			}
+			if tag.RowsAffected() != 1 {
 				return d, ErrOIDCInvalidGrant
 			}
 			d.PublicKey, d.Thumbprint = publicKey, thumbprint
@@ -401,17 +431,9 @@ func (p *PsqlDB) EnrollAgent(
 			if _, err = tx.Exec(ctx, auditQuery, clientID, d.SubjectID, hostID, thumbprint, attestationID); err != nil {
 				return d, err
 			}
-			return d, tx.Commit(ctx)
-		}
-		if d.Thumbprint != thumbprint || string(d.PublicKey) != string(publicKey) {
-			return d, ErrOIDCInvalidGrant
 		}
 		return d, tx.Commit(ctx)
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return d, err
-	}
-
 	d = AgentIdentity{SubjectID: uuid.New(), HostID: hostID, PublicKey: publicKey, Thumbprint: thumbprint}
 	if _, err = tx.Exec(ctx, `INSERT INTO subjects (id, kind) VALUES ($1, $2)`, d.SubjectID, coreauth.SubjectAgent); err != nil {
 		return d, err
@@ -447,7 +469,7 @@ func (p *PsqlDB) AgentIdentity(ctx context.Context, clientID string, subjectID u
 
 // ReserveAgent creates a keyless agent principal owned by the verified user, or returns the existing one.
 // A different owner, or a legacy principal with no owner, is rejected.
-func (p *PsqlDB) ReserveAgent(ctx context.Context, clientID string, hostID, ownerID uuid.UUID) (uuid.UUID, error) {
+func (p *PsqlDB) ReserveAgent(ctx context.Context, clientID string, hostID, ownerID uuid.UUID, check oidcaccess.Check) (uuid.UUID, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, err
@@ -455,6 +477,9 @@ func (p *PsqlDB) ReserveAgent(ctx context.Context, clientID string, hostID, owne
 	defer tx.Rollback(ctx)
 
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, clientID+":"+hostID.String()); err != nil {
+		return uuid.Nil, err
+	}
+	if err = requireOIDCAccess(ctx, tx, ownerID, clientID, check); err != nil {
 		return uuid.Nil, err
 	}
 	const selectQuery = `
