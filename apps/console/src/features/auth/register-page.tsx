@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import {
   Button,
   buttonPressClass,
@@ -10,6 +10,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Checkbox,
   cn,
   Input,
   Label,
@@ -21,6 +22,11 @@ import { useSignup } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 
+const SHOW_INVITE_TOKEN = import.meta.env.VITE_SHOW_INVITE_TOKEN === "true"
+const SHOW_TERMS_OF_USE_AND_PUBLIC_OFFER = import.meta.env.VITE_TERMS_OF_USE_LINK && import.meta.env.VITE_PUBLIC_OFFER_LINK
+
+const legalLinkClass = "underline underline-offset-2 hover:text-foreground"
+
 export function RegisterPage() {
   const { t } = useTranslation()
   const [username, setUsername] = useState("")
@@ -29,7 +35,8 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [inviteCode, setInviteCode] = useState("")
   const [clientError, setClientError] = useState("")
-
+  const [termsOfUseAndPublicOffer, setTermsOfUseAndPublicOffer] = useState(false)
+  
   const [searchParams] = useSearchParams()
   const emailParam = searchParams.get("email")?.trim() || null
   const inviteTokenParam = searchParams.get("invite_token")?.trim() || null
@@ -141,16 +148,18 @@ export function RegisterPage() {
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invite-code">{t("auth.register.inviteCodeLabel")}</Label>
-                <Input
-                  id="invite-code"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder={t("auth.register.inviteCodePlaceholder")}
-                  disabled={inviteTokenParam !== null}
-                />
-              </div>
+              {SHOW_INVITE_TOKEN && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="invite-code">{t("auth.register.inviteCodeLabel")}</Label>
+                  <Input
+                    id="invite-code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    placeholder={t("auth.register.inviteCodePlaceholder")}
+                    disabled={inviteTokenParam !== null}
+                  />
+                </div>
+              )}
 
               {error && (
                 <p className="text-sm text-destructive">{error}</p>
@@ -159,11 +168,47 @@ export function RegisterPage() {
           </CardContent>
 
           <CardFooter>
+            {SHOW_TERMS_OF_USE_AND_PUBLIC_OFFER && (
+              <div className="flex gap-2 items-center mt-0.5">
+                <Checkbox
+                  id="terms-of-use-and-public-offer"
+                  checked={termsOfUseAndPublicOffer}
+                  onCheckedChange={(checked) => setTermsOfUseAndPublicOffer(Boolean(checked))}
+                />
+                <Label
+                  className="text-xs text-muted-foreground cursor-pointer"
+                  htmlFor="terms-of-use-and-public-offer"
+                >
+                  <Trans
+                    i18nKey="auth.register.termsOfUseAndPublicOfferLabel"
+                    components={{
+                      terms: (
+                        <a
+                          href={import.meta.env.VITE_TERMS_OF_USE_LINK}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={legalLinkClass}
+                        />
+                      ),
+                      offer: (
+                        <a
+                          href={import.meta.env.VITE_PUBLIC_OFFER_LINK}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={legalLinkClass}
+                        />
+                      ),
+                    }}
+                  />
+                </Label>
+              </div>
+             )}
+
             <Button
               type="submit"
               form="register-form"
               className="w-full"
-              disabled={signupMutation.isPending}
+              disabled={signupMutation.isPending || (SHOW_TERMS_OF_USE_AND_PUBLIC_OFFER ? !termsOfUseAndPublicOffer : false)}
             >
               {signupMutation.isPending
                 ? t("auth.register.submitting")
