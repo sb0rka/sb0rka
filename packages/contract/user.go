@@ -2,14 +2,16 @@ package contract
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
 type RegisterUserRequest struct {
-	Username string  `json:"username"`
-	Email    string  `json:"email"`
-	Password string  `json:"password"`
-	Phone    *string `json:"phone,omitempty"`
+	Username     string  `json:"username"`
+	Email        string  `json:"email"`
+	Password     string  `json:"password"`
+	Phone        *string `json:"phone,omitempty"`
+	CaptchaToken string  `json:"captcha_token,omitempty"`
 	// Extras holds non-core fields (credentials excluded) for downstream registration hooks.
 	Extras map[string]json.RawMessage `json:"-"`
 }
@@ -24,8 +26,13 @@ func (r *RegisterUserRequest) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &all); err != nil {
 		return err
 	}
-	for _, k := range []string{"username", "email", "password", "phone"} {
-		delete(all, k)
+	for key := range all {
+		for _, field := range [...]string{"username", "email", "password", "phone", "captcha_token"} {
+			if strings.EqualFold(key, field) {
+				delete(all, key)
+				break
+			}
+		}
 	}
 	c.Extras = all
 	*r = RegisterUserRequest(c)
