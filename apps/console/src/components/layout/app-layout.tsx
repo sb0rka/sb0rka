@@ -2,13 +2,15 @@ import { useState, useSyncExternalStore } from "react"
 import { Outlet, useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Home, RussianRuble } from "lucide-react"
+import { useOrganizationNavigation } from "@/features/organizations/navigation"
+import { SectionSidebar } from "./section-sidebar"
 import { Sidebar } from "./sidebar"
-import { ProjectSidebar, projectTabIcon } from "./project-sidebar"
+import { ProjectSidebar } from "./project-sidebar"
 import { Header, type BreadcrumbItem } from "./header"
 import { MobileRootNav } from "./mobile-root-nav"
 import { LayoutProvider, useLayoutContext } from "./layout-context"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
-import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { isProjectTab, projectTabIcon, type ProjectTab } from "@/features/projects/project-tabs"
 import { ScrollArea } from "@sb0rka/ui"
 
 const DATA_EXPLORER_NARROW_MAX_WIDTH = 1439
@@ -50,6 +52,8 @@ function AppLayoutContent() {
   const { dataExplorerAiPanelOpen } = useLayoutContext()
   const isDataExplorerNarrowViewport = useDataExplorerNarrowViewport()
   const [searchParams] = useSearchParams()
+  const orgNavigation = useOrganizationNavigation()
+  const organization = orgNavigation?.sidebar
   const isProjectRoot = useMatch("/projects/:id") !== null
   const isProjectNested = useMatch("/projects/:id/*") !== null
   const projectRootMatch = useMatch("/projects/:id")
@@ -153,10 +157,10 @@ function AppLayoutContent() {
             ),
           },
         ]
-      : []
+      : orgNavigation?.breadcrumbs ?? []
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [projectSidebarCollapsed, setProjectSidebarCollapsed] = useState(false)
+  const [sectionSidebarCollapsed, setSectionSidebarCollapsed] = useState(false)
   const autoCollapseProjectSidebar =
     activeTab === "data-explorer" &&
     dataExplorerAiPanelOpen &&
@@ -164,7 +168,7 @@ function AppLayoutContent() {
 
   return (
     <div className="flex min-h-dvh w-full md:h-screen">
-      {!isProjectOpen && (
+      {!isProjectOpen && !organization && (
         <div className="hidden h-full md:block">
           <Sidebar
             collapsed={sidebarCollapsed}
@@ -172,16 +176,25 @@ function AppLayoutContent() {
           />
         </div>
       )}
+      {organization && (
+        <div className="hidden h-full min-h-0 md:block">
+          <SectionSidebar
+            items={organization.items}
+            collapsed={sectionSidebarCollapsed}
+            onToggleCollapsed={() => setSectionSidebarCollapsed((c) => !c)}
+          />
+        </div>
+      )}
       {isProjectOpen && (
         <div className="hidden h-full min-h-0 md:block">
           <ProjectSidebar
-            collapsed={projectSidebarCollapsed || autoCollapseProjectSidebar}
-            onToggleCollapsed={() => setProjectSidebarCollapsed((c) => !c)}
+            collapsed={sectionSidebarCollapsed || autoCollapseProjectSidebar}
+            onToggleCollapsed={() => setSectionSidebarCollapsed((c) => !c)}
           />
         </div>
       )}
       <div className="md:hidden">
-        <MobileRootNav />
+        <MobileRootNav organization={organization} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
         <div className="hidden md:block">

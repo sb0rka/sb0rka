@@ -13,6 +13,12 @@ import { AuthProvider, RequireAuth } from "@/features/auth/auth-provider"
 import { AppLayout } from "@/components/layout/app-layout"
 import { ProjectsPage } from "@/features/projects/projects-page"
 import { ProjectDetailPage } from "@/features/projects/project-detail-page"
+import { OrganizationsPage } from "@/features/organizations/organizations-page"
+import { OrganizationPage } from "@/features/organizations/organization-page"
+import {
+  OrganizationInvitationEntry,
+  OrganizationInvitationPage,
+} from "@/features/organizations/organization-invitation-page"
 import { DatabaseDetailPage } from "@/features/projects/database-detail-page"
 import { DatabaseQueryPage } from "@/features/projects/database-query-page"
 import { MetricDetailPage } from "@/features/projects/metric-detail-page"
@@ -64,6 +70,11 @@ export default function App() {
                       <Route path="/" element={<ConsentEntry />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/register" element={<RegisterPage />} />
+                      <Route path="/organizations/:id/invites/accept" element={<OrganizationInvitationEntry />}>
+                        <Route element={<AppLayout />}>
+                          <Route index element={<OrganizationInvitationPage />} />
+                        </Route>
+                      </Route>
                       <Route element={<RequireAuth />}>
                         <Route
                           path="/projects/:id/mobile-data-explorer"
@@ -71,6 +82,8 @@ export default function App() {
                         />
                         <Route element={<AppLayout />}>
                           <Route path="/projects" element={<ProjectsPage />} />
+                          <Route path="/organizations" element={<OrganizationsPage />} />
+                          <Route path="/organizations/:id" element={<OrganizationPage />} />
                           <Route element={<SubscriptionGate />}>
                             <Route path="/subscription" element={<SubscriptionPage />} />
                             <Route path="/subscription/plans" element={<PlansPage />} />

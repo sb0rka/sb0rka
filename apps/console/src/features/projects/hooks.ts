@@ -4,6 +4,10 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/features/auth/auth-provider"
 import {
   listProjects,
+  listProjectMembers,
+  addProjectMember,
+  updateProjectMemberRole,
+  removeProjectMember,
   listDatabases,
   createDatabase,
   createProject,
@@ -40,6 +44,7 @@ import {
 import type {
   ProjectResponse,
   ProjectListResponse,
+  AssignableProjectRole,
   DatabaseListResponse,
   CreateDatabaseRequest,
   CreateProjectRequest,
@@ -90,6 +95,45 @@ export function useProjects() {
     queryKey: PROJECTS_KEY,
     queryFn: listProjects,
     enabled: isAuthenticated,
+  })
+}
+
+const projectMembersKey = (id: string) => ["projects", id, "members"] as const
+
+export function useProjectMembers(projectId: string) {
+  return useQuery({
+    queryKey: projectMembersKey(projectId),
+    queryFn: () => listProjectMembers(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  })
+}
+
+export function useUpdateProjectMemberRole(projectId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ subjectId, role }: { subjectId: string; role: AssignableProjectRole }) =>
+      updateProjectMemberRole(projectId, subjectId, role),
+    onSettled: () => client.invalidateQueries({ queryKey: projectMembersKey(projectId) }),
+  })
+}
+
+export function useRemoveProjectMember(projectId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (subjectId: string) => removeProjectMember(projectId, subjectId),
+    onSettled: () => client.invalidateQueries({ queryKey: projectMembersKey(projectId) }),
+  })
+}
+
+export function useAddProjectMember(subjectId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, role }: { projectId: string; role: AssignableProjectRole }) =>
+      addProjectMember(projectId, subjectId, role),
+    onSettled: (_data, _error, { projectId }) =>
+      client.invalidateQueries({ queryKey: projectMembersKey(projectId) }),
   })
 }
 

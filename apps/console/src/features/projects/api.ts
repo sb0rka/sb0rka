@@ -17,9 +17,59 @@ export interface ProjectListResponse {
   projects: ProjectResponse[]
 }
 
+export const assignableProjectRoles = ["viewer", "editor", "admin"] as const
+export type AssignableProjectRole = typeof assignableProjectRoles[number]
+
+export interface ProjectMember {
+  subject_id: string
+  role: "owner" | "agent" | AssignableProjectRole
+  created_at: string
+  updated_at: string
+}
+
+const projectMembersPath = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/members`
+
+export function listProjectMembers(projectId: string) {
+  return apiRequest<{ members: ProjectMember[] }>({
+    path: projectMembersPath(projectId),
+    base: "resource",
+  })
+}
+
+export function updateProjectMemberRole(
+  projectId: string,
+  subjectId: string,
+  role: AssignableProjectRole,
+) {
+  return apiRequest<ProjectMember>({
+    path: projectMembersPath(projectId) + "/" + encodeURIComponent(subjectId),
+    method: "PATCH",
+    json: { role },
+    base: "resource",
+  })
+}
+
+export function removeProjectMember(projectId: string, subjectId: string) {
+  return apiRequest<void>({
+    path: projectMembersPath(projectId) + "/" + encodeURIComponent(subjectId),
+    method: "DELETE",
+    base: "resource",
+  })
+}
+
+export function addProjectMember(projectId: string, subjectId: string, role: AssignableProjectRole) {
+  return apiRequest<ProjectMember>({
+    path: projectMembersPath(projectId),
+    method: "POST",
+    json: { subject_id: subjectId, role },
+    base: "resource",
+  })
+}
+
 export interface CreateProjectRequest {
   name: string
   description: string
+  owner_subject_id?: string
 }
 
 export interface UpdateProjectRequest {

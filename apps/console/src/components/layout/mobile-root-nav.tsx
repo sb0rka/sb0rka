@@ -1,6 +1,6 @@
-import type { ComponentType } from "react"
+import { type ComponentType, useSyncExternalStore } from "react"
 import { Link, useLocation, useMatch, useSearchParams } from "react-router-dom"
-import { BarChart3, Blocks, Cpu, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
+import { BarChart3, Blocks, Building, Cpu, Database, Home, KeyRound, RussianRuble, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Badge,
@@ -23,7 +23,17 @@ import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import type { SectionNavItem } from "./section-sidebar"
+import { organizationsRoute } from "@/features/organizations/routes"
 import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
+
+const compactNavQuery = "(max-width: 379px)"
+
+function subscribeToCompactNav(onChange: () => void) {
+  const media = window.matchMedia(compactNavQuery)
+  media.addEventListener("change", onChange)
+  return () => media.removeEventListener("change", onChange)
+}
 
 const projectTabLabelKeyById: Record<ProjectTab, string> = {
   overview: "tabs.overview",
@@ -36,6 +46,7 @@ const projectTabLabelKeyById: Record<ProjectTab, string> = {
 
 type MobileNavItem = {
   labelKey?: string
+  compactLabelKey?: string
   label?: string
   icon?: ComponentType<{ className?: string }>
   href: string
@@ -48,6 +59,7 @@ type MobileNavItem = {
 
 const rootMobileNavItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
+  { labelKey: "nav.organizations", compactLabelKey: "nav.organizationsShort", icon: Building, href: organizationsRoute },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
   { labelKey: "nav.integrations", icon: Blocks, href: "/integrations" },
 ] as const
@@ -203,7 +215,7 @@ function useMobileNavItems(): MobileNavItem[] {
       ...item,
       locked: item.href === "/subscription" && subscriptionLocked,
       isActive:
-        item.href === "/projects" || item.href === "/subscription"
+        item.href === "/projects" || item.href === organizationsRoute || item.href === "/subscription"
           ? location.pathname === item.href ||
             location.pathname.startsWith(`${item.href}/`)
           : location.pathname === item.href,
@@ -247,31 +259,39 @@ function useMobileNavItems(): MobileNavItem[] {
   ]
 }
 
-export function MobileRootNav() {
+export function MobileRootNav({ organization }: { organization?: { name: string; items: SectionNavItem[] } }) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const logoutMutation = useLogout()
   const projectHeader = useMobileProjectHeader()
-  const mobileNavItems = useMobileNavItems()
+  const defaultItems = useMobileNavItems()
+  const mobileNavItems: MobileNavItem[] = organization?.items ?? defaultItems
+  const title = organization?.name ?? projectHeader?.title
+  const SectionIcon = organization ? Building : Home
+  const compactNav = useSyncExternalStore(
+    subscribeToCompactNav,
+    () => window.matchMedia(compactNavQuery).matches,
+    () => false,
+  )
 
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-[var(--mobile-chrome-bg)] px-4 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <div className="flex h-12 items-center justify-between gap-3">
-          {projectHeader ? (
+          {title ? (
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <Link
-                to="/projects"
-                aria-label={t("nav.projects")}
+                to={organization ? organizationsRoute : "/projects"}
+                aria-label={t(organization ? "nav.organizations" : "nav.projects")}
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   buttonPressClass,
                 )}
               >
-                <Home className="size-5" />
+                <SectionIcon className="size-5" />
               </Link>
               <p className="min-w-0 truncate text-sm font-semibold text-foreground">
-                {projectHeader.title}
+                {title}
               </p>
             </div>
           ) : (
@@ -337,27 +357,28 @@ export function MobileRootNav() {
       </header>
 
       <nav className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-40 rounded-2xl border border-border bg-[var(--mobile-chrome-bg)] p-1.5 shadow-lg">
-        <div className={cn(
-            "grid gap-1",
-            mobileNavItems.length === 4 ? "grid-cols-4" : "grid-cols-3",
-          )}>
-          {mobileNavItems.map((item) => (
-            <MobileNavTab
-              key={item.href}
-              asChild
-              icon={item.icon}
-              label={item.label ?? t(item.labelKey!)}
-              active={item.isActive}
-              locked={item.locked}
-              lockedBadge={
-                item.locked ? (item.lockedBadge ?? t("nav.lockedBadge")) : undefined
-              }
-              upgradeLabel={item.upgradeLabel}
-              upgradeHref={item.upgradeHref}
-            >
-              <Link to={item.href} />
-            </MobileNavTab>
-          ))}
+        <div className={cn("grid gap-1", mobileNavItems.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
+          {mobileNavItems.map((item) => {
+            const label = item.label ?? t(item.labelKey!)
+            return (
+              <MobileNavTab
+                key={item.href}
+                asChild
+                icon={item.icon}
+                label={compactNav && item.compactLabelKey ? t(item.compactLabelKey) : label}
+                active={item.isActive}
+                locked={item.locked}
+                lockedBadge={
+                  item.locked ? (item.lockedBadge ?? t("nav.lockedBadge")) : undefined
+                }
+                upgradeLabel={item.upgradeLabel}
+                upgradeHref={item.upgradeHref}
+                className={title ? undefined : "px-0.5 max-[399px]:text-[10px]"}
+              >
+                <Link to={item.href} aria-label={label} aria-current={item.isActive ? "page" : undefined} />
+              </MobileNavTab>
+            )
+          })}
         </div>
       </nav>
     </>

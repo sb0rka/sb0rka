@@ -10,7 +10,7 @@ import {
   DialogTitle,
   OtpInput,
 } from "@sb0rka/ui"
-import { verifyEmailConfirm, verifyEmailSend } from "../auth/api"
+import { verifyEmailConfirm, verifyEmailSend } from "./api"
 import { ApiError } from "@/lib/api-client"
 
 const RESEND_COOLDOWN_SECONDS = 60
@@ -67,12 +67,14 @@ interface ConfirmEmailDialogProps {
   open: boolean
   userId: string
   onVerified: () => void | Promise<void>
+  onClose?: () => void
 }
 
 export function EmailVerificationDialog({
   open,
   userId,
   onVerified,
+  onClose,
 }: ConfirmEmailDialogProps) {
   const [verificationId, setVerificationId] = useState<string | null>(null)
   const [code, setCode] = useState<string[]>(Array(6).fill(""))
@@ -167,12 +169,12 @@ export function EmailVerificationDialog({
   }, [cooldown])
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.() }}>
       <DialogContent
         className="gap-0 p-0 shadow-sm"
-        hideCloseButton
+        hideCloseButton={!onClose}
         onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => { if (!onClose) e.preventDefault() }}
       >
         <>
           <DialogHeader className="p-6 text-start">

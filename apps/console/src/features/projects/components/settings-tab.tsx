@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Home } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import {
@@ -83,9 +84,18 @@ export function ProjectSettings({
   async function handleDeleteProject() {
     if (!projectId || deactivateProject.isPending) return
 
+    const confirmation = projectName.trim().replace(/\s+/g, " ") || projectId
     const confirmed = await confirm({
       title: t("projects.settings.deleteTitle"),
       description: t("projects.settings.deleteDescription"),
+      infoNode: (
+        <div className="flex flex-col items-center gap-3 px-6">
+          <Home className="h-8 w-8 shrink-0" id="icon" />
+          <Label htmlFor="icon" className="text-lg">{confirmation}</Label>
+          <p>{t("projects.settings.typeNameToConfirm")}</p>
+        </div>
+      ),
+      strongConfirmValue: confirmation,
       confirmText: t("common.actions.delete"),
       cancelText: t("common.actions.cancel"),
       confirmVariant: "destructive",

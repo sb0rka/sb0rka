@@ -1,3 +1,4 @@
+import { userIdentifier } from "./user-identifier"
 import { apiRequest, ApiError, getAuthBaseUrl, refresh } from "@/lib/api-client"
 import { getToken, setToken, clearToken } from "@/lib/auth-store"
 const AUTH_DEBUG = false
@@ -136,12 +137,9 @@ export async function initializeAccount(): Promise<void> {
 }
 
 export async function login(credentials: LoginCredentials): Promise<User> {
-  const isEmail = credentials.login.includes("@")
   const json: Record<string, string> = {
     password: credentials.password,
-    ...(isEmail
-      ? { email: credentials.login }
-      : { username: credentials.login }),
+    ...userIdentifier(credentials.login),
   }
 
   const data = await apiRequest<{ access_token: string }>({
