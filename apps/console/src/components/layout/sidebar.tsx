@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { AnimatePresence, motion } from "framer-motion"
-import { Home, RussianRuble, FileText, Code2, PanelLeft, Blocks, ChevronsUp } from "lucide-react"
+import { Home, Building, RussianRuble, FileText, Code2, PanelLeft, Blocks, ChevronsUp } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   Separator,
 } from "@sb0rka/ui"
 import { SidebarLogo } from "@/components/layout/sidebar-logo"
+import { organizationsRoute } from "@/features/organizations/routes"
 import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
 import {
   dividerClass,
@@ -20,6 +21,7 @@ import {
 
 const navItems = [
   { labelKey: "nav.projects", icon: Home, href: "/projects" },
+  { labelKey: "nav.organizations", icon: Building, href: organizationsRoute },
   { labelKey: "nav.subscription", icon: RussianRuble, href: "/subscription" },
   { labelKey: "nav.integrations", icon: Blocks, href: "/integrations" },
 ]
@@ -78,7 +80,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
           {navItems.map((item) => {
             const label = t(item.labelKey)
             const isActive =
-              item.href === "/projects" || item.href === "/subscription"
+              item.href === "/projects" || item.href === organizationsRoute || item.href === "/subscription"
                 ? location.pathname === item.href ||
                   location.pathname.startsWith(`${item.href}/`)
                 : location.pathname === item.href
@@ -94,7 +96,7 @@ export function Sidebar({ collapsed = false, onToggleCollapsed }: SidebarProps) 
                 locked={locked}
                 lockedBadge={locked ? t("nav.lockedBadge") : undefined}
               >
-                <Link to={item.href} />
+                <Link to={item.href} aria-current={isActive ? "page" : undefined} />
               </SidebarItem>
             )
           })}
