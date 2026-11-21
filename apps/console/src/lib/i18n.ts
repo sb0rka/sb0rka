@@ -336,6 +336,7 @@ const resources = {
           fallbackError: "Не удалось создать аккаунт, попробуйте снова",
           hasAccount: "Уже есть аккаунт?",
           loginLink: "Войти",
+          termsOfUseAndPublicOfferLabel: "Регистрируясь, я соглашаюсь с <terms>Правилами пользования</terms> и <offer>Публичной офертой</offer>.",
         },
         emailVerification: {
           title: "Подтверждение почты",
@@ -1168,6 +1169,7 @@ const resources = {
           fallbackError: "Unable to create account, please try again",
           hasAccount: "Already have an account?",
           loginLink: "Log in",
+          termsOfUseAndPublicOfferLabel: "By signing up, I agree to the <terms>Terms of Use</terms> and <offer>Public Offer</offer>.",
         },
         emailVerification: {
           title: "Verify your email",
