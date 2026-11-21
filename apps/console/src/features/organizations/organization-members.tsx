@@ -139,6 +139,9 @@ export function OrganizationMembers({ id, userId }: { id: string; userId: string
               {t("organizations.members.role")}
             </th>
             <th scope="col" className="hidden w-1/5 text-center md:table-cell">
+              {t("organizations.members.type")}
+            </th>
+            <th scope="col" className="hidden w-1/5 text-center md:table-cell">
               {t("organizations.members.joined")}
             </th>
             {hasActions && (
@@ -157,6 +160,9 @@ export function OrganizationMembers({ id, userId }: { id: string; userId: string
         {visibleMembers.map((member) => {
           const name = memberName(member)
           const isSelf = member.user_id === userId
+          const kind = member.username
+            ? t("organizations.members.types.user")
+            : t("common.notAvailable")
           const role = t("organizations.roles." + member.role)
           const joined = formatDateTime(member.created_at)
           return (
@@ -174,10 +180,11 @@ export function OrganizationMembers({ id, userId }: { id: string; userId: string
                   </p>
                 )}
                 <p className="text-muted-foreground md:hidden">
-                  {role} · {joined}
+                  {role} · {kind} · {joined}
                 </p>
               </td>
               <td className="hidden text-center md:table-cell">{role}</td>
+              <td className="hidden text-center md:table-cell">{kind}</td>
               <td className="hidden text-center md:table-cell">{joined}</td>
               {hasActions && (
                 <td className="text-right">
