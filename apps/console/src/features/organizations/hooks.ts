@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ApiError } from "@/lib/api-client"
 import {
   organizationApi,
@@ -22,8 +22,24 @@ const queryOptions = {
     failureCount === 0 && (!(error instanceof ApiError) || error.status >= 500),
 }
 
-export function useOrganizations() {
-  return useQuery({ ...queryOptions, queryKey: organizationKeys.list, queryFn: organizationApi.list })
+export function useOrganizations(enabled = true) {
+  return useQuery({
+    ...queryOptions,
+    queryKey: organizationKeys.list,
+    queryFn: organizationApi.list,
+    enabled,
+  })
+}
+
+export function useOrganizationMemberships(organizationIds: string[], userId: string) {
+  return useQueries({
+    queries: organizationIds.map((id) => ({
+      ...queryOptions,
+      queryKey: [...organizationKeys.members(id), userId],
+      queryFn: () => organizationApi.member(id, userId),
+      enabled: Boolean(userId),
+    })),
+  })
 }
 
 export function useOrganization(id: string, enabled = true) {

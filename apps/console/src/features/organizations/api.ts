@@ -75,6 +75,9 @@ export const organizationApi = {
   members: (id: string) => apiRequest<{ id: string; members: OrganizationMember[] }>({
     path: membersPath(id),
   }),
+  member: (id: string, userId: string) => apiRequest<OrganizationMembership>({
+    path: memberPath(id, userId),
+  }),
   changeRole: (id: string, userId: string, role: AssignableOrganizationRole) =>
     apiRequest<OrganizationMembership>({
       path: memberPath(id, userId), method: "PATCH", json: { role },

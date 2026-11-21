@@ -31,6 +31,7 @@ import {
   InviteOrganizationMemberDialog,
   OrganizationInvitations,
 } from "./organization-invitations"
+import { OrganizationAccess } from "./organization-access"
 import { OrganizationMembers } from "./organization-members"
 import { organizationSections, organizationTab, organizationTabRoute } from "./navigation"
 import { organizationsRoute } from "./routes"
@@ -85,7 +86,7 @@ function OrganizationDetail({ id, userId }: { id: string; userId: string }) {
             ? t("organizations.settings.heading")
             : t(organizationSections[tab].labelKey)}
         </h1>
-        {canManage && tab !== "settings" && (
+        {canManage && (tab === "members" || tab === "invitations") && (
           <Button
             aria-label={t("organizations.members.invite")}
             onClick={() => setInviteOpen(true)}
@@ -96,6 +97,7 @@ function OrganizationDetail({ id, userId }: { id: string; userId: string }) {
         )}
       </SlideIn>
       {tab === "members" && <OrganizationMembers id={id} userId={userId} />}
+      {tab === "access" && <OrganizationAccess id={id} userId={userId} />}
       {tab === "invitations" && <OrganizationInvitations id={id} canManage={canManage} />}
       {tab === "settings" && <OrganizationSettings organization={detail} role={role} />}
 

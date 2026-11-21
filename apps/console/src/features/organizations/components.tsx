@@ -68,7 +68,7 @@ interface OptionMenuProps<T extends string> {
   id?: string
   label: string
   value: T | ""
-  options: { value: T; label: string }[]
+  options: { value: T; label: string; disabled?: boolean }[]
   placeholder?: string
   disabled?: boolean
   onChange: (value: T) => void
@@ -98,23 +98,24 @@ export function OptionMenu<T extends string>({
           aria-label={`${label}: ${selected?.label ?? placeholder}`}
           disabled={disabled}
         >
-          {selected?.label ?? placeholder}
+          <span className="truncate">{selected?.label ?? placeholder}</span>
           <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="min-w-[var(--radix-dropdown-menu-trigger-width)] !animate-none [&_[role]:active]:!transform-none"
+        className="max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[var(--radix-dropdown-menu-content-available-width)] overflow-y-auto !animate-none [&_[role]:active]:!transform-none"
       >
         {options.map((option) => (
           <DropdownMenuItem
             key={option.value}
             role="menuitemradio"
             aria-checked={option.value === value}
+            disabled={option.disabled}
             className="justify-between gap-3"
             onSelect={() => onChange(option.value)}
           >
-            {option.label}
+            <span className="[overflow-wrap:anywhere]">{option.label}</span>
             {option.value === value && <Check className="size-4" aria-hidden />}
           </DropdownMenuItem>
         ))}

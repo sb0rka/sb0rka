@@ -19,6 +19,7 @@ interface ResourceCardProps {
   href: string
   openLabel: string
   copyLabel: string
+  mark?: ReactNode
   badge?: ReactNode
   children: ReactNode
 }
@@ -29,6 +30,7 @@ export function ResourceCard({
   href,
   openLabel,
   copyLabel,
+  mark,
   badge,
   children,
 }: ResourceCardProps) {
@@ -54,9 +56,16 @@ export function ResourceCard({
     <Card className="flex h-full flex-col rounded-2xl shadow-sm md:rounded-lg">
       <CardHeader className="flex-1 gap-2 px-4 pb-2 pt-4 md:gap-3 md:px-6 md:pb-4 md:pt-6">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="min-w-0 truncate text-lg font-semibold leading-normal tracking-[-0.2px] md:text-xl md:tracking-[-0.3px]">
-            {name}
-          </CardTitle>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 md:gap-2">
+            {mark ? (
+              <span className="inline-flex shrink-0 -translate-y-px items-center justify-center text-muted-foreground md:translate-y-px">
+                {mark}
+              </span>
+            ) : null}
+            <CardTitle className="min-w-0 truncate text-lg font-semibold leading-normal tracking-[-0.2px] md:text-xl md:tracking-[-0.3px]">
+              {name}
+            </CardTitle>
+          </div>
           {badge}
         </div>
         {children}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { Building } from "lucide-react"
 import { AlphaToast, Badge, buttonPressClass, cn } from "@sb0rka/ui"
 import { ToastPinned } from "@sb0rka/ui"
 import { useProjects, useDatabases } from "./hooks"
@@ -13,10 +14,17 @@ import { EmailVerificationDialog } from "@/features/auth/email-verification-dial
 import { initializeAccount, verifyEmailCheck } from "../auth/api"
 import { useAuth } from "../auth/auth-provider"
 import { useEnsureAccountPlan } from "../subscription/hooks"
+import { useOrganizations } from "../organizations/hooks"
 
 const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
-function ProjectCard({ project }: { project: ProjectResponse }) {
+function ProjectCard({
+  project,
+  organizationName,
+}: {
+  project: ProjectResponse
+  organizationName?: string
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { data, isLoading, isError } = useDatabases(project.public_id)
@@ -29,6 +37,11 @@ function ProjectCard({ project }: { project: ProjectResponse }) {
       href={`/projects/${project.public_id}`}
       openLabel={t("projects.cardConnect")}
       copyLabel={t("projects.detail.copyProjectId")}
+      mark={organizationName ? (
+        <span title={organizationName} aria-label={organizationName} className="inline-flex">
+          <Building className="size-4" aria-hidden />
+        </span>
+      ) : undefined}
       badge={
         <Badge
           variant={project.is_active ? "active" : "inactive"}
@@ -80,6 +93,12 @@ export function ProjectsPage() {
   const { data, isLoading } = useProjects()
   useEnsureAccountPlan()
   const projects = data?.projects ?? []
+  const organizations = useOrganizations(
+    projects.some((project) => project.owner_subject_id && project.owner_subject_id !== user?.id),
+  )
+  const organizationNames = new Map(
+    organizations.data?.organizations.map((org) => [org.id, org.name]),
+  )
 
   async function handleEmailVerified() {
     try {
@@ -128,7 +147,13 @@ export function ProjectsPage() {
           emptyDescription={t("projects.emptyDescription")}
         >
           {projects.map((project) => (
-            <ProjectCard key={project.public_id} project={project} />
+            <ProjectCard
+              key={project.public_id}
+              project={project}
+              organizationName={organizationNames.get(project.owner_subject_id) ?? (
+                isOrganizationProject(project) ? t("organizations.fallbackName") : undefined
+              )}
+            />
           ))}
         </ResourceList>
       )}
@@ -161,5 +186,14 @@ export function ProjectsPage() {
         </ToastPinned>
       ) : null}
     </div>
+  )
+}
+
+function isOrganizationProject(project: ProjectResponse) {
+  // The API bills personal projects to their owner and organization projects to the owner's user account.
+  return Boolean(
+    project.owner_subject_id &&
+    project.billing_subject_id &&
+    project.owner_subject_id !== project.billing_subject_id,
   )
 }
