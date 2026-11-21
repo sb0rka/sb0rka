@@ -19,6 +19,7 @@ type OrganizationResponse struct {
 	CreatedAt   time.Time                    `json:"created_at"`
 	UpdatedAt   time.Time                    `json:"updated_at"`
 	Members     []OrganizationMemberResponse `json:"members,omitempty"`
+	MemberCount *int                         `json:"member_count,omitempty"`
 }
 
 type OrganizationListResponse struct {
@@ -42,6 +43,8 @@ type OrganizationMemberInviteCreateRequest struct {
 
 type OrganizationMemberResponse struct {
 	UserID    string    `json:"user_id"`
+	Username  string    `json:"username,omitempty"`
+	Email     string    `json:"email,omitempty"`
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -52,7 +55,7 @@ type OrganizationMemberListResponse struct {
 	Members []OrganizationMemberResponse `json:"members"`
 }
 
-// Status is one of: pending, accepted, expired, revoked.
+// Status is one of: pending, accepted, expired, revoked, declined.
 // Email/Username may be absent if the invited user was removed.
 type OrganizationMemberInviteResponse struct {
 	ID                string     `json:"id"`
