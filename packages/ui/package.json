@@ -1,6 +1,6 @@
 {
   "name": "@sb0rka/ui",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "UI component library for Sb0rka projects: React components, Tailwind preset and theme CSS",
   "keywords": [
     "react",
@@ -74,7 +74,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
-    "lucide-react": "^1.8.0",
+    "lucide-react": "^1.77.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.5.0",
@@ -99,7 +99,7 @@
     "eslint": "^9.9.0",
     "framer-motion": "^12.40.0",
     "globals": "^15.9.0",
-    "lucide-react": "^1.8.0",
+    "lucide-react": "^1.77.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.5.0",
