@@ -21,6 +21,7 @@ import { ThemeToggle } from "@sb0rka/ui"
 import { useSignup } from "./hooks"
 import { ApiError } from "@/lib/api-client"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
+import { CaptchaGate } from "./captcha-gate"
 
 const SHOW_INVITE_TOKEN = import.meta.env.VITE_SHOW_INVITE_TOKEN === "true"
 const SHOW_TERMS_OF_USE_AND_PUBLIC_OFFER = import.meta.env.VITE_TERMS_OF_USE_LINK && import.meta.env.VITE_PUBLIC_OFFER_LINK
@@ -34,6 +35,9 @@ export function RegisterPage() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [inviteCode, setInviteCode] = useState("")
+  const [captchaOpen, setCaptchaOpen] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string>("")
+  const sitekey = import.meta.env.VITE_CAPTCHA_SITEKEY?.trim() ?? ""
   const [clientError, setClientError] = useState("")
   const [termsOfUseAndPublicOffer, setTermsOfUseAndPublicOffer] = useState(false)
   
@@ -48,22 +52,41 @@ export function RegisterPage() {
 
   const signupMutation = useSignup()
 
+  function submitRegistration(token: string) {
+    const inviteToken = inviteCode.trim()
+    signupMutation.mutate(
+      {
+        username,
+        email,
+        password,
+        ...(inviteToken ? { invite_token: inviteToken } : {}),
+        captcha_token: token,
+      },
+      {
+        onError: () => {
+          setCaptchaToken("")
+        },
+      },
+    )
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setClientError("")
+    
+    if (signupMutation.isPending) return
 
     if (password !== confirmPassword) {
       setClientError(t("auth.register.passwordMismatch"))
       return
     }
 
-    const inviteToken = inviteCode.trim()
-    signupMutation.mutate({
-      username,
-      email,
-      password,
-      ...(inviteToken ? { invite_token: inviteToken } : {}),
-    })
+    if (sitekey && !captchaToken) {
+      setCaptchaOpen(true)
+      return
+    }
+
+    submitRegistration(captchaToken)
   }
 
   const error = clientError || (signupMutation.error
@@ -225,6 +248,19 @@ export function RegisterPage() {
         </Card>
         </SlideIn>
       </PageStagger>
+
+      {sitekey ? (
+        <CaptchaGate
+          open={captchaOpen}
+          onOpenChange={setCaptchaOpen}
+          sitekey={sitekey}
+          onVerified={(token) => {
+            setCaptchaToken(token)
+            setCaptchaOpen(false)
+            submitRegistration(token)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

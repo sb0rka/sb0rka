@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_INVITE_TOKEN?: string
   readonly VITE_TERMS_OF_USE_LINK?: string
   readonly VITE_PUBLIC_OFFER_LINK?: string
+  readonly VITE_CAPTCHA_SITEKEY?: string
 }
 
 interface ImportMeta {

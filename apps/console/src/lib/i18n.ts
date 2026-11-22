@@ -196,6 +196,12 @@ const resources = {
           loginLink: "Войти",
           termsOfUseAndPublicOfferLabel: "Регистрируясь, я соглашаюсь с <terms>Правилами пользования</terms> и <offer>Публичной офертой</offer>.",
         },
+        captcha: {
+          loading: "Загрузка капчи…",
+          error: "Не удалось загрузить капчу. Попробуйте снова.",
+          description: "Нажмите на чекбокс, чтобы продолжить.",
+          title: "Проверка",
+        },
         emailVerification: {
           title: "Подтверждение почты",
           descriptionSending: "Отправляем код на вашу почту…",
@@ -883,6 +889,12 @@ const resources = {
           hasAccount: "Already have an account?",
           loginLink: "Log in",
           termsOfUseAndPublicOfferLabel: "By signing up, I agree to the <terms>Terms of Use</terms> and <offer>Public Offer</offer>.",
+        },
+        captcha: {
+          loading: "Loading captcha…",
+          error: "Unable to load captcha. Please try again.",
+          description: "Click the checkbox to continue.",
+          title: "Verification",
         },
         emailVerification: {
           title: "Verify your email",
