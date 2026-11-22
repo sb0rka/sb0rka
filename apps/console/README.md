@@ -21,8 +21,8 @@ npm run lint     # eslint
 
 | Переменная | Назначение | Дефолт |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | auth-сервис (логин/refresh) | `https://auth.sb0rka.ru` |
-| `VITE_RESOURCE_API_BASE_URL` | Platform API | `https://api.sb0rka.ru` |
+| `VITE_AUTH_BASE_URL` | auth-сервис (логин/refresh) | `https://auth.sb0rka.ru` |
+| `VITE_API_BASE_URL` | Platform API | `https://api.sb0rka.ru` |
 | `VITE_QUERY_RUNNER_BASE_URL` | proxy-ql-executor (выполнение SQL) | `https://psql-executor.proxy.sb0rka.ru` |
 
 Для локальной разработки положи их в `.env.local`. Без запущенного auth-сервиса логин не пройдёт (его нет в репозитории — см. корневой ARCHITECTURE.md).

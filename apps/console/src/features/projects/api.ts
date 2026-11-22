@@ -1812,15 +1812,37 @@ export async function createSecret(
   })
 }
 
+export interface LLMModel {
+  id: string
+  slug: string
+  specifications?: { modalities?: { input: string[]; output: string[] } }
+}
+
 export interface LLMModelListResponse {
-  models: { id: string }[]
+  models: LLMModel[]
 }
 
 export function listActiveModels(): Promise<LLMModelListResponse> {
   return apiRequest<LLMModelListResponse>({
-    path: "/models",
+    path: "/llm/models",
     base: "resource",
     auth: false,
+  })
+}
+
+export const activeModelsQuery = {
+  queryKey: ["llm", "models"] as const,
+  queryFn: listActiveModels,
+}
+
+export function getGateway(): Promise<{ base_url: string }> {
+  return apiRequest({ path: "/llm/gateway", base: "resource", auth: false })
+}
+
+export function getSecretModels(projectId: string, secretId: string): Promise<LLMModelListResponse> {
+  return apiRequest({
+    path: `/projects/${projectId}/resources/${secretId}/secret/models`,
+    base: "resource",
   })
 }
 

@@ -122,20 +122,6 @@ export async function verifyEmailConfirm(
   })
 }
 
-export async function initializeAccount(): Promise<void> {
-  try {
-    await apiRequest({
-      method: "POST",
-      path: "/account/initialize",
-      base: "resource"
-    })
-    authLog("account initialization success")
-  } catch (err) {
-    console.error("Account initialization failed:", err)
-    throw err
-  }
-}
-
 export async function login(credentials: LoginCredentials): Promise<User> {
   const json: Record<string, string> = {
     password: credentials.password,

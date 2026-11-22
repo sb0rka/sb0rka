@@ -11,6 +11,8 @@ import {
 import { ConfirmDialogProvider } from "@/components/confirm-dialog-provider"
 import { AuthProvider, RequireAuth } from "@/features/auth/auth-provider"
 import { AppLayout } from "@/components/layout/app-layout"
+import { AccountEntryRoute } from "@/features/quick-start/account-entry-route"
+import { QuickStartPage } from "@/features/quick-start/quick-start-page"
 import { ProjectsPage } from "@/features/projects/projects-page"
 import { ProjectDetailPage } from "@/features/projects/project-detail-page"
 import { OrganizationsPage } from "@/features/organizations/organizations-page"
@@ -31,7 +33,7 @@ import { LoginPage } from "@/features/auth/login-page"
 import { RegisterPage } from "@/features/auth/register-page"
 import { ConsentEntry } from "@/features/auth/consent-page"
 import { MobileDataExplorerPage } from "./features/projects/mobile-data-explorer-page"
-import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
+import { isCommunityEdition, quickStartEnabled, usePlatformInfo } from "@/features/system/info"
 import "@/lib/i18n"
 
 function SubscriptionGate() {
@@ -81,7 +83,10 @@ export default function App() {
                           element={<MobileDataExplorerPage />}
                         />
                         <Route element={<AppLayout />}>
-                          <Route path="/projects" element={<ProjectsPage />} />
+                          {quickStartEnabled && <Route path="/quick-start" element={<QuickStartPage />} />}
+                          <Route element={<AccountEntryRoute />}>
+                            <Route path="/projects" element={<ProjectsPage />} />
+                          </Route>
                           <Route path="/organizations" element={<OrganizationsPage />} />
                           <Route path="/organizations/:id" element={<OrganizationPage />} />
                           <Route element={<SubscriptionGate />}>

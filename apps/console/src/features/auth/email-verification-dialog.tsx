@@ -25,8 +25,14 @@ function getStorageKey(userId: string) {
   return `email-verification-${userId}`
 }
 
-function clearEmailVerificationStorage(userId: string) {
-  localStorage.removeItem(getStorageKey(userId))
+function storeVerification(userId: string, verification: StoredVerification | null) {
+  const key = getStorageKey(userId)
+  try {
+    if (verification) localStorage.setItem(key, JSON.stringify(verification))
+    else localStorage.removeItem(key)
+  } catch {
+    // Storage only restores the challenge after reload. The current challenge lives in state.
+  }
 }
 
 function readStoredVerification(
@@ -98,10 +104,7 @@ export function EmailVerificationDialog({
       setVerificationId(verification_id)
       setCode(Array(6).fill(""))
       setCooldown(RESEND_COOLDOWN_SECONDS)
-      localStorage.setItem(
-        getStorageKey(userId),
-        JSON.stringify({ timestamp: Date.now(), verification_id, expires_at }),
-      )
+      storeVerification(userId, { timestamp: Date.now(), verification_id, expires_at })
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
         setError(t("auth.emailVerification.errorTooManyRequests"))
@@ -120,7 +123,7 @@ export function EmailVerificationDialog({
     setError(null)
     try {
       await verifyEmailConfirm(verificationId, fullCode)
-      clearEmailVerificationStorage(userId)
+      storeVerification(userId, null)
       await onVerified()
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {

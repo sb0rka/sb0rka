@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_USE_MOCK_API?: string
+  readonly VITE_IS_ENABLE_QUICK_START?: string
   readonly VITE_AUTH_BASE_URL?: string
   readonly VITE_API_BASE_URL?: string
   readonly VITE_QUERY_RUNNER_BASE_URL?: string

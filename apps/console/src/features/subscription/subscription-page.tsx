@@ -18,7 +18,9 @@ import {
 } from "./hooks"
 import { localizedName } from "./quota-format"
 
-const SALES_EMAIL = "sales@sb0rka.ru"
+import { CorporateBillingContact } from "./components/billing-actions"
+import { useAuth } from "@/features/auth/auth-provider"
+import { useQuickStartProgress } from "@/features/quick-start/progress"
 
 function PageTitle() {
   const { t } = useTranslation()
@@ -36,6 +38,8 @@ export function SubscriptionPage() {
 
 function SubscriptionContent() {
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
+  const quickStart = useQuickStartProgress(user?.id ?? "")
   const planQuery = useAccountPlan()
   const balanceQuery = useAccountBalance()
   const projectsQuery = useProjects()
@@ -111,6 +115,9 @@ function SubscriptionContent() {
     <PageStagger className="flex min-h-0 w-full flex-1 flex-col gap-10">
       <SlideIn className="flex flex-col gap-4">
         <PageTitle />
+        {quickStart?.stage === "ready" && (
+          <Link to="/quick-start" className="self-start text-sm font-medium underline underline-offset-4">{t("quickStart.returnToRequest")}</Link>
+        )}
         <AccountSummary
           planName={localizedName(planQuery.data, i18n.language)}
           balance={balanceQuery.data}
@@ -119,15 +126,7 @@ function SubscriptionContent() {
           onBalanceRetry={() => void balanceQuery.refetch()}
         />
         <div className="flex items-baseline justify-between gap-4 pr-2">
-          <p className="min-w-0 text-sm text-muted-foreground">
-            {t("subscription.receiptsCorporate")}{" "}
-            <a
-              href={`mailto:${SALES_EMAIL}`}
-              className="font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              {SALES_EMAIL}
-            </a>
-          </p>
+          <CorporateBillingContact />
           <Link
             to="/subscription/receipts"
             className="shrink-0 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"

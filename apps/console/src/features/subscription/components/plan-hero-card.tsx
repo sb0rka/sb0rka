@@ -1,9 +1,7 @@
-import { useState } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Badge, Button } from "@sb0rka/ui"
-import { useTopUpLimits } from "../hooks"
-import { TopUpDialog } from "./top-up-dialog"
+import { Button } from "@sb0rka/ui"
+import { TopUpButton } from "./billing-actions"
 import type { BalanceResponse } from "../api"
 import {
   accountBalanceEntries,
@@ -33,34 +31,6 @@ const cellClass = "flex min-w-0 flex-col gap-2 px-5 py-3.5"
 const labelClass = "text-sm font-medium text-muted-foreground"
 const cellBodyClass = "flex min-h-9 items-center justify-between gap-3"
 const valueClass = "min-w-0 truncate text-lg font-semibold text-foreground"
-
-type TopUpState = "loading" | "ready" | "soon"
-
-function TopUpButton({ state, onOpen }: { state: TopUpState; onOpen: () => void }) {
-  const { t } = useTranslation()
-
-  if (state === "ready") {
-    return (
-      <Button type="button" onClick={onOpen}>
-        {t("subscription.topUp")}
-      </Button>
-    )
-  }
-
-  return (
-    <span className="relative inline-flex shrink-0">
-      <Button type="button" disabled>
-        {t("subscription.topUp")}
-        {state === "soon" ? <span className="sr-only">, {t("subscription.soon")}</span> : null}
-      </Button>
-      {state === "soon" ? (
-        <Badge variant="inactive" className="pointer-events-none absolute -right-2 -top-2 px-1.5">
-          {t("subscription.soon")}
-        </Badge>
-      ) : null}
-    </span>
-  )
-}
 
 function BalanceValue({
   balance,
@@ -124,9 +94,6 @@ export function AccountSummary({
   onBalanceRetry: () => void
 }) {
   const { t } = useTranslation()
-  const limits = useTopUpLimits()
-  const [open, setOpen] = useState(false)
-  const topUp: TopUpState = limits.isPending ? "loading" : limits.data?.enabled ? "ready" : "soon"
 
   return (
     <>
@@ -158,14 +125,11 @@ export function AccountSummary({
               onRetry={onBalanceRetry}
             />
             <span className="shrink-0">
-              <TopUpButton state={topUp} onOpen={() => setOpen(true)} />
+              <TopUpButton />
             </span>
           </div>
         </section>
       </div>
-      {limits.data?.enabled ? (
-        <TopUpDialog open={open} onOpenChange={setOpen} limits={limits.data} />
-      ) : null}
     </>
   )
 }
