@@ -50,7 +50,7 @@ type Database interface {
 	ResolvePlanID(ctx context.Context, code, kind string) (uuid.UUID, error)
 	GetSubjectPlan(ctx context.Context, subjectID uuid.UUID) (model.Plan, error)
 	GetSubjectPlanByKind(ctx context.Context, subjectID uuid.UUID, kind string) (model.Plan, error)
-	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) (bool, error)
+	EnsureSubjectPlan(ctx context.Context, subjectID uuid.UUID, planCode string, kind string) error
 	GetProjectPlan(ctx context.Context, projectID uuid.UUID) (model.Plan, error)
 	GetPlan(ctx context.Context, planID uuid.UUID, subjectID uuid.UUID) (model.Plan, error)
 	ListPublicPlans(ctx context.Context) ([]model.Plan, error)

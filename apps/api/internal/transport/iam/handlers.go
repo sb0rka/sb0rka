@@ -18,11 +18,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	defaultProjectName        = "Мой проект"
-	defaultProjectDescription = "Проект для размещения и управления ресурсами платформы."
-)
-
 type Handler struct {
 	deps runtime.Dependencies
 }
@@ -64,7 +59,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request, callerID uui
 
 // InitializeAccount godoc
 // @Summary  Инициализировать аккаунт
-// @Description Назначает план аккаунта по умолчанию и создает начальный проект. Если план уже есть, инициализация завершается.
+// @Description Назначает план аккаунта по умолчанию. Повторный вызов сохраняет существующий план, перед созданием проекта инициализация обязательна.
 // @Tags     iam
 // @Success  204
 // @Failure  401  {string}  string
@@ -95,29 +90,8 @@ func (h *Handler) InitializeAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, h.deps.DefaultPlans.AccountCode, model.PlanKindAccount)
-	if err != nil {
+	if err := h.deps.PlatformDatabase.EnsureSubjectPlan(r.Context(), subjectID, h.deps.DefaultPlans.AccountCode, model.PlanKindAccount); err != nil {
 		h.handleInitializePlanError(w, "account", err)
-		return
-	}
-	if !created {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-
-	planID, err := h.deps.PlatformDatabase.ResolvePlanID(r.Context(), h.deps.DefaultPlans.ProjectCode, model.PlanKindProject)
-	if err != nil {
-		h.handleInitializePlanError(w, "project", err)
-		return
-	}
-	if err := h.deps.QuotaHook.BeforeCreateProject(r.Context(), subjectID); err != nil {
-		coretransport.WriteHookError(w, err, h.deps.Log, "assert_project_quota_failed")
-		return
-	}
-
-	if _, err := h.deps.PlatformDatabase.CreateProject(r.Context(), subjectID, subjectID, planID, defaultProjectName, &defaultProjectDescription); err != nil {
-		h.deps.Log.Error("create_default_project_failed", "error", err)
-		http.Error(w, "Failed to initialize account", http.StatusInternalServerError)
 		return
 	}
 
