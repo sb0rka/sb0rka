@@ -101,6 +101,18 @@ export function modelPriceAmount(
   return Number.isFinite(value) ? value : null
 }
 
+// Integer percent off the input price. Zero or a higher cache price is not a discount.
+export function cachedInputDiscountPercent(
+  model: LLMModel,
+  currency: ModelCurrency,
+): number | null {
+  const input = modelPriceAmount(model, "input_per_1m", currency)
+  const cached = modelPriceAmount(model, "cached_input_per_1m", currency)
+  if (input == null || cached == null || input <= 0 || cached < 0 || cached >= input) return null
+  const percent = Math.round((1 - cached / input) * 100)
+  return percent > 0 ? percent : null
+}
+
 export function formatModelPrice(
   amounts: LLMMoneyAmounts | undefined,
   currency: ModelCurrency,

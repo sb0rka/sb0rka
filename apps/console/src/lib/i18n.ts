@@ -680,6 +680,8 @@ const resources = {
           modalitiesValue: "{{input}} → {{output}}",
           reasoning: "Рассуждение",
           copySlug: "Копировать slug",
+          slugCopied: "Slug скопирован",
+          cacheOff: "−{{percent}}%",
         },
         samplePrompt: "Если слышишь меня, ответь: На связи.",
         dialog: {
@@ -1644,6 +1646,8 @@ const resources = {
           modalitiesValue: "{{input}} → {{output}}",
           reasoning: "Reasoning",
           copySlug: "Copy slug",
+          slugCopied: "Slug copied",
+          cacheOff: "−{{percent}}%",
         },
         samplePrompt: "Say hello in one sentence.",
         dialog: {

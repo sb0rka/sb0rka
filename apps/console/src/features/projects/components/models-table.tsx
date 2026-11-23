@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowDown, ArrowUp, ArrowUpDown, Brain, Check, ChevronDown, Copy, Image, Paperclip, Wrench, type LucideIcon } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Brain, Check, ChevronDown, Image, Paperclip, Wrench, type LucideIcon } from "lucide-react"
 import {
   Button,
   Checkbox,
@@ -14,28 +14,26 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  useToast,
 } from "@sb0rka/ui"
 import type { LLMModel } from "../api"
 import {
   MODEL_CAPABILITIES,
   defaultSortDirection,
   filterModels,
-  formatExactTokens,
   formatModelPrice,
   formatTokenCount,
   modelCapabilities,
   modelCurrency,
-  modelDescription,
   modelDisplayName,
   sortModels,
   type ModelCapability,
   type ModelSort,
   type ModelSortColumn,
 } from "../models-utils"
+import { DatasheetDetails } from "./models-table-details"
 
 const MODEL_TABLE_GRID =
-  "grid w-full grid-cols-[2.5rem_minmax(16rem,2.4fr)_6.5rem_6rem_7rem_7rem_2.5rem] items-stretch"
+  "grid w-full items-stretch grid-cols-[2.5rem_minmax(16rem,2.4fr)_6.5rem_6rem_7rem_7rem_2.5rem]"
 const MODEL_TABLE_MIN_WIDTH = "min-w-[860px]"
 
 const CAPABILITY_ICONS: Record<ModelCapability, LucideIcon> = {
@@ -134,7 +132,7 @@ function CapabilityIcons({
               <span
                 tabIndex={0}
                 aria-label={label}
-                className="inline-flex rounded-sm text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex rounded-sm text-muted-foreground/80 outline-none transition-colors group-hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <Icon className="size-4" aria-hidden />
               </span>
@@ -143,111 +141,6 @@ function CapabilityIcons({
           </Tooltip>
         )
       })}
-    </div>
-  )
-}
-
-function ModelDetails({ model, detailsId }: { model: LLMModel; detailsId: string }) {
-  const { t, i18n } = useTranslation()
-  const { showSuccess, showError } = useToast()
-  const currency = modelCurrency(i18n.language)
-  const description = modelDescription(model, i18n.language)
-  const context = model.specifications?.limit?.context
-  const output = model.specifications?.limit?.output
-  const modalities = model.specifications?.modalities
-  const reasoningOptions = model.specifications?.reasoning_options ?? []
-  const showReasoning = model.specifications?.reasoning != null || reasoningOptions.length > 0
-  const inputModalities = modalities?.input ?? []
-  const outputModalities = modalities?.output ?? []
-
-  function modalityLabel(value: string): string {
-    if (value === "text" || value === "image") return t(`models.modality.${value}`)
-    return value
-  }
-
-  function tokenLabel(value: number | undefined): string {
-    const compact = formatTokenCount(value)
-    const exact = formatExactTokens(value)
-    if (!compact || !exact) return t("common.notAvailable")
-    if (compact === exact) return t("models.specs.tokens", { count: exact })
-    return t("models.specs.tokensCompact", { compact, exact })
-  }
-
-  async function copySlug() {
-    try {
-      await navigator.clipboard.writeText(model.slug)
-      showSuccess(t("common.messages.copied"))
-    } catch {
-      showError(t("common.messages.copyFailed"))
-    }
-  }
-
-  const prices = [
-    ["input", model.pricing?.input_per_1m],
-    ["output", model.pricing?.output_per_1m],
-    ["cachedInput", model.pricing?.cached_input_per_1m],
-    ["requestFee", model.pricing?.request_fee],
-  ] as const
-
-  return (
-    <div id={detailsId} className="grid gap-4 border-t border-border bg-muted/30 px-4 py-4 md:grid-cols-2 md:px-6">
-      {description ? (
-        <p className="text-sm text-muted-foreground md:col-span-2">{description}</p>
-      ) : null}
-      <section className="space-y-1.5">
-        <h3 className="text-sm font-medium text-foreground">{t("models.specs.limits")}</h3>
-        <p className="text-sm text-muted-foreground">
-          {t("models.specs.context")}: {tokenLabel(context)}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {t("models.specs.maxOutput")}: {tokenLabel(output)}
-        </p>
-      </section>
-      <section className="space-y-1.5">
-        <h3 className="text-sm font-medium text-foreground">{t("models.specs.pricing")}</h3>
-        {prices.map(([key, amounts]) => (
-          <p key={key} className="text-sm text-muted-foreground">
-            {t(`models.specs.${key}`)}:{" "}
-            <span className="tabular-nums text-foreground">
-              {formatModelPrice(amounts, currency) ?? t("common.notAvailable")}
-            </span>
-          </p>
-        ))}
-      </section>
-      {inputModalities.length > 0 || outputModalities.length > 0 ? (
-        <section className="space-y-1.5">
-          <h3 className="text-sm font-medium text-foreground">{t("models.specs.modalities")}</h3>
-          <p className="text-sm text-muted-foreground">
-            {t("models.specs.modalitiesValue", {
-              input: inputModalities.map(modalityLabel).join(", ") || t("common.notAvailable"),
-              output: outputModalities.map(modalityLabel).join(", ") || t("common.notAvailable"),
-            })}
-          </p>
-        </section>
-      ) : null}
-      {showReasoning ? (
-        <section className="space-y-1.5">
-          <h3 className="text-sm font-medium text-foreground">{t("models.specs.reasoning")}</h3>
-          {reasoningOptions.length > 0 ? (
-            reasoningOptions.map((option) => (
-              <p key={option.type} className="text-sm text-muted-foreground">
-                {option.type}: {option.values.join(", ")}
-              </p>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {t(model.specifications?.reasoning ? "common.yes" : "common.no")}
-            </p>
-          )}
-        </section>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-2 md:col-span-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => void copySlug()}>
-          <Copy className="mr-2 size-3.5" aria-hidden />
-          {t("models.specs.copySlug")}
-        </Button>
-        <code className="min-w-0 break-all font-mono text-xs text-muted-foreground">{model.slug}</code>
-      </div>
     </div>
   )
 }
@@ -415,7 +308,7 @@ export function ModelsTable({
                   }}
                   className={cn(
                     "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
-                    pressed && "border-transparent bg-secondary text-foreground",
+                    pressed && "border-foreground/15 bg-secondary text-foreground",
                   )}
                 >
                   <Icon className="size-3.5" aria-hidden />
@@ -482,7 +375,10 @@ export function ModelsTable({
                 return (
                   <div key={model.id} className="border-b border-border">
                     <div
-                      className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted/50"
+                      className={cn(
+                        "group flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted/50",
+                        expanded && "bg-muted/25",
+                      )}
                       onClick={() => toggleExpanded(model.id)}
                     >
                       <div
@@ -516,7 +412,7 @@ export function ModelsTable({
                         onToggle={() => toggleExpanded(model.id)}
                       />
                     </div>
-                    {expanded ? <ModelDetails model={model} detailsId={detailsId} /> : null}
+                    {expanded ? <DatasheetDetails model={model} detailsId={detailsId} /> : null}
                   </div>
                 )
               })
@@ -581,7 +477,11 @@ export function ModelsTable({
                   return (
                     <div key={model.id} className="border-b border-border">
                       <div
-                        className={cn(MODEL_TABLE_GRID, "cursor-pointer hover:bg-muted/50")}
+                        className={cn(
+                          MODEL_TABLE_GRID,
+                          "group cursor-pointer hover:bg-muted/50",
+                          expanded && "bg-muted/25",
+                        )}
                         onClick={() => toggleExpanded(model.id)}
                       >
                         <div
@@ -619,7 +519,7 @@ export function ModelsTable({
                           />
                         </div>
                       </div>
-                      {expanded ? <ModelDetails model={model} detailsId={detailsId} /> : null}
+                      {expanded ? <DatasheetDetails model={model} detailsId={detailsId} /> : null}
                     </div>
                   )
                 })
