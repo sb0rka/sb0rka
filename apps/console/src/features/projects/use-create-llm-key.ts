@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/features/auth/auth-provider"
 import { ApiError } from "@/lib/api-client"
 import { getAuthGeneration } from "@/lib/auth-store"
-import { activeModelsQuery, createSecret, getSecretModels, listResourceTags, listSecrets, setSecretModels } from "./api"
+import { activeModelsQuery, attachResourceTag, createSecret, getSecretModels, listResourceTags, listSecrets, setSecretModels } from "./api"
 
 interface KeyOptions {
   projectId: string
@@ -18,7 +18,16 @@ export interface CreateLlmKeyOptions {
   name?: string
   description?: string
   modelIds?: string[]
+  tagModels?: boolean
 }
+
+export interface ModelTagNotice {
+  skipped: string[]
+  failed: boolean
+}
+
+const MODEL_TAG_KEY = "model"
+const MODEL_TAG_VALUE_MAX = 63
 
 export function suggestLlmKeyName() {
   const bytes = crypto.getRandomValues(new Uint8Array(6))
@@ -38,7 +47,8 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
   const mounted = useRef(false)
   const running = useRef(false)
   const [keyName] = useState(() => name ?? suggestLlmKeyName())
-  const [step, setStep] = useState<"discovering" | "generating" | "connecting">("discovering")
+  const [step, setStep] = useState<"discovering" | "generating" | "connecting" | "tagging">("discovering")
+  const [tagNotice, setTagNotice] = useState<ModelTagNotice | null>(null)
   useLayoutEffect(() => {
     mounted.current = true
     return () => { mounted.current = false }
@@ -47,6 +57,7 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
   const mutation = useMutation({
     retry: false,
     mutationFn: async (input: CreateLlmKeyOptions) => {
+      setTagNotice(null)
       const keyName = input.name?.trim() || ""
       if (!keyName) throw new Error(t("models.error"))
       const description = input.description?.trim() || t("models.secretDescription")
@@ -118,6 +129,35 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
         await setSecretModels(projectId, id, targetIds)
         checkSession()
       }
+
+      if (input.tagModels) {
+        setStep("tagging")
+        const slugs = [...new Set(
+          models
+            .filter((model) => targetIds.includes(model.id))
+            .map((model) => model.slug.trim())
+            .filter(Boolean),
+        )]
+        const skipped: string[] = []
+        let failed = false
+        for (const slug of slugs) {
+          if ([...slug].length > MODEL_TAG_VALUE_MAX) {
+            skipped.push(slug)
+            continue
+          }
+          try {
+            await attachResourceTag(projectId, id, { tag_key: MODEL_TAG_KEY, tag_value: slug })
+            checkSession()
+          } catch {
+            checkSession()
+            failed = true
+          }
+        }
+        void client.invalidateQueries({ queryKey: ["projects", projectId, "resources", id, "tags"] })
+        if (mounted.current && (skipped.length > 0 || failed)) {
+          setTagNotice({ skipped, failed })
+        }
+      }
       return id
     },
     onSuccess: id => { if (mounted.current) onReady?.(id) },
@@ -132,6 +172,7 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
           name: requested.name?.trim() || keyName,
           description: requested.description,
           modelIds: requested.modelIds,
+          tagModels: requested.tagModels,
         }
     running.current = true
     mutation.mutate(input)
@@ -140,8 +181,9 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
   function reset() {
     if (running.current) return
     setStep("discovering")
+    setTagNotice(null)
     mutation.reset()
   }
 
-  return { mutation, step, create, reset }
+  return { mutation, step, tagNotice, create, reset }
 }

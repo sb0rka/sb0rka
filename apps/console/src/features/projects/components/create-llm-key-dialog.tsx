@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { Copy, Eye, EyeOff, Loader2, X } from "lucide-react"
+import { ArrowUpRight, Copy, Eye, EyeOff, KeyRound, Loader2, X } from "lucide-react"
 import {
   Badge,
   Button,
+  Checkbox,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,8 +19,114 @@ import {
   useToast,
 } from "@sb0rka/ui"
 import { getGateway, revealSecretValue, type LLMModel } from "../api"
-import { chatCompletionsCurl, modelDisplayName } from "../models-utils"
+import { chatCompletionsCurl, modelDisplayName, shellQuote } from "../models-utils"
 import { suggestLlmKeyName, useCreateLlmKey } from "../use-create-llm-key"
+import { TopUpButton } from "@/features/subscription/components/billing-actions"
+import { useAccountBalance } from "@/features/subscription/hooks"
+import {
+  accountBalanceEntries,
+  displayCurrency,
+  formatMoneyWithSign,
+} from "@/features/subscription/quota-format"
+import { LlmKeyTestPanel } from "./llm-key-test-panel"
+
+const llmKeyEnv = "SB0RKA_LLM_KEY"
+const maskedExport = `export ${llmKeyEnv}='********************'`
+
+function exportCommand(value: string) {
+  return `export ${llmKeyEnv}=${shellQuote(value)}`
+}
+
+function CommandBlock({
+  text,
+  label,
+  dir,
+  getText,
+}: {
+  text: string
+  label: string
+  dir?: "ltr"
+  getText?: () => string | Promise<string>
+}) {
+  const { t } = useTranslation()
+  const { showSuccess, showError } = useToast()
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(await (getText?.() ?? text))
+      showSuccess(t("common.messages.copied"))
+    } catch {
+      showError(t("common.messages.copyFailed"))
+    }
+  }
+
+  return (
+    <div className="flex rounded-md bg-muted">
+      <pre className="min-w-0 flex-1 overflow-x-auto p-3 text-sm [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" dir={dir}>
+        <code>{text}</code>
+      </pre>
+      <div className="shrink-0 bg-muted p-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-8 shrink-0 bg-muted"
+          aria-label={label}
+          title={label}
+          onClick={() => void copy()}
+        >
+          <Copy className="size-4" aria-hidden />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function KeyReadyBalance() {
+  const { t, i18n } = useTranslation()
+  const balance = useAccountBalance()
+  const figures = accountBalanceEntries(balance.data).map((entry) => {
+    const currency = displayCurrency(entry.balance.available, i18n.language)
+    return {
+      code: entry.code,
+      text: formatMoneyWithSign(entry.balance.available, currency) ?? "—",
+    }
+  })
+
+  return (
+    <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm leading-none">
+      <span className="text-muted-foreground">{t("subscription.balanceTitle")}</span>
+      {balance.isPending ? (
+        <span aria-busy="true" className="inline-block h-3.5 w-12 animate-pulse rounded bg-muted" />
+      ) : balance.isError ? (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto px-0 text-sm font-normal text-destructive"
+          onClick={() => void balance.refetch()}
+        >
+          {t("subscription.retry")}
+        </Button>
+      ) : figures.length > 1 ? (
+        <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2">
+          {figures.map((figure) => (
+            <span key={figure.code} className="inline-flex items-baseline gap-1">
+              <span className="font-mono text-xs text-muted-foreground">{figure.code}</span>
+              <span className="font-medium tabular-nums">{figure.text}</span>
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span className="font-medium tabular-nums">{figures[0]?.text ?? "—"}</span>
+      )}
+      <TopUpButton
+        label={t("subscription.topUp")}
+        variant="link"
+        className="h-auto px-0 text-sm font-normal text-muted-foreground hover:text-foreground"
+      />
+    </div>
+  )
+}
 
 interface CreateLlmKeyDialogProps {
   open: boolean
@@ -38,13 +146,16 @@ export function CreateLlmKeyDialog({
   const { t } = useTranslation()
   const { showSuccess, showError } = useToast()
   const issuedModels = useRef<LLMModel[]>([])
+  const cachedSecretRef = useRef<string | null>(null)
   const wasOpen = useRef(open)
   const [name, setName] = useState(suggestLlmKeyName)
   const [description, setDescription] = useState("")
+  const [tagModels, setTagModels] = useState(false)
   const [visible, setVisible] = useState(false)
   const [secretValue, setSecretValue] = useState<string | null>(null)
   const [revealFailed, setRevealFailed] = useState(false)
-  const { mutation, step, create, reset } = useCreateLlmKey({ projectId })
+  const [selectedTestModelId, setSelectedTestModelId] = useState<string | null>(null)
+  const { mutation, step, tagNotice, create, reset } = useCreateLlmKey({ projectId })
   const ready = mutation.isSuccess && typeof mutation.data === "string"
   const secretId = ready ? mutation.data : null
   const gateway = useQuery({
@@ -66,14 +177,18 @@ export function CreateLlmKeyDialog({
     // A new name belongs to a new dialog open. Pending/success must keep the name already submitted.
     if (requestState.current.pending || requestState.current.success) return
     issuedModels.current = []
+    cachedSecretRef.current = null
     setName(suggestLlmKeyName())
     setDescription("")
+    setTagModels(false)
     setVisible(false)
     setSecretValue(null)
     setRevealFailed(false)
+    setSelectedTestModelId(null)
   }, [open])
 
   function clearSecret() {
+    cachedSecretRef.current = null
     setVisible(false)
     setSecretValue(null)
     setRevealFailed(false)
@@ -83,6 +198,7 @@ export function CreateLlmKeyDialog({
     if (!next && !mutation.isPending) {
       clearSecret()
       issuedModels.current = []
+      setSelectedTestModelId(null)
       reset()
     }
     onOpenChange(next)
@@ -93,22 +209,43 @@ export function CreateLlmKeyDialog({
     const requested = name.trim()
     if (!requested || models.length === 0 || mutation.isPending || mutation.isSuccess) return
     issuedModels.current = models
+    setSelectedTestModelId(null)
     create({
       name: requested,
       description: description.trim() || undefined,
       modelIds: models.map((model) => model.id),
+      tagModels,
     })
   }
 
   const boundModels = issuedModels.current.length > 0 ? issuedModels.current : models
-  const example = boundModels.find((model) => model.slug)
+  const testableModels = boundModels.filter((model) => Boolean(model.slug))
+  const activeModel =
+    testableModels.find((model) => model.id === selectedTestModelId) ?? testableModels[0]
   const baseUrl = gateway.data?.base_url
-  const command = baseUrl && example
-    ? chatCompletionsCurl(baseUrl, example.slug, t("models.samplePrompt"))
+  const command = baseUrl && activeModel
+    ? chatCompletionsCurl(baseUrl, activeModel.slug, t("models.samplePrompt"))
     : null
+  const shownSecret = visible ? secretValue : null
+  const exportText = shownSecret ? exportCommand(shownSecret) : maskedExport
   const secretsHref = secretId
     ? `/projects/${projectId}?tab=secrets&secret=${encodeURIComponent(secretId)}`
     : `/projects/${projectId}?tab=secrets`
+
+  async function resolveApiKey(): Promise<string> {
+    if (!secretId) throw new Error(t("secrets.revealError"))
+    const cached = secretValue ?? cachedSecretRef.current
+    if (cached) return cached
+    let revealed: { value: string }
+    try {
+      revealed = await revealSecretValue(projectId, secretId)
+    } catch {
+      throw new Error(t("secrets.revealError"))
+    }
+    if (!revealed.value) throw new Error(t("secrets.revealError"))
+    cachedSecretRef.current = revealed.value
+    return revealed.value
+  }
 
   async function copyText(value: string) {
     try {
@@ -128,6 +265,7 @@ export function CreateLlmKeyDialog({
     try {
       const revealed = await revealSecretValue(projectId, secretId)
       if (!revealed.value) return
+      cachedSecretRef.current = revealed.value
       setSecretValue(revealed.value)
       setVisible(true)
       setRevealFailed(false)
@@ -138,10 +276,11 @@ export function CreateLlmKeyDialog({
 
   async function copySecret() {
     if (!secretId) return
-    let value = visible ? secretValue : null
+    let value = (visible ? secretValue : null) ?? cachedSecretRef.current
     if (!value) {
       try {
         value = (await revealSecretValue(projectId, secretId)).value
+        if (value) cachedSecretRef.current = value
       } catch {
         showError(t("secrets.revealError"))
         return
@@ -153,122 +292,172 @@ export function CreateLlmKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
+      <DialogContent
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] flex-col overflow-hidden",
+          ready && secretId ? "max-w-4xl" : "max-w-2xl",
+        )}
+      >
         {ready && secretId ? (
           <>
-            <DialogHeader className="pr-10">
-              <DialogTitle>{t("models.dialog.readyTitle")}</DialogTitle>
+            <DialogHeader className="shrink-0 pr-12 pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <DialogTitle className="min-w-0">{t("models.dialog.readyTitle")}</DialogTitle>
+                <KeyReadyBalance />
+              </div>
               <DialogDescription>{t("models.dialog.readyDescription")}</DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col gap-5 px-6 pb-6">
-              {boundModels.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {boundModels.map((model) => (
-                    <Badge key={model.id}>{modelDisplayName(model)}</Badge>
-                  ))}
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+              <div className="grid gap-8 md:grid-cols-2 md:items-start md:gap-10">
+                <div className="min-w-0 space-y-6">
+                  <section className="space-y-3">
+                    <h3 className="flex items-center gap-2 font-semibold">
+                      <KeyRound className="size-4 shrink-0" aria-hidden />
+                      {t("quickStart.apiKeySecret")}
+                    </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      {name.trim() ? (
+                        <p className="min-w-0 break-all font-mono text-sm">{name.trim()}</p>
+                      ) : null}
+                      <Link
+                        className="ml-auto inline-flex shrink-0 items-center gap-1 text-sm underline-offset-4 hover:underline"
+                        to={secretsHref}
+                      >
+                        {t("quickStart.openSecret")}
+                        <ArrowUpRight className="size-3.5" aria-hidden />
+                      </Link>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-1 rounded-md border border-input px-2 py-1">
+                      <input
+                        id="llm-key-value"
+                        type="text"
+                        readOnly
+                        value={visible ? secretValue ?? "" : "••••••••••••••••"}
+                        aria-label={t("models.dialog.apiKey")}
+                        autoComplete="off"
+                        spellCheck={false}
+                        className="h-8 min-w-0 flex-1 cursor-text border-0 bg-transparent px-1 font-mono text-sm outline-none"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0"
+                        aria-label={t(visible ? "common.actions.hide" : "common.actions.show")}
+                        title={t(visible ? "common.actions.hide" : "common.actions.show")}
+                        onClick={() => void toggleSecret()}
+                      >
+                        {visible ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0"
+                        aria-label={t("models.dialog.copyKey")}
+                        title={t("models.dialog.copyKey")}
+                        onClick={() => void copySecret()}
+                      >
+                        <Copy className="size-4" aria-hidden />
+                      </Button>
+                    </div>
+                    {revealFailed ? (
+                      <p role="alert" className="text-sm text-destructive">{t("secrets.revealError")}</p>
+                    ) : null}
+                    {tagNotice?.failed ? (
+                      <p role="alert" className="text-sm text-destructive">{t("models.dialog.tagsFailed")}</p>
+                    ) : null}
+                    {tagNotice && tagNotice.skipped.length > 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        {t("models.dialog.tagsSkipped", { names: tagNotice.skipped.join(", ") })}
+                      </p>
+                    ) : null}
+                  </section>
+                  <section className="space-y-3">
+                    <p className="text-sm font-medium">{t("models.dialog.baseUrl")}</p>
+                    {baseUrl ? (
+                      <div className="flex items-center gap-1 rounded-md border border-input px-2 py-1">
+                        <code className="min-w-0 flex-1 break-all px-1 text-sm">{baseUrl}</code>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          aria-label={t("models.dialog.copyUrl")}
+                          onClick={() => void copyText(baseUrl)}
+                        >
+                          <Copy className="size-4" aria-hidden />
+                        </Button>
+                      </div>
+                    ) : gateway.isPending ? (
+                      <p role="status" className="text-sm text-muted-foreground">{t("common.loading")}</p>
+                    ) : (
+                      <div className="space-y-2" role="alert">
+                        <p className="text-sm text-destructive">{t("models.dialog.gatewayUnavailable")}</p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void gateway.refetch()}>
+                          {t("models.retry")}
+                        </Button>
+                      </div>
+                    )}
+                  </section>
+                  {activeModel ? (
+                    <LlmKeyTestPanel
+                      key={secretId}
+                      baseUrl={baseUrl}
+                      models={testableModels}
+                      selectedModel={activeModel}
+                      onSelectModel={setSelectedTestModelId}
+                      resolveApiKey={resolveApiKey}
+                    />
+                  ) : null}
                 </div>
-              ) : null}
-              <div className="space-y-1.5">
-                <Label htmlFor="llm-key-value">{t("models.dialog.apiKey")}</Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="llm-key-value"
-                    type="text"
-                    readOnly
-                    value={visible ? secretValue ?? "" : "••••••••••••••••"}
-                    aria-label={t("models.dialog.apiKey")}
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="h-9 min-w-0 flex-1 cursor-text rounded-md border-0 bg-secondary px-2.5 font-mono text-xs font-semibold text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                <section className="min-w-0 space-y-3">
+                  <h3 className="font-semibold">{t("quickStart.terminal")}</h3>
+                  <p className="text-sm text-muted-foreground">{t("quickStart.setEnv")}</p>
+                  <CommandBlock
+                    text={exportText}
+                    label={t("quickStart.copyExport")}
+                    getText={async () => exportCommand(await resolveApiKey())}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label={t("models.dialog.copyKey")}
-                    onClick={() => void copySecret()}
-                  >
-                    <Copy className="size-4" aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label={t(visible ? "common.actions.hide" : "common.actions.show")}
-                    onClick={() => void toggleSecret()}
-                  >
-                    {visible ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
-                  </Button>
-                </div>
-                {revealFailed ? (
-                  <p role="alert" className="text-sm text-destructive">{t("secrets.revealError")}</p>
-                ) : null}
+                  {command ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">{t("quickStart.runCurl")}</p>
+                      <CommandBlock text={command} label={t("quickStart.copyCurl")} dir="ltr" />
+                      <p className="break-words text-sm text-muted-foreground">
+                        {t("quickStart.response")}{" "}
+                        <code className="text-foreground">choices[0].message.content</code>
+                      </p>
+                    </>
+                  ) : gateway.isPending ? (
+                    <p role="status" className="text-sm text-muted-foreground">{t("common.loading")}</p>
+                  ) : (
+                    <div className="space-y-2" role="alert">
+                      <p className="text-sm text-destructive">
+                        {t(baseUrl ? "quickStart.noExampleModel" : "models.dialog.gatewayUnavailable")}
+                      </p>
+                      {!baseUrl ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => void gateway.refetch()}>
+                          {t("models.retry")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </section>
               </div>
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium">{t("models.dialog.baseUrl")}</p>
-                {baseUrl ? (
-                  <div className="flex items-center gap-1 rounded-md border border-input px-2 py-1">
-                    <code className="min-w-0 flex-1 break-all px-1 text-sm">{baseUrl}</code>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      aria-label={t("models.dialog.copyUrl")}
-                      onClick={() => void copyText(baseUrl)}
-                    >
-                      <Copy className="size-4" aria-hidden />
-                    </Button>
-                  </div>
-                ) : gateway.isPending ? (
-                  <p role="status" className="text-sm text-muted-foreground">{t("common.loading")}</p>
-                ) : (
-                  <div className="space-y-2" role="alert">
-                    <p className="text-sm text-destructive">{t("models.dialog.gatewayUnavailable")}</p>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void gateway.refetch()}>
-                      {t("models.retry")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {command ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{t("models.dialog.curl")}</p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2"
-                      onClick={() => void copyText(command)}
-                    >
-                      <Copy className="mr-2 size-3.5" aria-hidden />
-                      {t("models.dialog.copyCurl")}
-                    </Button>
-                  </div>
-                  <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs leading-relaxed" dir="ltr">
-                    <code>{command}</code>
-                  </pre>
-                  <p className="text-sm text-muted-foreground">{t("models.dialog.response")}</p>
-                </div>
-              ) : null}
             </div>
-            <DialogFooter className="gap-2">
-              <Button asChild variant="outline">
-                <Link to={secretsHref}>{t("models.viewKey")}</Link>
-              </Button>
+            <DialogFooter className="shrink-0 justify-end gap-2 border-t border-border pt-4">
               <Button type="button" onClick={() => handleOpenChange(false)}>
                 {t("models.dialog.done")}
               </Button>
             </DialogFooter>
           </>
         ) : (
-          <form onSubmit={submit} autoComplete="off">
-            <DialogHeader className="pr-10">
+          <form onSubmit={submit} autoComplete="off" className="flex min-h-0 flex-1 flex-col">
+            <DialogHeader className="shrink-0 pr-10">
               <DialogTitle>{t("models.dialog.title")}</DialogTitle>
               <DialogDescription>{t("models.dialog.description")}</DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col gap-4 px-6 pb-6">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="llm-key-name">{t("common.labels.name")}</Label>
                 <Input
@@ -298,31 +487,44 @@ export function CreateLlmKeyDialog({
                 {models.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t("models.dialog.noModels")}</p>
                 ) : (
-                  <ul className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
                     {models.map((model) => {
                       const label = modelDisplayName(model)
+                      const canRemove = models.length > 1 && !mutation.isPending
                       return (
-                        <li key={model.id} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{label}</p>
-                            <p className="truncate font-mono text-xs text-muted-foreground">{model.slug}</p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 shrink-0"
-                            disabled={models.length < 2 || mutation.isPending}
-                            aria-label={t("models.dialog.removeModel", { name: label })}
-                            onClick={() => onRemoveModel(model.id)}
-                          >
-                            <X className="size-4" aria-hidden />
-                          </Button>
-                        </li>
+                        <Badge key={model.id} title={model.slug} className={cn("h-7 max-w-full", canRemove && "gap-0.5 pr-1")}>
+                          <span className="truncate">{label}</span>
+                          {canRemove ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-5 shrink-0 rounded-full p-0"
+                              aria-label={t("models.dialog.removeModel", { name: label })}
+                              onClick={() => onRemoveModel(model.id)}
+                            >
+                              <X className="size-3.5" aria-hidden />
+                            </Button>
+                          ) : null}
+                        </Badge>
                       )
                     })}
-                  </ul>
+                  </div>
                 )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="llm-key-tag-models"
+                    checked={tagModels}
+                    disabled={mutation.isPending || models.length === 0}
+                    onCheckedChange={(value) => setTagModels(value === true)}
+                  />
+                  <Label htmlFor="llm-key-tag-models" className="cursor-pointer">
+                    {t("models.dialog.tagModels")}
+                  </Label>
+                </div>
+                <p className="pl-6 text-xs leading-5 text-muted-foreground">{t("models.dialog.tagModelsHint")}</p>
               </div>
               {mutation.isPending ? (
                 <p role="status" className="text-sm text-muted-foreground">{t(`models.${step}`)}</p>
@@ -336,7 +538,7 @@ export function CreateLlmKeyDialog({
                 </div>
               ) : null}
             </div>
-            <DialogFooter className="gap-2">
+            <DialogFooter className="shrink-0 gap-2">
               <Button
                 type="button"
                 variant="outline"

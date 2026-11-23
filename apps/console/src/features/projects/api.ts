@@ -1971,8 +1971,152 @@ export const activeModelsQuery = {
   queryFn: listActiveModels,
 }
 
-export function getGateway(): Promise<{ base_url: string }> {
-  return apiRequest({ path: "/llm/gateway", base: "resource", auth: false })
+// TODO: BACKEND_TODO: remove `/v1` normalization once GET /llm/gateway returns the OpenAI-compatible `/v1` base URL.
+function normalizeGatewayBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "")
+  if (!trimmed) {
+    throw new Error("Invalid LLM gateway response")
+  }
+  try {
+    const url = new URL(trimmed)
+    const pathname = url.pathname.replace(/\/+$/, "")
+    if (!pathname || pathname === "/") {
+      url.pathname = "/v1"
+      return url.toString().replace(/\/+$/, "")
+    }
+    if (/\/v1$/i.test(pathname)) {
+      url.pathname = pathname
+      return url.toString().replace(/\/+$/, "")
+    }
+    return trimmed
+  } catch {
+    return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`
+  }
+}
+
+export async function getGateway(): Promise<{ base_url: string }> {
+  const payload = await apiRequest<unknown>({
+    path: "/llm/gateway",
+    base: "resource",
+    auth: false,
+  })
+  if (!isRecord(payload) || typeof payload.base_url !== "string" || !payload.base_url.trim()) {
+    throw new Error("Invalid LLM gateway response")
+  }
+  return { base_url: normalizeGatewayBaseUrl(payload.base_url) }
+}
+
+export interface LlmTestMessageRequest {
+  baseUrl: string
+  apiKey: string
+  model: string
+  message: string
+  signal?: AbortSignal
+}
+
+export interface LlmTestMessageResponse {
+  text: string
+  latencyMs: number
+  usage?: OpenAiRequestUsage
+}
+
+function extractLlmErrorMessage(bodyText: string, status: number): string {
+  const trimmed = bodyText.trim()
+  if (trimmed) {
+    try {
+      const parsed: unknown = JSON.parse(trimmed)
+      if (isRecord(parsed)) {
+        if (isRecord(parsed.error) && typeof parsed.error.message === "string" && parsed.error.message.trim()) {
+          return parsed.error.message.trim()
+        }
+        if (typeof parsed.message === "string" && parsed.message.trim()) {
+          return parsed.message.trim()
+        }
+        if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+          return parsed.detail.trim()
+        }
+      }
+    } catch {
+      // Non-JSON error body; fall back to raw snippet.
+    }
+    return trimmed.slice(0, 300)
+  }
+  return `HTTP ${status}`
+}
+
+function extractLlmTestReply(payload: unknown): string {
+  if (!isRecord(payload) || !Array.isArray(payload.choices) || payload.choices.length === 0) {
+    throw new Error("LLM response is missing choices")
+  }
+  const firstChoice = payload.choices[0]
+  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
+    throw new Error("LLM response is missing assistant message")
+  }
+  const content = firstChoice.message.content
+  if (typeof content === "string" && content.trim()) {
+    return content.trim()
+  }
+  if (Array.isArray(content)) {
+    const joined = content
+      .map((part) => {
+        if (typeof part === "string") return part
+        if (isRecord(part) && typeof part.text === "string") return part.text
+        return ""
+      })
+      .join("")
+      .trim()
+    if (joined) return joined
+  }
+  const reasoning = firstChoice.message.reasoning_content
+  if (typeof reasoning === "string" && reasoning.trim()) {
+    return reasoning.trim()
+  }
+  throw new Error("LLM assistant message is empty")
+}
+
+export async function sendLlmTestMessage(
+  opts: LlmTestMessageRequest,
+): Promise<LlmTestMessageResponse> {
+  const apiKey = opts.apiKey.trim()
+  const model = opts.model.trim()
+  const message = opts.message.trim()
+  if (!apiKey) throw new Error("API key is empty")
+  if (!model) throw new Error("Model is required")
+  if (!message) throw new Error("Message is required")
+
+  const url = normalizeOpenAiCompletionsUrl(opts.baseUrl)
+  const startedAt = performance.now()
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: message }],
+    }),
+    signal: opts.signal,
+  })
+  const latencyMs = Math.max(0, Math.round(performance.now() - startedAt))
+
+  if (!res.ok) {
+    const bodyText = await res.text()
+    throw new Error(extractLlmErrorMessage(bodyText, res.status))
+  }
+
+  let payload: unknown
+  try {
+    payload = await res.json()
+  } catch {
+    throw new Error("Invalid LLM response")
+  }
+
+  return {
+    text: extractLlmTestReply(payload),
+    latencyMs,
+    usage: extractUsageFromPayload(payload),
+  }
 }
 
 export function getSecretModels(projectId: string, secretId: string): Promise<LLMModelListResponse> {

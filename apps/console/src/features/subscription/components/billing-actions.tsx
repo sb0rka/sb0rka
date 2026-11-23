@@ -18,7 +18,17 @@ export function CorporateBillingContact() {
   )
 }
 
-export function TopUpButton({ label }: { label?: string }) {
+export function TopUpButton({
+  label,
+  variant = "default",
+  size = "default",
+  className,
+}: {
+  label?: string
+  variant?: "default" | "link" | "ghost" | "outline" | "secondary"
+  size?: "default" | "sm" | "lg"
+  className?: string
+}) {
   const { t } = useTranslation()
   const text = label ?? t("subscription.topUp")
   const limits = useTopUpLimits()
@@ -27,7 +37,9 @@ export function TopUpButton({ label }: { label?: string }) {
   if (limits.data?.enabled) {
     return (
       <>
-        <Button type="button" onClick={() => setOpen(true)}>{text}</Button>
+        <Button type="button" variant={variant} size={size} className={className} onClick={() => setOpen(true)}>
+          {text}
+        </Button>
         <TopUpDialog open={open} onOpenChange={setOpen} limits={limits.data} />
       </>
     )
@@ -36,7 +48,7 @@ export function TopUpButton({ label }: { label?: string }) {
   const soon = !limits.isPending
   return (
     <span className="relative inline-flex shrink-0">
-      <Button type="button" disabled>
+      <Button type="button" variant={variant} size={size} className={className} disabled>
         {text}
         {soon && <span className="sr-only">, {t("subscription.soon")}</span>}
       </Button>
