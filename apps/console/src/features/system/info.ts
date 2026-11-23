@@ -31,6 +31,12 @@ export function isCommunityEdition(info: PlatformInfo | undefined): boolean {
   return info?.edition === "community"
 }
 
+export const quickStartEnabled = import.meta.env.VITE_IS_ENABLE_QUICK_START === "true"
+
+export function hasCloudQuickStart(info: PlatformInfo | undefined): boolean {
+  return quickStartEnabled && info?.edition === "enterprise" && info.deployment === "cloud"
+}
+
 export function usePlatformInfo() {
   return useQuery({
     queryKey: ["platform", "info"],

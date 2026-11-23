@@ -58,6 +58,8 @@ function requireAuth(req: IncomingMessage, res: ServerResponse): boolean {
 
 function matchPath(pathname: string): { name: string; params: Record<string, string> } | null {
   const routes: { name: string; pattern: RegExp }[] = [
+    { name: "platform.info", pattern: /^\/info$/ },
+    { name: "identity.email", pattern: /^\/identity\/users\/me\/verifications\/email$/ },
     { name: "auth.login", pattern: /^\/auth\/login$/ },
     { name: "auth.signup", pattern: /^\/auth\/signup$/ },
     { name: "auth.refresh", pattern: /^\/auth\/refresh$/ },
@@ -137,6 +139,17 @@ export async function handleMockRequest(
   const body = rawBody ? parseBody(req, rawBody) : {}
 
   switch (route.name) {
+    case "platform.info": {
+      if (method !== "GET") break
+      sendJson(res, 200, { version: "dev", edition: "enterprise", deployment: "cloud" })
+      return true
+    }
+    case "identity.email": {
+      if (method !== "GET") break
+      if (!requireAuth(req, res)) return true
+      sendJson(res, 200, { email: store.user.email, verified: true, verified_at: store.user.created_at })
+      return true
+    }
     case "auth.login": {
       if (method !== "POST") break
       sendJson(res, 200, { access_token: createMockToken(store.user.id) })

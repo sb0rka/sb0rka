@@ -1,22 +1,15 @@
-import { useEffect, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Building } from "lucide-react"
-import { AlphaToast, Badge, buttonPressClass, cn } from "@sb0rka/ui"
-import { ToastPinned } from "@sb0rka/ui"
+import { Badge, buttonPressClass, cn } from "@sb0rka/ui"
 import { useProjects, useDatabases } from "./hooks"
 import type { ProjectResponse } from "./api"
 import { CreateProjectDialog } from "./create-project-dialog"
 import { ResourceList } from "@/components/resource-list"
 import { ResourceCard } from "@/components/resource-card"
-import { EmailVerificationDialog } from "@/features/auth/email-verification-dialog"
-import { initializeAccount, verifyEmailCheck } from "../auth/api"
 import { useAuth } from "../auth/auth-provider"
-import { useEnsureAccountPlan } from "../subscription/hooks"
 import { useOrganizations } from "../organizations/hooks"
-
-const ALPHA_UNDERSTOOD_KEY = "alpha-understood"
 
 function ProjectCard({
   project,
@@ -86,12 +79,8 @@ function ProjectCard({
 export function ProjectsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
-  const [emailVerifiedOpen, setEmailVerifiedOpen] = useState(false)
-  const [alphaToastOpen, setAlphaToastOpen] = useState(false)
   const { data, isLoading } = useProjects()
-  useEnsureAccountPlan()
   const projects = data?.projects ?? []
   const organizations = useOrganizations(
     projects.some((project) => project.owner_subject_id && project.owner_subject_id !== user?.id),
@@ -100,42 +89,10 @@ export function ProjectsPage() {
     organizations.data?.organizations.map((org) => [org.id, org.name]),
   )
 
-  async function handleEmailVerified() {
-    try {
-      await initializeAccount()
-      await queryClient.invalidateQueries({ queryKey: ["projects"], exact: true })
-      setEmailVerifiedOpen(false)
-    } catch (err) {
-      console.error("Account initialization failed", err)
-    }
-  }
-
-  useEffect(() => {
-    try {
-      setAlphaToastOpen(!localStorage.getItem(ALPHA_UNDERSTOOD_KEY))
-    } catch {
-      setAlphaToastOpen(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    async function checkEmailVerification() {
-      try {
-        const { verified } = await verifyEmailCheck()
-        setEmailVerifiedOpen(!verified)
-      } catch (err) {
-        console.error("Failed to check email verification status", err)
-        setEmailVerifiedOpen(false)
-      }
-    }
-
-    checkEmailVerification()
-  }, [])
-
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <>
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center min-h-[500px]">
+        <div className="flex min-h-[500px] flex-1 items-center justify-center">
           <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
       ) : (
@@ -159,33 +116,7 @@ export function ProjectsPage() {
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
-      {user && (
-        <EmailVerificationDialog
-          open={emailVerifiedOpen}
-          userId={user.id}
-          onVerified={handleEmailVerified}
-        />
-      )}
-
-      {alphaToastOpen ? (
-        <ToastPinned>
-          <AlphaToast
-            className="w-full"
-            title={t("app.alphaToastTitle")}
-            description={t("app.alphaToastDescription")}
-            actionLabel={t("app.alphaToastAction")}
-            onAction={() => {
-              try {
-                localStorage.setItem(ALPHA_UNDERSTOOD_KEY, "1")
-              } catch {
-                /* ignore quota / private mode */
-              }
-              setAlphaToastOpen(false)
-            }}
-          />
-        </ToastPinned>
-      ) : null}
-    </div>
+    </>
   )
 }
 
