@@ -336,6 +336,13 @@ const resources = {
           fallbackError: "Не удалось создать аккаунт, попробуйте снова",
           hasAccount: "Уже есть аккаунт?",
           loginLink: "Войти",
+          termsOfUseAndPublicOfferLabel: "Регистрируясь, я соглашаюсь с <terms>Правилами пользования</terms> и <offer>Публичной офертой</offer>.",
+        },
+        captcha: {
+          loading: "Загрузка капчи…",
+          error: "Не удалось загрузить капчу. Попробуйте снова.",
+          description: "Нажмите на чекбокс, чтобы продолжить.",
+          title: "Проверка",
         },
         emailVerification: {
           title: "Подтверждение почты",
@@ -1205,6 +1212,13 @@ const resources = {
           fallbackError: "Unable to create account, please try again",
           hasAccount: "Already have an account?",
           loginLink: "Log in",
+          termsOfUseAndPublicOfferLabel: "By signing up, I agree to the <terms>Terms of Use</terms> and <offer>Public Offer</offer>.",
+        },
+        captcha: {
+          loading: "Loading captcha…",
+          error: "Unable to load captcha. Please try again.",
+          description: "Click the checkbox to continue.",
+          title: "Verification",
         },
         emailVerification: {
           title: "Verify your email",

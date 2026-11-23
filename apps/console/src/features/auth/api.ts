@@ -42,6 +42,7 @@ export interface SignupData {
   email: string
   password: string
   invite_token?: string
+  captcha_token: string
 }
 
 const OIDC_CONTINUE_PATH = "/oauth2/login/continue"
@@ -142,6 +143,7 @@ export async function login(credentials: LoginCredentials): Promise<User> {
 
 export async function signup(data: SignupData): Promise<User> {
   const inviteToken = data.invite_token?.trim()
+  const captchaToken = data.captcha_token.trim()
   return apiRequest<User>({
     method: "POST",
     path: "/identity/users",
@@ -150,6 +152,7 @@ export async function signup(data: SignupData): Promise<User> {
       email: data.email,
       password: data.password,
       ...(inviteToken ? { invite_token: inviteToken } : {}),
+      ...(captchaToken ? { captcha_token: captchaToken } : {}),
     },
     auth: false,
   })
