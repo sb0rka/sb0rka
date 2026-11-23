@@ -136,14 +136,18 @@ function CapabilityIcons({
         aria-label={capabilities.length === 0 ? t("common.notAvailable") : undefined}
       >
         {MODEL_CAPABILITIES.map((capability) => {
+          const Icon = CAPABILITY_ICONS[capability]
           if (!present.has(capability)) {
             return (
-              <span key={capability} className="flex size-5 items-center justify-center" aria-hidden>
-                <span className="size-1 rounded-full bg-border" />
+              <span
+                key={capability}
+                className="flex size-5 items-center justify-center text-muted-foreground opacity-30"
+                aria-hidden
+              >
+                <Icon className="size-4" aria-hidden />
               </span>
             )
           }
-          const Icon = CAPABILITY_ICONS[capability]
           const label = labels[capability]
           return (
             <Tooltip key={capability}>
@@ -151,7 +155,7 @@ function CapabilityIcons({
                 <span
                   tabIndex={0}
                   aria-label={label}
-                  className="flex size-5 items-center justify-center rounded-sm text-muted-foreground/80 outline-none transition-colors group-hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex size-5 items-center justify-center rounded-sm text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <Icon className="size-4" aria-hidden />
                 </span>
