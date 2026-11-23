@@ -35,8 +35,8 @@ import {
 import { DatasheetDetails } from "./models-table-details"
 
 const MODEL_TABLE_GRID =
-  "grid w-full items-stretch grid-cols-[2.5rem_minmax(16rem,2.4fr)_8.5rem_6.5rem_7.5rem_7.5rem_2.5rem]"
-const MODEL_TABLE_MIN_WIDTH = "min-w-[880px]"
+  "grid w-full items-stretch grid-cols-[2.5rem_minmax(16rem,2.4fr)_8.5rem_7.5rem_8.5rem_8.5rem_2.5rem]"
+const MODEL_TABLE_MIN_WIDTH = "min-w-[900px]"
 
 const CAPABILITY_ICONS: Record<ModelCapability, LucideIcon> = {
   reasoning: Brain,
