@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowDown, ArrowUp, ArrowUpDown, Brain, Check, ChevronDown, Copy, Image, Paperclip, Wrench, X, type LucideIcon } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Brain, Check, ChevronDown, Copy, Image, Paperclip, Wrench, type LucideIcon } from "lucide-react"
 import {
   Button,
   Checkbox,
@@ -9,7 +9,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Input,
   ScrollArea,
   ScrollBar,
   Tooltip,
@@ -53,28 +52,6 @@ interface ModelsTableProps {
   onRetry: () => void
   selectedIds: ReadonlySet<string>
   onSelectedIdsChange: (next: Set<string>) => void
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
-function highlight(value: string, query: string): ReactNode {
-  const normalized = query.trim()
-  if (!normalized) return value
-  const parts = value.split(new RegExp(`(${escapeRegExp(normalized)})`, "gi"))
-  return parts.map((part, index) => {
-    if (!part) return null
-    const isMatch = part.toLowerCase() === normalized.toLowerCase()
-    return (
-      <span
-        key={`${part}-${index}`}
-        className={isMatch ? "font-semibold text-[#2b9a66] underline decoration-[#2b9a66]/60" : undefined}
-      >
-        {part}
-      </span>
-    )
-  })
 }
 
 function useCapabilityLabels(): Record<ModelCapability, string> {
@@ -170,7 +147,7 @@ function CapabilityIcons({
   )
 }
 
-function ModelDetails({ model, query, detailsId }: { model: LLMModel; query: string; detailsId: string }) {
+function ModelDetails({ model, detailsId }: { model: LLMModel; detailsId: string }) {
   const { t, i18n } = useTranslation()
   const { showSuccess, showError } = useToast()
   const currency = modelCurrency(i18n.language)
@@ -215,7 +192,7 @@ function ModelDetails({ model, query, detailsId }: { model: LLMModel; query: str
   return (
     <div id={detailsId} className="grid gap-4 border-t border-border bg-muted/30 px-4 py-4 md:grid-cols-2 md:px-6">
       {description ? (
-        <p className="text-sm text-muted-foreground md:col-span-2">{highlight(description, query)}</p>
+        <p className="text-sm text-muted-foreground md:col-span-2">{description}</p>
       ) : null}
       <section className="space-y-1.5">
         <h3 className="text-sm font-medium text-foreground">{t("models.specs.limits")}</h3>
@@ -321,7 +298,6 @@ export function ModelsTable({
 }: ModelsTableProps) {
   const { t, i18n } = useTranslation()
   const labels = useCapabilityLabels()
-  const [search, setSearch] = useState("")
   const [capabilities, setCapabilities] = useState<ModelCapability[]>([])
   const [sort, setSort] = useState<ModelSort>({ column: "name", direction: "asc" })
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -330,8 +306,8 @@ export function ModelsTable({
   const currency = modelCurrency(i18n.language)
 
   const filtered = useMemo(
-    () => filterModels(models, { query: search, capabilities, language: i18n.language, capabilityLabels: labels }),
-    [models, search, capabilities, i18n.language, labels],
+    () => filterModels(models, capabilities),
+    [models, capabilities],
   )
   const sorted = useMemo(
     () => sortModels(filtered, sort, currency, i18n.language),
@@ -342,7 +318,7 @@ export function ModelsTable({
   const selectedVisible = visibleIds.filter((id) => selectedIds.has(id)).length
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length
   const someVisibleSelected = selectedVisible > 0 && !allVisibleSelected
-  const filtersActive = search.trim().length > 0 || capabilities.length > 0
+  const filtersActive = capabilities.length > 0
   const selectedCount = models.filter((model) => selectedIds.has(model.id)).length
 
   useEffect(() => {
@@ -420,27 +396,33 @@ export function ModelsTable({
   return (
     <div className="flex h-0 min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col gap-3 p-4 md:p-6 md:pb-4">
-        <div className="flex items-center gap-2">
-          <div className="relative min-w-0 max-w-md flex-1">
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("models.searchPlaceholder")}
-              aria-label={t("models.searchPlaceholder")}
-              className="h-9 pr-9"
-            />
-            {search.length > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 size-9 text-muted-foreground hover:bg-transparent"
-                aria-label={t("models.clearSearch")}
-                onClick={() => setSearch("")}
-              >
-                <X className="size-4" aria-hidden />
-              </Button>
-            ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div role="group" aria-label={t("models.filtersLabel")} className="flex flex-wrap gap-2">
+            {MODEL_CAPABILITIES.map((capability) => {
+              const pressed = capabilities.includes(capability)
+              const Icon = CAPABILITY_ICONS[capability]
+              return (
+                <div
+                  key={capability}
+                  tabIndex={0}
+                  aria-pressed={pressed}
+                  onClick={() => toggleCapability(capability)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      toggleCapability(capability)
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+                    pressed && "border-transparent bg-secondary text-foreground",
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden />
+                  {labels[capability]}
+                </div>
+              )
+            })}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -458,33 +440,6 @@ export function ModelsTable({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-        <div role="group" aria-label={t("models.filtersLabel")} className="flex flex-wrap gap-2">
-          {MODEL_CAPABILITIES.map((capability) => {
-            const pressed = capabilities.includes(capability)
-            const Icon = CAPABILITY_ICONS[capability]
-            return (
-              <div
-                key={capability}
-                tabIndex={0}
-                aria-pressed={pressed}
-                onClick={() => toggleCapability(capability)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault()
-                    toggleCapability(capability)
-                  }
-                }}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
-                  pressed && "border-transparent bg-secondary text-foreground",
-                )}
-              >
-                <Icon className="size-3.5" aria-hidden />
-                {labels[capability]}
-              </div>
-            )
-          })}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <span>{t("models.count", { shown: sorted.length, total: models.length })}</span>
@@ -506,10 +461,7 @@ export function ModelsTable({
               variant="ghost"
               size="sm"
               className="h-auto px-1 py-0"
-              onClick={() => {
-                setSearch("")
-                setCapabilities([])
-              }}
+              onClick={() => setCapabilities([])}
             >
               {t("models.resetFilters")}
             </Button>
@@ -545,8 +497,7 @@ export function ModelsTable({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">{highlight(name, search)}</p>
-                        <p className="truncate font-mono text-xs text-muted-foreground">{highlight(model.slug, search)}</p>
+                        <p className="truncate text-sm font-medium text-foreground">{name}</p>
                         <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                           {formatTokenCount(model.specifications?.limit?.context) ?? t("common.notAvailable")}
                           {" · "}
@@ -565,7 +516,7 @@ export function ModelsTable({
                         onToggle={() => toggleExpanded(model.id)}
                       />
                     </div>
-                    {expanded ? <ModelDetails model={model} query={search} detailsId={detailsId} /> : null}
+                    {expanded ? <ModelDetails model={model} detailsId={detailsId} /> : null}
                   </div>
                 )
               })
@@ -626,7 +577,6 @@ export function ModelsTable({
                 sorted.map((model) => {
                   const expanded = expandedId === model.id
                   const name = modelDisplayName(model)
-                  const description = modelDescription(model, i18n.language)
                   const detailsId = `model-details-desktop-${model.id}`
                   return (
                     <div key={model.id} className="border-b border-border">
@@ -645,12 +595,8 @@ export function ModelsTable({
                             onCheckedChange={(value) => setModelSelected(model.id, value === true)}
                           />
                         </div>
-                        <div className="flex min-w-0 flex-col justify-center px-3 py-3">
-                          <p className="truncate text-sm font-medium text-foreground">{highlight(name, search)}</p>
-                          <p className="truncate font-mono text-xs text-muted-foreground">{highlight(model.slug, search)}</p>
-                          {description ? (
-                            <p className="truncate text-xs text-muted-foreground">{highlight(description, search)}</p>
-                          ) : null}
+                        <div className="flex min-w-0 items-center px-3 py-3">
+                          <p className="truncate text-sm font-medium text-foreground">{name}</p>
                         </div>
                         <div className="flex min-w-0 items-center px-3 py-3">
                           <CapabilityIcons model={model} labels={labels} />
@@ -673,7 +619,7 @@ export function ModelsTable({
                           />
                         </div>
                       </div>
-                      {expanded ? <ModelDetails model={model} query={search} detailsId={detailsId} /> : null}
+                      {expanded ? <ModelDetails model={model} detailsId={detailsId} /> : null}
                     </div>
                   )
                 })

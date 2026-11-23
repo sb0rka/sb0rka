@@ -629,8 +629,6 @@ const resources = {
           "Не удалось подтвердить создание секрета. Проверьте раздел «Секреты» перед новой попыткой.",
         interrupted: "Подключение прервано",
         error: "Не удалось подключить LLM. Попробуйте ещё раз.",
-        searchPlaceholder: "Поиск по названию, slug или описанию",
-        clearSearch: "Очистить поиск",
         filtersLabel: "Фильтры возможностей",
         filters: {
           reasoning: "Рассуждение",
@@ -1595,8 +1593,6 @@ const resources = {
           "Could not confirm secret creation. Check Secrets before trying again.",
         interrupted: "Connection interrupted",
         error: "Could not connect LLMs. Please try again.",
-        searchPlaceholder: "Search by name, slug, or description",
-        clearSearch: "Clear search",
         filtersLabel: "Capability filters",
         filters: {
           reasoning: "Reasoning",

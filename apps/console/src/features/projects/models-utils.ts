@@ -116,28 +116,12 @@ export function formatModelPrice(
 
 export function filterModels(
   models: LLMModel[],
-  options: {
-    query: string
-    capabilities: readonly ModelCapability[]
-    language: string
-    capabilityLabels: Record<ModelCapability, string>
-  },
+  capabilities: readonly ModelCapability[],
 ): LLMModel[] {
-  const query = options.query.trim().toLowerCase()
+  if (capabilities.length === 0) return models
   return models.filter(model => {
-    if (options.capabilities.length > 0) {
-      const present = new Set(modelCapabilities(model))
-      if (!options.capabilities.every(capability => present.has(capability))) return false
-    }
-    if (!query) return true
-    const haystack = [
-      modelDisplayName(model),
-      model.slug,
-      model.description_ru ?? "",
-      model.description_en ?? "",
-      ...modelCapabilities(model).map(capability => options.capabilityLabels[capability]),
-    ].join("\n").toLowerCase()
-    return haystack.includes(query)
+    const present = new Set(modelCapabilities(model))
+    return capabilities.every(capability => present.has(capability))
   })
 }
 
