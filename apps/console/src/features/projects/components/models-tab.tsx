@@ -22,7 +22,7 @@ export function ModelsTab({ projectId }: { projectId: string }) {
               <Link to={`${secretsHref}&secret=${encodeURIComponent(mutation.data)}`}>{t("models.viewKey")}</Link>
             </Button>
           ) : (
-            <Button type="button" disabled={mutation.isPending} aria-busy={mutation.isPending} onClick={create}>
+            <Button type="button" disabled={mutation.isPending} aria-busy={mutation.isPending} onClick={() => create()}>
               {mutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />}
               {t("models.create")}
             </Button>
