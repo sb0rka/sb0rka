@@ -72,8 +72,9 @@ export function ModelsTab({ projectId }: { projectId: string }) {
                 isLoading={query.isPending}
                 isError={query.isError && !query.data}
                 onRetry={() => { void query.refetch() }}
-                selectedIds={effectiveSelectedIds}
-                onSelectedIdsChange={setSelectedIds}
+                selection={{ selectedIds: effectiveSelectedIds, onChange: setSelectedIds }}
+                filterable
+                layout="fill"
               />
             </CardContent>
           </Card>

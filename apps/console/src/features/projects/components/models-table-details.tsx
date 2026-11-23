@@ -142,7 +142,15 @@ function SpecIdentity({ model }: { model: LLMModel }) {
   )
 }
 
-export function DatasheetDetails({ model, detailsId }: { model: LLMModel; detailsId?: string }) {
+export function DatasheetDetails({
+  model,
+  detailsId,
+  hasLeadingColumn = true,
+}: {
+  model: LLMModel
+  detailsId?: string
+  hasLeadingColumn?: boolean
+}) {
   const { t } = useTranslation()
   const context = model.specifications?.limit?.context
   const output = model.specifications?.limit?.output
@@ -150,7 +158,10 @@ export function DatasheetDetails({ model, detailsId }: { model: LLMModel; detail
   return (
     <div
       id={detailsId}
-      className="relative grid grid-cols-1 gap-x-8 gap-y-4 border-t border-border/50 bg-muted/25 px-4 py-4 before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-foreground/25 md:grid-cols-3 md:pl-[calc(2.5rem+0.75rem)] md:pr-[calc(2.5rem+0.75rem)]"
+      className={cn(
+        "relative grid grid-cols-1 gap-x-8 gap-y-4 border-t border-border/50 bg-muted/25 px-4 py-4 before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-foreground/25 md:grid-cols-3 md:pr-[calc(2.5rem+0.75rem)]",
+        hasLeadingColumn ? "md:pl-[calc(2.5rem+0.75rem)]" : "md:pl-3",
+      )}
     >
       <SpecIdentity model={model} />
       <section className="space-y-2.5 md:col-start-1">
