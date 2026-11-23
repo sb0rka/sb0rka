@@ -19,12 +19,17 @@ import { ModelsTable } from "./models-table"
 export function ModelsTab({ projectId }: { projectId: string }) {
   const { t } = useTranslation()
   const query = useQuery(activeModelsQuery)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  // null means the user has not touched the checkboxes yet, so every loaded model stays selected.
+  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const models = useMemo(() => query.data?.models ?? [], [query.data])
+  const effectiveSelectedIds = useMemo(() => {
+    if (selectedIds !== null) return selectedIds
+    return new Set(models.map((model) => model.id))
+  }, [models, selectedIds])
   const selectedModels = useMemo(
-    () => models.filter((model) => selectedIds.has(model.id)),
-    [models, selectedIds],
+    () => models.filter((model) => effectiveSelectedIds.has(model.id)),
+    [models, effectiveSelectedIds],
   )
   const canCreate = selectedModels.length > 0
   const createLabel = canCreate
@@ -70,7 +75,7 @@ export function ModelsTab({ projectId }: { projectId: string }) {
                 isLoading={query.isPending}
                 isError={query.isError && !query.data}
                 onRetry={() => { void query.refetch() }}
-                selectedIds={selectedIds}
+                selectedIds={effectiveSelectedIds}
                 onSelectedIdsChange={setSelectedIds}
               />
             </CardContent>
@@ -84,7 +89,7 @@ export function ModelsTab({ projectId }: { projectId: string }) {
         models={selectedModels}
         onRemoveModel={(id) => {
           setSelectedIds((current) => {
-            const next = new Set(current)
+            const next = new Set(current ?? models.map((model) => model.id))
             next.delete(id)
             return next
           })
