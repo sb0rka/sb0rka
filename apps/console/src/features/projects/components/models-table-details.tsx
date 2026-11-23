@@ -1,70 +1,30 @@
-import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowRight, Check, Copy } from "lucide-react"
-import { Button, cn, useToast } from "@sb0rka/ui"
+import { ArrowRight } from "lucide-react"
+import { cn } from "@sb0rka/ui"
 import type { LLMModel } from "../api"
 import {
   cachedInputDiscountPercent,
+  formatExactModelPrice,
   formatModelPrice,
   formatTokenCount,
   modelCurrency,
   modelDescription,
+  modelPriceAmount,
 } from "../models-utils"
 
 const SPEC_LABEL = "text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
 const PILL = "inline-flex items-center rounded-md border border-border bg-background px-1.5 py-0.5 text-xs text-foreground"
 const CHIP = "inline-flex items-center rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px] leading-4 text-foreground"
 
-function CopySlugChip({ slug }: { slug: string }) {
-  const { t } = useTranslation()
-  const { showSuccess, showError } = useToast()
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    setCopied(false)
-  }, [slug])
-
-  useEffect(() => {
-    if (!copied) return
-    const timer = window.setTimeout(() => setCopied(false), 1500)
-    return () => window.clearTimeout(timer)
-  }, [copied])
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(slug)
-      setCopied(true)
-      showSuccess(t("common.messages.copied"))
-    } catch {
-      showError(t("common.messages.copyFailed"))
-    }
-  }
-
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-center rounded-md border border-border bg-background pl-2">
-      <code className="min-w-0 truncate font-mono text-xs text-foreground">{slug}</code>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="shrink-0"
-        aria-label={copied ? t("models.specs.slugCopied") : t("models.specs.copySlug")}
-        onClick={() => void copy()}
-      >
-        {copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
-      </Button>
-    </span>
-  )
-}
-
 function LimitFigure({ label, value }: { label: string; value: number | undefined }) {
   const { t } = useTranslation()
+  const formatted = formatTokenCount(value)
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold tabular-nums text-foreground">
-        {formatTokenCount(value) ?? t("common.notAvailable")}
-      </span>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn("tabular-nums", formatted ? "font-medium text-foreground" : "text-muted-foreground")}>
+        {formatted ?? t("common.notAvailable")}
+      </dd>
     </div>
   )
 }
@@ -73,6 +33,7 @@ function PricingLedger({ model }: { model: LLMModel }) {
   const { t, i18n } = useTranslation()
   const currency = modelCurrency(i18n.language)
   const discount = cachedInputDiscountPercent(model, currency)
+  const requestFeeAmount = modelPriceAmount(model, "request_fee", currency)
   const rows = [
     ["input", model.pricing?.input_per_1m],
     ["output", model.pricing?.output_per_1m],
@@ -84,16 +45,24 @@ function PricingLedger({ model }: { model: LLMModel }) {
     <dl className="space-y-1.5">
       {rows.map(([key, amounts]) => {
         const value = formatModelPrice(amounts, currency)
+        const exact = formatExactModelPrice(amounts, currency)
+        const mutedZero = key === "requestFee" && requestFeeAmount === 0
         return (
           <div key={key} className="flex items-baseline justify-between gap-3 text-sm">
             <dt className="text-muted-foreground">{t(`models.specs.${key}`)}</dt>
-            <dd className={cn("flex items-baseline gap-1.5 tabular-nums", value ? "text-foreground" : "text-muted-foreground")}>
+            <dd
+              title={exact && value && exact !== value ? exact : undefined}
+              className={cn(
+                "flex items-center gap-1.5 tabular-nums",
+                value && !mutedZero ? "font-medium text-foreground" : "text-muted-foreground",
+              )}
+            >
               {key === "cachedInput" && discount != null ? (
-                <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+                <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium leading-none tabular-nums text-foreground/80">
                   {t("models.specs.cacheOff", { percent: discount })}
                 </span>
               ) : null}
-              {value ?? t("common.notAvailable")}
+              <span>{value ?? t("common.notAvailable")}</span>
             </dd>
           </div>
         )
@@ -166,7 +135,11 @@ function SpecIdentity({ model }: { model: LLMModel }) {
   const { i18n } = useTranslation()
   const description = modelDescription(model, i18n.language)
   if (!description) return null
-  return <p className="text-sm leading-5 text-muted-foreground md:col-span-3">{description}</p>
+  return (
+    <p className="border-b border-border/50 pb-3 text-sm leading-5 text-muted-foreground md:col-span-3">
+      {description}
+    </p>
+  )
 }
 
 export function DatasheetDetails({ model, detailsId }: { model: LLMModel; detailsId?: string }) {
@@ -175,33 +148,37 @@ export function DatasheetDetails({ model, detailsId }: { model: LLMModel; detail
   const output = model.specifications?.limit?.output
   const showIo = hasModalities(model) || hasReasoning(model)
   return (
-    <div id={detailsId} className="grid grid-cols-1 gap-x-8 gap-y-4 bg-muted/15 px-4 py-3 md:grid-cols-3 md:pl-[calc(2.5rem+1rem)]">
+    <div
+      id={detailsId}
+      className="relative grid grid-cols-1 gap-x-8 gap-y-4 border-t border-border/50 bg-muted/25 px-4 py-4 before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-foreground/25 md:grid-cols-3 md:pl-[calc(2.5rem+0.75rem)] md:pr-[calc(2.5rem+0.75rem)]"
+    >
       <SpecIdentity model={model} />
-      <section className="space-y-3 md:col-start-1">
-          <CopySlugChip slug={model.slug} />
-          <h3 className={SPEC_LABEL}>{t("models.specs.limits")}</h3>
+      <section className="space-y-2.5 md:col-start-1">
+        <h3 className={SPEC_LABEL}>{t("models.specs.limits")}</h3>
+        <dl className="space-y-1.5">
           <LimitFigure label={t("models.specs.context")} value={context} />
           <LimitFigure label={t("models.specs.maxOutput")} value={output} />
-        </section>
-        <section className="space-y-3">
-          <h3 className={SPEC_LABEL}>{t("models.specs.pricing")}</h3>
-          <PricingLedger model={model} />
-        </section>
-        <section className="space-y-4">
-          {hasModalities(model) ? (
-            <div className="space-y-2">
-              <h3 className={SPEC_LABEL}>{t("models.specs.modalities")}</h3>
-              <ModalityFlow model={model} />
-            </div>
-          ) : null}
-          {hasReasoning(model) ? (
-            <div className="space-y-2">
-              <h3 className={SPEC_LABEL}>{t("models.specs.reasoning")}</h3>
-              <ReasoningSpecs model={model} />
-            </div>
-          ) : null}
-          {showIo ? null : <p className="text-sm text-muted-foreground">{t("common.notAvailable")}</p>}
-        </section>
+        </dl>
+      </section>
+      <section className="space-y-2.5">
+        <h3 className={SPEC_LABEL}>{t("models.specs.pricing")}</h3>
+        <PricingLedger model={model} />
+      </section>
+      <section className="space-y-4">
+        {hasModalities(model) ? (
+          <div className="space-y-2.5">
+            <h3 className={SPEC_LABEL}>{t("models.specs.modalities")}</h3>
+            <ModalityFlow model={model} />
+          </div>
+        ) : null}
+        {hasReasoning(model) ? (
+          <div className="space-y-2.5">
+            <h3 className={SPEC_LABEL}>{t("models.specs.reasoning")}</h3>
+            <ReasoningSpecs model={model} />
+          </div>
+        ) : null}
+        {showIo ? null : <p className="text-sm text-muted-foreground">{t("common.notAvailable")}</p>}
+      </section>
     </div>
   )
 }

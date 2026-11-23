@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowDown, ArrowUp, ArrowUpDown, Brain, Check, ChevronDown, Image, Paperclip, Wrench, type LucideIcon } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Brain, Check, ChevronDown, Copy, Image, Paperclip, Wrench, type LucideIcon } from "lucide-react"
 import {
   Button,
   Checkbox,
@@ -14,12 +14,14 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  useToast,
 } from "@sb0rka/ui"
 import type { LLMModel } from "../api"
 import {
   MODEL_CAPABILITIES,
   defaultSortDirection,
   filterModels,
+  formatExactModelPrice,
   formatModelPrice,
   formatTokenCount,
   modelCapabilities,
@@ -33,8 +35,8 @@ import {
 import { DatasheetDetails } from "./models-table-details"
 
 const MODEL_TABLE_GRID =
-  "grid w-full items-stretch grid-cols-[2.5rem_minmax(16rem,2.4fr)_6.5rem_6rem_7rem_7rem_2.5rem]"
-const MODEL_TABLE_MIN_WIDTH = "min-w-[860px]"
+  "grid w-full items-stretch grid-cols-[2.5rem_minmax(16rem,2.4fr)_8.5rem_6.5rem_7.5rem_7.5rem_2.5rem]"
+const MODEL_TABLE_MIN_WIDTH = "min-w-[880px]"
 
 const CAPABILITY_ICONS: Record<ModelCapability, LucideIcon> = {
   reasoning: Brain,
@@ -92,7 +94,7 @@ function SortHeader({
         }
       }}
       className={cn(
-        "flex h-12 min-w-0 cursor-pointer items-center gap-1 px-3 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        "group/sort flex h-12 min-w-0 cursor-pointer items-center gap-1 px-3 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
         align === "end" && "justify-end text-right",
         active && "text-foreground",
       )}
@@ -104,7 +106,12 @@ function SortHeader({
         ) : (
           <ArrowDown className="size-3.5 shrink-0" aria-hidden />
         )
-      ) : null}
+      ) : (
+        <ArrowUpDown
+          className="size-3.5 shrink-0 opacity-35 transition-opacity group-hover/sort:opacity-80"
+          aria-hidden
+        />
+      )}
     </div>
   )
 }
@@ -112,12 +119,51 @@ function SortHeader({
 function CapabilityIcons({
   model,
   labels,
+  layout = "inline",
 }: {
   model: LLMModel
   labels: Record<ModelCapability, string>
+  layout?: "inline" | "grid"
 }) {
   const { t } = useTranslation()
   const capabilities = modelCapabilities(model)
+
+  if (layout === "grid") {
+    const present = new Set(capabilities)
+    return (
+      <div
+        className="grid w-[5.5rem] grid-cols-4 items-center gap-1"
+        aria-label={capabilities.length === 0 ? t("common.notAvailable") : undefined}
+      >
+        {MODEL_CAPABILITIES.map((capability) => {
+          if (!present.has(capability)) {
+            return (
+              <span key={capability} className="flex size-5 items-center justify-center" aria-hidden>
+                <span className="size-1 rounded-full bg-border" />
+              </span>
+            )
+          }
+          const Icon = CAPABILITY_ICONS[capability]
+          const label = labels[capability]
+          return (
+            <Tooltip key={capability}>
+              <TooltipTrigger asChild>
+                <span
+                  tabIndex={0}
+                  aria-label={label}
+                  className="flex size-5 items-center justify-center rounded-sm text-muted-foreground/80 outline-none transition-colors group-hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <Icon className="size-4" aria-hidden />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </div>
+    )
+  }
+
   if (capabilities.length === 0) {
     return <span className="text-sm text-muted-foreground">{t("common.notAvailable")}</span>
   }
@@ -141,6 +187,75 @@ function CapabilityIcons({
           </Tooltip>
         )
       })}
+    </div>
+  )
+}
+
+function CopySlugButton({ slug }: { slug: string }) {
+  const { t } = useTranslation()
+  const { showSuccess, showError } = useToast()
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    setCopied(false)
+  }, [slug])
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 1500)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(slug)
+      setCopied(true)
+      showSuccess(t("common.messages.copied"))
+    } catch {
+      showError(t("common.messages.copyFailed"))
+    }
+  }
+
+  const label = copied ? t("models.specs.slugCopied") : t("models.specs.copySlug")
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="size-5 shrink-0 text-muted-foreground/70 hover:text-foreground"
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        event.stopPropagation()
+        void copy()
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      {copied ? <Check className="size-3" aria-hidden /> : <Copy className="size-3" aria-hidden />}
+    </Button>
+  )
+}
+
+function ModelIdentity({ model, name }: { model: LLMModel; name: string }) {
+  const showSlug = Boolean(model.slug) && name !== model.slug
+  if (!showSlug) {
+    return (
+      <div className="flex min-w-0 items-center gap-1">
+        <p className="truncate font-mono text-sm font-medium leading-snug text-foreground">{name}</p>
+        {model.slug ? <CopySlugButton slug={model.slug} /> : null}
+      </div>
+    )
+  }
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-sm font-medium leading-snug text-foreground">{name}</p>
+      <div className="mt-0.5 flex min-w-0 items-center gap-1">
+        <code className="truncate font-mono text-xs leading-tight text-muted-foreground">
+          {model.slug}
+        </code>
+        <CopySlugButton slug={model.slug} />
+      </div>
     </div>
   )
 }
@@ -393,7 +508,7 @@ export function ModelsTable({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                        <ModelIdentity model={model} name={name} />
                         <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                           {formatTokenCount(model.specifications?.limit?.context) ?? t("common.notAvailable")}
                           {" · "}
@@ -473,6 +588,10 @@ export function ModelsTable({
                 sorted.map((model) => {
                   const expanded = expandedId === model.id
                   const name = modelDisplayName(model)
+                  const inputPrice = formatModelPrice(model.pricing?.input_per_1m, currency)
+                  const exactInputPrice = formatExactModelPrice(model.pricing?.input_per_1m, currency)
+                  const outputPrice = formatModelPrice(model.pricing?.output_per_1m, currency)
+                  const exactOutputPrice = formatExactModelPrice(model.pricing?.output_per_1m, currency)
                   const detailsId = `model-details-desktop-${model.id}`
                   return (
                     <div key={model.id} className="border-b border-border">
@@ -495,20 +614,26 @@ export function ModelsTable({
                             onCheckedChange={(value) => setModelSelected(model.id, value === true)}
                           />
                         </div>
-                        <div className="flex min-w-0 items-center px-3 py-3">
-                          <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                        <div className="flex min-w-0 flex-col justify-center px-3 py-3">
+                          <ModelIdentity model={model} name={name} />
                         </div>
                         <div className="flex min-w-0 items-center px-3 py-3">
-                          <CapabilityIcons model={model} labels={labels} />
+                          <CapabilityIcons model={model} labels={labels} layout="grid" />
                         </div>
                         <div className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground">
                           {formatTokenCount(model.specifications?.limit?.context) ?? t("common.notAvailable")}
                         </div>
-                        <div className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground">
-                          {formatModelPrice(model.pricing?.input_per_1m, currency) ?? t("common.notAvailable")}
+                        <div
+                          title={exactInputPrice && inputPrice && exactInputPrice !== inputPrice ? exactInputPrice : undefined}
+                          className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground"
+                        >
+                          {inputPrice ?? t("common.notAvailable")}
                         </div>
-                        <div className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground">
-                          {formatModelPrice(model.pricing?.output_per_1m, currency) ?? t("common.notAvailable")}
+                        <div
+                          title={exactOutputPrice && outputPrice && exactOutputPrice !== outputPrice ? exactOutputPrice : undefined}
+                          className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground"
+                        >
+                          {outputPrice ?? t("common.notAvailable")}
                         </div>
                         <div className="flex items-center justify-center">
                           <ExpandControl

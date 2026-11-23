@@ -73,7 +73,15 @@ function trimScaled(value: number): string {
   return value.toFixed(1).replace(/\.0$/, "")
 }
 
-function formatRawAmount(raw: string | undefined): string | null {
+function groupWhole(whole: string): string {
+  return whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f")
+}
+
+function currencyDecimalSeparator(currency: ModelCurrency): string {
+  return currency === "RUB" ? "," : "."
+}
+
+function formatRawAmount(raw: string | undefined, decimalSeparator: string): string | null {
   if (typeof raw !== "string" || raw.trim() === "") return null
   const trimmed = raw.trim()
   const match = trimmed.match(/^(-?)(\d+)(?:\.(\d+))?$/)
@@ -85,9 +93,37 @@ function formatRawAmount(raw: string | undefined): string | null {
   const sign = match[1] === "-" ? "−" : ""
   const whole = match[2].replace(/^0+(?=\d)/, "")
   const fraction = (match[3] ?? "").replace(/0+$/, "")
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f")
+  const grouped = groupWhole(whole)
   if (!fraction) return `${sign}${grouped}`
-  return `${sign}${grouped}.${fraction}`
+  return `${sign}${grouped}${decimalSeparator}${fraction}`
+}
+
+function formatDisplayAmount(raw: string | undefined, decimalSeparator: string): string | null {
+  if (typeof raw !== "string" || raw.trim() === "") return null
+  const value = Number(raw.trim())
+  if (!Number.isFinite(value)) return null
+  if (value === 0) return "0"
+  const sign = value < 0 ? "−" : ""
+  const abs = Math.abs(value)
+  if (Number.isInteger(abs)) return `${sign}${groupWhole(abs.toString())}`
+  if (abs >= 0.01) {
+    const [whole, fraction] = abs.toFixed(2).split(".")
+    return `${sign}${groupWhole(whole)}${decimalSeparator}${fraction}`
+  }
+  const small = abs.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")
+  if (Number(small) > 0) {
+    const [whole, fraction] = small.split(".")
+    return fraction ? `${sign}${groupWhole(whole)}${decimalSeparator}${fraction}` : `${sign}${groupWhole(whole)}`
+  }
+  return formatRawAmount(raw, decimalSeparator)
+}
+
+function withCurrencySign(text: string, currency: ModelCurrency): string {
+  if (currency === "USD") {
+    if (text.startsWith("−")) return `−$${text.slice(1)}`
+    return `$${text}`
+  }
+  return `${text}\u00a0₽`
 }
 
 export function modelPriceAmount(
@@ -117,13 +153,18 @@ export function formatModelPrice(
   amounts: LLMMoneyAmounts | undefined,
   currency: ModelCurrency,
 ): string | null {
-  const text = formatRawAmount(amounts?.[currency])
+  const text = formatDisplayAmount(amounts?.[currency], currencyDecimalSeparator(currency))
   if (!text) return null
-  if (currency === "USD") {
-    if (text.startsWith("−")) return `−$${text.slice(1)}`
-    return `$${text}`
-  }
-  return `${text}\u00a0₽`
+  return withCurrencySign(text, currency)
+}
+
+export function formatExactModelPrice(
+  amounts: LLMMoneyAmounts | undefined,
+  currency: ModelCurrency,
+): string | null {
+  const text = formatRawAmount(amounts?.[currency], currencyDecimalSeparator(currency))
+  if (!text) return null
+  return withCurrencySign(text, currency)
 }
 
 export function filterModels(
