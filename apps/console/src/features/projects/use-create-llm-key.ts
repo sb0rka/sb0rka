@@ -14,9 +14,21 @@ interface KeyOptions {
   onReady?: (id: string) => void
 }
 
-function randomKeyName() {
+export interface CreateLlmKeyOptions {
+  name?: string
+  description?: string
+  modelIds?: string[]
+}
+
+export function suggestLlmKeyName() {
   const bytes = crypto.getRandomValues(new Uint8Array(6))
   return "LLM_KEY_" + Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("")
+}
+
+function sameIds(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+  const known = new Set(right)
+  return left.every(id => known.has(id))
 }
 
 export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady }: KeyOptions) {
@@ -25,7 +37,7 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
   const client = useQueryClient()
   const mounted = useRef(false)
   const running = useRef(false)
-  const [keyName] = useState(() => name ?? randomKeyName())
+  const [keyName] = useState(() => name ?? suggestLlmKeyName())
   const [step, setStep] = useState<"discovering" | "generating" | "connecting">("discovering")
   useLayoutEffect(() => {
     mounted.current = true
@@ -34,8 +46,11 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
 
   const mutation = useMutation({
     retry: false,
-    mutationFn: async (requestedName: string) => {
-      const keyName = requestedName
+    mutationFn: async (input: CreateLlmKeyOptions) => {
+      const keyName = input.name?.trim() || ""
+      if (!keyName) throw new Error(t("models.error"))
+      const description = input.description?.trim() || t("models.secretDescription")
+      const explicitIds = input.modelIds
       const generation = getAuthGeneration()
       function checkSession() {
         if (!mounted.current || generation !== getAuthGeneration()) throw new Error(t("models.interrupted"))
@@ -44,6 +59,13 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
       const { models } = await client.fetchQuery({ ...activeModelsQuery, staleTime: 0, retry: false })
       checkSession()
       if (!models.length) throw new Error(t("models.noActiveModels"))
+      const activeIds = new Set(models.map(model => model.id))
+      // Quick start omits modelIds and keeps binding every active model.
+      // The models tab passes the user's selection and must not widen it.
+      const targetIds = explicitIds
+        ? [...new Set(explicitIds)].filter(id => activeIds.has(id))
+        : [...activeIds]
+      if (!targetIds.length) throw new Error(t("models.selectionUnavailable"))
 
       async function findCreatedKey() {
         const { secrets } = await listSecrets(projectId)
@@ -65,7 +87,7 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
         try {
           const created = await createSecret(projectId, {
             name: keyName,
-            description: t("models.secretDescription"),
+            description,
             purpose: "llm_key",
             payload_kind: "text",
             secret_value: "",
@@ -88,9 +110,12 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
       setStep("connecting")
       const bound = newlyCreated ? [] : (await getSecretModels(projectId, id)).models
       checkSession()
-      const activeIds = new Set(models.map(model => model.id))
-      if (!bound.some(model => activeIds.has(model.id))) {
-        await setSecretModels(projectId, id, [...activeIds])
+      const boundIds = bound.map(model => model.id)
+      const shouldBind = explicitIds
+        ? !sameIds(targetIds, boundIds)
+        : !bound.some(model => activeIds.has(model.id))
+      if (shouldBind) {
+        await setSecretModels(projectId, id, targetIds)
         checkSession()
       }
       return id
@@ -99,11 +124,24 @@ export function useCreateLlmKey({ projectId, name, secretId, onCreated, onReady 
     onSettled: () => { running.current = false },
   })
 
-  function create(requestedName?: string) {
+  function create(requested?: string | CreateLlmKeyOptions) {
     if (running.current || mutation.isSuccess) return
-    const chosen = typeof requestedName === "string" && requestedName.trim() ? requestedName.trim() : keyName
+    const input: CreateLlmKeyOptions = typeof requested === "string" || requested == null
+      ? { name: typeof requested === "string" && requested.trim() ? requested.trim() : keyName }
+      : {
+          name: requested.name?.trim() || keyName,
+          description: requested.description,
+          modelIds: requested.modelIds,
+        }
     running.current = true
-    mutation.mutate(chosen)
+    mutation.mutate(input)
   }
-  return { mutation, step, create }
+
+  function reset() {
+    if (running.current) return
+    setStep("discovering")
+    mutation.reset()
+  }
+
+  return { mutation, step, create, reset }
 }

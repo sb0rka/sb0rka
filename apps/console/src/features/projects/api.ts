@@ -1812,22 +1812,158 @@ export async function createSecret(
   })
 }
 
+export interface LLMMoneyAmounts {
+  RUB?: string
+  USD?: string
+}
+
+export interface LLMModelPricing {
+  input_per_1m?: LLMMoneyAmounts
+  output_per_1m?: LLMMoneyAmounts
+  cached_input_per_1m?: LLMMoneyAmounts
+  request_fee?: LLMMoneyAmounts
+}
+
+export interface LLMModelReasoningOption {
+  type: string
+  values: string[]
+}
+
+export interface LLMModelSpecifications {
+  limit?: { context?: number; output?: number }
+  modalities?: { input?: string[]; output?: string[] }
+  attachment?: boolean
+  temperature?: boolean
+  tool_call?: boolean
+  reasoning?: boolean
+  reasoning_options?: LLMModelReasoningOption[]
+}
+
 export interface LLMModel {
   id: string
   slug: string
-  specifications?: { modalities?: { input: string[]; output: string[] } }
+  name?: string
+  description_en?: string | null
+  description_ru?: string | null
+  pricing?: LLMModelPricing
+  specifications?: LLMModelSpecifications
+  created_at?: string
+  updated_at?: string
 }
 
 export interface LLMModelListResponse {
   models: LLMModel[]
 }
 
-export function listActiveModels(): Promise<LLMModelListResponse> {
-  return apiRequest<LLMModelListResponse>({
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function parseMoney(value: unknown): LLMMoneyAmounts | undefined {
+  if (!isRecord(value)) return undefined
+  const amounts: LLMMoneyAmounts = {}
+  if (typeof value.RUB === "string" && value.RUB.trim()) amounts.RUB = value.RUB.trim()
+  if (typeof value.USD === "string" && value.USD.trim()) amounts.USD = value.USD.trim()
+  return amounts.RUB || amounts.USD ? amounts : undefined
+}
+
+function parseStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return value.filter((item): item is string => typeof item === "string" && item.trim() !== "")
+}
+
+function parseOptionalText(value: unknown): string | null | undefined {
+  if (value === null) return null
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function parsePricing(value: unknown): LLMModelPricing | undefined {
+  if (!isRecord(value)) return undefined
+  const pricing: LLMModelPricing = {}
+  const fields = ["input_per_1m", "output_per_1m", "cached_input_per_1m", "request_fee"] as const
+  for (const field of fields) {
+    const money = parseMoney(value[field])
+    if (money) pricing[field] = money
+  }
+  return Object.keys(pricing).length ? pricing : undefined
+}
+
+function parseSpecifications(value: unknown): LLMModelSpecifications | undefined {
+  if (!isRecord(value)) return undefined
+  const specs: LLMModelSpecifications = {}
+  if (isRecord(value.limit)) {
+    const limit: { context?: number; output?: number } = {}
+    if (typeof value.limit.context === "number" && Number.isFinite(value.limit.context)) {
+      limit.context = value.limit.context
+    }
+    if (typeof value.limit.output === "number" && Number.isFinite(value.limit.output)) {
+      limit.output = value.limit.output
+    }
+    if (limit.context != null || limit.output != null) specs.limit = limit
+  }
+  if (isRecord(value.modalities)) {
+    const input = parseStringList(value.modalities.input)
+    const output = parseStringList(value.modalities.output)
+    if (input || output) specs.modalities = { input, output }
+  }
+  const flags = ["attachment", "temperature", "tool_call", "reasoning"] as const
+  for (const flag of flags) {
+    if (typeof value[flag] === "boolean") specs[flag] = value[flag]
+  }
+  if (Array.isArray(value.reasoning_options)) {
+    const options: LLMModelReasoningOption[] = []
+    for (const option of value.reasoning_options) {
+      if (!isRecord(option) || typeof option.type !== "string" || !option.type.trim()) continue
+      const values = parseStringList(option.values)
+      if (!values?.length) continue
+      options.push({ type: option.type.trim(), values })
+    }
+    if (options.length) specs.reasoning_options = options
+  }
+  return Object.keys(specs).length ? specs : undefined
+}
+
+function parseCatalogModel(value: unknown): LLMModel | undefined {
+  if (!isRecord(value)) return undefined
+  if (typeof value.id !== "string" || !value.id.trim()) return undefined
+  if (typeof value.slug !== "string" || !value.slug.trim()) return undefined
+  const model: LLMModel = { id: value.id.trim(), slug: value.slug.trim() }
+  if (typeof value.name === "string" && value.name.trim()) model.name = value.name.trim()
+  const descriptionEn = parseOptionalText(value.description_en)
+  const descriptionRu = parseOptionalText(value.description_ru)
+  if (descriptionEn !== undefined) model.description_en = descriptionEn
+  if (descriptionRu !== undefined) model.description_ru = descriptionRu
+  const pricing = parsePricing(value.pricing)
+  const specifications = parseSpecifications(value.specifications)
+  if (pricing) model.pricing = pricing
+  if (specifications) model.specifications = specifications
+  if (typeof value.created_at === "string" && value.created_at.trim()) model.created_at = value.created_at
+  if (typeof value.updated_at === "string" && value.updated_at.trim()) model.updated_at = value.updated_at
+  return model
+}
+
+function parseActiveModelsResponse(payload: unknown): LLMModelListResponse {
+  if (!isRecord(payload) || !Array.isArray(payload.models)) {
+    throw new Error("Invalid LLM models response")
+  }
+  // A single malformed catalog entry should not hide the models that parsed.
+  const models: LLMModel[] = []
+  for (const item of payload.models) {
+    const model = parseCatalogModel(item)
+    if (model) models.push(model)
+  }
+  return { models }
+}
+
+export async function listActiveModels(): Promise<LLMModelListResponse> {
+  const payload = await apiRequest<unknown>({
     path: "/llm/models",
     base: "resource",
     auth: false,
   })
+  return parseActiveModelsResponse(payload)
 }
 
 export const activeModelsQuery = {

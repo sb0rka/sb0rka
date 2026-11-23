@@ -1,4 +1,4 @@
-import { Building, DoorClosedCog, Send, Settings, Users } from "lucide-react"
+import { Building, DoorClosedLocked, Send, Settings, Users } from "lucide-react"
 import { useMatch, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useOrganization } from "./hooks"
@@ -6,7 +6,7 @@ import { organizationRoute, organizationsRoute } from "./routes"
 
 export const organizationSections = {
   members: { icon: Users, labelKey: "organizations.tabs.members" },
-  access: { icon: DoorClosedCog, labelKey: "organizations.tabs.access" },
+  access: { icon: DoorClosedLocked, labelKey: "organizations.tabs.access" },
   invitations: { icon: Send, labelKey: "organizations.tabs.invitations" },
   settings: { icon: Settings, labelKey: "organizations.tabs.settings" },
 } as const

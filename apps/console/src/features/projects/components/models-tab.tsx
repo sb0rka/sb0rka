@@ -1,41 +1,95 @@
-import { Link } from "react-router-dom"
+import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { Loader2 } from "lucide-react"
-import { Button, TabsContent } from "@sb0rka/ui"
+import {
+  Button,
+  Card,
+  CardContent,
+  cn,
+  TabsContent,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
-import { useCreateLlmKey } from "../use-create-llm-key"
+import { activeModelsQuery } from "../api"
+import { CreateLlmKeyDialog } from "./create-llm-key-dialog"
+import { ModelsTable } from "./models-table"
 
 export function ModelsTab({ projectId }: { projectId: string }) {
   const { t } = useTranslation()
-  const { mutation, step, create } = useCreateLlmKey({ projectId })
-  const secretsHref = `/projects/${projectId}?tab=secrets`
+  const query = useQuery(activeModelsQuery)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const models = useMemo(() => query.data?.models ?? [], [query.data])
+  const selectedModels = useMemo(
+    () => models.filter((model) => selectedIds.has(model.id)),
+    [models, selectedIds],
+  )
+  const canCreate = selectedModels.length > 0
+  const createLabel = canCreate
+    ? t("models.createWithCount", { count: selectedModels.length })
+    : t("models.create")
+
+  const createButton = (
+    <Button type="button" disabled={!canCreate} onClick={() => setDialogOpen(true)}>
+      {createLabel}
+    </Button>
+  )
 
   return (
-    <TabsContent value="models" className="data-[state=inactive]:hidden">
-      <PageStagger className="flex flex-col gap-6">
-        <SlideIn>
-          <h2 className="text-2xl font-semibold tracking-tight">{t("tabs.models")}</h2>
+    <TabsContent
+      value="models"
+      className={cn(
+        "flex flex-col gap-6 data-[state=inactive]:hidden",
+        "h-[calc(100dvh-11rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] min-h-0 overflow-hidden md:h-[calc(100dvh-7.25rem)]",
+      )}
+    >
+      <PageStagger className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden">
+        <SlideIn className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-2xl font-semibold tracking-tight">{t("tabs.models")}</h2>
+            <p className="text-sm text-muted-foreground">{t("models.description")}</p>
+          </div>
+          {canCreate ? createButton : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex self-start" tabIndex={0}>
+                  {createButton}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t("models.createDisabledHint")}</TooltipContent>
+            </Tooltip>
+          )}
         </SlideIn>
-        <SlideIn className="flex flex-col items-start gap-2">
-          {mutation.isSuccess ? (
-            <Button asChild>
-              <Link to={`${secretsHref}&secret=${encodeURIComponent(mutation.data)}`}>{t("models.viewKey")}</Link>
-            </Button>
-          ) : (
-            <Button type="button" disabled={mutation.isPending} aria-busy={mutation.isPending} onClick={() => create()}>
-              {mutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />}
-              {t("models.create")}
-            </Button>
-          )}
-          {mutation.isPending && <p role="status" className="text-sm text-muted-foreground">{t(`models.${step}`)}</p>}
-          {mutation.isError && (
-            <>
-              <p role="alert" className="text-sm text-destructive">{mutation.error.message || t("models.error")}</p>
-              <Link className="text-sm underline" to={secretsHref}>{t("models.openSecrets")}</Link>
-            </>
-          )}
+        <SlideIn className="flex h-0 min-h-0 flex-1 flex-col">
+          <Card className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden">
+            <CardContent className="flex h-0 min-h-0 flex-1 flex-col p-0">
+              <ModelsTable
+                models={models}
+                isLoading={query.isPending}
+                isError={query.isError && !query.data}
+                onRetry={() => { void query.refetch() }}
+                selectedIds={selectedIds}
+                onSelectedIdsChange={setSelectedIds}
+              />
+            </CardContent>
+          </Card>
         </SlideIn>
       </PageStagger>
+      <CreateLlmKeyDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        projectId={projectId}
+        models={selectedModels}
+        onRemoveModel={(id) => {
+          setSelectedIds((current) => {
+            const next = new Set(current)
+            next.delete(id)
+            return next
+          })
+        }}
+      />
     </TabsContent>
   )
 }
