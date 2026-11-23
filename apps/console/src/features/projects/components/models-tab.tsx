@@ -32,13 +32,10 @@ export function ModelsTab({ projectId }: { projectId: string }) {
     [models, effectiveSelectedIds],
   )
   const canCreate = selectedModels.length > 0
-  const createLabel = canCreate
-    ? t("models.createWithCount", { count: selectedModels.length })
-    : t("models.create")
 
   const createButton = (
     <Button type="button" disabled={!canCreate} onClick={() => setDialogOpen(true)}>
-      {createLabel}
+      {t("models.create")}
     </Button>
   )
 

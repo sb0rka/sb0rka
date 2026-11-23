@@ -615,7 +615,6 @@ const resources = {
       },
       models: {
         create: "Создать API-ключ",
-        createWithCount: "Создать API-ключ ({{count}})",
         createDisabledHint: "Выберите хотя бы одну модель",
         description: "Выберите модели и создайте API-ключ только для них.",
         secretDescription: "API-ключ для доступа к большим языковым моделям.",
@@ -1582,7 +1581,6 @@ const resources = {
       },
       models: {
         create: "Create API key",
-        createWithCount: "Create API key ({{count}})",
         createDisabledHint: "Select at least one model",
         description: "Choose the models this API key can call.",
         secretDescription: "API key for accessing large language models.",
