@@ -240,15 +240,20 @@ function DesktopScroller({
       </div>
     )
   }
+  // Radix ScrollArea's viewport is height:100% with an inner display:table, so a max-height
+  // becomes a fixed height and leaves an empty band under a short list.
+  if (layout === "auto" && maxHeightClassName) {
+    return (
+      <div ref={viewportRef} className={cn("overflow-auto", maxHeightClassName)}>
+        {body}
+      </div>
+    )
+  }
   return (
     <ScrollArea
       type="always"
       viewportRef={viewportRef}
-      className={cn(
-        layout === "fill" && "h-0 min-h-0 flex-1",
-        layout === "auto" && maxHeightClassName,
-        layout === "auto" && maxHeightClassName && "[&_[data-radix-scroll-area-viewport]]:max-h-[inherit]",
-      )}
+      className="h-0 min-h-0 flex-1"
     >
       {body}
       <ScrollBar orientation="horizontal" />

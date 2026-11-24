@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query"
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/features/auth/auth-provider"
 import {
@@ -25,6 +25,8 @@ import {
   runDatabaseQuery,
   deleteDatabase,
   getSecret,
+  getSecretModels,
+  setSecretModels,
   createSecret,
   updateSecretValue,
   revealSecretValue,
@@ -57,6 +59,8 @@ import type {
   DatabaseResponse,
   UpdateDatabaseRequest,
   SecretResponse,
+  LLMModel,
+  LLMModelListResponse,
   RevealSecretValueResponse,
   ProjectResourceListResponse,
   ObservabilityMetricPoint,
@@ -66,6 +70,11 @@ import type {
   UpdateSecretMetadataRequest,
 } from "./api"
 import { useToast } from "@sb0rka/ui"
+import {
+  formatKeyDigestPreview,
+  getCurrentLlmKeyDigest,
+  isLlmKeySecret,
+} from "./llm-keys-utils"
 
 const PROJECTS_KEY = ["projects"] as const
 const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000
@@ -607,6 +616,9 @@ export function useUpdateSecretValue(projectId: string) {
       updateSecretValue(projectId, resourceId, data),
     onSuccess: (_result, variables) => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+      qc.invalidateQueries({
+        queryKey: ["projects", projectId, "secrets", variables.resourceId],
+      })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
       qc.invalidateQueries({
         queryKey: [
@@ -705,8 +717,95 @@ export function useUpdateSecretMetadata(projectId: string, secretId: string) {
     mutationFn: (data: UpdateSecretMetadataRequest) => updateSecretMetadata(projectId, secretId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets", secretId] })
-    },  
+      qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
+    },
   })
+}
+
+export function useSecretModels(projectId: string, secretId?: string) {
+  const { isAuthenticated } = useAuth()
+
+  return useQuery<LLMModelListResponse>({
+    queryKey: ["projects", projectId, "secrets", secretId, "models"],
+    queryFn: () => getSecretModels(projectId, secretId as string),
+    enabled: isAuthenticated && !!projectId && !!secretId,
+  })
+}
+
+export function useSetSecretModels(projectId: string, secretId: string) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (models: string[]) => setSecretModels(projectId, secretId, models),
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["projects", projectId, "secrets", secretId, "models"],
+      })
+    },
+  })
+}
+
+export interface ProjectLlmKey {
+  id: string
+  name: string
+  description?: string
+  preview: string
+  models: LLMModel[]
+  modelsPending: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function useProjectLlmKeys(projectId: string) {
+  const { isAuthenticated } = useAuth()
+  const secretsQuery = useSecrets(projectId)
+  const secrets = secretsQuery.data?.secrets ?? []
+  // TODO: BACKEND_TODO: GET /projects/{id}/secrets does not include purpose or version digests.
+  // Each secret is loaded so LLM keys can be recognized by versions[].digest.
+  const detailQueries = useQueries({
+    queries: secrets.map((secret) => ({
+      queryKey: ["projects", projectId, "secrets", secret.public_id],
+      queryFn: () => getSecret(projectId, secret.public_id),
+      enabled: isAuthenticated && !!projectId,
+    })),
+  })
+  const llmSecrets = detailQueries
+    .map((query) => query.data)
+    .filter((secret): secret is SecretResponse => Boolean(secret && isLlmKeySecret(secret)))
+  const modelQueries = useQueries({
+    queries: llmSecrets.map((secret) => ({
+      queryKey: ["projects", projectId, "secrets", secret.public_id, "models"],
+      queryFn: () => getSecretModels(projectId, secret.public_id),
+      enabled: isAuthenticated && !!projectId,
+    })),
+  })
+  const keys = useMemo<ProjectLlmKey[]>(() => {
+    return llmSecrets
+      .map((secret, index) => ({
+        id: secret.public_id,
+        name: secret.name,
+        description: secret.description,
+        preview: formatKeyDigestPreview(getCurrentLlmKeyDigest(secret)),
+        models: modelQueries[index]?.data?.models ?? [],
+        modelsPending: modelQueries[index]?.isPending ?? false,
+        createdAt: secret.created_at,
+        updatedAt: secret.updated_at,
+      }))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  }, [llmSecrets, modelQueries])
+  const detailsPending = secrets.length > 0 && detailQueries.some((query) => query.isPending)
+  const isLoading = secretsQuery.isPending || detailsPending
+  const detailsFailed = detailQueries.some((query) => query.isError)
+
+  return {
+    keys,
+    isLoading,
+    isError: secretsQuery.isError || (!isLoading && keys.length === 0 && detailsFailed),
+    refetch: () => {
+      void secretsQuery.refetch()
+      for (const query of detailQueries) void query.refetch()
+    },
+  }
 }
 
 export function useProjectTableCount(projectId: string) {

@@ -168,6 +168,19 @@ function useMobileProjectHeader() {
       }
     }
 
+    if (activeTab === "models") {
+      const keyId = searchParams.get("key")?.trim()
+      const mode = searchParams.get("mode")
+      if (keyId || mode === "create") {
+        const selectedKey = secretsData?.secrets.find((secret) => secret.public_id === keyId)
+        return {
+          backHref: `/projects/${projectId}?tab=models`,
+          backLabel: t("tabs.models"),
+          title: keyId ? selectedKey?.name ?? keyId : t("models.keys.newTitle"),
+        }
+      }
+    }
+
     if (activeTab !== "overview") {
       const backTabByActiveTab: Partial<Record<ProjectTab, ProjectTab>> = {
         databases: "overview",

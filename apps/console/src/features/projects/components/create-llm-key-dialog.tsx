@@ -6,11 +6,9 @@ import { ArrowUpRight, Copy, Eye, EyeOff, KeyRound, Loader2, X } from "lucide-re
 import {
   Badge,
   Button,
-  Checkbox,
   cn,
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -19,7 +17,8 @@ import {
   useToast,
 } from "@sb0rka/ui"
 import { getGateway, revealSecretValue, type LLMModel } from "../api"
-import { chatCompletionsCurl, modelDisplayName, shellQuote } from "../models-utils"
+import { modelDisplayName } from "../models-utils"
+import { GatewayUrlField, LlmKeyQuickstart } from "./llm-key-usage"
 import { suggestLlmKeyName, useCreateLlmKey } from "../use-create-llm-key"
 import { TopUpButton } from "@/features/subscription/components/billing-actions"
 import { useAccountBalance } from "@/features/subscription/hooks"
@@ -29,58 +28,6 @@ import {
   formatMoneyWithSign,
 } from "@/features/subscription/quota-format"
 import { LlmKeyTestPanel } from "./llm-key-test-panel"
-
-const llmKeyEnv = "SB0RKA_LLM_KEY"
-const maskedExport = `export ${llmKeyEnv}='********************'`
-
-function exportCommand(value: string) {
-  return `export ${llmKeyEnv}=${shellQuote(value)}`
-}
-
-function CommandBlock({
-  text,
-  label,
-  dir,
-  getText,
-}: {
-  text: string
-  label: string
-  dir?: "ltr"
-  getText?: () => string | Promise<string>
-}) {
-  const { t } = useTranslation()
-  const { showSuccess, showError } = useToast()
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(await (getText?.() ?? text))
-      showSuccess(t("common.messages.copied"))
-    } catch {
-      showError(t("common.messages.copyFailed"))
-    }
-  }
-
-  return (
-    <div className="flex rounded-md bg-muted">
-      <pre className="min-w-0 flex-1 overflow-x-auto p-3 text-sm [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" dir={dir}>
-        <code>{text}</code>
-      </pre>
-      <div className="shrink-0 bg-muted p-1.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-8 shrink-0 bg-muted"
-          aria-label={label}
-          title={label}
-          onClick={() => void copy()}
-        >
-          <Copy className="size-4" aria-hidden />
-        </Button>
-      </div>
-    </div>
-  )
-}
 
 function KeyReadyBalance() {
   const { t, i18n } = useTranslation()
@@ -134,6 +81,7 @@ interface CreateLlmKeyDialogProps {
   projectId: string
   models: LLMModel[]
   onRemoveModel: (id: string) => void
+  onDone?: (secretId: string) => void
 }
 
 export function CreateLlmKeyDialog({
@@ -142,6 +90,7 @@ export function CreateLlmKeyDialog({
   projectId,
   models,
   onRemoveModel,
+  onDone,
 }: CreateLlmKeyDialogProps) {
   const { t } = useTranslation()
   const { showSuccess, showError } = useToast()
@@ -150,12 +99,11 @@ export function CreateLlmKeyDialog({
   const wasOpen = useRef(open)
   const [name, setName] = useState(suggestLlmKeyName)
   const [description, setDescription] = useState("")
-  const [tagModels, setTagModels] = useState(false)
   const [visible, setVisible] = useState(false)
   const [secretValue, setSecretValue] = useState<string | null>(null)
   const [revealFailed, setRevealFailed] = useState(false)
   const [selectedTestModelId, setSelectedTestModelId] = useState<string | null>(null)
-  const { mutation, step, tagNotice, create, reset } = useCreateLlmKey({ projectId })
+  const { mutation, step, create, reset } = useCreateLlmKey({ projectId })
   const ready = mutation.isSuccess && typeof mutation.data === "string"
   const secretId = ready ? mutation.data : null
   const gateway = useQuery({
@@ -180,7 +128,6 @@ export function CreateLlmKeyDialog({
     cachedSecretRef.current = null
     setName(suggestLlmKeyName())
     setDescription("")
-    setTagModels(false)
     setVisible(false)
     setSecretValue(null)
     setRevealFailed(false)
@@ -214,7 +161,6 @@ export function CreateLlmKeyDialog({
       name: requested,
       description: description.trim() || undefined,
       modelIds: models.map((model) => model.id),
-      tagModels,
     })
   }
 
@@ -223,26 +169,26 @@ export function CreateLlmKeyDialog({
   const activeModel =
     testableModels.find((model) => model.id === selectedTestModelId) ?? testableModels[0]
   const baseUrl = gateway.data?.base_url
-  const command = baseUrl && activeModel
-    ? chatCompletionsCurl(baseUrl, activeModel.slug, t("models.samplePrompt"))
-    : null
-  const shownSecret = visible ? secretValue : null
-  const exportText = shownSecret ? exportCommand(shownSecret) : maskedExport
-  const secretsHref = secretId
-    ? `/projects/${projectId}?tab=secrets&secret=${encodeURIComponent(secretId)}`
-    : `/projects/${projectId}?tab=secrets`
+  const keyHref = secretId
+    ? `/projects/${projectId}?tab=models&key=${encodeURIComponent(secretId)}`
+    : `/projects/${projectId}?tab=models`
+
+  function finish() {
+    if (secretId) onDone?.(secretId)
+    handleOpenChange(false)
+  }
 
   async function resolveApiKey(): Promise<string> {
-    if (!secretId) throw new Error(t("secrets.revealError"))
+    if (!secretId) throw new Error(t("models.keys.revealError"))
     const cached = secretValue ?? cachedSecretRef.current
     if (cached) return cached
     let revealed: { value: string }
     try {
       revealed = await revealSecretValue(projectId, secretId)
     } catch {
-      throw new Error(t("secrets.revealError"))
+      throw new Error(t("models.keys.revealError"))
     }
-    if (!revealed.value) throw new Error(t("secrets.revealError"))
+    if (!revealed.value) throw new Error(t("models.keys.revealError"))
     cachedSecretRef.current = revealed.value
     return revealed.value
   }
@@ -282,7 +228,7 @@ export function CreateLlmKeyDialog({
         value = (await revealSecretValue(projectId, secretId)).value
         if (value) cachedSecretRef.current = value
       } catch {
-        showError(t("secrets.revealError"))
+        showError(t("models.keys.revealError"))
         return
       }
     }
@@ -305,7 +251,6 @@ export function CreateLlmKeyDialog({
                 <DialogTitle className="min-w-0">{t("models.dialog.readyTitle")}</DialogTitle>
                 <KeyReadyBalance />
               </div>
-              <DialogDescription>{t("models.dialog.readyDescription")}</DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
               <div className="grid gap-8 md:grid-cols-2 md:items-start md:gap-10">
@@ -313,7 +258,7 @@ export function CreateLlmKeyDialog({
                   <section className="space-y-3">
                     <h3 className="flex items-center gap-2 font-semibold">
                       <KeyRound className="size-4 shrink-0" aria-hidden />
-                      {t("quickStart.apiKeySecret")}
+                      {t("models.dialog.apiKey")}
                     </h3>
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                       {name.trim() ? (
@@ -321,9 +266,22 @@ export function CreateLlmKeyDialog({
                       ) : null}
                       <Link
                         className="ml-auto inline-flex shrink-0 items-center gap-1 text-sm underline-offset-4 hover:underline"
-                        to={secretsHref}
+                        to={keyHref}
+                        onClick={(event) => {
+                          if (
+                            event.metaKey ||
+                            event.ctrlKey ||
+                            event.shiftKey ||
+                            event.altKey ||
+                            event.button !== 0
+                          ) {
+                            return
+                          }
+                          event.preventDefault()
+                          if (secretId) onDone?.(secretId)
+                        }}
                       >
-                        {t("quickStart.openSecret")}
+                        {t("models.dialog.openKey")}
                         <ArrowUpRight className="size-3.5" aria-hidden />
                       </Link>
                     </div>
@@ -362,44 +320,15 @@ export function CreateLlmKeyDialog({
                       </Button>
                     </div>
                     {revealFailed ? (
-                      <p role="alert" className="text-sm text-destructive">{t("secrets.revealError")}</p>
-                    ) : null}
-                    {tagNotice?.failed ? (
-                      <p role="alert" className="text-sm text-destructive">{t("models.dialog.tagsFailed")}</p>
-                    ) : null}
-                    {tagNotice && tagNotice.skipped.length > 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {t("models.dialog.tagsSkipped", { names: tagNotice.skipped.join(", ") })}
-                      </p>
+                      <p role="alert" className="text-sm text-destructive">{t("models.keys.revealError")}</p>
                     ) : null}
                   </section>
-                  <section className="space-y-3">
-                    <p className="text-sm font-medium">{t("models.dialog.baseUrl")}</p>
-                    {baseUrl ? (
-                      <div className="flex items-center gap-1 rounded-md border border-input px-2 py-1">
-                        <code className="min-w-0 flex-1 break-all px-1 text-sm">{baseUrl}</code>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 shrink-0"
-                          aria-label={t("models.dialog.copyUrl")}
-                          onClick={() => void copyText(baseUrl)}
-                        >
-                          <Copy className="size-4" aria-hidden />
-                        </Button>
-                      </div>
-                    ) : gateway.isPending ? (
-                      <p role="status" className="text-sm text-muted-foreground">{t("common.loading")}</p>
-                    ) : (
-                      <div className="space-y-2" role="alert">
-                        <p className="text-sm text-destructive">{t("models.dialog.gatewayUnavailable")}</p>
-                        <Button type="button" variant="outline" size="sm" onClick={() => void gateway.refetch()}>
-                          {t("models.retry")}
-                        </Button>
-                      </div>
-                    )}
-                  </section>
+                  <GatewayUrlField
+                    baseUrl={baseUrl}
+                    pending={gateway.isPending}
+                    failed={gateway.isError}
+                    onRetry={() => void gateway.refetch()}
+                  />
                   {activeModel ? (
                     <LlmKeyTestPanel
                       key={secretId}
@@ -411,42 +340,18 @@ export function CreateLlmKeyDialog({
                     />
                   ) : null}
                 </div>
-                <section className="min-w-0 space-y-3">
-                  <h3 className="font-semibold">{t("quickStart.terminal")}</h3>
-                  <p className="text-sm text-muted-foreground">{t("quickStart.setEnv")}</p>
-                  <CommandBlock
-                    text={exportText}
-                    label={t("quickStart.copyExport")}
-                    getText={async () => exportCommand(await resolveApiKey())}
-                  />
-                  {command ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">{t("quickStart.runCurl")}</p>
-                      <CommandBlock text={command} label={t("quickStart.copyCurl")} dir="ltr" />
-                      <p className="break-words text-sm text-muted-foreground">
-                        {t("quickStart.response")}{" "}
-                        <code className="text-foreground">choices[0].message.content</code>
-                      </p>
-                    </>
-                  ) : gateway.isPending ? (
-                    <p role="status" className="text-sm text-muted-foreground">{t("common.loading")}</p>
-                  ) : (
-                    <div className="space-y-2" role="alert">
-                      <p className="text-sm text-destructive">
-                        {t(baseUrl ? "quickStart.noExampleModel" : "models.dialog.gatewayUnavailable")}
-                      </p>
-                      {!baseUrl ? (
-                        <Button type="button" variant="outline" size="sm" onClick={() => void gateway.refetch()}>
-                          {t("models.retry")}
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                </section>
+                <LlmKeyQuickstart
+                  baseUrl={baseUrl}
+                  pending={gateway.isPending}
+                  failed={gateway.isError}
+                  onRetry={() => void gateway.refetch()}
+                  modelSlug={activeModel?.slug}
+                  resolveApiKey={resolveApiKey}
+                />
               </div>
             </div>
             <DialogFooter className="shrink-0 justify-end gap-2 border-t border-border pt-4">
-              <Button type="button" onClick={() => handleOpenChange(false)}>
+              <Button type="button" onClick={finish}>
                 {t("models.dialog.done")}
               </Button>
             </DialogFooter>
@@ -455,7 +360,6 @@ export function CreateLlmKeyDialog({
           <form onSubmit={submit} autoComplete="off" className="flex min-h-0 flex-1 flex-col">
             <DialogHeader className="shrink-0 pr-10">
               <DialogTitle>{t("models.dialog.title")}</DialogTitle>
-              <DialogDescription>{t("models.dialog.description")}</DialogDescription>
             </DialogHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-6">
               <div className="flex flex-col gap-1.5">
@@ -512,30 +416,11 @@ export function CreateLlmKeyDialog({
                   </div>
                 )}
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="llm-key-tag-models"
-                    checked={tagModels}
-                    disabled={mutation.isPending || models.length === 0}
-                    onCheckedChange={(value) => setTagModels(value === true)}
-                  />
-                  <Label htmlFor="llm-key-tag-models" className="cursor-pointer">
-                    {t("models.dialog.tagModels")}
-                  </Label>
-                </div>
-                <p className="pl-6 text-xs leading-5 text-muted-foreground">{t("models.dialog.tagModelsHint")}</p>
-              </div>
               {mutation.isPending ? (
                 <p role="status" className="text-sm text-muted-foreground">{t(`models.${step}`)}</p>
               ) : null}
               {mutation.isError ? (
-                <div role="alert" className="space-y-1">
-                  <p className="text-sm text-destructive">{mutation.error.message || t("models.error")}</p>
-                  <Link className="text-sm underline" to={`/projects/${projectId}?tab=secrets`}>
-                    {t("models.openSecrets")}
-                  </Link>
-                </div>
+                <p role="alert" className="text-sm text-destructive">{mutation.error.message || t("models.error")}</p>
               ) : null}
             </div>
             <DialogFooter className="shrink-0 gap-2">

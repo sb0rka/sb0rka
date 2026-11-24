@@ -124,14 +124,12 @@ function MobileScroller({
   maxHeightClassName?: string
   children: ReactNode
 }) {
-  if (!scrollable) return <div>{children}</div>
+  if (!scrollable || (layout === "auto" && maxHeightClassName)) {
+    return <div className={cn(layout === "auto" && maxHeightClassName, "overflow-auto")}>{children}</div>
+  }
   return (
     <ScrollArea
-      className={cn(
-        layout === "fill" && "h-0 min-h-0 flex-1",
-        layout === "auto" && maxHeightClassName,
-        layout === "auto" && maxHeightClassName && "[&_[data-radix-scroll-area-viewport]]:max-h-[inherit]",
-      )}
+      className="h-0 min-h-0 flex-1"
     >
       {children}
     </ScrollArea>

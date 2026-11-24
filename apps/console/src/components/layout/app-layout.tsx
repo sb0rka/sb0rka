@@ -82,6 +82,12 @@ function AppLayoutContent() {
     selectedSecretId && activeTab === "secrets"
       ? secretsData?.secrets.find((secret) => secret.public_id === selectedSecretId)
       : undefined
+  const modelsKeyId = searchParams.get("key")?.trim()
+  const modelsMode = searchParams.get("mode")
+  const selectedModelKey =
+    activeTab === "models" && modelsKeyId
+      ? secretsData?.secrets.find((secret) => secret.public_id === modelsKeyId)
+      : undefined
   const activeProjectTabHref = `/projects/${projectId}?tab=${activeTab}`
   const projectOverviewHref = `/projects/${projectId}?tab=overview`
   const tabLabelById: Record<ProjectTab, string> = {
@@ -133,6 +139,19 @@ function AppLayoutContent() {
                     label: selectedSecret?.name ?? selectedSecretId,
                   },
                 ]
+              : activeTab === "models" && (modelsMode === "create" || modelsKeyId)
+                ? [
+                    {
+                      label: tabLabelById.models,
+                      href: `/projects/${projectId}?tab=models`,
+                      icon: projectTabIcon.models,
+                    },
+                    {
+                      label: modelsKeyId
+                        ? selectedModelKey?.name ?? modelsKeyId
+                        : t("models.keys.newTitle"),
+                    },
+                  ]
               : [
                   {
                     label: tabLabelById[activeTab],

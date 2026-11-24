@@ -96,9 +96,6 @@ export function LlmKeyTestPanel({
             <span className="min-w-0 truncate text-muted-foreground">{modelDisplayName(selectedModel)}</span>
           ) : null}
         </p>
-        {models.length > 1 ? (
-          <p className="text-xs text-muted-foreground">{t("models.dialog.testDescription")}</p>
-        ) : null}
       </div>
 
       <form onSubmit={handleSubmit} autoComplete="off" className="space-y-2.5">

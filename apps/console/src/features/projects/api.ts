@@ -1690,7 +1690,7 @@ export interface SecretVersionResponse {
   digest?: SecretVersionDigestResponse
 }
 
-interface SecretVersionDigestResponse {
+export interface SecretVersionDigestResponse {
   digest_alg: string
   prefix: string
   postfix: string
