@@ -341,8 +341,8 @@ const resources = {
         captcha: {
           loading: "Загрузка капчи…",
           error: "Не удалось загрузить капчу. Попробуйте снова.",
-          description: "Нажмите на чекбокс, чтобы продолжить.",
-          title: "Проверка",
+          description: "Для продолжения регистрации пройдите короткую проверку безопасности",
+          title: "Подтвердите, что вы не робот",
         },
         emailVerification: {
           title: "Подтверждение почты",
@@ -1217,8 +1217,8 @@ const resources = {
         captcha: {
           loading: "Loading captcha…",
           error: "Unable to load captcha. Please try again.",
-          description: "Click the checkbox to continue.",
-          title: "Verification",
+          description: "To continue registration, please complete a short security check",
+          title: "Verify that you are not a robot",
         },
         emailVerification: {
           title: "Verify your email",

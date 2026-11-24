@@ -195,12 +195,13 @@ export function RegisterPage() {
               <div className="flex gap-2 items-center mt-0.5">
                 <Checkbox
                   id="terms-of-use-and-public-offer"
+                  aria-labelledby="terms-of-use-and-public-offer-label"
                   checked={termsOfUseAndPublicOffer}
                   onCheckedChange={(checked) => setTermsOfUseAndPublicOffer(Boolean(checked))}
                 />
-                <Label
-                  className="text-xs text-muted-foreground cursor-pointer"
-                  htmlFor="terms-of-use-and-public-offer"
+                <span
+                  id="terms-of-use-and-public-offer-label"
+                  className="text-xs text-muted-foreground"
                 >
                   <Trans
                     i18nKey="auth.register.termsOfUseAndPublicOfferLabel"
@@ -223,7 +224,7 @@ export function RegisterPage() {
                       ),
                     }}
                   />
-                </Label>
+                </span>
               </div>
              )}
 
