@@ -83,6 +83,10 @@ export function ModelsTable({
     setExpandedId((current) => (current === id ? null : id))
   }
 
+  function selectAll() {
+    selection?.onChange(new Set(models.map((model) => model.id)))
+  }
+
   if (isLoading) {
     return (
       <p role="status" className={cn("p-6 text-sm text-muted-foreground", className)}>
@@ -123,6 +127,7 @@ export function ModelsTable({
           onClearCapabilities={() => setCapabilities([])}
           sort={sort}
           onSort={handleSort}
+          onSelectAll={selectAll}
           shown={sorted.length}
           total={models.length}
           selectedCount={selectedCount}

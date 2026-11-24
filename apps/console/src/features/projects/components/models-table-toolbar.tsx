@@ -25,6 +25,7 @@ export function ModelsTableToolbar({
   onClearCapabilities,
   sort,
   onSort,
+  onSelectAll,
   shown,
   total,
   selectedCount,
@@ -37,6 +38,7 @@ export function ModelsTableToolbar({
   onClearCapabilities: () => void
   sort: ModelSort
   onSort: (column: ModelSortColumn) => void
+  onSelectAll: () => void
   shown: number
   total: number
   selectedCount: number
@@ -45,10 +47,16 @@ export function ModelsTableToolbar({
   const { t } = useTranslation()
   const filtersActive = capabilities.length > 0
 
+  const selectionLabel = selectedCount === 0
+    ? t("models.selection.none")
+    : selectedCount === total
+      ? t("models.selection.all", { total })
+      : t("models.selection.some", { count: selectedCount, total })
+
   return (
-    <div className="flex shrink-0 flex-col gap-3 p-4 md:p-6 md:pb-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {filterable ? (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 p-4 md:p-6 md:pb-4">
+      {filterable ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div role="group" aria-label={t("models.filtersLabel")} className="flex flex-wrap gap-2">
             {MODEL_CAPABILITIES.map((capability) => {
               const pressed = capabilities.includes(capability)
@@ -76,9 +84,39 @@ export function ModelsTableToolbar({
               )
             })}
           </div>
-        ) : (
-          <span />
-        )}
+          {filtersActive ? (
+            <span className="inline-flex items-center gap-1 pl-1 text-sm text-muted-foreground">
+              <span className="tabular-nums">{t("models.showing", { count: shown })}</span>
+              <span aria-hidden>·</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto px-1 py-0"
+                onClick={onClearCapabilities}
+              >
+                {t("models.resetFilters")}
+              </Button>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="ml-auto flex items-center gap-2">
+        {selection ? (
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <span aria-live="polite" className="tabular-nums">{selectionLabel}</span>
+            <span aria-hidden>·</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-1 py-0"
+              onClick={selectedCount === 0 ? onSelectAll : () => selection.onChange(new Set())}
+            >
+              {t(selectedCount === 0 ? "models.selectAllModels" : "models.clearSelection")}
+            </Button>
+          </div>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="sm" className="shrink-0 md:hidden">
@@ -95,32 +133,6 @@ export function ModelsTableToolbar({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-        <span>{t("models.count", { shown, total })}</span>
-        {selection && selectedCount > 0 ? <span>{t("models.selected", { count: selectedCount })}</span> : null}
-        {selection && selectedCount > 0 ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto px-1 py-0"
-            onClick={() => selection.onChange(new Set())}
-          >
-            {t("models.clearSelection")}
-          </Button>
-        ) : null}
-        {filterable && filtersActive ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto px-1 py-0"
-            onClick={onClearCapabilities}
-          >
-            {t("models.resetFilters")}
-          </Button>
-        ) : null}
       </div>
     </div>
   )
