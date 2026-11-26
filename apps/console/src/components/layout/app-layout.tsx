@@ -84,7 +84,6 @@ function AppLayoutContent() {
       ? secretsData?.secrets.find((secret) => secret.public_id === selectedSecretId)
       : undefined
   const modelsKeyId = searchParams.get("key")?.trim()
-  const modelsMode = searchParams.get("mode")
   const selectedModelKey =
     activeTab === "models" && modelsKeyId
       ? secretsData?.secrets.find((secret) => secret.public_id === modelsKeyId)
@@ -144,7 +143,7 @@ function AppLayoutContent() {
                     label: selectedSecret?.name ?? selectedSecretId,
                   },
                 ]
-              : activeTab === "models" && (modelsMode === "create" || modelsKeyId)
+              : activeTab === "models" && modelsKeyId
                 ? [
                     {
                       label: tabLabelById.models,
@@ -152,9 +151,7 @@ function AppLayoutContent() {
                       icon: projectTabIcon.models,
                     },
                     {
-                      label: modelsKeyId
-                        ? selectedModelKey?.name ?? modelsKeyId
-                        : t("models.keys.newTitle"),
+                      label: selectedModelKey?.name ?? modelsKeyId,
                     },
                   ]
               : [
