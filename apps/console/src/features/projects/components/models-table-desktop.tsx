@@ -94,7 +94,7 @@ export function ModelsTableDesktop({
   const rows = models.length === 0 ? (
     <p className="px-4 py-8 text-sm text-muted-foreground">{t("models.emptyFiltered")}</p>
   ) : (
-    models.map((model) => {
+    models.map((model, index) => {
       const expanded = expandedId === model.id
       const name = modelDisplayName(model)
       const inputPrice = formatModelPrice(model.pricing?.input_per_1m, currency)
@@ -102,15 +102,16 @@ export function ModelsTableDesktop({
       const outputPrice = formatModelPrice(model.pricing?.output_per_1m, currency)
       const exactOutputPrice = formatExactModelPrice(model.pricing?.output_per_1m, currency)
       const detailsId = `model-details-desktop-${model.id}`
+      const cell = "flex min-h-14 min-w-0 items-center px-4 py-4"
       return (
-        <div key={model.id} className="border-b border-border">
+        <div key={model.id} className={cn(index < models.length - 1 && "border-b border-border")}>
           <div
-            className={cn(grid, "group cursor-pointer hover:bg-muted/50", expanded && "bg-muted/25")}
+            className={cn(grid, "group cursor-pointer hover:bg-muted", expanded && "bg-muted/25")}
             onClick={() => onToggleExpanded(model.id)}
           >
             {selection ? (
               <div
-                className="flex items-center justify-center"
+                className="flex min-h-14 items-center justify-center"
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}
               >
@@ -121,24 +122,24 @@ export function ModelsTableDesktop({
                 />
               </div>
             ) : null}
-            <div className="flex min-w-0 flex-col justify-center px-3 py-3">
+            <div className="flex min-h-14 min-w-0 flex-col justify-center px-4 py-4">
               <ModelIdentity model={model} name={name} />
             </div>
-            <div className="flex min-w-0 items-center px-3 py-3">
+            <div className={cell}>
               <CapabilityIcons model={model} labels={labels} layout="grid" />
             </div>
-            <div className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground">
+            <div className={cn(cell, "justify-end text-sm tabular-nums text-foreground")}>
               {formatTokenCount(model.specifications?.limit?.context) ?? t("common.notAvailable")}
             </div>
             <div
               title={exactInputPrice && inputPrice && exactInputPrice !== inputPrice ? exactInputPrice : undefined}
-              className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground"
+              className={cn(cell, "justify-end text-sm tabular-nums text-foreground")}
             >
               {inputPrice ?? t("common.notAvailable")}
             </div>
             <div
               title={exactOutputPrice && outputPrice && exactOutputPrice !== outputPrice ? exactOutputPrice : undefined}
-              className="flex items-center justify-end px-3 py-3 text-sm tabular-nums text-foreground"
+              className={cn(cell, "justify-end text-sm tabular-nums text-foreground")}
             >
               {outputPrice ?? t("common.notAvailable")}
             </div>
@@ -175,7 +176,7 @@ export function ModelsTableDesktop({
           ) : null}
           <SortHeader label={t("models.columns.model")} column="name" sort={sort} onSort={onSort} />
           <div
-            className="flex h-12 min-w-0 items-center px-3 text-sm font-medium text-muted-foreground"
+            className="flex h-12 min-w-0 items-center px-4 text-sm font-medium text-muted-foreground"
             title={t("models.columns.capabilities")}
           >
             <span className="truncate">{t("models.columns.capabilities")}</span>

@@ -48,17 +48,17 @@ export function ModelsTableMobile({
   }
 
   const rows = models.length === 0 ? (
-    <p className="px-4 py-8 text-sm text-muted-foreground">{t("models.emptyFiltered")}</p>
+    <p className="px-4 py-8 text-xs text-muted-foreground">{t("models.emptyFiltered")}</p>
   ) : (
-    models.map((model) => {
+    models.map((model, index) => {
       const expanded = expandedId === model.id
       const name = modelDisplayName(model)
       const detailsId = `model-details-mobile-${model.id}`
       return (
-        <div key={model.id} className="border-b border-border">
+        <div key={model.id} className={cn(index < models.length - 1 && "border-b border-border")}>
           <div
             className={cn(
-              "group flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted/50",
+              "group flex min-h-12 cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted",
               expanded && "bg-muted/25",
             )}
             onClick={() => onToggleExpanded(model.id)}
@@ -106,6 +106,9 @@ export function ModelsTableMobile({
 
   return (
     <div className={cn("flex min-w-0 flex-col md:hidden", layout === "fill" && "h-0 min-h-0 flex-1")}>
+      <div className="flex h-10 shrink-0 items-center border-b border-border px-4 text-xs font-medium text-muted-foreground">
+        {t("models.columns.model")}
+      </div>
       <MobileScroller scrollable={layout === "fill" || bounded} layout={layout} maxHeightClassName={maxHeightClassName}>
         {rows}
       </MobileScroller>

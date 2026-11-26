@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { ArrowUpDown, Check, Search, X } from "lucide-react"
+import { ArrowUpDown, Check } from "lucide-react"
 import {
   Button,
   cn,
@@ -25,11 +25,9 @@ export function ModelsTableToolbar({
   selection,
   capabilities,
   onToggleCapability,
-  onClearCapabilities,
   sort,
   onSort,
   onSelectAll,
-  shown,
   total,
   selectedCount,
   labels,
@@ -45,11 +43,9 @@ export function ModelsTableToolbar({
   selection?: ModelsTableSelection
   capabilities: ModelCapability[]
   onToggleCapability: (capability: ModelCapability) => void
-  onClearCapabilities: () => void
   sort: ModelSort
   onSort: (column: ModelSortColumn) => void
   onSelectAll: () => void
-  shown: number
   total: number
   selectedCount: number
   labels: Record<ModelCapability, string>
@@ -62,8 +58,6 @@ export function ModelsTableToolbar({
   scopeCounts: Record<ModelsTableScope, number>
 }) {
   const { t } = useTranslation()
-  const filtersActive = capabilities.length > 0
-  const queryActive = query.trim().length > 0
   const selectionLabel = selectedCount === 0
     ? t("models.selection.none")
     : selectedCount === total
@@ -72,44 +66,25 @@ export function ModelsTableToolbar({
   const scopeOptions: ModelsTableScope[] = ["all", "selected", "notAllowed"]
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 p-4 md:p-6 md:pb-4">
-      {searchable || scopeFilter ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {searchable ? (
-            <div className="relative min-w-0 flex-1 basis-52">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                value={query}
-                onChange={(event) => onQueryChange(event.target.value)}
-                placeholder={t("models.searchPlaceholder")}
-                aria-label={t("models.searchPlaceholder")}
-                autoComplete="off"
-                spellCheck={false}
-                className="h-9 pl-8 pr-8"
-              />
-              {queryActive ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 rounded-md"
-                  aria-label={t("models.clearSearch")}
-                  title={t("models.clearSearch")}
-                  onClick={() => onQueryChange("")}
-                >
-                  <X className="size-4" aria-hidden />
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
+    <div className="flex shrink-0 flex-col gap-2 p-6 pb-4">
+      {searchable ? (
+        <Input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder={t("models.searchPlaceholder")}
+          aria-label={t("models.searchPlaceholder")}
+          autoComplete="off"
+          spellCheck={false}
+          className="h-9 w-full max-w-96"
+        />
+      ) : null}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-6">
           {scopeFilter ? (
             <div
               role="group"
               aria-label={t("models.scopeLabel")}
-              className="flex shrink-0 items-center gap-1 rounded-full border border-border p-0.5"
+              className="order-2 flex shrink-0 items-center gap-1 rounded-full border border-border p-0.5"
             >
               {scopeOptions.map((option) => {
                 const pressed = scope === option
@@ -138,12 +113,8 @@ export function ModelsTableToolbar({
               })}
             </div>
           ) : null}
-        </div>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {filterable ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <div role="group" aria-label={t("models.filtersLabel")} className="flex flex-wrap gap-2">
+          {filterable ? (
+            <div role="group" aria-label={t("models.filtersLabel")} className="order-1 flex flex-wrap gap-2">
               {MODEL_CAPABILITIES.map((capability) => {
                 const pressed = capabilities.includes(capability)
                 const Icon = CAPABILITY_ICONS[capability]
@@ -170,23 +141,8 @@ export function ModelsTableToolbar({
                 )
               })}
             </div>
-            {filtersActive ? (
-              <span className="inline-flex items-center gap-1 pl-1 text-sm text-muted-foreground">
-                <span className="tabular-nums">{t("models.showing", { count: shown })}</span>
-                <span aria-hidden>·</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto px-1 py-0"
-                  onClick={onClearCapabilities}
-                >
-                  {t("models.resetFilters")}
-                </Button>
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+          ) : null}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           {selection ? (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">

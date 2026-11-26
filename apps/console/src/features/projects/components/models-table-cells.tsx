@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, Copy } from "lucide-react"
+import { ArrowDown, ArrowUp, Check, ChevronDown, Copy } from "lucide-react"
 import {
   Button,
   cn,
@@ -51,7 +51,7 @@ export function SortHeader({
         }
       }}
       className={cn(
-        "group/sort flex h-12 min-w-0 cursor-pointer items-center gap-1 px-3 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+        "flex h-12 min-w-0 cursor-pointer items-center gap-1 px-4 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
         align === "end" && "justify-end text-right",
         active && "text-foreground",
       )}
@@ -63,12 +63,7 @@ export function SortHeader({
         ) : (
           <ArrowDown className="size-3.5 shrink-0" aria-hidden />
         )
-      ) : (
-        <ArrowUpDown
-          className="size-3.5 shrink-0 opacity-35 transition-opacity group-hover/sort:opacity-80"
-          aria-hidden
-        />
-      )}
+      ) : null}
     </div>
   )
 }

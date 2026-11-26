@@ -30,6 +30,8 @@ export interface ModelsTableProps {
   filterable?: boolean
   searchable?: boolean
   scopeFilter?: boolean
+  /** Models the server currently allows. The Allowed / Not allowed filter uses this, not the checkbox draft. */
+  allowedIds?: ReadonlySet<string>
   layout?: "fill" | "auto"
   maxHeightClassName?: string
   className?: string
@@ -45,6 +47,7 @@ export function ModelsTable({
   filterable = false,
   searchable = false,
   scopeFilter = false,
+  allowedIds,
   layout = "auto",
   maxHeightClassName,
   className,
@@ -56,20 +59,15 @@ export function ModelsTable({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [scope, setScope] = useState<ModelsTableScope>("all")
-  // Rows must survive the toggle that would drop them from the active scope
-  // (uncheck under "selected", check under "notAllowed"). A live filter would
-  // unmount the row the user just toggled, hiding the undo affordance.
-  const [scopeSnapshotIds, setScopeSnapshotIds] = useState<ReadonlySet<string>>(new Set())
   const currentScope = scopeFilter ? scope : "all"
   const currency = modelCurrency(i18n.language)
   const scoped = useMemo(() => {
-    if (currentScope === "all" || !selection) return models
+    if (currentScope === "all" || !allowedIds) return models
     return models.filter((model) => {
-      const selected = selection.selectedIds.has(model.id)
-      const pinned = scopeSnapshotIds.has(model.id)
-      return currentScope === "selected" ? selected || pinned : !selected || pinned
+      const allowed = allowedIds.has(model.id)
+      return currentScope === "selected" ? allowed : !allowed
     })
-  }, [currentScope, models, selection, scopeSnapshotIds])
+  }, [allowedIds, currentScope, models])
   const searched = useMemo(
     () => (searchable ? filterModelsByQuery(scoped, query, i18n.language) : scoped),
     [searchable, scoped, query, i18n.language],
@@ -84,6 +82,9 @@ export function ModelsTable({
   )
   const selectedCount = selection
     ? models.filter((model) => selection.selectedIds.has(model.id)).length
+    : 0
+  const allowedCount = allowedIds
+    ? models.filter((model) => allowedIds.has(model.id)).length
     : 0
 
   function handleSort(column: ModelSortColumn) {
@@ -155,11 +156,9 @@ export function ModelsTable({
           selection={selection}
           capabilities={capabilities}
           onToggleCapability={toggleCapability}
-          onClearCapabilities={() => setCapabilities([])}
           sort={sort}
           onSort={handleSort}
           onSelectAll={selectAll}
-          shown={sorted.length}
           total={models.length}
           selectedCount={selectedCount}
           labels={labels}
@@ -168,33 +167,18 @@ export function ModelsTable({
           onQueryChange={setQuery}
           scopeFilter={scopeFilter}
           scope={currentScope}
-          onScopeChange={(next) => {
-            if (next !== "all" && selection) {
-              setScopeSnapshotIds(
-                new Set(
-                  models
-                    .filter((model) =>
-                      next === "selected"
-                        ? selection.selectedIds.has(model.id)
-                        : !selection.selectedIds.has(model.id),
-                    )
-                    .map((model) => model.id),
-                ),
-              )
-            }
-            setScope(next)
-          }}
+          onScopeChange={setScope}
           scopeCounts={{
             all: models.length,
-            selected: selectedCount,
-            notAllowed: models.length - selectedCount,
+            selected: allowedCount,
+            notAllowed: models.length - allowedCount,
           }}
         />
       ) : null}
       <div
         className={cn(
-          "flex min-w-0 flex-col",
-          layout === "fill" && "h-0 min-h-0 flex-1 overflow-hidden pb-4 md:px-6 md:pb-6",
+          "flex min-w-0 flex-col overflow-hidden pb-6 md:px-6",
+          layout === "fill" && "h-0 min-h-0 flex-1",
         )}
       >
         <ModelsTableMobile

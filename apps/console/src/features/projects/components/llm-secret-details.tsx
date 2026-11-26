@@ -111,6 +111,7 @@ export function LlmSecretDetails({
     [boundModels, catalogQuery.data?.models],
   )
   const savedModelIds = useMemo(() => boundModels.map((model) => model.id), [boundModels])
+  const savedModelIdSet = useMemo(() => new Set(savedModelIds), [savedModelIds])
   const selectedModelIds = useMemo(
     () => draftModelIds ?? new Set(savedModelIds),
     [draftModelIds, savedModelIds],
@@ -561,6 +562,7 @@ export function LlmSecretDetails({
                 filterable
                 searchable
                 scopeFilter
+                allowedIds={savedModelIdSet}
                 layout="auto"
                 maxHeightClassName="max-h-[30rem]"
                 selection={{ selectedIds: selectedModelIds, onChange: setDraftModelIds }}
