@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Plus } from "lucide-react"
+import { KeyRound, Plus } from "lucide-react"
 import {
   Button,
   Card,
@@ -17,10 +17,9 @@ import {
 } from "@sb0rka/ui"
 import { PageStagger, SlideIn } from "@/components/motion/page-entrance"
 import { activeModelsQuery } from "../api"
-import { useProjectLlmKeys } from "../hooks"
+import { secretsListHref } from "../secret-filters"
 import { CreateLlmKeyDialog } from "./create-llm-key-dialog"
 import { LlmKeyDetails } from "./llm-key-details"
-import { LlmKeysList } from "./llm-keys-list"
 import { ModelsTable } from "./models-table"
 
 function modelsSearchParams(
@@ -42,7 +41,6 @@ export function ModelsTab({ projectId }: { projectId: string }) {
   const keyId = searchParams.get("key")?.trim() || null
   const isCreate = !keyId && searchParams.get("mode") === "create"
   const query = useQuery(activeModelsQuery)
-  const llmKeys = useProjectLlmKeys(projectId)
   const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const models = useMemo(() => query.data?.models ?? [], [query.data])
@@ -124,27 +122,18 @@ export function ModelsTab({ projectId }: { projectId: string }) {
         <PageStagger className="flex flex-col gap-6">
           <SlideIn className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <h2 className="text-2xl font-semibold tracking-tight">{t("tabs.models")}</h2>
-            <Button type="button" className="self-start" onClick={openCreate}>
-              <Plus className="mr-2 size-4" aria-hidden />
-              {t("models.keys.add")}
-            </Button>
-          </SlideIn>
-          <SlideIn>
-            <Card className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xl">{t("models.keys.title")}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <LlmKeysList
-                  keys={llmKeys.keys}
-                  isLoading={llmKeys.isLoading}
-                  isError={llmKeys.isError}
-                  onRetry={llmKeys.refetch}
-                  onOpen={openKey}
-                  onCreate={openCreate}
-                />
-              </CardContent>
-            </Card>
+            <div className="flex flex-wrap items-center gap-2 self-start">
+              <Button variant="outline" asChild>
+                <Link to={secretsListHref(projectId, "llm")}>
+                  <KeyRound className="mr-2 size-4" aria-hidden />
+                  {t("models.keys.title")}
+                </Link>
+              </Button>
+              <Button type="button" onClick={openCreate}>
+                <Plus className="mr-2 size-4" aria-hidden />
+                {t("models.keys.add")}
+              </Button>
+            </div>
           </SlideIn>
           <SlideIn>
             <Card className="overflow-hidden">
