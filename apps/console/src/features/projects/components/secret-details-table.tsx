@@ -3,6 +3,7 @@ import { useQueries } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import {
+  Button,
   cn,
   Input,
   ScrollArea,
@@ -31,6 +32,8 @@ interface SecretDetailsTableProps {
   filter: SecretFilter
   filterCounts: SecretFilterCounts
   isFilterLoading: boolean
+  isFilterError: boolean
+  onRetryFilter: () => void
   onFilterChange: (filter: SecretFilter) => void
   onRowClick?: (row: SecretRow) => void
 }
@@ -47,15 +50,16 @@ function SecretTypeFilter({
   const { t } = useTranslation()
 
   return (
-    <div role="group" aria-label={t("secrets.filtersLabel")} className="flex flex-wrap gap-2">
+    <div role="radiogroup" aria-label={t("secrets.filtersLabel")} className="flex flex-wrap gap-2">
       {secretFilters.map((option) => {
         const pressed = filter === option
         const count = counts[option]
         return (
           <div
             key={option}
+            role="radio"
             tabIndex={0}
-            aria-pressed={pressed}
+            aria-checked={pressed}
             onClick={() => onChange(option)}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -78,7 +82,9 @@ function SecretTypeFilter({
       <Tooltip>
         <TooltipTrigger asChild>
           <div
+            role="radio"
             tabIndex={0}
+            aria-checked={false}
             aria-disabled="true"
             className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
@@ -245,6 +251,8 @@ export function SecretDetailsTable({
   filter,
   filterCounts,
   isFilterLoading,
+  isFilterError,
+  onRetryFilter,
   onFilterChange,
   onRowClick,
 }: SecretDetailsTableProps) {
@@ -352,7 +360,14 @@ export function SecretDetailsTable({
             {t("common.labels.name")}
           </div>
           <ScrollArea className="h-0 min-h-0 flex-1">
-            {isFilterLoading ? (
+            {isFilterError ? (
+              <div role="alert" className="flex flex-col items-start gap-3 px-4 py-8">
+                <p className="text-xs text-destructive">{t("secrets.filterLoadError")}</p>
+                <Button type="button" variant="outline" onClick={onRetryFilter}>
+                  {t("secrets.retry")}
+                </Button>
+              </div>
+            ) : isFilterLoading ? (
               <div role="status" className="px-4 py-8 text-xs text-muted-foreground">
                 {t("common.loading")}
               </div>
@@ -416,7 +431,14 @@ export function SecretDetailsTable({
             className="h-0 min-h-0 flex-1"
           >
             <div className="w-full min-w-[860px]">
-              {isFilterLoading ? (
+              {isFilterError ? (
+                <div role="alert" className="flex flex-col items-start gap-3 px-4 py-8">
+                  <p className="text-sm text-destructive">{t("secrets.filterLoadError")}</p>
+                  <Button type="button" variant="outline" onClick={onRetryFilter}>
+                    {t("secrets.retry")}
+                  </Button>
+                </div>
+              ) : isFilterLoading ? (
                 <div role="status" className="px-4 py-8 text-sm text-muted-foreground">
                   {t("common.loading")}
                 </div>

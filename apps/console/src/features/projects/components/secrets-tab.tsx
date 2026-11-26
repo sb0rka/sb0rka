@@ -49,8 +49,13 @@ export function SecretsTab({
   const {showSuccess, showError} = useToast()
   const openedSecretId = searchParams.get("secret")
   const activeFilter = parseSecretFilter(searchParams.get("type"))
+  const isSecretsTabActive = searchParams.get("tab") === "secrets"
   const secretIds = useMemo(() => secretRows.map((row) => row.id), [secretRows])
-  const { categoryById, isClassifying } = useProjectSecretCategories(projectId, secretIds)
+  const { categoryById, isClassifying, hasError, refetchFailed } = useProjectSecretCategories(
+    projectId,
+    secretIds,
+    isSecretsTabActive,
+  )
 
   const openedSecret =
     openedSecretId !== null
@@ -107,6 +112,9 @@ export function SecretsTab({
         payload_kind: "text"
       })
       handleCreateDialogOpenChange(false)
+      if (activeFilter === "llm" || activeFilter === "db") {
+        setSecretFilter("user")
+      }
       showSuccess(t("secrets.createSuccess"))
     } catch (error) {
       const message = error instanceof ApiError ? error.message : t("secrets.createError")
@@ -115,7 +123,7 @@ export function SecretsTab({
   }
 
   const filterCounts = useMemo(() => {
-    if (isClassifying) {
+    if (isClassifying || hasError) {
       return { all: secretRows.length, llm: null, db: null, user: null }
     }
     const counts = { all: secretRows.length, llm: 0, db: 0, user: 0 }
@@ -124,12 +132,13 @@ export function SecretsTab({
       if (category) counts[category] += 1
     }
     return counts
-  }, [categoryById, isClassifying, secretRows])
+  }, [categoryById, hasError, isClassifying, secretRows])
   const filteredRows = useMemo(() => {
     if (activeFilter === "all") return secretRows
     return secretRows.filter((row) => categoryById.get(row.id) === activeFilter)
   }, [activeFilter, categoryById, secretRows])
-  const isFilterLoading = activeFilter !== "all" && isClassifying
+  const isFilterLoading = activeFilter !== "all" && isClassifying && categoryById.size === 0
+  const isFilterError = activeFilter !== "all" && !isFilterLoading && hasError
   const emptyMessage =
     secretRows.length > 0 && filteredRows.length === 0
       ? t("secrets.emptyFiltered")
@@ -196,6 +205,8 @@ export function SecretsTab({
                   filter={activeFilter}
                   filterCounts={filterCounts}
                   isFilterLoading={isFilterLoading}
+                  isFilterError={isFilterError}
+                  onRetryFilter={refetchFailed}
                   onFilterChange={setSecretFilter}
                   onRowClick={(row) => setOpenedSecretId(row.id)}
                 />

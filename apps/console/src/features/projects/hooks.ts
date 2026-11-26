@@ -599,7 +599,10 @@ export function useCreateSecret(projectId: string) {
 
   return useMutation({
     mutationFn: (data: CreateSecretRequest) => createSecret(projectId, data),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      // The create response is enough to classify a user secret, so the list
+      // filter does not wait on a follow-up detail fetch.
+      qc.setQueryData(["projects", projectId, "secrets", created.public_id], created)
       qc.invalidateQueries({ queryKey: ["projects", projectId, "secrets"] })
       qc.invalidateQueries({ queryKey: ["projects", projectId, "resources"] })
     },
@@ -809,7 +812,11 @@ export function useProjectLlmKeys(projectId: string) {
   }
 }
 
-export function useProjectSecretCategories(projectId: string, secretIds: string[]) {
+export function useProjectSecretCategories(
+  projectId: string,
+  secretIds: string[],
+  enabled = true,
+) {
   const { isAuthenticated } = useAuth()
   // TODO: BACKEND_TODO: GET /projects/{id}/secrets does not include purpose, version digests, or password_verifier.
   // Each secret is loaded so the list can be split into LLM keys, database passwords, and user secrets.
@@ -817,7 +824,7 @@ export function useProjectSecretCategories(projectId: string, secretIds: string[
     queries: secretIds.map((secretId) => ({
       queryKey: ["projects", projectId, "secrets", secretId],
       queryFn: () => getSecret(projectId, secretId),
-      enabled: isAuthenticated && !!projectId && !!secretId,
+      enabled: isAuthenticated && enabled && !!projectId && !!secretId,
     })),
   })
   const categoryById = useMemo(() => {
@@ -829,9 +836,16 @@ export function useProjectSecretCategories(projectId: string, secretIds: string[
     })
     return categories
   }, [detailQueries, secretIds])
-  const isClassifying = secretIds.length > 0 && detailQueries.some((query) => query.isPending)
+  // isLoading stays false for disabled queries; isPending does not.
+  const isClassifying = enabled && secretIds.length > 0 && detailQueries.some((query) => query.isLoading)
+  const hasError = detailQueries.some((query) => query.isError)
+  const refetchFailed = () => {
+    for (const query of detailQueries) {
+      if (query.isError) void query.refetch()
+    }
+  }
 
-  return { categoryById, isClassifying }
+  return { categoryById, isClassifying, hasError, refetchFailed }
 }
 
 export function useProjectTableCount(projectId: string) {
