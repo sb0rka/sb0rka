@@ -7,10 +7,14 @@ import {
   Input,
   ScrollArea,
   ScrollBar,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@sb0rka/ui"
 import { formatDateTime } from "@/lib/format-date"
 import { listResourceTags, type TagResponse } from "../api"
 import { formatDraftTagLabel } from "../parse-draft-tag"
+import { secretFilters, type SecretFilter, type SecretFilterCounts } from "../secret-filters"
 import { MobileSecretsList } from "./mobile-secrets-list"
 import type { SecretRow } from "./project-detail-tab-types"
 
@@ -24,7 +28,70 @@ interface SecretDetailsTableProps {
   projectId: string
   rows: SecretRow[]
   emptyMessage: string
+  filter: SecretFilter
+  filterCounts: SecretFilterCounts
+  isFilterLoading: boolean
+  onFilterChange: (filter: SecretFilter) => void
   onRowClick?: (row: SecretRow) => void
+}
+
+function SecretTypeFilter({
+  filter,
+  counts,
+  onChange,
+}: {
+  filter: SecretFilter
+  counts: SecretFilterCounts
+  onChange: (filter: SecretFilter) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div role="group" aria-label={t("secrets.filtersLabel")} className="flex flex-wrap gap-2">
+      {secretFilters.map((option) => {
+        const pressed = filter === option
+        const count = counts[option]
+        return (
+          <div
+            key={option}
+            tabIndex={0}
+            aria-pressed={pressed}
+            onClick={() => onChange(option)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onChange(option)
+              }
+            }}
+            className={cn(
+              "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
+              pressed && "border-foreground/15 bg-secondary text-foreground",
+            )}
+          >
+            {t(`secrets.filters.${option}`)}
+            {count !== null ? (
+              <span className="tabular-nums text-muted-foreground">{count}</span>
+            ) : null}
+          </div>
+        )
+      })}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            tabIndex={0}
+            aria-disabled="true"
+            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {t("secrets.filters.agents")}
+            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted-foreground">
+              {t("secrets.filters.soon")}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>{t("secrets.filters.agentsSoonHint")}</TooltipContent>
+      </Tooltip>
+    </div>
+  )
 }
 
 function buildTagLabel(tag: TagResponse): string {
@@ -175,6 +242,10 @@ export function SecretDetailsTable({
   projectId,
   rows,
   emptyMessage,
+  filter,
+  filterCounts,
+  isFilterLoading,
+  onFilterChange,
   onRowClick,
 }: SecretDetailsTableProps) {
   const { t } = useTranslation()
@@ -260,15 +331,19 @@ export function SecretDetailsTable({
     })
   }
 
+  const visibleEmptyMessage = rows.length > 0 ? t("secrets.emptyFiltered") : emptyMessage
+
   return (
     <div className="flex h-0 min-h-0 flex-1 flex-col">
-      <div className="shrink-0 p-6 pb-4">
+      <div className="flex shrink-0 flex-col gap-2 p-6 pb-4">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={t("secrets.searchPlaceholder")}
+          aria-label={t("secrets.searchPlaceholder")}
           className="h-9 max-w-96"
         />
+        <SecretTypeFilter filter={filter} counts={filterCounts} onChange={onFilterChange} />
       </div>
 
       <div className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden pb-6 md:px-6">
@@ -277,13 +352,19 @@ export function SecretDetailsTable({
             {t("common.labels.name")}
           </div>
           <ScrollArea className="h-0 min-h-0 flex-1">
-            <MobileSecretsList
-              rows={sortedRows}
-              emptyMessage={emptyMessage}
-              searchQuery={search}
-              onRowClick={onRowClick}
-              showHeader={false}
-            />
+            {isFilterLoading ? (
+              <div role="status" className="px-4 py-8 text-xs text-muted-foreground">
+                {t("common.loading")}
+              </div>
+            ) : (
+              <MobileSecretsList
+                rows={sortedRows}
+                emptyMessage={visibleEmptyMessage}
+                searchQuery={search}
+                onRowClick={onRowClick}
+                showHeader={false}
+              />
+            )}
           </ScrollArea>
         </div>
 
@@ -335,8 +416,12 @@ export function SecretDetailsTable({
             className="h-0 min-h-0 flex-1"
           >
             <div className="w-full min-w-[860px]">
-              {sortedRows.length === 0 ? (
-                <div className="px-4 py-8 text-sm text-muted-foreground">{emptyMessage}</div>
+              {isFilterLoading ? (
+                <div role="status" className="px-4 py-8 text-sm text-muted-foreground">
+                  {t("common.loading")}
+                </div>
+              ) : sortedRows.length === 0 ? (
+                <div className="px-4 py-8 text-sm text-muted-foreground">{visibleEmptyMessage}</div>
               ) : (
                 sortedRows.map((row, index) => (
                   <SecretDetailsTableRow

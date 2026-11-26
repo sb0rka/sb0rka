@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useMemo, useState, type FormEvent } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Plus } from "lucide-react"
@@ -19,6 +19,8 @@ import {
 } from "@sb0rka/ui"
 import { ApiError } from "@/lib/api-client"
 import type { CreateSecretRequest } from "../api"
+import { useProjectSecretCategories } from "../hooks"
+import { parseSecretFilter, type SecretFilter } from "../secret-filters"
 import type { SecretRow } from "./project-detail-tab-types"
 import { SecretDetails } from "./secret-details"
 import { SecretDetailsTable } from "./secret-details-table"
@@ -46,11 +48,25 @@ export function SecretsTab({
   const [newSecretValue, setNewSecretValue] = useState("")
   const {showSuccess, showError} = useToast()
   const openedSecretId = searchParams.get("secret")
+  const activeFilter = parseSecretFilter(searchParams.get("type"))
+  const secretIds = useMemo(() => secretRows.map((row) => row.id), [secretRows])
+  const { categoryById, isClassifying } = useProjectSecretCategories(projectId, secretIds)
 
   const openedSecret =
     openedSecretId !== null
       ? secretRows.find((secret) => secret.id === openedSecretId) ?? null
       : null
+
+  function setSecretFilter(nextFilter: SecretFilter) {
+    const next = new URLSearchParams(searchParams)
+    next.set("tab", "secrets")
+    if (nextFilter === "all") {
+      next.delete("type")
+    } else {
+      next.set("type", nextFilter)
+    }
+    setSearchParams(next, { replace: true })
+  }
 
   function setOpenedSecretId(secretId: string | null) {
     const next = new URLSearchParams(searchParams)
@@ -97,6 +113,27 @@ export function SecretsTab({
       showError(message)
     }
   }
+
+  const filterCounts = useMemo(() => {
+    if (isClassifying) {
+      return { all: secretRows.length, llm: null, db: null, user: null }
+    }
+    const counts = { all: secretRows.length, llm: 0, db: 0, user: 0 }
+    for (const row of secretRows) {
+      const category = categoryById.get(row.id)
+      if (category) counts[category] += 1
+    }
+    return counts
+  }, [categoryById, isClassifying, secretRows])
+  const filteredRows = useMemo(() => {
+    if (activeFilter === "all") return secretRows
+    return secretRows.filter((row) => categoryById.get(row.id) === activeFilter)
+  }, [activeFilter, categoryById, secretRows])
+  const isFilterLoading = activeFilter !== "all" && isClassifying
+  const emptyMessage =
+    secretRows.length > 0 && filteredRows.length === 0
+      ? t("secrets.emptyFiltered")
+      : t("secrets.empty")
 
   const isListView = !openedSecret
 
@@ -154,8 +191,12 @@ export function SecretsTab({
               ) : (
                 <SecretDetailsTable
                   projectId={projectId}
-                  rows={secretRows}
-                  emptyMessage={t("secrets.empty")}
+                  rows={isFilterLoading ? [] : filteredRows}
+                  emptyMessage={emptyMessage}
+                  filter={activeFilter}
+                  filterCounts={filterCounts}
+                  isFilterLoading={isFilterLoading}
+                  onFilterChange={setSecretFilter}
                   onRowClick={(row) => setOpenedSecretId(row.id)}
                 />
               )}

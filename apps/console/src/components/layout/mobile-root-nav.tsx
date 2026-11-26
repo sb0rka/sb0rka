@@ -23,6 +23,7 @@ import { useAuth } from "@/features/auth/auth-provider"
 import { useLogout } from "@/features/auth/hooks"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
 import { isProjectTab, type ProjectTab } from "@/features/projects/project-tabs"
+import { parseSecretFilter, secretsListHref } from "@/features/projects/secret-filters"
 import type { SectionNavItem } from "./section-sidebar"
 import { organizationsRoute } from "@/features/organizations/routes"
 import { isCommunityEdition, usePlatformInfo } from "@/features/system/info"
@@ -162,7 +163,7 @@ function useMobileProjectHeader() {
         (secret) => secret.public_id === selectedSecretId,
       )
       return {
-        backHref: `/projects/${projectId}?tab=secrets`,
+        backHref: secretsListHref(projectId, parseSecretFilter(searchParams.get("type"))),
         backLabel: t("tabs.secrets"),
         title: selectedSecret?.name ?? selectedSecretId,
       }

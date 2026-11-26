@@ -75,6 +75,7 @@ import {
   getCurrentLlmKeyDigest,
   isLlmKeySecret,
 } from "./llm-keys-utils"
+import { classifySecret, type SecretCategory } from "./secret-filters"
 
 const PROJECTS_KEY = ["projects"] as const
 const DATABASE_HEALTH_CHECK_INTERVAL_MS = 30_000
@@ -806,6 +807,31 @@ export function useProjectLlmKeys(projectId: string) {
       for (const query of detailQueries) void query.refetch()
     },
   }
+}
+
+export function useProjectSecretCategories(projectId: string, secretIds: string[]) {
+  const { isAuthenticated } = useAuth()
+  // TODO: BACKEND_TODO: GET /projects/{id}/secrets does not include purpose, version digests, or password_verifier.
+  // Each secret is loaded so the list can be split into LLM keys, database passwords, and user secrets.
+  const detailQueries = useQueries({
+    queries: secretIds.map((secretId) => ({
+      queryKey: ["projects", projectId, "secrets", secretId],
+      queryFn: () => getSecret(projectId, secretId),
+      enabled: isAuthenticated && !!projectId && !!secretId,
+    })),
+  })
+  const categoryById = useMemo(() => {
+    const categories = new Map<string, SecretCategory>()
+    secretIds.forEach((secretId, index) => {
+      const secret = detailQueries[index]?.data
+      if (!secret) return
+      categories.set(secretId, classifySecret(secret))
+    })
+    return categories
+  }, [detailQueries, secretIds])
+  const isClassifying = secretIds.length > 0 && detailQueries.some((query) => query.isPending)
+
+  return { categoryById, isClassifying }
 }
 
 export function useProjectTableCount(projectId: string) {

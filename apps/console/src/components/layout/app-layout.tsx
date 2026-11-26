@@ -10,6 +10,7 @@ import { Header, type BreadcrumbItem } from "./header"
 import { MobileRootNav } from "./mobile-root-nav"
 import { LayoutProvider, useLayoutContext } from "./layout-context"
 import { useDatabase, useProject, useSecrets } from "@/features/projects/hooks"
+import { parseSecretFilter, secretsListHref } from "@/features/projects/secret-filters"
 import { isProjectTab, projectTabIcon, type ProjectTab } from "@/features/projects/project-tabs"
 import { ScrollArea } from "@sb0rka/ui"
 
@@ -88,7 +89,11 @@ function AppLayoutContent() {
     activeTab === "models" && modelsKeyId
       ? secretsData?.secrets.find((secret) => secret.public_id === modelsKeyId)
       : undefined
-  const activeProjectTabHref = `/projects/${projectId}?tab=${activeTab}`
+  const secretFilter = parseSecretFilter(searchParams.get("type"))
+  const activeProjectTabHref =
+    activeTab === "secrets"
+      ? secretsListHref(projectId, secretFilter)
+      : `/projects/${projectId}?tab=${activeTab}`
   const projectOverviewHref = `/projects/${projectId}?tab=overview`
   const tabLabelById: Record<ProjectTab, string> = {
     overview: t(projectTabLabelKeyById.overview),
@@ -132,7 +137,7 @@ function AppLayoutContent() {
               ? [
                   {
                     label: tabLabelById.secrets,
-                    href: `/projects/${projectId}?tab=secrets`,
+                    href: secretsListHref(projectId, secretFilter),
                     icon: projectTabIcon.secrets,
                   },
                   {
