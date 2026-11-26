@@ -103,6 +103,7 @@ export function CreateLlmKeyDialog({
   const [secretValue, setSecretValue] = useState<string | null>(null)
   const [revealFailed, setRevealFailed] = useState(false)
   const [selectedTestModelId, setSelectedTestModelId] = useState<string | null>(null)
+  const [testPrompt, setTestPrompt] = useState(() => t("models.dialog.testDefaultPrompt"))
   const { mutation, step, create, reset } = useCreateLlmKey({ projectId })
   const ready = mutation.isSuccess && typeof mutation.data === "string"
   const secretId = ready ? mutation.data : null
@@ -146,6 +147,7 @@ export function CreateLlmKeyDialog({
       clearSecret()
       issuedModels.current = []
       setSelectedTestModelId(null)
+      setTestPrompt(t("models.dialog.testDefaultPrompt"))
       reset()
     }
     onOpenChange(next)
@@ -157,6 +159,7 @@ export function CreateLlmKeyDialog({
     if (!requested || models.length === 0 || mutation.isPending || mutation.isSuccess) return
     issuedModels.current = models
     setSelectedTestModelId(null)
+    setTestPrompt(t("models.dialog.testDefaultPrompt"))
     create({
       name: requested,
       description: description.trim() || undefined,
@@ -336,6 +339,8 @@ export function CreateLlmKeyDialog({
                       models={testableModels}
                       selectedModel={activeModel}
                       onSelectModel={setSelectedTestModelId}
+                      prompt={testPrompt}
+                      onPromptChange={setTestPrompt}
                       resolveApiKey={resolveApiKey}
                     />
                   ) : null}
@@ -346,6 +351,7 @@ export function CreateLlmKeyDialog({
                   failed={gateway.isError}
                   onRetry={() => void gateway.refetch()}
                   modelSlug={activeModel?.slug}
+                  prompt={testPrompt}
                   resolveApiKey={resolveApiKey}
                 />
               </div>

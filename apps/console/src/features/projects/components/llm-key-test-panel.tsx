@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { Check, ChevronDown, Loader2, Send } from "lucide-react"
+import { Check, ChevronDown, Loader2, Search, Send } from "lucide-react"
 import {
   Button,
   cn,
@@ -19,11 +19,18 @@ import {
 } from "../api"
 import { modelDisplayName } from "../models-utils"
 
+// Below this count a plain list stays scannable; above it a picker without a
+// filter becomes guesswork for keys allowed to call the whole catalog.
+const SEARCH_THRESHOLD = 8
+const TEST_PROMPT_MAX_LENGTH = 20
+
 interface LlmKeyTestPanelProps {
   baseUrl?: string
   models: LLMModel[]
   selectedModel: LLMModel
   onSelectModel: (modelId: string) => void
+  prompt: string
+  onPromptChange: (prompt: string) => void
   resolveApiKey: () => Promise<string>
 }
 
@@ -32,15 +39,115 @@ interface TestResult {
   response: LlmTestMessageResponse
 }
 
+function ModelPicker({
+  models,
+  selectedModel,
+  onSelectModel,
+  disabled,
+}: {
+  models: LLMModel[]
+  selectedModel: LLMModel
+  onSelectModel: (modelId: string) => void
+  disabled: boolean
+}) {
+  const { t } = useTranslation()
+  const [search, setSearch] = useState("")
+  const [open, setOpen] = useState(false)
+  const searchable = models.length > SEARCH_THRESHOLD
+  const visible = useMemo(() => {
+    if (!searchable) return models
+    const needle = search.trim().toLowerCase()
+    if (!needle) return models
+    return models.filter((model) =>
+      [modelDisplayName(model), model.slug].some((value) => value.toLowerCase().includes(needle)),
+    )
+  }, [searchable, models, search])
+
+  useEffect(() => {
+    if (!open) setSearch("")
+  }, [open])
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <div
+          tabIndex={0}
+          aria-label={t("models.dialog.testModel")}
+          className={cn(
+            "flex h-9 w-full cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-2.5 text-sm outline-none hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring",
+            disabled && "pointer-events-none opacity-60",
+          )}
+        >
+          <span className="min-w-0 flex-1 truncate font-medium">
+            {modelDisplayName(selectedModel)}
+          </span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+      >
+        {searchable ? (
+          <div className="sticky top-0 z-10 -mx-1 -mt-1 mb-1 border-b border-border bg-card p-1">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                value={search}
+                placeholder={t("models.dialog.testModelSearch")}
+                aria-label={t("models.dialog.testModelSearch")}
+                autoComplete="off"
+                spellCheck={false}
+                // Radix owns the menu's keystrokes for typeahead; typing here must
+                // move focus through the list on arrow keys only.
+                onKeyDown={(event) => event.stopPropagation()}
+                onChange={(event) => setSearch(event.target.value)}
+                className="h-8 pl-7 text-sm"
+              />
+            </div>
+          </div>
+        ) : null}
+        {visible.length === 0 ? (
+          <p className="px-2 py-2 text-sm text-muted-foreground">{t("models.emptyFiltered")}</p>
+        ) : (
+          visible.map((model) => {
+            const isSelected = model.id === selectedModel.id
+            const name = modelDisplayName(model)
+            return (
+              <DropdownMenuItem
+                key={model.id}
+                className={cn("gap-2", isSelected && "bg-accent font-medium text-accent-foreground")}
+                onSelect={() => onSelectModel(model.id)}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">{name}</p>
+                  {name !== model.slug ? (
+                    <p className="truncate font-mono text-xs text-muted-foreground">{model.slug}</p>
+                  ) : null}
+                </div>
+                {isSelected ? <Check className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
+              </DropdownMenuItem>
+            )
+          })
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function LlmKeyTestPanel({
   baseUrl,
   models,
   selectedModel,
   onSelectModel,
+  prompt,
+  onPromptChange,
   resolveApiKey,
 }: LlmKeyTestPanelProps) {
   const { t } = useTranslation()
-  const [prompt, setPrompt] = useState(() => t("models.dialog.testDefaultPrompt"))
   const abortRef = useRef<AbortController | null>(null)
 
   const mutation = useMutation<TestResult, Error, { model: LLMModel; message: string }>({
@@ -102,43 +209,12 @@ export function LlmKeyTestPanel({
         {models.length > 1 ? (
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground">{t("models.dialog.testModel")}</p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div
-                  tabIndex={0}
-                  aria-label={t("models.dialog.testModel")}
-                  className={cn(
-                    "flex h-9 w-full cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-2.5 text-sm outline-none hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring",
-                    mutation.isPending && "pointer-events-none opacity-60",
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {modelDisplayName(selectedModel)}
-                  </span>
-                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-60 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
-              >
-                {models.map((model) => {
-                  const isSelected = model.id === selectedModel.id
-                  return (
-                    <DropdownMenuItem
-                      key={model.id}
-                      className={cn("gap-2", isSelected && "bg-accent font-medium text-accent-foreground")}
-                      onSelect={() => onSelectModel(model.id)}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{modelDisplayName(model)}</p>
-                      </div>
-                      {isSelected ? <Check className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
-                    </DropdownMenuItem>
-                  )
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ModelPicker
+              models={models}
+              selectedModel={selectedModel}
+              onSelectModel={onSelectModel}
+              disabled={mutation.isPending}
+            />
           </div>
         ) : null}
 
@@ -150,10 +226,12 @@ export function LlmKeyTestPanel({
             <Input
               id="llm-key-test-prompt"
               value={prompt}
+              maxLength={TEST_PROMPT_MAX_LENGTH}
               disabled={mutation.isPending || !baseUrl}
               placeholder={t("models.dialog.testPromptPlaceholder")}
+              aria-describedby="llm-key-test-prompt-count"
               className="h-9 min-w-0 flex-1 bg-background"
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(event) => onPromptChange(event.target.value.slice(0, TEST_PROMPT_MAX_LENGTH))}
             />
             <Button type="submit" size="sm" className="h-9 shrink-0" disabled={!canSend}>
               {mutation.isPending ? (
@@ -164,6 +242,15 @@ export function LlmKeyTestPanel({
               {mutation.isPending ? t("models.dialog.testSending") : t("models.dialog.testSend")}
             </Button>
           </div>
+          <p
+            id="llm-key-test-prompt-count"
+            className="text-right text-xs tabular-nums text-muted-foreground"
+          >
+            {t("models.dialog.testPromptCount", {
+              count: prompt.length,
+              max: TEST_PROMPT_MAX_LENGTH,
+            })}
+          </p>
         </div>
       </form>
 

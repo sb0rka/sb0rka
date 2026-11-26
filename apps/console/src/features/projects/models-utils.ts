@@ -167,6 +167,22 @@ export function formatExactModelPrice(
   return withCurrencySign(text, currency)
 }
 
+// Catalogs run into hundreds of models, so a slug-only match hides entries users
+// know by display name, and a name-only match hides entries users know by slug.
+export function filterModelsByQuery(
+  models: LLMModel[],
+  query: string,
+  language: string,
+): LLMModel[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return models
+  return models.filter((model) =>
+    [modelDisplayName(model), model.slug, modelDescription(model, language)].some((value) =>
+      value.toLowerCase().includes(needle),
+    ),
+  )
+}
+
 export function filterModels(
   models: LLMModel[],
   capabilities: readonly ModelCapability[],

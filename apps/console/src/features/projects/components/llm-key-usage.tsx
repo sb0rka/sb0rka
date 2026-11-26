@@ -117,6 +117,7 @@ export function LlmKeyQuickstart({
   failed,
   onRetry,
   modelSlug,
+  prompt,
   resolveApiKey,
 }: {
   baseUrl?: string
@@ -124,11 +125,12 @@ export function LlmKeyQuickstart({
   failed: boolean
   onRetry: () => void
   modelSlug?: string
+  prompt: string
   resolveApiKey: () => Promise<string>
 }) {
   const { t } = useTranslation()
   const command = baseUrl && modelSlug
-    ? chatCompletionsCurl(baseUrl, modelSlug, t("models.samplePrompt"))
+    ? chatCompletionsCurl(baseUrl, modelSlug, prompt)
     : null
 
   return (

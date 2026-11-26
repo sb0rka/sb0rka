@@ -130,6 +130,7 @@ export function LlmKeyDetails({
   const cachedSecretRef = useRef<string | null>(null)
   const [draftModelIds, setDraftModelIds] = useState<Set<string> | null>(null)
   const [selectedTestModelId, setSelectedTestModelId] = useState<string | null>(null)
+  const [testPrompt, setTestPrompt] = useState(() => t("models.dialog.testDefaultPrompt"))
 
   const secret = secretQuery.data
   const isKey = secret ? isLlmKeySecret(secret) : false
@@ -151,10 +152,11 @@ export function LlmKeyDetails({
     cachedSecretRef.current = null
     setDraftModelIds(null)
     setSelectedTestModelId(null)
+    setTestPrompt(t("models.dialog.testDefaultPrompt"))
     return () => {
       cachedSecretRef.current = null
     }
-  }, [keyId])
+  }, [keyId, t])
 
   function clearPlaintext() {
     cachedSecretRef.current = null
@@ -407,6 +409,8 @@ export function LlmKeyDetails({
                   models={testableModels}
                   selectedModel={activeTestModel}
                   onSelectModel={setSelectedTestModelId}
+                  prompt={testPrompt}
+                  onPromptChange={setTestPrompt}
                   resolveApiKey={resolveApiKey}
                 />
               ) : null}
@@ -417,6 +421,7 @@ export function LlmKeyDetails({
               failed={gateway.isError}
               onRetry={() => void gateway.refetch()}
               modelSlug={activeTestModel?.slug}
+              prompt={testPrompt}
               resolveApiKey={resolveApiKey}
             />
           </CardContent>

@@ -8,6 +8,11 @@ alwaysApply: false
 
 Устройство фронта — `apps/console/ARCHITECTURE.md`.
 
+## Проверка
+
+- **Браузер не открывать.** Не запускать dev-сервер консоли, не ходить в браузер (Cursor browser, preview, Playwright) и не снимать скриншоты страниц. Правильность — по коду: типы, i18n (ru+en), TanStack Query, соответствие `ARCHITECTURE.md`.
+- **Моки не запускать.** Не стартовать Vite с `VITE_USE_MOCK_API=true` и не поднимать `apps/console/mock/` (`mock-api-plugin`). Фикстуры и хендлеры мока не использовать, чтобы «посмотреть» UI.
+
 - Структура **feature-based**: `src/features/<feature>/` (api.ts, hooks.ts, компоненты). Общий UI — `src/components/ui` (Radix + cva), не плодить дубли.
 - Данные с сервера — только через **TanStack Query** (`src/lib/query-client.ts`), не голый `fetch`/`useEffect` в компонентах.
 - HTTP — через `src/lib/api-client.ts` (он знает базовые URL auth/resource/queryRunner и refresh токена). Новые вызовы — туда, без дублирования базовых адресов.
