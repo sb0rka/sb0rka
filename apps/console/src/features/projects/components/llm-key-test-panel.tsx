@@ -22,7 +22,6 @@ import { modelDisplayName } from "../models-utils"
 // Below this count a plain list stays scannable; above it a picker without a
 // filter becomes guesswork for keys allowed to call the whole catalog.
 const SEARCH_THRESHOLD = 8
-const TEST_PROMPT_MAX_LENGTH = 20
 
 interface LlmKeyTestPanelProps {
   baseUrl?: string
@@ -226,12 +225,10 @@ export function LlmKeyTestPanel({
             <Input
               id="llm-key-test-prompt"
               value={prompt}
-              maxLength={TEST_PROMPT_MAX_LENGTH}
               disabled={mutation.isPending || !baseUrl}
               placeholder={t("models.dialog.testPromptPlaceholder")}
-              aria-describedby="llm-key-test-prompt-count"
               className="h-9 min-w-0 flex-1 bg-background"
-              onChange={(event) => onPromptChange(event.target.value.slice(0, TEST_PROMPT_MAX_LENGTH))}
+              onChange={(event) => onPromptChange(event.target.value)}
             />
             <Button type="submit" size="sm" className="h-9 shrink-0" disabled={!canSend}>
               {mutation.isPending ? (
@@ -242,15 +239,6 @@ export function LlmKeyTestPanel({
               {mutation.isPending ? t("models.dialog.testSending") : t("models.dialog.testSend")}
             </Button>
           </div>
-          <p
-            id="llm-key-test-prompt-count"
-            className="text-right text-xs tabular-nums text-muted-foreground"
-          >
-            {t("models.dialog.testPromptCount", {
-              count: prompt.length,
-              max: TEST_PROMPT_MAX_LENGTH,
-            })}
-          </p>
         </div>
       </form>
 

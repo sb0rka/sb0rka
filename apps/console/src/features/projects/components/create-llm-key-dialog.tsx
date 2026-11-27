@@ -9,6 +9,7 @@ import {
   cn,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,7 +21,6 @@ import { getGateway, revealSecretValue, type LLMModel } from "../api"
 import { modelDisplayName } from "../models-utils"
 import { GatewayUrlField, LlmKeyQuickstart } from "./llm-key-usage"
 import { suggestLlmKeyName, useCreateLlmKey } from "../use-create-llm-key"
-import { TopUpButton } from "@/features/subscription/components/billing-actions"
 import { useAccountBalance } from "@/features/subscription/hooks"
 import {
   accountBalanceEntries,
@@ -41,10 +41,10 @@ function KeyReadyBalance() {
   })
 
   return (
-    <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm leading-none">
-      <span className="text-muted-foreground">{t("subscription.balanceTitle")}</span>
+    <div className="flex flex-wrap items-baseline justify-start gap-x-4 gap-y-1">
+      <p className="text-sm text-muted-foreground">{t("subscription.balanceTitle")}</p>
       {balance.isPending ? (
-        <span aria-busy="true" className="inline-block h-3.5 w-12 animate-pulse rounded bg-muted" />
+        <span aria-busy="true" className="inline-block h-5 w-16 animate-pulse rounded bg-muted" />
       ) : balance.isError ? (
         <Button
           type="button"
@@ -55,22 +55,22 @@ function KeyReadyBalance() {
           {t("subscription.retry")}
         </Button>
       ) : figures.length > 1 ? (
-        <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2">
-          {figures.map((figure) => (
-            <span key={figure.code} className="inline-flex items-baseline gap-1">
-              <span className="font-mono text-xs text-muted-foreground">{figure.code}</span>
-              <span className="font-medium tabular-nums">{figure.text}</span>
-            </span>
-          ))}
-        </span>
+        figures.map((figure) => (
+          <span key={figure.code} className="inline-flex items-baseline gap-2">
+            <span className="font-mono text-xs text-muted-foreground">{figure.code}</span>
+            <span className="text-base font-medium tabular-nums">{figure.text}</span>
+          </span>
+        ))
       ) : (
-        <span className="font-medium tabular-nums">{figures[0]?.text ?? "—"}</span>
+        <span className="text-base font-medium tabular-nums">{figures[0]?.text ?? "—"}</span>
       )}
-      <TopUpButton
-        label={t("subscription.topUp")}
-        variant="link"
-        className="h-auto px-0 text-sm font-normal text-muted-foreground hover:text-foreground"
-      />
+      <Link
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        to="/subscription"
+      >
+        {t("subscription.open")}
+        <ArrowUpRight className="size-3.5" aria-hidden />
+      </Link>
     </div>
   )
 }
@@ -250,110 +250,114 @@ export function CreateLlmKeyDialog({
         {ready && secretId ? (
           <>
             <DialogHeader className="shrink-0 pr-12 pb-4">
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                <DialogTitle className="min-w-0">{t("models.dialog.readyTitle")}</DialogTitle>
-                <KeyReadyBalance />
-              </div>
+              <DialogTitle>{t("models.dialog.readyTitle")}</DialogTitle>
+              <DialogDescription>{t("models.dialog.readyDescription")}</DialogDescription>
             </DialogHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-              <div className="grid gap-8 md:grid-cols-2 md:items-start md:gap-10">
-                <div className="min-w-0 space-y-6">
-                  <section className="space-y-3">
-                    <h3 className="flex items-center gap-2 font-semibold">
-                      <KeyRound className="size-4 shrink-0" aria-hidden />
-                      {t("models.dialog.apiKey")}
-                    </h3>
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                      {name.trim() ? (
-                        <p className="min-w-0 break-all font-mono text-sm">{name.trim()}</p>
+            <div className="min-h-0 flex-1 overflow-y-auto pb-6">
+              <div className="space-y-8">
+                <div className="space-y-6 px-6">
+                  <div className="grid grid-cols-1 items-start gap-y-6 sm:grid-cols-2 sm:gap-x-6">
+                    <div className="min-w-0 space-y-3">
+                      <div className="flex h-6 items-center justify-between gap-3">
+                        <h3 className="flex min-w-0 items-center gap-2 font-semibold">
+                          <KeyRound className="size-4 shrink-0" aria-hidden />
+                          {t("models.dialog.apiKey")}
+                        </h3>
+                        <Link
+                          className="inline-flex shrink-0 items-center gap-1 text-sm underline-offset-4 hover:underline"
+                          to={keyHref}
+                          onClick={(event) => {
+                            if (
+                              event.metaKey ||
+                              event.ctrlKey ||
+                              event.shiftKey ||
+                              event.altKey ||
+                              event.button !== 0
+                            ) {
+                              return
+                            }
+                            event.preventDefault()
+                            if (secretId) onDone?.(secretId)
+                          }}
+                        >
+                          {t("models.dialog.openKey")}
+                          <ArrowUpRight className="size-3.5" aria-hidden />
+                        </Link>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-1 rounded-md border border-input px-2 py-1">
+                        <input
+                          id="llm-key-value"
+                          type="text"
+                          readOnly
+                          value={visible ? secretValue ?? "" : "••••••••••••••••"}
+                          aria-label={t("models.dialog.apiKey")}
+                          autoComplete="off"
+                          spellCheck={false}
+                          className="h-8 min-w-0 flex-1 cursor-text border-0 bg-transparent px-1 font-mono text-sm outline-none"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          aria-label={t(visible ? "common.actions.hide" : "common.actions.show")}
+                          title={t(visible ? "common.actions.hide" : "common.actions.show")}
+                          onClick={() => void toggleSecret()}
+                        >
+                          {visible ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          aria-label={t("models.dialog.copyKey")}
+                          title={t("models.dialog.copyKey")}
+                          onClick={() => void copySecret()}
+                        >
+                          <Copy className="size-4" aria-hidden />
+                        </Button>
+                      </div>
+                      {revealFailed ? (
+                        <p role="alert" className="text-sm text-destructive">{t("models.keys.revealError")}</p>
                       ) : null}
-                      <Link
-                        className="ml-auto inline-flex shrink-0 items-center gap-1 text-sm underline-offset-4 hover:underline"
-                        to={keyHref}
-                        onClick={(event) => {
-                          if (
-                            event.metaKey ||
-                            event.ctrlKey ||
-                            event.shiftKey ||
-                            event.altKey ||
-                            event.button !== 0
-                          ) {
-                            return
-                          }
-                          event.preventDefault()
-                          if (secretId) onDone?.(secretId)
-                        }}
-                      >
-                        {t("models.dialog.openKey")}
-                        <ArrowUpRight className="size-3.5" aria-hidden />
-                      </Link>
                     </div>
-                    <div className="flex min-w-0 items-center gap-1 rounded-md border border-input px-2 py-1">
-                      <input
-                        id="llm-key-value"
-                        type="text"
-                        readOnly
-                        value={visible ? secretValue ?? "" : "••••••••••••••••"}
-                        aria-label={t("models.dialog.apiKey")}
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="h-8 min-w-0 flex-1 cursor-text border-0 bg-transparent px-1 font-mono text-sm outline-none"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0"
-                        aria-label={t(visible ? "common.actions.hide" : "common.actions.show")}
-                        title={t(visible ? "common.actions.hide" : "common.actions.show")}
-                        onClick={() => void toggleSecret()}
-                      >
-                        {visible ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0"
-                        aria-label={t("models.dialog.copyKey")}
-                        title={t("models.dialog.copyKey")}
-                        onClick={() => void copySecret()}
-                      >
-                        <Copy className="size-4" aria-hidden />
-                      </Button>
-                    </div>
-                    {revealFailed ? (
-                      <p role="alert" className="text-sm text-destructive">{t("models.keys.revealError")}</p>
-                    ) : null}
-                  </section>
-                  <GatewayUrlField
-                    baseUrl={baseUrl}
-                    pending={gateway.isPending}
-                    failed={gateway.isError}
-                    onRetry={() => void gateway.refetch()}
-                  />
-                  {activeModel ? (
-                    <LlmKeyTestPanel
-                      key={secretId}
+                    <GatewayUrlField
                       baseUrl={baseUrl}
-                      models={testableModels}
-                      selectedModel={activeModel}
-                      onSelectModel={setSelectedTestModelId}
-                      prompt={testPrompt}
-                      onPromptChange={setTestPrompt}
-                      resolveApiKey={resolveApiKey}
+                      pending={gateway.isPending}
+                      failed={gateway.isError}
+                      onRetry={() => void gateway.refetch()}
                     />
-                  ) : null}
+                  </div>
+                  <KeyReadyBalance />
                 </div>
-                <LlmKeyQuickstart
-                  baseUrl={baseUrl}
-                  pending={gateway.isPending}
-                  failed={gateway.isError}
-                  onRetry={() => void gateway.refetch()}
-                  modelSlug={activeModel?.slug}
-                  prompt={testPrompt}
-                  resolveApiKey={resolveApiKey}
-                />
+                <div className="border-t border-border px-6 pt-6">
+                  <div className="grid gap-8 md:grid-cols-2 md:items-start md:gap-10">
+                    {activeModel ? (
+                      <LlmKeyTestPanel
+                        key={secretId}
+                        baseUrl={baseUrl}
+                        models={testableModels}
+                        selectedModel={activeModel}
+                        onSelectModel={setSelectedTestModelId}
+                        prompt={testPrompt}
+                        onPromptChange={setTestPrompt}
+                        resolveApiKey={resolveApiKey}
+                      />
+                    ) : null}
+                    <div className={cn("min-w-0", !activeModel && "md:col-start-2")}>
+                      <LlmKeyQuickstart
+                        baseUrl={baseUrl}
+                        pending={gateway.isPending}
+                        failed={gateway.isError}
+                        onRetry={() => void gateway.refetch()}
+                        modelSlug={activeModel?.slug}
+                        prompt={testPrompt}
+                        resolveApiKey={resolveApiKey}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <DialogFooter className="shrink-0 justify-end gap-2 border-t border-border pt-4">

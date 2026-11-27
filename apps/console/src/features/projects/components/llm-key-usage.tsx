@@ -82,7 +82,7 @@ export function GatewayUrlField({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium">{t("models.dialog.baseUrl")}</p>
+      <h3 className="flex h-6 items-center font-semibold">{t("models.dialog.baseUrl")}</h3>
       {baseUrl ? (
         <div className="flex items-center gap-1 rounded-md border border-input px-2 py-1">
           <code className="min-w-0 flex-1 break-all px-1 text-sm">{baseUrl}</code>
