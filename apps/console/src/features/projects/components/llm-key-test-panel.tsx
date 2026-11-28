@@ -200,8 +200,8 @@ export function LlmKeyTestPanel({
   }
 
   return (
-    <div className="space-y-2.5 rounded-lg border border-border bg-muted/20 p-3.5">
-      <div className="space-y-0.5">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-muted/20 p-3.5">
+      <div className="shrink-0 space-y-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
           <span className="shrink-0 font-medium">{t("models.dialog.testTitle")}</span>
           {models.length === 1 ? (
@@ -210,7 +210,7 @@ export function LlmKeyTestPanel({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} autoComplete="off" className="space-y-2.5">
+      <form onSubmit={handleSubmit} autoComplete="off" className="shrink-0 space-y-2.5">
         {models.length > 1 ? (
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground">{t("models.dialog.testModel")}</p>
@@ -248,30 +248,33 @@ export function LlmKeyTestPanel({
         </div>
       </form>
 
-      {mutation.isSuccess ? (
-        <div className="space-y-1.5 rounded-md border border-border bg-background p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {t("models.dialog.testReplyLabel")} · {mutation.data.modelLabel}
-            </span>
-            <span className="tabular-nums">
-              {t("models.dialog.testLatency", { ms: mutation.data.response.latencyMs })}
-              {mutation.data.response.usage?.totalTokens
-                ? ` · ${t("models.dialog.testTokens", { count: mutation.data.response.usage.totalTokens })}`
-                : ""}
-              {replyCost ? ` · ${replyCost}` : ""}
-            </span>
-          </div>
-          <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-            {mutation.data.response.text}
-          </p>
-        </div>
-      ) : null}
-
       {mutation.isError && !isAbortedError ? (
-        <p role="alert" className="break-words text-sm text-destructive">
+        <p role="alert" className="shrink-0 break-words text-sm text-destructive">
           {mutation.error.message || t("models.dialog.testError")}
         </p>
+      ) : null}
+
+      {mutation.isSuccess ? (
+        // Out of flow so the reply scrolls inside the column instead of growing it.
+        <div className="relative min-h-32 w-full min-w-0 flex-1 basis-0">
+          <div className="absolute inset-0 flex flex-col gap-1.5 overflow-hidden rounded-md border border-border bg-background p-3">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span className="min-w-0 font-medium text-foreground [overflow-wrap:anywhere]">
+                {t("models.dialog.testReplyLabel")} · {mutation.data.modelLabel}
+              </span>
+              <span className="min-w-0 tabular-nums [overflow-wrap:anywhere]">
+                {t("models.dialog.testLatency", { ms: mutation.data.response.latencyMs })}
+                {mutation.data.response.usage?.totalTokens
+                  ? ` · ${t("models.dialog.testTokens", { count: mutation.data.response.usage.totalTokens })}`
+                  : ""}
+                {replyCost ? ` · ${replyCost}` : ""}
+              </span>
+            </div>
+            <p className="min-h-0 flex-1 overflow-y-auto overscroll-contain whitespace-pre-wrap text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">
+              {mutation.data.response.text}
+            </p>
+          </div>
+        </div>
       ) : null}
     </div>
   )

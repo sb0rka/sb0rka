@@ -328,18 +328,20 @@ export function CreateLlmKeyDialog({
                   <KeyReadyBalance />
                 </div>
                 <div className="border-t border-border px-6 pt-6">
-                  <div className="grid gap-8 md:grid-cols-2 md:items-start md:gap-10">
+                  <div className="grid items-stretch gap-8 md:grid-cols-2 md:gap-10">
                     {activeModel ? (
-                      <LlmKeyTestPanel
-                        key={secretId}
-                        baseUrl={baseUrl}
-                        models={testableModels}
-                        selectedModel={activeModel}
-                        onSelectModel={setSelectedTestModelId}
-                        prompt={testPrompt}
-                        onPromptChange={setTestPrompt}
-                        resolveApiKey={resolveApiKey}
-                      />
+                      <div className="h-full min-h-0 min-w-0">
+                        <LlmKeyTestPanel
+                          key={secretId}
+                          baseUrl={baseUrl}
+                          models={testableModels}
+                          selectedModel={activeModel}
+                          onSelectModel={setSelectedTestModelId}
+                          prompt={testPrompt}
+                          onPromptChange={setTestPrompt}
+                          resolveApiKey={resolveApiKey}
+                        />
+                      </div>
                     ) : null}
                     <div className={cn("min-w-0", !activeModel && "md:col-start-2")}>
                       <LlmKeyQuickstart

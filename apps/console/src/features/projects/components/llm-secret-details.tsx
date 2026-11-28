@@ -415,7 +415,7 @@ export function LlmSecretDetails({
           {isCheckOpen ? (
             <div id={CHECK_PANEL_ID} className="border-t border-border px-4 py-4 sm:px-6">
               <div className="grid gap-8 md:grid-cols-2">
-                <div className="min-w-0">
+                <div className="h-full min-h-0 min-w-0">
                   {activeTestModel ? (
                     <LlmKeyTestPanel
                       key={secret.public_id}

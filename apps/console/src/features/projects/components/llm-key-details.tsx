@@ -401,7 +401,7 @@ export function LlmKeyDetails({
             <CardTitle className="text-base">{t("models.keys.quickstartTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-8 md:grid-cols-2">
-            <div className="min-w-0 space-y-6">
+            <div className="h-full min-h-0 min-w-0 space-y-6">
               {activeTestModel ? (
                 <LlmKeyTestPanel
                   key={keyId}
