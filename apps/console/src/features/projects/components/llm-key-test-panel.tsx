@@ -17,7 +17,7 @@ import {
   type LLMModel,
   type LlmTestMessageResponse,
 } from "../api"
-import { modelDisplayName } from "../models-utils"
+import { formatModelRequestCost, modelDisplayName } from "../models-utils"
 
 // Below this count a plain list stays scannable; above it a picker without a
 // filter becomes guesswork for keys allowed to call the whole catalog.
@@ -34,6 +34,7 @@ interface LlmKeyTestPanelProps {
 }
 
 interface TestResult {
+  model: LLMModel
   modelLabel: string
   response: LlmTestMessageResponse
 }
@@ -146,7 +147,7 @@ export function LlmKeyTestPanel({
   onPromptChange,
   resolveApiKey,
 }: LlmKeyTestPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const abortRef = useRef<AbortController | null>(null)
 
   const mutation = useMutation<TestResult, Error, { model: LLMModel; message: string }>({
@@ -171,6 +172,7 @@ export function LlmKeyTestPanel({
         signal: controller.signal,
       })
       return {
+        model,
         modelLabel: modelDisplayName(model),
         response,
       }
@@ -186,6 +188,10 @@ export function LlmKeyTestPanel({
   const trimmedPrompt = prompt.trim()
   const canSend = Boolean(baseUrl) && trimmedPrompt.length > 0 && !mutation.isPending
   const isAbortedError = mutation.isError && mutation.error.name === "AbortError"
+  const reply = mutation.isSuccess ? mutation.data : null
+  const replyCost = reply?.response.usage
+    ? formatModelRequestCost(reply.model, reply.response.usage, i18n.language)
+    : null
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -253,6 +259,7 @@ export function LlmKeyTestPanel({
               {mutation.data.response.usage?.totalTokens
                 ? ` · ${t("models.dialog.testTokens", { count: mutation.data.response.usage.totalTokens })}`
                 : ""}
+              {replyCost ? ` · ${replyCost}` : ""}
             </span>
           </div>
           <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">

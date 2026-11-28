@@ -1,4 +1,4 @@
-import type { LLMModel, LLMMoneyAmounts } from "./api"
+import type { LLMModel, LLMMoneyAmounts, OpenAiRequestUsage } from "./api"
 
 export const MODEL_CAPABILITIES = ["reasoning", "toolCall", "vision", "attachment"] as const
 
@@ -165,6 +165,70 @@ export function formatExactModelPrice(
   const text = formatRawAmount(amounts?.[currency], currencyDecimalSeparator(currency))
   if (!text) return null
   return withCurrencySign(text, currency)
+}
+
+function nonNegativeCount(value: number | undefined): number {
+  if (value == null || !Number.isFinite(value) || value <= 0) return 0
+  return value
+}
+
+// Chat completions report tokens, not the charge. Input totals already include
+// cached tokens, unless the cache count is larger than the input total.
+function billableTokens(usage: OpenAiRequestUsage): { fresh: number; cached: number; output: number } {
+  const input = nonNegativeCount(usage.inputTokens)
+  const reportedCached = nonNegativeCount(usage.cachedInputTokens)
+  const cached = reportedCached > input ? reportedCached : Math.min(reportedCached, input)
+  const fresh = reportedCached > input ? input : input - cached
+  return { fresh, cached, output: nonNegativeCount(usage.outputTokens) }
+}
+
+function estimateModelRequestCost(
+  model: LLMModel,
+  usage: OpenAiRequestUsage,
+  currency: ModelCurrency,
+): number | null {
+  const { fresh, cached, output } = billableTokens(usage)
+  const inputRate = modelPriceAmount(model, "input_per_1m", currency)
+  const outputRate = modelPriceAmount(model, "output_per_1m", currency)
+  const cachedRate = modelPriceAmount(model, "cached_input_per_1m", currency)
+  const fee = modelPriceAmount(model, "request_fee", currency)
+  const cachedUnit = cachedRate ?? inputRate
+  if (fresh > 0 && inputRate == null) return null
+  if (cached > 0 && cachedUnit == null) return null
+  if (output > 0 && outputRate == null) return null
+  if (inputRate == null && outputRate == null && cachedRate == null && fee == null) return null
+
+  const cost =
+    (fresh * (inputRate ?? 0) + cached * (cachedUnit ?? 0) + output * (outputRate ?? 0)) / 1_000_000 +
+    (fee ?? 0)
+  if (!Number.isFinite(cost) || cost < 0) return null
+  return cost
+}
+
+function formatRequestCost(amount: number, currency: ModelCurrency): string | null {
+  if (!Number.isFinite(amount) || amount < 0) return null
+  const separator = currencyDecimalSeparator(currency)
+  if (amount === 0) return withCurrencySign("0", currency)
+  // Sub-cent replies need the extra digits; two-decimal money would show them as zero.
+  if (amount < 0.01) {
+    const precise = amount.toFixed(8).replace(/0+$/, "").replace(/\.$/, "")
+    if (Number(precise) === 0) return withCurrencySign("0", currency)
+    const text = formatRawAmount(precise, separator)
+    return text ? withCurrencySign(text, currency) : null
+  }
+  const text = formatDisplayAmount(amount.toFixed(2), separator)
+  return text ? withCurrencySign(text, currency) : null
+}
+
+export function formatModelRequestCost(
+  model: LLMModel,
+  usage: OpenAiRequestUsage,
+  language: string,
+): string | null {
+  const currency = modelCurrency(language)
+  const amount = estimateModelRequestCost(model, usage, currency)
+  if (amount == null) return null
+  return formatRequestCost(amount, currency)
 }
 
 // Catalogs run into hundreds of models, so a slug-only match hides entries users

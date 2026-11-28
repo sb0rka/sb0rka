@@ -145,13 +145,6 @@ export function ModelsTab({ projectId }: { projectId: string }) {
           onOpenChange={setDialogOpen}
           projectId={projectId}
           models={selectedModels}
-          onRemoveModel={(id) => {
-            setSelectedIds((current) => {
-              const next = new Set(current ?? models.map((model) => model.id))
-              next.delete(id)
-              return next
-            })
-          }}
           onDone={openKey}
         />
       )}

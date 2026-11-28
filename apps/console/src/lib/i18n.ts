@@ -762,9 +762,6 @@ const resources = {
         dialog: {
           title: "Создать API-ключ",
           description: "Ключ сможет вызывать только выбранные модели.",
-          models: "Модели",
-          removeModel: "Убрать {{name}}",
-          noModels: "Оставьте хотя бы одну модель",
           tagModels: "Добавить тег для каждой модели",
           tagModelsHint: "На секрет сохранится тег model:slug для каждой выбранной модели.",
           tagsSkipped: "Эти имена длиннее, чем позволяет тег: {{names}}",
@@ -1819,9 +1816,6 @@ const resources = {
         dialog: {
           title: "Create API key",
           description: "The key will only be able to call the selected models.",
-          models: "Models",
-          removeModel: "Remove {{name}}",
-          noModels: "Keep at least one model",
           tagModels: "Add a tag for each model",
           tagModelsHint: "Each selected model is saved on the secret as a model:slug tag.",
           tagsSkipped: "These names are longer than a tag allows: {{names}}",

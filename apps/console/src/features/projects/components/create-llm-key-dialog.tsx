@@ -2,9 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { ArrowUpRight, Copy, Eye, EyeOff, KeyRound, Loader2, X } from "lucide-react"
+import { ArrowUpRight, Copy, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react"
 import {
-  Badge,
   Button,
   cn,
   Dialog,
@@ -18,7 +17,6 @@ import {
   useToast,
 } from "@sb0rka/ui"
 import { getGateway, revealSecretValue, type LLMModel } from "../api"
-import { modelDisplayName } from "../models-utils"
 import { GatewayUrlField, LlmKeyQuickstart } from "./llm-key-usage"
 import { suggestLlmKeyName, useCreateLlmKey } from "../use-create-llm-key"
 import { useAccountBalance } from "@/features/subscription/hooks"
@@ -80,7 +78,6 @@ interface CreateLlmKeyDialogProps {
   onOpenChange: (open: boolean) => void
   projectId: string
   models: LLMModel[]
-  onRemoveModel: (id: string) => void
   onDone?: (secretId: string) => void
 }
 
@@ -89,7 +86,6 @@ export function CreateLlmKeyDialog({
   onOpenChange,
   projectId,
   models,
-  onRemoveModel,
   onDone,
 }: CreateLlmKeyDialogProps) {
   const { t } = useTranslation()
@@ -396,42 +392,13 @@ export function CreateLlmKeyDialog({
                   onChange={(event) => setDescription(event.target.value)}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <p className="text-sm font-medium">{t("models.dialog.models")}</p>
-                {models.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t("models.dialog.noModels")}</p>
-                ) : (
-                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-                    {models.map((model) => {
-                      const label = modelDisplayName(model)
-                      const canRemove = models.length > 1 && !mutation.isPending
-                      return (
-                        <Badge key={model.id} title={model.slug} className={cn("h-7 max-w-full", canRemove && "gap-0.5 pr-1")}>
-                          <span className="truncate">{label}</span>
-                          {canRemove ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-5 shrink-0 rounded-full p-0"
-                              aria-label={t("models.dialog.removeModel", { name: label })}
-                              onClick={() => onRemoveModel(model.id)}
-                            >
-                              <X className="size-3.5" aria-hidden />
-                            </Button>
-                          ) : null}
-                        </Badge>
-                      )
-                    })}
-                  </div>
-                )}
+              <div className="min-h-5 text-sm leading-5" aria-live="polite">
+                {mutation.isPending ? (
+                  <p role="status" className="text-muted-foreground">{t(`models.${step}`)}</p>
+                ) : mutation.isError ? (
+                  <p role="alert" className="text-destructive">{mutation.error.message || t("models.error")}</p>
+                ) : null}
               </div>
-              {mutation.isPending ? (
-                <p role="status" className="text-sm text-muted-foreground">{t(`models.${step}`)}</p>
-              ) : null}
-              {mutation.isError ? (
-                <p role="alert" className="text-sm text-destructive">{mutation.error.message || t("models.error")}</p>
-              ) : null}
             </div>
             <DialogFooter className="shrink-0 gap-2">
               <Button
